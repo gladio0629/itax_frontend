@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
-import { Route as RouteIcon } from "lucide-react";
+import { Plus, Route as RouteIcon, X } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
+import { Button } from "@/components/Button";
 import { Drawer } from "@/components/Drawer";
 import { MapView } from "@/components/MapView";
+import { ExportButton } from "@/components/ExportButton";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
+import { Toast } from "@/components/Toast";
 import { api } from "@/api/client";
 import { formatDateTime, formatKm, formatSom } from "@/lib/format";
-import type { OrderStatus, OrderWithNames } from "@/api/types";
+import { cn } from "@/lib/cn";
+import type { City, OrderMode, OrderStatus, OrderWithNames, Passenger, PaymentMethod } from "@/api/types";
 
 const STATUS_TONE: Record<OrderStatus, "accent" | "warning" | "danger" | "neutral" | "info"> = {
   completed: "accent",
@@ -27,15 +31,42 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   no_driver: "Haydovchi topilmadi",
 };
 
+const SEATS = [
+  { id: "front", label: "Old o'rindiq" },
+  { id: "back-left", label: "Orqa chap" },
+  { id: "back-mid", label: "Orqa o'rta" },
+  { id: "back-right", label: "Orqa o'ng" },
+];
+
 export function OrdersScreen() {
   const [orders, setOrders] = useState<OrderWithNames[] | null>(null);
+  const [cities, setCities] = useState<City[]>([]);
+  const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<OrderWithNames | null>(null);
+  const [editingNote, setEditingNote] = useState(false);
+  const [note, setNote] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    passengerId: "",
+    fromCityId: "",
+    toCityId: "",
+    mode: "car" as OrderMode,
+    seatIds: [] as string[],
+    paymentMethod: "cash" as PaymentMethod,
+  });
 
   async function load() {
     setError(false);
     try {
-      setOrders(await api.getOrders());
+      const [o, c, p] = await Promise.all([api.getOrders(), api.getCities(), api.getPassengers()]);
+      setOrders(o);
+      setCities(c);
+      setPassengers(p);
     } catch {
       setError(true);
     }
@@ -43,6 +74,67 @@ export function OrdersScreen() {
   useEffect(() => {
     load();
   }, []);
+
+  function openDetail(o: OrderWithNames) {
+    setSelected(o);
+    setEditingNote(false);
+    setCancelling(false);
+    setNote(o.note ?? "");
+    setCancelReason("");
+  }
+
+  function openCreate() {
+    setForm({
+      passengerId: passengers[0]?.id ?? "",
+      fromCityId: cities[0]?.id ?? "",
+      toCityId: cities[1]?.id ?? "",
+      mode: "car",
+      seatIds: [],
+      paymentMethod: "cash",
+    });
+    setCreating(true);
+  }
+
+  async function handleCreate() {
+    setSaving(true);
+    try {
+      const order = await api.createOrderForPassenger(form);
+      setToast("Buyurtma yaratildi");
+      setCreating(false);
+      await load();
+      setSelected(order);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSaveNote() {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const updated = await api.updateOrderFields(selected.id, { note });
+      setSelected(updated);
+      setOrders((prev) => prev?.map((o) => (o.id === updated.id ? updated : o)) ?? null);
+      setEditingNote(false);
+      setToast("Saqlandi");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleCancel() {
+    if (!selected || !cancelReason.trim()) return;
+    setSaving(true);
+    try {
+      const updated = await api.cancelOrder(selected.id, cancelReason.trim());
+      setSelected(updated);
+      setOrders((prev) => prev?.map((o) => (o.id === updated.id ? updated : o)) ?? null);
+      setCancelling(false);
+      setToast("Buyurtma bekor qilindi");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const columns: Column<OrderWithNames>[] = [
     { key: "id", header: "Buyurtma", render: (o) => <span className="font-medium text-ink">#{o.id.replace("ord_", "")}</span> },
@@ -89,8 +181,22 @@ export function OrdersScreen() {
     );
   }
 
+  const cancellable = selected && !["completed", "cancelled", "no_driver"].includes(selected.status);
+
   return (
-    <>
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        <ExportButton
+          section="orders"
+          rows={orders}
+          filenamePrefix="buyurtmalar"
+          buildRow={(o) => ({ ID: o.id, Yolnalish: `${o.fromCityName}-${o.toCityName}`, Yolovchi: o.passengerName, Narx: o.price, Holat: o.status })}
+        />
+        <Button size="sm" onClick={openCreate}>
+          <Plus className="h-4 w-4" /> Yangi buyurtma
+        </Button>
+      </div>
+
       <DataTable
         columns={columns}
         rows={orders}
@@ -99,8 +205,9 @@ export function OrdersScreen() {
         searchPlaceholder="Buyurtma, ism yoki shahar..."
         emptyIcon={<RouteIcon className="h-6 w-6" />}
         emptyTitle="Buyurtma topilmadi"
-        onRowClick={setSelected}
+        onRowClick={openDetail}
       />
+
       <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? `Buyurtma #${selected.id.replace("ord_", "")}` : ""}>
         {selected && (
           <div className="space-y-5">
@@ -139,12 +246,177 @@ export function OrdersScreen() {
                 <p className="font-semibold text-ink">{selected.paymentMethod === "cash" ? "Naqd" : "Karta"}</p>
               </div>
             </div>
-            {selected.cancelReason && (
-              <div className="rounded-2xl bg-danger/10 p-3 text-xs text-danger">Bekor qilish sababi: {selected.cancelReason}</div>
+            {selected.cancelReason && <div className="rounded-2xl bg-danger/10 p-3 text-xs text-danger">Bekor qilish sababi: {selected.cancelReason}</div>}
+
+            <div className="border-t border-border pt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold text-ink/50">Izoh</p>
+                {!editingNote && (
+                  <button onClick={() => setEditingNote(true)} className="text-xs font-semibold text-accent">
+                    Tahrirlash
+                  </button>
+                )}
+              </div>
+              {editingNote ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" loading={saving} onClick={handleSaveNote}>
+                      Saqlash
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingNote(false)}>
+                      Bekor qilish
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-ink/70">{selected.note || "Izoh yo'q"}</p>
+              )}
+            </div>
+
+            {cancellable && (
+              <div className="border-t border-border pt-4">
+                {cancelling ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      placeholder="Bekor qilish sababi..."
+                      rows={2}
+                      className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+                    />
+                    <div className="flex gap-2">
+                      <Button variant="danger" size="sm" loading={saving} disabled={!cancelReason.trim()} onClick={handleCancel}>
+                        Bekor qilish
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setCancelling(false)}>
+                        Yopish
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="danger" size="sm" onClick={() => setCancelling(true)}>
+                    <X className="h-3.5 w-3.5" /> Buyurtmani bekor qilish
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         )}
       </Drawer>
-    </>
+
+      <Drawer open={creating} onClose={() => setCreating(false)} title="Yangi buyurtma">
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-ink/80">Yo'lovchi</label>
+            <select
+              value={form.passengerId}
+              onChange={(e) => setForm((f) => ({ ...f, passengerId: e.target.value }))}
+              className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none focus:border-accent"
+            >
+              {passengers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-ink/80">Qayerdan</label>
+              <select
+                value={form.fromCityId}
+                onChange={(e) => setForm((f) => ({ ...f, fromCityId: e.target.value }))}
+                className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+              >
+                {cities.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-ink/80">Qayerga</label>
+              <select
+                value={form.toCityId}
+                onChange={(e) => setForm((f) => ({ ...f, toCityId: e.target.value }))}
+                className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+              >
+                {cities.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setForm((f) => ({ ...f, mode: "car", seatIds: [] }))}
+              className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.mode === "car" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            >
+              Butun mashina
+            </button>
+            <button
+              onClick={() => setForm((f) => ({ ...f, mode: "seat" }))}
+              className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.mode === "seat" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            >
+              Bir joy
+            </button>
+          </div>
+          {form.mode === "seat" && (
+            <div className="grid grid-cols-2 gap-2">
+              {SEATS.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      seatIds: f.seatIds.includes(s.id) ? f.seatIds.filter((x) => x !== s.id) : [...f.seatIds, s.id],
+                    }))
+                  }
+                  className={cn(
+                    "rounded-xl border-2 py-2 text-xs font-semibold",
+                    form.seatIds.includes(s.id) ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setForm((f) => ({ ...f, paymentMethod: "cash" }))}
+              className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.paymentMethod === "cash" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            >
+              Naqd
+            </button>
+            <button
+              onClick={() => setForm((f) => ({ ...f, paymentMethod: "card" }))}
+              className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.paymentMethod === "card" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            >
+              Karta
+            </button>
+          </div>
+          <Button
+            fullWidth
+            loading={saving}
+            disabled={!form.passengerId || form.fromCityId === form.toCityId || (form.mode === "seat" && form.seatIds.length === 0)}
+            onClick={handleCreate}
+          >
+            Buyurtma yaratish
+          </Button>
+        </div>
+      </Drawer>
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+    </div>
   );
 }

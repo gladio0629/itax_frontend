@@ -1,34 +1,47 @@
 import { useEffect, useState } from "react";
-import { Car, Eye } from "lucide-react";
+import { Ban, Car, CheckCircle2, Eye, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/Button";
+import { Input } from "@/components/Input";
 import { Drawer } from "@/components/Drawer";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ExportButton } from "@/components/ExportButton";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
+import { Toast } from "@/components/Toast";
 import { api } from "@/api/client";
 import { formatDate, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { Driver } from "@/api/types";
+import type { Driver, DriverStatus } from "@/api/types";
 
-const STATUS_TONE: Record<Driver["documentsStatus"], "accent" | "warning" | "danger"> = {
-  approved: "accent",
-  pending: "warning",
-  rejected: "danger",
+const STATUS_TONE: Record<DriverStatus, "accent" | "warning" | "danger"> = {
+  active: "accent",
+  auto_review: "warning",
+  blocked: "danger",
 };
-const STATUS_LABEL: Record<Driver["documentsStatus"], string> = {
-  approved: "Tasdiqlangan",
-  pending: "Kutilmoqda",
-  rejected: "Rad etilgan",
+const STATUS_LABEL: Record<DriverStatus, string> = {
+  active: "Faol",
+  auto_review: "Avtomatik tekshiruvda",
+  blocked: "Bloklangan",
 };
+
+type Confirm = { type: "block" | "unblock" | "archive" | "restore"; driver: Driver };
 
 export function DriversScreen() {
   const [drivers, setDrivers] = useState<Driver[] | null>(null);
   const [error, setError] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Driver | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ name: "", carModel: "", carColor: "", plate: "" });
+  const [saving, setSaving] = useState(false);
   const [phone, setPhone] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [acting, setActing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   async function load() {
     setError(false);
@@ -42,6 +55,16 @@ export function DriversScreen() {
     load();
   }, []);
 
+  function openDetail(d: Driver) {
+    setSelected(d);
+    setPhone(null);
+    setEditing(false);
+  }
+  function startEdit(d: Driver) {
+    setForm({ name: d.name, carModel: d.carModel, carColor: d.carColor, plate: d.plate });
+    setEditing(true);
+  }
+
   async function handleReveal(driverId: string) {
     setRevealing(true);
     try {
@@ -52,9 +75,37 @@ export function DriversScreen() {
     }
   }
 
-  function openDetail(d: Driver) {
-    setSelected(d);
-    setPhone(null);
+  async function handleSave() {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const updated = await api.updateDriverProfile(selected.id, form);
+      setSelected(updated);
+      setDrivers((prev) => prev?.map((d) => (d.id === updated.id ? updated : d)) ?? null);
+      setEditing(false);
+      setToast("Profil saqlandi");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleConfirm() {
+    if (!confirm) return;
+    setActing(true);
+    try {
+      const { type, driver } = confirm;
+      let updated: Driver;
+      if (type === "block") updated = await api.setDriverStatus(driver.id, "blocked");
+      else if (type === "unblock") updated = await api.setDriverStatus(driver.id, "active");
+      else if (type === "archive") updated = await api.archiveDriver(driver.id);
+      else updated = await api.restoreDriver(driver.id);
+      setDrivers((prev) => prev?.map((d) => (d.id === updated.id ? updated : d)) ?? null);
+      setSelected((prev) => (prev?.id === updated.id ? updated : prev));
+      setToast(type === "block" ? "Bloklandi" : type === "unblock" ? "Blokdan chiqarildi" : type === "archive" ? "Arxivlandi" : "Tiklandi");
+      setConfirm(null);
+    } finally {
+      setActing(false);
+    }
   }
 
   const columns: Column<Driver>[] = [
@@ -92,13 +143,13 @@ export function DriversScreen() {
     },
     {
       key: "online",
-      header: "Holat",
+      header: "Onlayn",
       render: (d) => <Badge tone={d.online ? "accent" : "neutral"}>{d.online ? "Onlayn" : "Oflayn"}</Badge>,
     },
     {
       key: "status",
-      header: "Hujjatlar",
-      render: (d) => <Badge tone={STATUS_TONE[d.documentsStatus]}>{STATUS_LABEL[d.documentsStatus]}</Badge>,
+      header: "Holat",
+      render: (d) => <Badge tone={d.archived ? "neutral" : STATUS_TONE[d.status]}>{d.archived ? "Arxivlangan" : STATUS_LABEL[d.status]}</Badge>,
     },
   ];
 
@@ -113,11 +164,28 @@ export function DriversScreen() {
     );
   }
 
+  const rows = drivers.filter((d) => (showArchived ? d.archived : !d.archived));
+
   return (
-    <>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          onClick={() => setShowArchived((v) => !v)}
+          className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-colors", showArchived ? "bg-ink text-bg" : "bg-ink/5 text-ink/70")}
+        >
+          {showArchived ? "Arxivlanganlar" : "Faol haydovchilar"}
+        </button>
+        <ExportButton
+          section="drivers"
+          rows={rows}
+          filenamePrefix="haydovchilar"
+          buildRow={(d) => ({ Ism: d.name, Avtomobil: `${d.carModel} ${d.plate}`, Reyting: d.rating, Safarlar: d.totalTrips, Holat: d.status })}
+        />
+      </div>
+
       <DataTable
         columns={columns}
-        rows={drivers}
+        rows={rows}
         rowKey={(d) => d.id}
         searchFields={(d) => `${d.name} ${d.plate} ${d.carModel}`}
         searchPlaceholder="Ism, davlat raqami yoki model..."
@@ -125,17 +193,25 @@ export function DriversScreen() {
         emptyTitle="Haydovchi topilmadi"
         onRowClick={openDetail}
       />
+
       <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ""}>
-        {selected && (
+        {selected && !editing && (
           <div className="space-y-5">
-            <div className="flex items-center gap-3">
-              <Avatar seed={selected.avatarSeed} name={selected.name} size={48} />
-              <div>
-                <p className="font-semibold text-ink">{selected.name}</p>
-                <p className="text-xs text-ink/50">
-                  {selected.carModel} · {selected.plate}
-                </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar seed={selected.avatarSeed} name={selected.name} size={48} />
+                <div>
+                  <p className="font-semibold text-ink">{selected.name}</p>
+                  <p className="text-xs text-ink/50">
+                    {selected.carModel} · {selected.plate}
+                  </p>
+                </div>
               </div>
+              {!selected.archived && (
+                <button aria-label="Tahrirlash" onClick={() => startEdit(selected)} className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-ink">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
             </div>
             <div className="rounded-2xl bg-ink/5 p-4">
               <p className="mb-1 text-xs font-semibold text-ink/50">Telefon raqami</p>
@@ -166,10 +242,64 @@ export function DriversScreen() {
                 <p className="font-semibold text-ink">{formatDate(selected.joinedAt)}</p>
               </div>
             </div>
-            <Badge tone={STATUS_TONE[selected.documentsStatus]}>{STATUS_LABEL[selected.documentsStatus]}</Badge>
+            <Badge tone={selected.archived ? "neutral" : STATUS_TONE[selected.status]}>
+              {selected.archived ? "Arxivlangan" : STATUS_LABEL[selected.status]}
+            </Badge>
+
+            <div className="flex gap-2 border-t border-border pt-4">
+              {selected.archived ? (
+                <Button variant="secondary" size="sm" onClick={() => setConfirm({ type: "restore", driver: selected })}>
+                  <RotateCcw className="h-3.5 w-3.5" /> Tiklash
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setConfirm({ type: selected.status === "blocked" ? "unblock" : "block", driver: selected })}
+                  >
+                    {selected.status === "blocked" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                    {selected.status === "blocked" ? "Blokdan chiqarish" : "Bloklash"}
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => setConfirm({ type: "archive", driver: selected })}>
+                    <Trash2 className="h-3.5 w-3.5" /> Arxivlash
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        {selected && editing && (
+          <div className="space-y-4">
+            <Input label="Ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <Input label="Avtomobil modeli" value={form.carModel} onChange={(e) => setForm((f) => ({ ...f, carModel: e.target.value }))} />
+            <Input label="Rangi" value={form.carColor} onChange={(e) => setForm((f) => ({ ...f, carColor: e.target.value }))} />
+            <Input label="Davlat raqami" value={form.plate} onChange={(e) => setForm((f) => ({ ...f, plate: e.target.value }))} />
+            <div className="flex gap-2">
+              <Button variant="ghost" fullWidth onClick={() => setEditing(false)}>
+                Bekor qilish
+              </Button>
+              <Button fullWidth loading={saving} onClick={handleSave}>
+                Saqlash
+              </Button>
+            </div>
           </div>
         )}
       </Drawer>
-    </>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        title={
+          confirm?.type === "block" ? "Haydovchini bloklash" : confirm?.type === "unblock" ? "Blokdan chiqarish" : confirm?.type === "archive" ? "Arxivlash" : "Tiklash"
+        }
+        description={`${confirm?.driver.name ?? ""} uchun amalni tasdiqlaysizmi?`}
+        tone={confirm?.type === "block" || confirm?.type === "archive" ? "danger" : "accent"}
+        loading={acting}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirm(null)}
+      />
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+    </div>
   );
 }

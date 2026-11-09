@@ -1,20 +1,25 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { LoginScreen } from "@/features/auth/LoginScreen";
-import { DashboardScreen } from "@/features/dashboard/DashboardScreen";
-import { VerificationScreen } from "@/features/verification/VerificationScreen";
-import { DriversScreen } from "@/features/drivers/DriversScreen";
-import { PassengersScreen } from "@/features/passengers/PassengersScreen";
-import { OrdersScreen } from "@/features/orders/OrdersScreen";
-import { WalletScreen } from "@/features/wallet/WalletScreen";
-import { TariffsScreen } from "@/features/tariffs/TariffsScreen";
-import { SupportScreen } from "@/features/support/SupportScreen";
-import { RiskScreen } from "@/features/risk/RiskScreen";
-import { RolesScreen } from "@/features/roles/RolesScreen";
-import { AuditScreen } from "@/features/audit/AuditScreen";
-import { SettingsScreen } from "@/features/settings/SettingsScreen";
+import { AccountScreen } from "@/features/account/AccountScreen";
+import { RequireSection } from "@/components/RequireSection";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Skeleton } from "@/components/Skeleton";
+
+const StatsRouter = lazy(() => import("@/features/dashboard/StatsRouter").then((m) => ({ default: m.StatsRouter })));
+const DriversScreen = lazy(() => import("@/features/drivers/DriversScreen").then((m) => ({ default: m.DriversScreen })));
+const PassengersScreen = lazy(() => import("@/features/passengers/PassengersScreen").then((m) => ({ default: m.PassengersScreen })));
+const OrdersScreen = lazy(() => import("@/features/orders/OrdersScreen").then((m) => ({ default: m.OrdersScreen })));
+const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen").then((m) => ({ default: m.WalletScreen })));
+const TariffsScreen = lazy(() => import("@/features/tariffs/TariffsScreen").then((m) => ({ default: m.TariffsScreen })));
+const ComplaintsScreen = lazy(() => import("@/features/complaints/ComplaintsScreen").then((m) => ({ default: m.ComplaintsScreen })));
+const StaffScreen = lazy(() => import("@/features/staff/StaffScreen").then((m) => ({ default: m.StaffScreen })));
+const OperatorQueueScreen = lazy(() => import("@/features/operator/OperatorQueueScreen").then((m) => ({ default: m.OperatorQueueScreen })));
+const OperatorHistoryScreen = lazy(() => import("@/features/operator/OperatorHistoryScreen").then((m) => ({ default: m.OperatorHistoryScreen })));
+const AuditScreen = lazy(() => import("@/features/audit/AuditScreen").then((m) => ({ default: m.AuditScreen })));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -22,11 +27,31 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function RouteFallback() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-14 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function Lazy({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+}
+
+function RootRedirect() {
+  const { me, loading } = usePermissions();
+  if (loading || !me) return null;
+  return <Navigate to={me.landingPath} replace />;
+}
+
 export function AppRoutes() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginScreen />} />
+      <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginScreen />} />
       <Route
         element={
           <RequireAuth>
@@ -34,20 +59,119 @@ export function AppRoutes() {
           </RequireAuth>
         }
       >
-        <Route path="/dashboard" element={<DashboardScreen />} />
-        <Route path="/verification" element={<VerificationScreen />} />
-        <Route path="/drivers" element={<DriversScreen />} />
-        <Route path="/passengers" element={<PassengersScreen />} />
-        <Route path="/orders" element={<OrdersScreen />} />
-        <Route path="/wallet" element={<WalletScreen />} />
-        <Route path="/tariffs" element={<TariffsScreen />} />
-        <Route path="/support" element={<SupportScreen />} />
-        <Route path="/risk" element={<RiskScreen />} />
-        <Route path="/roles" element={<RolesScreen />} />
-        <Route path="/audit" element={<AuditScreen />} />
-        <Route path="/settings" element={<SettingsScreen />} />
+        <Route path="/" element={<RootRedirect />} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireSection section="stats">
+              <Lazy>
+                <StatsRouter />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/drivers"
+          element={
+            <RequireSection section="drivers">
+              <Lazy>
+                <DriversScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/passengers"
+          element={
+            <RequireSection section="passengers">
+              <Lazy>
+                <PassengersScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <RequireSection section="orders">
+              <Lazy>
+                <OrdersScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/wallet"
+          element={
+            <RequireSection section="wallet">
+              <Lazy>
+                <WalletScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/tariffs"
+          element={
+            <RequireSection section="tariffs">
+              <Lazy>
+                <TariffsScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/complaints"
+          element={
+            <RequireSection section="complaints">
+              <Lazy>
+                <ComplaintsScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/staff"
+          element={
+            <RequireSection section="staff">
+              <Lazy>
+                <StaffScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/operator/queue"
+          element={
+            <RequireSection section="operatorQueue">
+              <Lazy>
+                <OperatorQueueScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/operator/history"
+          element={
+            <RequireSection section="operatorHistory">
+              <Lazy>
+                <OperatorHistoryScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/audit"
+          element={
+            <RequireSection section="audit">
+              <Lazy>
+                <AuditScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route path="/account" element={<AccountScreen />} />
       </Route>
-      <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

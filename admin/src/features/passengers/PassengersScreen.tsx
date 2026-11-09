@@ -1,21 +1,36 @@
 import { useEffect, useState } from "react";
-import { Eye, Users } from "lucide-react";
+import { Ban, CheckCircle2, Eye, Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Avatar } from "@/components/Avatar";
+import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
+import { Input } from "@/components/Input";
 import { Drawer } from "@/components/Drawer";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ExportButton } from "@/components/ExportButton";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
+import { Toast } from "@/components/Toast";
 import { api } from "@/api/client";
+import { cn } from "@/lib/cn";
 import type { City, Passenger } from "@/api/types";
+
+type Confirm = { type: "block" | "unblock" | "archive" | "restore"; passenger: Passenger };
 
 export function PassengersScreen() {
   const [passengers, setPassengers] = useState<Passenger[] | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [error, setError] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Passenger | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [drawer, setDrawer] = useState<"create" | "edit" | null>(null);
+  const [form, setForm] = useState({ name: "", phone: "", cityId: "" });
+  const [saving, setSaving] = useState(false);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [acting, setActing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   async function load() {
     setError(false);
@@ -45,6 +60,53 @@ export function PassengersScreen() {
     }
   }
 
+  function openCreate() {
+    setForm({ name: "", phone: "", cityId: cities[0]?.id ?? "" });
+    setDrawer("create");
+  }
+  function openEdit(p: Passenger) {
+    setForm({ name: p.name, phone: "", cityId: p.cityId });
+    setDrawer("edit");
+  }
+
+  async function handleSave() {
+    if (!selected && drawer === "edit") return;
+    setSaving(true);
+    try {
+      if (drawer === "create") {
+        await api.createPassenger({ name: form.name.trim(), phone: form.phone.trim(), cityId: form.cityId });
+        setToast("Yo'lovchi qo'shildi");
+      } else if (drawer === "edit" && selected) {
+        const updated = await api.updatePassenger(selected.id, { name: form.name.trim(), cityId: form.cityId });
+        setSelected(updated);
+        setToast("Profil saqlandi");
+      }
+      setDrawer(null);
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleConfirm() {
+    if (!confirm) return;
+    setActing(true);
+    try {
+      const { type, passenger } = confirm;
+      let updated: Passenger;
+      if (type === "block") updated = await api.setPassengerStatus(passenger.id, "blocked");
+      else if (type === "unblock") updated = await api.setPassengerStatus(passenger.id, "active");
+      else if (type === "archive") updated = await api.archivePassenger(passenger.id);
+      else updated = await api.restorePassenger(passenger.id);
+      setPassengers((prev) => prev?.map((p) => (p.id === updated.id ? updated : p)) ?? null);
+      setSelected((prev) => (prev?.id === updated.id ? updated : prev));
+      setToast(type === "block" ? "Bloklandi" : type === "unblock" ? "Blokdan chiqarildi" : type === "archive" ? "Arxivlandi" : "Tiklandi");
+      setConfirm(null);
+    } finally {
+      setActing(false);
+    }
+  }
+
   const columns: Column<Passenger>[] = [
     {
       key: "name",
@@ -64,6 +126,11 @@ export function PassengersScreen() {
     { key: "city", header: "Shahar", render: (p) => <span className="block max-w-[140px] truncate">{cityName(p.cityId)}</span> },
     { key: "rating", header: "Reyting", sortValue: (p) => p.rating, render: (p) => <span className="tabular">{p.rating.toFixed(1)}</span> },
     { key: "trips", header: "Safarlar", sortValue: (p) => p.totalTrips, render: (p) => <span className="tabular">{p.totalTrips}</span> },
+    {
+      key: "status",
+      header: "Holat",
+      render: (p) => <Badge tone={p.archived ? "neutral" : p.status === "active" ? "accent" : "danger"}>{p.archived ? "Arxivlangan" : p.status === "active" ? "Faol" : "Bloklangan"}</Badge>,
+    },
   ];
 
   if (error) return <ErrorState onRetry={load} />;
@@ -77,11 +144,33 @@ export function PassengersScreen() {
     );
   }
 
+  const rows = passengers.filter((p) => (showArchived ? p.archived : !p.archived));
+
   return (
-    <>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          onClick={() => setShowArchived((v) => !v)}
+          className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-colors", showArchived ? "bg-ink text-bg" : "bg-ink/5 text-ink/70")}
+        >
+          {showArchived ? "Arxivlanganlar" : "Faol yo'lovchilar"}
+        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            section="passengers"
+            rows={rows}
+            filenamePrefix="yolovchilar"
+            buildRow={(p) => ({ Ism: p.name, Shahar: cityName(p.cityId), Reyting: p.rating, Safarlar: p.totalTrips, Holat: p.status })}
+          />
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="h-4 w-4" /> Qo'shish
+          </Button>
+        </div>
+      </div>
+
       <DataTable
         columns={columns}
-        rows={passengers}
+        rows={rows}
         rowKey={(p) => p.id}
         searchFields={(p) => p.name}
         searchPlaceholder="Ism bo'yicha qidirish..."
@@ -92,15 +181,23 @@ export function PassengersScreen() {
           setPhone(null);
         }}
       />
+
       <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ""}>
         {selected && (
           <div className="space-y-5">
-            <div className="flex items-center gap-3">
-              <Avatar seed={selected.avatarSeed} name={selected.name} size={48} />
-              <div>
-                <p className="font-semibold text-ink">{selected.name}</p>
-                <p className="text-xs text-ink/50">{cityName(selected.cityId)}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar seed={selected.avatarSeed} name={selected.name} size={48} />
+                <div>
+                  <p className="font-semibold text-ink">{selected.name}</p>
+                  <p className="text-xs text-ink/50">{cityName(selected.cityId)}</p>
+                </div>
               </div>
+              {!selected.archived && (
+                <button aria-label="Tahrirlash" onClick={() => openEdit(selected)} className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-ink">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
             </div>
             <div className="rounded-2xl bg-ink/5 p-4">
               <p className="mb-1 text-xs font-semibold text-ink/50">Telefon raqami</p>
@@ -123,9 +220,70 @@ export function PassengersScreen() {
                 <p className="font-semibold text-ink">{selected.totalTrips}</p>
               </div>
             </div>
+            <div className="flex gap-2 border-t border-border pt-4">
+              {selected.archived ? (
+                <Button variant="secondary" size="sm" onClick={() => setConfirm({ type: "restore", passenger: selected })}>
+                  <RotateCcw className="h-3.5 w-3.5" /> Tiklash
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setConfirm({ type: selected.status === "blocked" ? "unblock" : "block", passenger: selected })}
+                  >
+                    {selected.status === "blocked" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                    {selected.status === "blocked" ? "Blokdan chiqarish" : "Bloklash"}
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => setConfirm({ type: "archive", passenger: selected })}>
+                    <Trash2 className="h-3.5 w-3.5" /> Arxivlash
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )}
       </Drawer>
-    </>
+
+      <Drawer open={drawer !== null} onClose={() => setDrawer(null)} title={drawer === "create" ? "Yangi yo'lovchi" : "Tahrirlash"}>
+        <div className="space-y-4">
+          <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+          {drawer === "create" && (
+            <Input label="Telefon" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+998 90 000 00 00" />
+          )}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-ink/80">Shahar</label>
+            <select
+              value={form.cityId}
+              onChange={(e) => setForm((f) => ({ ...f, cityId: e.target.value }))}
+              className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none transition-colors focus:border-accent"
+            >
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button fullWidth loading={saving} disabled={!form.name.trim() || (drawer === "create" && !form.phone.trim())} onClick={handleSave}>
+            Saqlash
+          </Button>
+        </div>
+      </Drawer>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        title={
+          confirm?.type === "block" ? "Yo'lovchini bloklash" : confirm?.type === "unblock" ? "Blokdan chiqarish" : confirm?.type === "archive" ? "Arxivlash" : "Tiklash"
+        }
+        description={`${confirm?.passenger.name ?? ""} uchun amalni tasdiqlaysizmi?`}
+        tone={confirm?.type === "block" || confirm?.type === "archive" ? "danger" : "accent"}
+        loading={acting}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirm(null)}
+      />
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+    </div>
   );
 }

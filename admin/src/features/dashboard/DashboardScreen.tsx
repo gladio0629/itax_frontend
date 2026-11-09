@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Car, LifeBuoy, Route, ShieldAlert, TrendingUp, Users, Wallet } from "lucide-react";
+import { AlertTriangle, Car, MessageSquareWarning, Route, TrendingUp, Users, Wallet } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { Card } from "@/components/Card";
@@ -58,14 +58,8 @@ export function DashboardScreen() {
         />
         <StatCard icon={<Wallet className="h-5 w-5" />} label="Bugungi daromad" value={formatSom(stats.revenueToday)} tone="accent" />
         <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Haftalik daromad" value={formatSom(stats.revenueWeek)} />
-        <StatCard
-          icon={<ShieldAlert className="h-5 w-5" />}
-          label="Tekshirish kutilayotgan"
-          value={String(stats.pendingVerifications)}
-          tone="warning"
-        />
-        <StatCard icon={<LifeBuoy className="h-5 w-5" />} label="Ochiq murojaatlar" value={String(stats.openSupportTickets)} tone="warning" />
-        <StatCard icon={<AlertTriangle className="h-5 w-5" />} label="Xavfli holatlar" value={String(stats.flaggedRiskItems)} tone="danger" />
+        <StatCard icon={<MessageSquareWarning className="h-5 w-5" />} label="Ochiq shikoyatlar" value={String(stats.openComplaints)} tone="warning" />
+        <StatCard icon={<AlertTriangle className="h-5 w-5" />} label="Firibgarlik belgisi" value={String(stats.flaggedComplaints)} tone="danger" />
       </div>
 
       <Card>
