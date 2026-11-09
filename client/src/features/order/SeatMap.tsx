@@ -29,7 +29,7 @@ function Seat({
       aria-pressed={selected}
       aria-label={label}
       className={cn(
-        "flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border-2 text-[11px] font-semibold transition-all active:scale-95",
+        "flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border-2 text-[11px] font-semibold transition active:scale-95",
         disabled
           ? "border-border bg-ink/5 text-ink/40"
           : selected

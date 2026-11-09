@@ -9,6 +9,14 @@
   * {
     -webkit-tap-highlight-color: transparent;
   }
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+  html {
+    color-scheme: light;
+  }
   html,
   body {
     background: var(--color-bg);

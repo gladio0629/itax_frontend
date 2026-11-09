@@ -164,7 +164,7 @@ export function OrderConfigureScreen() {
             <select
               value={draft.timeRange.from}
               onChange={(e) => setField("timeRange", { ...draft.timeRange, from: e.target.value })}
-              className="h-12 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink tabular outline-none"
+              className="h-12 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink tabular outline-none transition-colors focus:border-accent"
             >
               {TIME_OPTIONS.map((t) => (
                 <option key={t}>{t}</option>
@@ -174,7 +174,7 @@ export function OrderConfigureScreen() {
             <select
               value={draft.timeRange.to}
               onChange={(e) => setField("timeRange", { ...draft.timeRange, to: e.target.value })}
-              className="h-12 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink tabular outline-none"
+              className="h-12 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink tabular outline-none transition-colors focus:border-accent"
             >
               {TIME_OPTIONS.map((t) => (
                 <option key={t}>{t}</option>
@@ -232,7 +232,7 @@ export function OrderConfigureScreen() {
                     value={draft.promoCode}
                     onChange={(e) => setField("promoCode", e.target.value)}
                     placeholder="IZGO10"
-                    className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm uppercase outline-none"
+                    className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm uppercase outline-none transition-colors focus:border-accent"
                   />
                   <Button size="sm" variant="secondary" loading={promoChecking} onClick={applyPromo}>
                     Qo'llash

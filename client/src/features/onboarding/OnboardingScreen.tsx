@@ -62,7 +62,7 @@ export function OnboardingScreen() {
           <span
             key={i}
             className={cn(
-              "h-2 rounded-full transition-all",
+              "h-2 rounded-full transition-[width,background-color]",
               i === index ? "w-6 bg-accent" : "w-2 bg-ink/15"
             )}
           />
