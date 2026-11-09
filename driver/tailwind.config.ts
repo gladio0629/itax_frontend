@@ -11,8 +11,10 @@ export default {
         accent: "rgb(var(--color-accent-rgb) / <alpha-value>)",
         "accent-5": "var(--color-accent-5)",
         "accent-10": "var(--color-accent-10)",
-        warning: "var(--color-warning)",
-        danger: "var(--color-danger)",
+        "brand-yellow": "var(--color-brand-yellow)",
+        "on-yellow": "var(--color-on-yellow)",
+        warning: "rgb(var(--color-warning-rgb) / <alpha-value>)",
+        danger: "rgb(var(--color-danger-rgb) / <alpha-value>)",
         border: "var(--color-border)",
       },
       fontFamily: {
@@ -30,8 +32,10 @@ export default {
         inner5: "inset 0 1px 0 0 rgba(255,255,255,0.18)",
       },
       borderRadius: {
+        button: "var(--radius-button)",
         "2xl": "16px",
         "3xl": "24px",
+        sheet: "var(--radius-sheet)",
       },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },

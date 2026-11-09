@@ -24,8 +24,7 @@
     font-variant-numeric: tabular-nums;
   }
   :focus-visible {
-    outline: 2px solid var(--color-danger, #0fb67c);
-    outline-color: rgb(var(--color-accent-rgb));
+    outline: 2px solid rgb(var(--color-accent-rgb));
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {

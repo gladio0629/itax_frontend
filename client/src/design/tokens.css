@@ -1,31 +1,43 @@
-/* IZGO design tokens — shared across client, driver and admin apps. */
+/* IZGO design tokens — shared across client, driver and admin apps.
+   Brand colors measured from brand/izgo-logo.jpeg: blue #264A9F, yellow #F6BF0E. */
 :root {
-  --color-bg: #f6f8f7;
+  --color-bg: #f5f7fb;
   --color-card: #ffffff;
-  --color-text-rgb: 14 26 22;
-  --color-accent-rgb: 15 182 124;
-  --color-accent-5: rgba(15, 182, 124, 0.05);
-  --color-accent-10: rgba(15, 182, 124, 0.1);
-  --color-warning: #f5a524;
-  --color-danger: #e5484d;
-  --color-border: rgba(14, 26, 22, 0.08);
-  --shadow-color: rgba(14, 26, 22, 0.1);
+  --color-text-rgb: 14 20 32;
+  --color-accent-rgb: 38 74 159;
+  --color-accent-5: rgba(38, 74, 159, 0.05);
+  --color-accent-10: rgba(38, 74, 159, 0.1);
 
-  --radius-card: 24px;
-  --radius-sheet: 24px;
+  /* Brand yellow is a fill color only — always paired with --color-on-yellow text/icons. */
+  --color-brand-yellow: #f6bf0e;
+  --color-on-yellow: #16264d;
+
+  /* Warning is orange, distinct from brand yellow. rgb triplet so bg-warning/NN opacity works. */
+  --color-warning-rgb: 180 83 9;
+  --color-danger-rgb: 198 40 40;
+  --color-border: rgba(14, 20, 32, 0.08);
+  --shadow-color: rgba(14, 20, 32, 0.1);
+
+  --radius-button: 12px;
+  --radius-card: 16px;
+  --radius-sheet: 20px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 [data-theme="dark"] {
-  --color-bg: #0b1512;
-  --color-card: #15241f;
-  --color-text-rgb: 246 248 247;
-  --color-accent-rgb: 30 214 151;
-  --color-accent-5: rgba(30, 214, 151, 0.08);
-  --color-accent-10: rgba(30, 214, 151, 0.16);
-  --color-warning: #f5a524;
-  --color-danger: #f2555b;
-  --color-border: rgba(246, 248, 247, 0.1);
+  --color-bg: #0a1020;
+  --color-card: #121b33;
+  --color-text-rgb: 237 241 248;
+  --color-accent-rgb: 110 150 230;
+  --color-accent-5: rgba(110, 150, 230, 0.08);
+  --color-accent-10: rgba(110, 150, 230, 0.16);
+
+  --color-brand-yellow: #f6bf0e;
+  --color-on-yellow: #16264d;
+
+  --color-warning-rgb: 253 186 116;
+  --color-danger-rgb: 248 113 113;
+  --color-border: rgba(237, 241, 248, 0.1);
   --shadow-color: rgba(0, 0, 0, 0.4);
 }

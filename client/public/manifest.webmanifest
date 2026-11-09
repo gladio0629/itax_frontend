@@ -1,0 +1,13 @@
+{
+  "name": "IZGO — Yo'lga chiqamiz",
+  "short_name": "IZGO",
+  "description": "IZGO — shahar va shaharlar aro taksi xizmati",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#264a9f",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
