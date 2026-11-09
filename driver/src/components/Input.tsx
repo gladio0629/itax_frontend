@@ -23,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, Props>(
         )}
         <div
           className={cn(
-            "flex h-[52px] items-center gap-2 rounded-2xl border bg-card px-4 transition-colors",
+            "flex h-[52px] items-center gap-2 rounded-xl border bg-card px-4 transition-colors",
             error ? "border-danger" : "border-border focus-within:border-accent"
           )}
         >
@@ -40,7 +40,7 @@ export const Input = forwardRef<HTMLInputElement, Props>(
           {rightSlot}
         </div>
         {error ? (
-          <p className="mt-1.5 text-xs font-medium text-danger">{error}</p>
+          <p className="mt-1.5 text-xs font-semibold text-danger">{error}</p>
         ) : hint ? (
           <p className="mt-1.5 text-xs text-ink/60">{hint}</p>
         ) : null}

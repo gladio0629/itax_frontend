@@ -7,6 +7,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { BottomBar } from "@/components/BottomBar";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { SkeletonList } from "@/components/Skeleton";
 
 const BRAND_LABEL: Record<SavedCard["brand"], string> = {
@@ -18,9 +19,12 @@ const BRAND_LABEL: Record<SavedCard["brand"], string> = {
 export function CardsScreen() {
   const navigate = useNavigate();
   const [cards, setCards] = useState<SavedCard[] | null>(null);
+  const [error, setError] = useState(false);
 
   function load() {
-    api.getSavedCards().then(setCards);
+    setError(false);
+    setCards(null);
+    api.getSavedCards().then(setCards).catch(() => setError(true));
   }
 
   useEffect(load, []);
@@ -29,7 +33,9 @@ export function CardsScreen() {
     <div className="flex h-full flex-col bg-bg">
       <ScreenHeader title="Kartalarim" />
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {cards === null ? (
+        {error ? (
+          <ErrorState onRetry={load} />
+        ) : cards === null ? (
           <SkeletonList count={2} />
         ) : cards.length === 0 ? (
           <EmptyState
@@ -40,7 +46,7 @@ export function CardsScreen() {
         ) : (
           <div className="space-y-3">
             {cards.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-softer">
+              <div key={c.id} className="flex items-center gap-3 rounded-2xl bg-card p-4 shadow-softer">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-10 text-accent">
                   <CreditCard className="h-5 w-5" />
                 </div>

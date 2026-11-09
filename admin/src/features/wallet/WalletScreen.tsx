@@ -39,7 +39,12 @@ export function WalletScreen() {
   }, []);
 
   const columns: Column<WalletLedgerRow>[] = [
-    { key: "driver", header: "Haydovchi", sortValue: (r) => r.driverName, render: (r) => r.driverName },
+    {
+      key: "driver",
+      header: "Haydovchi",
+      sortValue: (r) => r.driverName,
+      render: (r) => <span className="block max-w-[180px] truncate">{r.driverName}</span>,
+    },
     { key: "type", header: "Turi", render: (r) => <Badge tone={TYPE_TONE[r.type]}>{TYPE_LABEL[r.type]}</Badge> },
     {
       key: "amount",

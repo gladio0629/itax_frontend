@@ -112,7 +112,7 @@ export function OtpScreen() {
               inputMode="numeric"
               maxLength={1}
               className={cn(
-                "h-14 w-14 rounded-2xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
+                "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
                 error ? "border-danger" : "border-border focus:border-accent"
               )}
             />
@@ -125,7 +125,7 @@ export function OtpScreen() {
           onClick={() => setSeconds(30)}
           className="mt-6 text-sm font-semibold text-accent disabled:text-ink/40"
         >
-          {seconds > 0 ? `Qayta yuborish (${seconds}s)` : "Kodni qayta yuborish"}
+          {seconds > 0 ? <span className="tabular">{`Qayta yuborish (${seconds}s)`}</span> : "Kodni qayta yuborish"}
         </button>
       </div>
 

@@ -10,6 +10,7 @@ import type {
   ReviewRequest,
   RouteSuggestion,
   SavedCard,
+  WalletSummary,
 } from "./types";
 
 /**
@@ -41,6 +42,8 @@ export interface ApiAdapter {
   markNotificationRead(id: string): Promise<void>;
 
   getProfile(): Promise<Profile>;
+
+  getWallet(): Promise<WalletSummary>;
 
   applyPromoCode(code: string): Promise<{ valid: boolean; discountPct: number; message: string }>;
   getReferralCode(): Promise<{ code: string; invitedCount: number; bonusSom: number }>;

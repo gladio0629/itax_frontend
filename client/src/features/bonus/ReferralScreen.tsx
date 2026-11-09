@@ -6,15 +6,49 @@ import { api } from "@/api/client";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Card } from "@/components/Card";
 import { SkeletonList } from "@/components/Skeleton";
+import { ErrorState } from "@/components/ErrorState";
+import { Toast } from "@/components/Toast";
 import { formatSom } from "@/lib/format";
 
 export function ReferralScreen() {
   const [data, setData] = useState<{ code: string; invitedCount: number; bonusSom: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.getReferralCode().then(setData);
-  }, []);
+  async function share(code: string) {
+    const text = `IZGO orqali sayohat qilib, bonus olish uchun mening kodimdan foydalaning: ${code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ text });
+      } catch {
+        /* user cancelled — not an error */
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(text);
+      setToast("Havola nusxalandi");
+    } catch {
+      setToast("Ulashib bo'lmadi");
+    }
+  }
+
+  function load() {
+    setError(false);
+    api.getReferralCode().then(setData).catch(() => setError(true));
+  }
+
+  useEffect(load, []);
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-col bg-bg">
+        <ScreenHeader title="Do'stlarni taklif qiling" />
+        <ErrorState onRetry={load} />
+      </div>
+    );
+  }
 
   if (!data) {
     return (
@@ -25,11 +59,11 @@ export function ReferralScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-bg">
+    <div className="relative flex h-full flex-col bg-bg">
       <ScreenHeader title="Do'stlarni taklif qiling" />
       <div className="flex-1 overflow-y-auto px-5 pb-6">
-        <div className="mb-5 flex flex-col items-center gap-3 rounded-3xl bg-accent-5 p-6 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white">
+        <div className="mb-5 flex flex-col items-center gap-3 rounded-2xl bg-accent-5 p-6 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-bg">
             <Gift className="h-6 w-6" />
           </div>
           <p className="text-sm font-semibold text-ink">Har bir taklif uchun bonus oling</p>
@@ -50,7 +84,7 @@ export function ReferralScreen() {
               setCopied(true);
               setTimeout(() => setCopied(false), 1500);
             }}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70"
             aria-label="Nusxalash"
           >
             {copied ? <Check className="h-4 w-4 text-accent" /> : <Copy className="h-4 w-4" />}
@@ -72,10 +106,14 @@ export function ReferralScreen() {
           </Card>
         </div>
 
-        <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-ink py-3.5 text-sm font-semibold text-white">
+        <button
+          onClick={() => share(data.code)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-ink py-3.5 text-sm font-semibold text-white active:scale-[0.97] transition-transform"
+        >
           <Share2 className="h-4 w-4" /> Kodni ulashish
         </button>
       </div>
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }

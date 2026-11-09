@@ -37,36 +37,33 @@ export function MapView({
       role="img"
       aria-label="Yo'nalish xaritasi"
     >
-      <defs>
-        <linearGradient id="mapBg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#EAF2EE" />
-          <stop offset="100%" stopColor="#DCEBE3" />
-        </linearGradient>
-      </defs>
-      <rect width="380" height="380" fill="url(#mapBg)" />
+      <rect width="380" height="380" className="fill-accent/10" />
       {Array.from({ length: 10 }).map((_, i) => (
-        <line key={`v${i}`} x1={i * 38} y1="0" x2={i * 38} y2="380" stroke="#C6D9CE" strokeWidth="1" opacity="0.5" />
+        <line key={`v${i}`} x1={i * 38} y1="0" x2={i * 38} y2="380" className="stroke-accent/15" strokeWidth="1" />
       ))}
       {Array.from({ length: 10 }).map((_, i) => (
-        <line key={`h${i}`} x1="0" y1={i * 38} x2="380" y2={i * 38} stroke="#C6D9CE" strokeWidth="1" opacity="0.5" />
+        <line key={`h${i}`} x1="0" y1={i * 38} x2="380" y2={i * 38} className="stroke-accent/15" strokeWidth="1" />
       ))}
-      <path d={pathD} fill="none" stroke="#FFFFFF" strokeWidth="10" strokeLinecap="round" opacity="0.9" />
+      <path d={pathD} fill="none" className="stroke-card" strokeWidth="10" strokeLinecap="round" opacity="0.9" />
       <path
         d={pathD}
         fill="none"
-        stroke="#0FB67C"
+        className="stroke-accent"
         strokeWidth="4"
         strokeLinecap="round"
         strokeDasharray="2 10"
       />
-      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="7" fill="#0E1A16" />
-      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="3" fill="#F6F8F7" />
-      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="7" fill="#0FB67C" />
-      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="3" fill="#F6F8F7" />
+      {/* Origin marker */}
+      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="7" className="fill-ink" />
+      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="3" className="fill-card" />
+      {/* Destination marker — brand-yellow pin with a navy ring, echoing the logo mark */}
+      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="8.5" className="fill-on-yellow" />
+      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="6" className="fill-brand-yellow" />
+      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="2.5" className="fill-on-yellow" />
       {showCar && (
         <g transform={`translate(${carX - 14}, ${carY - 14})`}>
-          <circle cx="14" cy="14" r="16" fill="#0E1A16" opacity="0.08" />
-          <circle cx="14" cy="14" r="13" fill="#0E1A16" />
+          <circle cx="14" cy="14" r="16" className="fill-ink" opacity="0.08" />
+          <circle cx="14" cy="14" r="13" className="fill-ink" />
           <foreignObject x="2" y="2" width="24" height="24">
             <div className="flex h-6 w-6 items-center justify-center text-white">
               <Car className="h-3.5 w-3.5" />

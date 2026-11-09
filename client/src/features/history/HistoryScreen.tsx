@@ -64,7 +64,7 @@ export function HistoryScreen() {
                 <button
                   key={o.id}
                   onClick={() => navigate(`/history/${o.id}`)}
-                  className="flex w-full flex-col gap-2 rounded-3xl bg-card p-4 text-left shadow-softer"
+                  className="flex w-full flex-col gap-2 rounded-2xl bg-card p-4 text-left shadow-softer"
                 >
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-ink">

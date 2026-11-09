@@ -9,6 +9,7 @@ import { Button } from "@/components/Button";
 import { MapView } from "@/components/MapView";
 import { Card } from "@/components/Card";
 import { ErrorState } from "@/components/ErrorState";
+import { Toast } from "@/components/Toast";
 import { formatClock, formatSom } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
 import { DriverCard } from "./DriverCard";
@@ -26,6 +27,7 @@ export function OrderTrackScreen() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const startRef = useRef(Date.now());
 
   async function poll() {
@@ -64,6 +66,8 @@ export function OrderTrackScreen() {
         timeRange: draft.timeRange,
       });
       navigate(`/order/track/${res.id}`, { replace: true });
+    } catch {
+      setToast("Qayta urinishda xatolik. Yana urinib ko'ring.");
     } finally {
       setRetrying(false);
     }
@@ -74,6 +78,8 @@ export function OrderTrackScreen() {
     try {
       await api.cancelOrder(orderId, reason);
       navigate("/home", { replace: true });
+    } catch {
+      setToast("Bekor qilinmadi. Qaytadan urining.");
     } finally {
       setCancelling(false);
     }
@@ -103,7 +109,7 @@ export function OrderTrackScreen() {
       <ScreenHeader title={showNoDriver ? "Topilmadi" : "Buyurtma"} />
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        <div className="relative mb-4 h-48 overflow-hidden rounded-3xl">
+        <div className="relative mb-4 h-48 overflow-hidden rounded-2xl">
           <MapView showCar={order.status === "in_progress" || order.status === "accepted"} carProgress={order.status === "in_progress" ? tripProgress : 0.08} dim={order.status === "searching"} />
         </div>
 
@@ -157,7 +163,7 @@ export function OrderTrackScreen() {
                         {i > 0 && <span className={`h-0.5 flex-1 ${done ? "bg-accent" : "bg-border"}`} />}
                         <div
                           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                            done ? "bg-accent text-white" : "bg-ink/5 text-ink/50"
+                            done ? "bg-accent text-bg" : "bg-ink/5 text-ink/60"
                           }`}
                         >
                           <Icon className="h-3.5 w-3.5" />
@@ -201,6 +207,7 @@ export function OrderTrackScreen() {
       {cancelOpen && (
         <CancelSheet loading={cancelling} onClose={() => setCancelOpen(false)} onConfirm={confirmCancel} />
       )}
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }

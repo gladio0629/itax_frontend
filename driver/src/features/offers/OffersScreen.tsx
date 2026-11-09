@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Car, MapPin, Users, Wallet, Clock3 } from "lucide-react";
+import { Bell, Car, Hand, MapPin, Users, Wallet, Clock3 } from "lucide-react";
 import { api } from "@/api/client";
 import type { DriverProfile, OrderWithDetails } from "@/api/types";
 import { Card } from "@/components/Card";
@@ -98,8 +98,12 @@ export function OffersScreen() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Xatolik yuz berdi";
       setToast(message);
-      const list = await api.getOffers();
-      setOffers(list);
+      try {
+        const list = await api.getOffers();
+        setOffers(list);
+      } catch {
+        /* keep showing stale offers on a transient refresh failure */
+      }
     } finally {
       setAcceptingId(null);
     }
@@ -119,7 +123,9 @@ export function OffersScreen() {
       <div className="flex items-center justify-between px-5" style={{ paddingTop: "calc(var(--safe-top) + 20px)" }}>
         <div>
           <p className="text-xs text-ink/60">Xayrli kun</p>
-          <p className="text-lg font-semibold text-ink">{profile?.name.split(" ")[0] ?? "Haydovchi"} 👋</p>
+          <p className="flex items-center gap-1.5 text-lg font-semibold text-ink">
+            {profile?.name.split(" ")[0] ?? "Haydovchi"} <Hand className="h-4 w-4 text-accent" />
+          </p>
         </div>
         <button
           onClick={() => navigate("/notifications")}
@@ -146,6 +152,8 @@ export function OffersScreen() {
           <button
             onClick={toggleOnline}
             disabled={togglingOnline}
+            role="switch"
+            aria-checked={!!profile?.online}
             aria-label="Holatni almashtirish"
             className={cn(
               "relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-60",
@@ -215,8 +223,8 @@ export function OffersScreen() {
                           </span>
                         )}
                       </Badge>
-                      <span className="flex items-center gap-1 text-xs font-medium text-warning">
-                        <Clock3 className="h-3.5 w-3.5" /> {remainingS}s
+                      <span className="flex items-center gap-1 text-xs font-semibold text-warning">
+                        <Clock3 className="h-3.5 w-3.5" /> <span className="tabular">{remainingS}s</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -226,7 +234,7 @@ export function OffersScreen() {
                       </p>
                     </div>
                     <div className="flex items-center justify-between text-xs text-ink/60">
-                      <span>{formatKm(o.distanceKm)}</span>
+                      <span className="tabular">{formatKm(o.distanceKm)}</span>
                       <span className="text-sm font-semibold tabular text-ink">{formatSom(o.price)}</span>
                     </div>
                     <div className="flex gap-2">

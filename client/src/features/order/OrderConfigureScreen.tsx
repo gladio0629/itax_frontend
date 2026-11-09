@@ -8,6 +8,7 @@ import { BottomBar } from "@/components/BottomBar";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Skeleton } from "@/components/Skeleton";
+import { ErrorState } from "@/components/ErrorState";
 import { useOrderStore } from "@/stores/orderStore";
 import { formatSom, formatKm } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -24,23 +25,32 @@ export function OrderConfigureScreen() {
   const [cities, setCities] = useState<City[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(true);
+  const [quoteError, setQuoteError] = useState(false);
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoResult, setPromoResult] = useState<string | null>(null);
   const [promoChecking, setPromoChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   useEffect(() => {
-    api.getCities().then(setCities);
+    api.getCities().then(setCities).catch(() => {});
   }, []);
 
-  useEffect(() => {
+  function loadQuote() {
     if (!draft.fromCityId || !draft.toCityId) return;
     setQuoteLoading(true);
+    setQuoteError(false);
     api
       .getQuote({ fromCityId: draft.fromCityId, toCityId: draft.toCityId, mode: draft.mode, seatIds: draft.seatIds })
-      .then(setQuote)
+      .then((q) => setQuote(q))
+      .catch(() => {
+        setQuote(null);
+        setQuoteError(true);
+      })
       .finally(() => setQuoteLoading(false));
-  }, [draft.fromCityId, draft.toCityId, draft.mode, draft.seatIds]);
+  }
+
+  useEffect(loadQuote, [draft.fromCityId, draft.toCityId, draft.mode, draft.seatIds]);
 
   function cityName(id: string) {
     return cities.find((c) => c.id === id)?.name ?? "\u2026";
@@ -64,6 +74,7 @@ export function OrderConfigureScreen() {
 
   async function submit() {
     setSubmitting(true);
+    setSubmitError(false);
     try {
       const order = await api.createOrder({
         fromCityId: draft.fromCityId,
@@ -76,12 +87,14 @@ export function OrderConfigureScreen() {
         promoCode: draft.promoCode || undefined,
       });
       navigate(`/order/track/${order.id}`);
+    } catch {
+      setSubmitError(true);
     } finally {
       setSubmitting(false);
     }
   }
 
-  const canSubmit = draft.mode === "car" || draft.seatIds.length > 0;
+  const canSubmit = (draft.mode === "car" || draft.seatIds.length > 0) && !!quote && !quoteError;
 
   return (
     <div className="flex h-full flex-col bg-bg">
@@ -102,7 +115,7 @@ export function OrderConfigureScreen() {
           <button
             onClick={() => setField("mode", "car")}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-2xl border-2 py-3.5 text-sm font-semibold transition-colors",
+              "flex items-center justify-center gap-2 rounded-xl border-2 py-3.5 text-sm font-semibold transition-colors",
               draft.mode === "car" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
             )}
           >
@@ -111,7 +124,7 @@ export function OrderConfigureScreen() {
           <button
             onClick={() => setField("mode", "seat")}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-2xl border-2 py-3.5 text-sm font-semibold transition-colors",
+              "flex items-center justify-center gap-2 rounded-xl border-2 py-3.5 text-sm font-semibold transition-colors",
               draft.mode === "seat" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
             )}
           >
@@ -130,7 +143,7 @@ export function OrderConfigureScreen() {
           <button
             onClick={() => setField("timeMode", "now")}
             className={cn(
-              "rounded-2xl border-2 py-3 text-sm font-semibold transition-colors",
+              "rounded-xl border-2 py-3 text-sm font-semibold transition-colors",
               draft.timeMode === "now" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
             )}
           >
@@ -139,7 +152,7 @@ export function OrderConfigureScreen() {
           <button
             onClick={() => setField("timeMode", "range")}
             className={cn(
-              "rounded-2xl border-2 py-3 text-sm font-semibold transition-colors",
+              "rounded-xl border-2 py-3 text-sm font-semibold transition-colors",
               draft.timeMode === "range" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
             )}
           >
@@ -151,7 +164,7 @@ export function OrderConfigureScreen() {
             <select
               value={draft.timeRange.from}
               onChange={(e) => setField("timeRange", { ...draft.timeRange, from: e.target.value })}
-              className="h-12 flex-1 rounded-2xl border border-border bg-card px-3 text-sm text-ink outline-none"
+              className="h-12 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink tabular outline-none"
             >
               {TIME_OPTIONS.map((t) => (
                 <option key={t}>{t}</option>
@@ -161,7 +174,7 @@ export function OrderConfigureScreen() {
             <select
               value={draft.timeRange.to}
               onChange={(e) => setField("timeRange", { ...draft.timeRange, to: e.target.value })}
-              className="h-12 flex-1 rounded-2xl border border-border bg-card px-3 text-sm text-ink outline-none"
+              className="h-12 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink tabular outline-none"
             >
               {TIME_OPTIONS.map((t) => (
                 <option key={t}>{t}</option>
@@ -175,7 +188,7 @@ export function OrderConfigureScreen() {
           <button
             onClick={() => setField("paymentMethod", "cash")}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-2xl border-2 py-3.5 text-sm font-semibold transition-colors",
+              "flex items-center justify-center gap-2 rounded-xl border-2 py-3.5 text-sm font-semibold transition-colors",
               draft.paymentMethod === "cash" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
             )}
           >
@@ -184,7 +197,7 @@ export function OrderConfigureScreen() {
           <button
             onClick={() => setField("paymentMethod", "card")}
             className={cn(
-              "flex items-center justify-center gap-2 rounded-2xl border-2 py-3.5 text-sm font-semibold transition-colors",
+              "flex items-center justify-center gap-2 rounded-xl border-2 py-3.5 text-sm font-semibold transition-colors",
               draft.paymentMethod === "card" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
             )}
           >
@@ -194,7 +207,7 @@ export function OrderConfigureScreen() {
         {draft.paymentMethod === "card" && (
           <button
             onClick={() => navigate("/cards")}
-            className="mb-5 w-full rounded-2xl border border-dashed border-accent/40 py-3 text-xs font-semibold text-accent"
+            className="mb-5 w-full rounded-xl border border-dashed border-accent/40 py-3 text-xs font-semibold text-accent"
           >
             Kartalarni boshqarish
           </button>
@@ -205,7 +218,7 @@ export function OrderConfigureScreen() {
             {!promoOpen ? (
               <button
                 onClick={() => setPromoOpen(true)}
-                className="flex w-full items-center justify-between rounded-2xl bg-accent-5 px-4 py-3 text-sm font-semibold text-accent"
+                className="flex w-full items-center justify-between rounded-xl bg-accent-5 px-4 py-3 text-sm font-semibold text-accent"
               >
                 <span className="flex items-center gap-2">
                   <Tag className="h-4 w-4" /> Promo-kod qo'shish
@@ -230,7 +243,7 @@ export function OrderConfigureScreen() {
             )}
             <button
               onClick={() => navigate("/referral")}
-              className="mt-2 flex w-full items-center gap-2 rounded-2xl px-4 py-3 text-xs font-semibold text-ink/60"
+              className="mt-2 flex w-full items-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold text-ink/60"
             >
               <Gift className="h-4 w-4" /> Do'stlarni taklif qilib bonus oling
             </button>
@@ -243,10 +256,15 @@ export function OrderConfigureScreen() {
           <span className="text-sm text-ink/60">Jami narx</span>
           {quoteLoading ? (
             <Skeleton className="h-7 w-28" />
+          ) : quoteError ? (
+            <button onClick={loadQuote} className="text-xs font-semibold text-danger underline">
+              Narxni hisoblab bo'lmadi — qayta urinish
+            </button>
           ) : (
             <span className="text-xl font-semibold tabular text-ink">{formatSom(quote?.price ?? 0)}</span>
           )}
         </div>
+        {submitError && <p className="mb-2 text-xs font-medium text-danger">Buyurtma yuborilmadi. Qaytadan urining.</p>}
         <Button fullWidth disabled={!canSubmit || quoteLoading} loading={submitting} onClick={submit}>
           Buyurtma berish
         </Button>

@@ -6,6 +6,7 @@ import type { OrderWithDetails, RouteSuggestion } from "@/api/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { SkeletonList } from "@/components/Skeleton";
+import { ErrorState } from "@/components/ErrorState";
 import { formatSom, formatKm } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
 
@@ -17,16 +18,34 @@ export function OrderFinishedScreen() {
   const [rating, setRating] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [suggestion, setSuggestion] = useState<RouteSuggestion | null>(null);
+  const [error, setError] = useState(false);
+  const [ratingError, setRatingError] = useState(false);
 
-  useEffect(() => {
-    api.getOrder(orderId).then(setOrder);
-    api.getPopularRoutes().then((routes) => setSuggestion(routes[0] ?? null));
-  }, [orderId]);
+  function load() {
+    setError(false);
+    api.getOrder(orderId).then(setOrder).catch(() => setError(true));
+    api.getPopularRoutes().then((routes) => setSuggestion(routes[0] ?? null)).catch(() => {});
+  }
+
+  useEffect(load, [orderId]);
 
   async function submitRating(value: number) {
     setRating(value);
-    await api.rateOrder(orderId, value);
-    setSubmitted(true);
+    setRatingError(false);
+    try {
+      await api.rateOrder(orderId, value);
+      setSubmitted(true);
+    } catch {
+      setRatingError(true);
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-col bg-bg">
+        <ErrorState onRetry={load} />
+      </div>
+    );
   }
 
   if (!order) {
@@ -40,7 +59,7 @@ export function OrderFinishedScreen() {
   return (
     <div className="flex h-full flex-col bg-bg px-5 overflow-y-auto" style={{ paddingTop: "calc(var(--safe-top) + 32px)" }}>
       <div className="flex flex-col items-center gap-3 pb-6 text-center animate-scale-in">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-white animate-check-pop">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-bg animate-check-pop">
           <PartyPopper className="h-9 w-9" />
         </div>
         <h1 className="text-xl font-semibold text-ink">Safar yakunlandi!</h1>
@@ -59,6 +78,7 @@ export function OrderFinishedScreen() {
           ))}
         </div>
         {submitted && <p className="mt-3 text-center text-xs font-medium text-accent">Rahmat! Bahoyingiz qabul qilindi.</p>}
+        {ratingError && <p className="mt-3 text-center text-xs font-medium text-danger">Baho yuborilmadi. Qaytadan urining.</p>}
       </Card>
 
       <Card className="mb-4 space-y-3 p-5">
@@ -73,7 +93,7 @@ export function OrderFinishedScreen() {
       {suggestion && (
         <button
           onClick={() => navigate("/home")}
-          className="mb-6 flex items-center justify-between rounded-3xl bg-accent-5 px-5 py-4 text-left"
+          className="mb-6 flex items-center justify-between rounded-2xl bg-accent-5 px-5 py-4 text-left"
         >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-accent">
@@ -84,7 +104,7 @@ export function OrderFinishedScreen() {
               <p className="text-sm font-semibold text-ink">{suggestion.label}</p>
             </div>
           </div>
-          <span className="text-xs font-semibold text-accent">dan {formatSom(suggestion.fromPrice)}</span>
+          <span className="text-xs font-semibold tabular text-accent">dan {formatSom(suggestion.fromPrice)}</span>
         </button>
       )}
 

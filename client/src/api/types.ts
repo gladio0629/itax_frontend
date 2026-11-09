@@ -58,6 +58,26 @@ export type NotificationItem = {
   kind: "order" | "wallet" | "promo" | "system";
 };
 
+// Passenger wallet — distinct from the driver app's WalletEntry (which is
+// seeded per-driver in seed/generate.ts and carries commission/debt
+// concepts that don't apply to passengers). This type is client-only.
+export type PassengerWalletEntryType = "topup" | "trip_payment" | "refund" | "bonus";
+
+export type PassengerWalletEntry = {
+  id: string;
+  type: PassengerWalletEntryType;
+  amount: number; // positive = credit to wallet, negative = debit
+  createdAt: number;
+  balanceAfter: number;
+  orderId?: string;
+};
+
+export type WalletSummary = {
+  balance: number;
+  lowBalance: boolean;
+  entries: PassengerWalletEntry[];
+};
+
 export type SavedCard = {
   id: string;
   label: string;

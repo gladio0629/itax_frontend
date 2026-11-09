@@ -82,7 +82,7 @@ export function HomeScreen() {
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <LowConnectionBanner />
 
-        <div className="relative mx-4 mt-3 h-40 overflow-hidden rounded-3xl">
+        <div className="relative mx-4 mt-3 h-40 overflow-hidden rounded-2xl">
           <MapView />
           <div className="absolute inset-0 bg-gradient-to-t from-bg/40 to-transparent" />
         </div>

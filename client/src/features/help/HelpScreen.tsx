@@ -28,13 +28,17 @@ export function HelpScreen() {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   async function submit() {
     if (!message.trim()) return;
     setSubmitting(true);
+    setSubmitError(false);
     try {
       const review = await api.submitSupportTicket(message.trim());
       setReviewId(review.id);
+    } catch {
+      setSubmitError(true);
     } finally {
       setSubmitting(false);
     }
@@ -53,7 +57,7 @@ export function HelpScreen() {
                 className="flex w-full items-center justify-between p-4 text-left"
               >
                 <span className="text-sm font-medium text-ink">{item.q}</span>
-                <ChevronDown className={cn("h-4 w-4 shrink-0 text-ink/40 transition-transform", openIndex === i && "rotate-180")} />
+                <ChevronDown className={cn("h-4 w-4 shrink-0 text-ink/60 transition-transform", openIndex === i && "rotate-180")} />
               </button>
               {openIndex === i && <p className="px-4 pb-4 text-sm text-ink/60">{item.a}</p>}
             </div>
@@ -87,8 +91,9 @@ export function HelpScreen() {
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Muammoni tasvirlab bering..."
                 rows={4}
-                className="mb-3 w-full resize-none rounded-2xl border border-border bg-bg p-3 text-sm outline-none focus:border-accent"
+                className="mb-3 w-full resize-none rounded-xl border border-border bg-bg p-3 text-sm outline-none focus:border-accent"
               />
+              {submitError && <p className="mb-3 text-xs font-medium text-danger">Xabar yuborilmadi. Qaytadan urining.</p>}
               <Button fullWidth disabled={!message.trim()} loading={submitting} onClick={submit}>
                 Yuborish
               </Button>

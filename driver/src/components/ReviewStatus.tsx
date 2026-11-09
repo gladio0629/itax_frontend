@@ -92,8 +92,8 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
             "flex h-20 w-20 items-center justify-center rounded-full",
             settled
               ? status === "approved"
-                ? "bg-accent text-white animate-check-pop"
-                : "bg-danger text-white animate-check-pop"
+                ? "bg-accent text-bg animate-check-pop"
+                : "bg-danger text-bg animate-check-pop"
               : "bg-accent-10 text-accent"
           )}
         >
@@ -141,7 +141,7 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
                 <div
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors",
-                    isDone ? "bg-accent text-white" : isActive ? "bg-accent-10 text-accent" : "bg-ink/5 text-ink/60"
+                    isDone ? "bg-accent text-bg" : isActive ? "bg-accent-10 text-accent" : "bg-ink/5 text-ink/60"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />

@@ -78,6 +78,7 @@ export function RolesScreen() {
               value={a.role}
               disabled={busyId === a.id}
               onChange={(e) => handleRoleChange(a.id, e.target.value as AdminRole)}
+              aria-label={`${a.name} uchun rol`}
               className="h-9 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
             >
               {(Object.keys(ROLE_LABEL) as AdminRole[]).map((r) => (

@@ -62,7 +62,7 @@ export function NotificationsScreen() {
                 <button
                   key={n.id}
                   onClick={() => markRead(n.id)}
-                  className="flex w-full items-start gap-3 rounded-3xl bg-card p-4 text-left shadow-softer"
+                  className="flex w-full items-start gap-3 rounded-2xl bg-card p-4 text-left shadow-softer"
                 >
                   <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
                     <Icon className="h-4 w-4" />
@@ -71,7 +71,7 @@ export function NotificationsScreen() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-ink">{n.title}</p>
                     <p className="mt-0.5 text-xs text-ink/60">{n.body}</p>
-                    <p className="mt-1 text-[11px] text-ink/40">{formatRelativeDay(n.createdAt)}</p>
+                    <p className="mt-1 text-[11px] text-ink/60">{formatRelativeDay(n.createdAt)}</p>
                   </div>
                 </button>
               );

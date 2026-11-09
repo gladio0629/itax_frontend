@@ -49,14 +49,25 @@ export function OrdersScreen() {
     {
       key: "route",
       header: "Yo'nalish",
+      width: "180px",
       render: (o) => (
-        <span>
+        <span className="block max-w-[180px] truncate">
           {o.fromCityName} → {o.toCityName}
         </span>
       ),
     },
-    { key: "passenger", header: "Yo'lovchi", sortValue: (o) => o.passengerName, render: (o) => o.passengerName },
-    { key: "driver", header: "Haydovchi", sortValue: (o) => o.driverName ?? "", render: (o) => o.driverName ?? "—" },
+    {
+      key: "passenger",
+      header: "Yo'lovchi",
+      sortValue: (o) => o.passengerName,
+      render: (o) => <span className="block max-w-[140px] truncate">{o.passengerName}</span>,
+    },
+    {
+      key: "driver",
+      header: "Haydovchi",
+      sortValue: (o) => o.driverName ?? "",
+      render: (o) => <span className="block max-w-[140px] truncate">{o.driverName ?? "—"}</span>,
+    },
     { key: "price", header: "Narx", sortValue: (o) => o.price, render: (o) => <span className="tabular">{formatSom(o.price)}</span> },
     { key: "status", header: "Holat", render: (o) => <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge> },
     {

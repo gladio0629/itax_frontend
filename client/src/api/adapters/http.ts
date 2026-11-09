@@ -31,6 +31,7 @@ export const httpAdapter: ApiAdapter = {
   getNotifications: notImplemented("getNotifications"),
   markNotificationRead: notImplemented("markNotificationRead"),
   getProfile: notImplemented("getProfile"),
+  getWallet: notImplemented("getWallet"),
   applyPromoCode: notImplemented("applyPromoCode"),
   getReferralCode: notImplemented("getReferralCode"),
   submitSupportTicket: notImplemented("submitSupportTicket"),

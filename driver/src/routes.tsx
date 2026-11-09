@@ -3,11 +3,11 @@ import { OffersScreen } from "@/features/offers/OffersScreen";
 import { ActiveTripScreen } from "@/features/trip/ActiveTripScreen";
 import { WalletScreen } from "@/features/wallet/WalletScreen";
 import { WalletTopupScreen } from "@/features/wallet/WalletTopupScreen";
-import { StatsScreen } from "@/features/stats/StatsScreen";
 import { ProfileScreen } from "@/features/profile/ProfileScreen";
 import { RegistrationScreen } from "@/features/registration/RegistrationScreen";
 import { NotificationsScreen } from "@/features/notifications/NotificationsScreen";
 import { HistoryScreen } from "@/features/history/HistoryScreen";
+import { SettingsScreen } from "@/features/settings/SettingsScreen";
 
 export function AppRoutes() {
   return (
@@ -17,8 +17,8 @@ export function AppRoutes() {
       <Route path="/trip/:orderId" element={<ActiveTripScreen />} />
       <Route path="/wallet" element={<WalletScreen />} />
       <Route path="/wallet/topup" element={<WalletTopupScreen />} />
-      <Route path="/stats" element={<StatsScreen />} />
       <Route path="/profile" element={<ProfileScreen />} />
+      <Route path="/settings" element={<SettingsScreen />} />
       <Route path="/register" element={<RegistrationScreen />} />
       <Route path="/notifications" element={<NotificationsScreen />} />
       <Route path="/history" element={<HistoryScreen />} />

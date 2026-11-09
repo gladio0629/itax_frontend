@@ -53,7 +53,7 @@ export function HistoryScreen() {
             {orders.map((o) => {
               const status = STATUS_TONE[o.status] ?? STATUS_TONE.completed;
               return (
-                <div key={o.id} className="flex flex-col gap-2 rounded-3xl bg-card p-4 shadow-softer">
+                <div key={o.id} className="flex flex-col gap-2 rounded-2xl bg-card p-4 shadow-softer">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-ink">
                       {o.fromCity.name} &rarr; {o.toCity.name}
@@ -64,7 +64,7 @@ export function HistoryScreen() {
                     <span>{formatRelativeDay(o.createdAt)}</span>
                     <span className="flex items-center gap-2">
                       {o.rating && (
-                        <span className="flex items-center gap-0.5 font-medium text-warning">
+                        <span className="flex items-center gap-0.5 font-semibold text-warning">
                           <Star className="h-3 w-3 fill-warning" /> {o.rating}
                         </span>
                       )}

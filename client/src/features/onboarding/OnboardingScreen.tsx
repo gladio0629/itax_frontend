@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/Button";
+import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/authStore";
 import { RouteIllustration, PriceIllustration, TrustIllustration } from "./illustrations";
@@ -37,7 +38,8 @@ export function OnboardingScreen() {
 
   return (
     <div className="flex h-full flex-col bg-bg px-6" style={{ paddingTop: "calc(var(--safe-top) + 24px)" }}>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <Logo size={32} />
         {!isLast && (
           <button onClick={finish} className="text-sm font-medium text-ink/60 h-11 px-2">
             O'tkazib yuborish

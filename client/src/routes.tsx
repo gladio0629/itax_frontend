@@ -7,6 +7,7 @@ import { HomeScreen } from "@/features/home/HomeScreen";
 import { OrderConfigureScreen } from "@/features/order/OrderConfigureScreen";
 import { OrderTrackScreen } from "@/features/order/OrderTrackScreen";
 import { OrderFinishedScreen } from "@/features/order/OrderFinishedScreen";
+import { WalletScreen } from "@/features/wallet/WalletScreen";
 import { CardsScreen } from "@/features/cards/CardsScreen";
 import { CardLinkScreen } from "@/features/cards/CardLinkScreen";
 import { ReferralScreen } from "@/features/bonus/ReferralScreen";
@@ -43,6 +44,7 @@ export function AppRoutes() {
       <Route path="/order/track/:orderId" element={<RequireAuth><OrderTrackScreen /></RequireAuth>} />
       <Route path="/order/finished/:orderId" element={<RequireAuth><OrderFinishedScreen /></RequireAuth>} />
 
+      <Route path="/wallet" element={<RequireAuth><WalletScreen /></RequireAuth>} />
       <Route path="/cards" element={<RequireAuth><CardsScreen /></RequireAuth>} />
       <Route path="/cards/link" element={<RequireAuth><CardLinkScreen /></RequireAuth>} />
       <Route path="/referral" element={<RequireAuth><ReferralScreen /></RequireAuth>} />

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Lock, Mail, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
+import { Logo } from "@/components/Logo";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
@@ -71,9 +72,9 @@ export function LoginScreen() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
-      <div className="w-full max-w-[420px] rounded-3xl bg-card p-8 shadow-softer">
+      <div className="w-full max-w-[420px] rounded-2xl bg-card p-8 shadow-softer">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-sm font-bold text-white">IZ</div>
+          <Logo size={44} />
           <div>
             <p className="text-lg font-semibold text-ink">IZGO Admin</p>
             <p className="text-xs text-ink/50">Boshqaruv paneliga xush kelibsiz</p>
@@ -84,6 +85,8 @@ export function LoginScreen() {
           <div className="space-y-4">
             <Input
               label="Email"
+              type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               leftIcon={<Mail className="h-4 w-4" />}
@@ -92,6 +95,7 @@ export function LoginScreen() {
             <Input
               label="Parol"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               leftIcon={<Lock className="h-4 w-4" />}
@@ -130,7 +134,7 @@ export function LoginScreen() {
                   inputMode="numeric"
                   maxLength={1}
                   className={cn(
-                    "h-14 w-14 rounded-2xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
+                    "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
                     codeError ? "border-danger" : "border-border focus:border-accent"
                   )}
                 />

@@ -27,9 +27,9 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0b1512] py-10">
-      <div className="relative h-[844px] w-[390px] overflow-hidden rounded-[48px] border-[6px] border-[#1c2420] bg-bg shadow-2xl">
-        <div className="absolute left-1/2 top-0 z-30 h-6 w-32 -translate-x-1/2 rounded-b-2xl bg-[#1c2420]" />
+    <div className="flex min-h-screen items-center justify-center bg-[#05070f] py-10">
+      <div className="relative h-[844px] w-[390px] overflow-hidden rounded-[48px] border-[6px] border-[#1a2340] bg-bg shadow-2xl">
+        <div className="absolute left-1/2 top-0 z-30 h-6 w-32 -translate-x-1/2 rounded-b-2xl bg-[#1a2340]" />
         <div className="relative h-full w-full overflow-hidden">
           <DemoBadge />
           {children}

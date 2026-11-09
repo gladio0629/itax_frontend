@@ -46,18 +46,27 @@ export function AuditScreen() {
       sortValue: (e) => e.createdAt,
       render: (e) => <span className="text-xs text-ink/60">{formatDateTime(e.createdAt)}</span>,
     },
-    { key: "actor", header: "Admin", sortValue: (e) => e.actorName, render: (e) => e.actorName },
+    {
+      key: "actor",
+      header: "Admin",
+      sortValue: (e) => e.actorName,
+      render: (e) => <span className="block max-w-[140px] truncate">{e.actorName}</span>,
+    },
     { key: "action", header: "Amal", render: (e) => <Badge tone="info">{ACTION_LABEL[e.action] ?? e.action}</Badge> },
     {
       key: "target",
       header: "Obyekt",
       render: (e) => (
-        <span className="text-ink/70">
+        <span className="block max-w-[160px] truncate text-ink/70">
           {e.targetType}: {e.targetId}
         </span>
       ),
     },
-    { key: "detail", header: "Tafsilot", render: (e) => <span className="text-ink/70">{e.detail}</span> },
+    {
+      key: "detail",
+      header: "Tafsilot",
+      render: (e) => <span className="block max-w-[260px] truncate text-ink/70">{e.detail}</span>,
+    },
   ];
 
   if (error) return <ErrorState onRetry={load} />;

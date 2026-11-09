@@ -4,13 +4,17 @@ function hashSeed(seed: string): number {
   return h;
 }
 
+// Non-brand hues only — blue/yellow/orange/red are reserved for
+// accent/brand-yellow/warning/danger, so avatar initials never get mistaken
+// for an interactive or status color. Each pair keeps both stops dark
+// enough for AA contrast (>=4.5:1) against the white initials.
 const PALETTES: [string, string][] = [
-  ["#0FB67C", "#0A8A5C"],
-  ["#2F7FE0", "#1C5AAB"],
-  ["#F5A524", "#D9870E"],
-  ["#8B5CF6", "#6633D1"],
-  ["#E5484D", "#C23337"],
-  ["#14B8B0", "#0E8A84"],
+  ["#64748B", "#43506B"], // slate
+  ["#0E7490", "#155E75"], // cyan
+  ["#A21CAF", "#7C1D82"], // plum
+  ["#7C3AED", "#5B21B6"], // violet
+  ["#78716C", "#57534E"], // stone
+  ["#0F766E", "#115E59"], // teal
 ];
 
 function initials(name: string): string {

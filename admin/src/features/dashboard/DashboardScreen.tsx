@@ -31,7 +31,7 @@ export function DashboardScreen() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -42,7 +42,7 @@ export function DashboardScreen() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
         <StatCard
           icon={<Car className="h-5 w-5" />}
           label="Faol haydovchilar"
@@ -73,14 +73,20 @@ export function DashboardScreen() {
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={stats.weekPoints}>
-              <CartesianGrid stroke="rgba(14,26,22,0.06)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 12, fill: "rgba(14,26,22,0.5)" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: "rgba(14,26,22,0.5)" }} axisLine={false} tickLine={false} width={40} />
+              <CartesianGrid stroke="rgba(14,20,32,0.06)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 12, fill: "rgba(14,20,32,0.5)" }} axisLine={false} tickLine={false} />
+              <YAxis
+                tick={{ fontSize: 12, fill: "rgba(14,20,32,0.5)" }}
+                axisLine={false}
+                tickLine={false}
+                width={64}
+                tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
+              />
               <Tooltip
                 formatter={(v: number) => formatSom(v)}
-                contentStyle={{ borderRadius: 16, border: "1px solid rgba(14,26,22,0.08)", fontSize: 12 }}
+                contentStyle={{ borderRadius: 16, border: "1px solid rgba(14,20,32,0.08)", fontSize: 12 }}
               />
-              <Line type="monotone" dataKey="revenue" stroke="#0FB67C" strokeWidth={2.5} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="revenue" stroke="#264A9F" strokeWidth={2.5} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>

@@ -18,7 +18,7 @@ export function SkeletonRow({ cols = 5 }: { cols?: number }) {
 
 export function SkeletonCard() {
   return (
-    <div className="rounded-3xl bg-card p-6 shadow-softer">
+    <div className="rounded-2xl bg-card p-6 shadow-softer">
       <Skeleton className="mb-3 h-3.5 w-1/2" />
       <Skeleton className="h-7 w-2/3" />
     </div>

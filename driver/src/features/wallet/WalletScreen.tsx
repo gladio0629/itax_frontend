@@ -1,15 +1,22 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Wallet as WalletIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  RotateCw,
+  TrendingUp,
+  Wallet as WalletIcon,
+} from "lucide-react";
 import { api } from "@/api/client";
-import type { WalletEntry, WalletSummary } from "@/api/types";
+import type { EarningsStats, WalletEntry, WalletSummary } from "@/api/types";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { BottomNav } from "@/components/BottomNav";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
-import { SkeletonList } from "@/components/Skeleton";
+import { Skeleton, SkeletonList } from "@/components/Skeleton";
 import { formatSom, formatRelativeDay } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -26,6 +33,8 @@ export function WalletScreen() {
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<WalletSummary | null>(null);
   const [state, setState] = useState<LoadState>("loading");
+  const [earnings, setEarnings] = useState<EarningsStats | null>(null);
+  const [earningsState, setEarningsState] = useState<LoadState>("loading");
 
   function load() {
     setState("loading");
@@ -38,7 +47,21 @@ export function WalletScreen() {
       .catch(() => setState("error"));
   }
 
-  useEffect(load, []);
+  function loadEarnings() {
+    setEarningsState("loading");
+    api
+      .getEarningsStats("week")
+      .then((s) => {
+        setEarnings(s);
+        setEarningsState("ready");
+      })
+      .catch(() => setEarningsState("error"));
+  }
+
+  useEffect(() => {
+    load();
+    loadEarnings();
+  }, []);
 
   return (
     <div className="flex h-full flex-col bg-bg">
@@ -49,7 +72,8 @@ export function WalletScreen() {
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
         {state === "loading" && (
           <>
-            <div className="mb-4 h-36 w-full animate-pulse rounded-3xl bg-card" />
+            <Skeleton className="mb-4 h-24 w-full rounded-2xl" />
+            <div className="mb-4 h-36 w-full animate-pulse rounded-2xl bg-card" />
             <SkeletonList count={4} />
           </>
         )}
@@ -58,6 +82,27 @@ export function WalletScreen() {
 
         {state === "ready" && wallet && (
           <>
+            <Card className="mb-4 space-y-2 p-5">
+              <span className="flex items-center gap-2 text-xs font-semibold text-ink/70">
+                <TrendingUp className="h-4 w-4 text-accent" /> Bugungi daromad
+              </span>
+              {earningsState === "loading" && <Skeleton className="h-8 w-40 rounded-lg" />}
+              {earningsState === "error" && (
+                <button
+                  onClick={loadEarnings}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-danger"
+                >
+                  <RotateCw className="h-3.5 w-3.5" /> Yuklanmadi, qayta urinish
+                </button>
+              )}
+              {earningsState === "ready" && earnings && (
+                <div className="flex items-end justify-between">
+                  <p className="text-xl font-semibold tabular text-ink">{formatSom(earnings.totalToday)}</p>
+                  <p className="pb-1 text-xs text-ink/70 tabular">{earnings.tripsToday} safar</p>
+                </div>
+              )}
+            </Card>
+
             <Card
               className={cn(
                 "mb-4 space-y-3 p-5",
@@ -65,7 +110,7 @@ export function WalletScreen() {
               )}
             >
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-xs font-medium text-ink/60">
+                <span className="flex items-center gap-2 text-xs font-semibold text-ink/60">
                   <WalletIcon className="h-4 w-4" /> Balans
                 </span>
                 <Badge tone="info">Komissiya {wallet.commissionPct}%</Badge>
@@ -76,7 +121,7 @@ export function WalletScreen() {
               {wallet.debtBlocked && (
                 <div className="flex items-start gap-2 rounded-2xl bg-danger/10 p-3">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
-                  <p className="text-xs font-medium text-danger">
+                  <p className="text-xs font-semibold text-danger">
                     Balans limitdan past. Yangi buyurtmalarni qabul qilish uchun hamyonni to'ldiring.
                   </p>
                 </div>
@@ -107,11 +152,11 @@ export function WalletScreen() {
                       >
                         {positive ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-ink">{TYPE_LABEL[e.type]}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-ink">{TYPE_LABEL[e.type]}</p>
                         <p className="text-xs text-ink/60">{formatRelativeDay(e.createdAt)}</p>
                       </div>
-                      <span className={cn("text-sm font-semibold tabular", positive ? "text-ink" : "text-danger")}>
+                      <span className={cn("shrink-0 text-sm font-semibold tabular", positive ? "text-ink" : "text-danger")}>
                         {positive ? "+" : ""}
                         {formatSom(e.amount)}
                       </span>

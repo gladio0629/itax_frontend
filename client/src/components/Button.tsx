@@ -14,14 +14,14 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none select-none";
+  "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none select-none";
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-accent text-white shadow-soft shadow-inner5 hover:brightness-105",
+    "bg-accent text-bg shadow-soft shadow-inner5 hover:brightness-105",
   secondary: "bg-accent-5 text-accent hover:bg-accent-10",
   ghost: "bg-transparent text-ink/80 hover:bg-ink/5",
-  danger: "bg-danger text-white shadow-soft",
+  danger: "bg-danger text-bg shadow-soft",
 };
 
 const sizes: Record<Size, string> = {

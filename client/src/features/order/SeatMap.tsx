@@ -29,11 +29,11 @@ function Seat({
       aria-pressed={selected}
       aria-label={label}
       className={cn(
-        "flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-2xl border-2 text-[11px] font-semibold transition-all active:scale-95",
+        "flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border-2 text-[11px] font-semibold transition-all active:scale-95",
         disabled
           ? "border-border bg-ink/5 text-ink/40"
           : selected
-          ? "border-accent bg-accent text-white shadow-soft"
+          ? "border-accent bg-accent text-bg shadow-soft"
           : "border-border bg-card text-ink/70"
       )}
       data-seat={id}
@@ -52,10 +52,10 @@ export function SeatMap({
   onToggle: (seatId: string) => void;
 }) {
   return (
-    <div className="rounded-3xl border border-border bg-bg p-5">
+    <div className="rounded-2xl border border-border bg-bg p-5">
       <div className="mx-auto w-fit space-y-3">
         <div className="flex justify-center gap-3">
-          <div className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-border text-[11px] font-medium text-ink/40">
+          <div className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border text-[11px] font-medium text-ink/60">
             <Users className="h-5 w-5" />
             Haydovchi
           </div>

@@ -62,12 +62,13 @@ export function DriversScreen() {
       key: "name",
       header: "Haydovchi",
       sortValue: (d) => d.name,
+      width: "220px",
       render: (d) => (
-        <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           <Avatar seed={d.avatarSeed} name={d.name} />
-          <div>
-            <p className="font-medium text-ink">{d.name}</p>
-            <p className="text-xs text-ink/50">{d.phoneMasked}</p>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink">{d.name}</p>
+            <p className="truncate text-xs text-ink/50">{d.phoneMasked}</p>
           </div>
         </div>
       ),
@@ -76,7 +77,7 @@ export function DriversScreen() {
       key: "car",
       header: "Avtomobil",
       render: (d) => (
-        <span>
+        <span className="block max-w-[180px] truncate">
           {d.carModel} · {d.plate}
         </span>
       ),

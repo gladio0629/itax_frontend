@@ -14,6 +14,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Logo } from "./Logo";
 
 const NAV = [
   { to: "/dashboard", label: "Boshqaruv paneli", icon: LayoutDashboard },
@@ -34,7 +35,7 @@ export function Sidebar({ badges }: { badges: Partial<Record<string, number>> })
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col bg-sidebar-bg text-sidebar-text">
       <div className="flex items-center gap-2.5 px-6 py-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-accent text-white font-bold text-sm">IZ</div>
+        <Logo size={36} />
         <div>
           <p className="text-sm font-semibold text-sidebar-text">IZGO Admin</p>
           <p className="text-xs text-sidebar-text/50">Boshqaruv paneli</p>

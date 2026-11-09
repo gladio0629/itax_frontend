@@ -18,9 +18,12 @@ export function DemoControlPanel() {
   if (!isDemo) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+    <div
+      className="fixed right-5 z-50 flex flex-col items-end gap-3"
+      style={{ bottom: "calc(var(--safe-bottom) + 84px)" }}
+    >
       {open && (
-        <div className="w-72 rounded-3xl bg-[#13201c] p-5 text-white shadow-2xl animate-slide-up">
+        <div className="w-72 rounded-2xl bg-[#13201c] p-5 text-white shadow-2xl animate-slide-up">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">Demo boshqaruv paneli</p>
             <button onClick={() => setOpen(false)} aria-label="Yopish" className="rounded-full p-1 hover:bg-white/10">

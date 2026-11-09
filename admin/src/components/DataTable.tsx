@@ -100,7 +100,7 @@ export function DataTable<T>({
         <EmptyState icon={emptyIcon ?? <Search className="h-6 w-6" />} title={emptyTitle} description={emptyDescription} />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-3xl bg-card shadow-softer">
+          <div className="overflow-x-auto rounded-2xl bg-card shadow-softer">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border">
@@ -127,7 +127,22 @@ export function DataTable<T>({
                   <tr
                     key={rowKey(row)}
                     onClick={() => onRowClick?.(row)}
-                    className={cn("border-b border-border last:border-0", onRowClick && "cursor-pointer hover:bg-ink/[0.03]")}
+                    role={onRowClick ? "button" : undefined}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    onKeyDown={
+                      onRowClick
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onRowClick(row);
+                            }
+                          }
+                        : undefined
+                    }
+                    className={cn(
+                      "border-b border-border last:border-0",
+                      onRowClick && "cursor-pointer hover:bg-ink/[0.03] focus-visible:bg-ink/[0.03]"
+                    )}
                   >
                     {columns.map((col) => (
                       <td key={col.key} className="px-4 py-3 text-ink">
@@ -148,6 +163,7 @@ export function DataTable<T>({
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={safePage === 0}
+                aria-label="Oldingi sahifa"
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-border disabled:opacity-40"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -158,6 +174,7 @@ export function DataTable<T>({
               <button
                 onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
                 disabled={safePage >= pageCount - 1}
+                aria-label="Keyingi sahifa"
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-border disabled:opacity-40"
               >
                 <ChevronRight className="h-4 w-4" />

@@ -27,18 +27,18 @@ export function CityPickerSheet({
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-ink/40 animate-fade-in" onClick={onClose}>
       <div
-        className="mt-auto flex max-h-[75%] flex-col rounded-t-3xl bg-card animate-slide-up"
+        className="mt-auto flex max-h-[75%] flex-col rounded-t-sheet bg-card animate-slide-up"
         style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 pt-5">
           <h2 className="text-sm font-semibold text-ink">{title}</h2>
-          <button onClick={onClose} aria-label="Yopish" className="flex h-9 w-9 items-center justify-center rounded-full bg-ink/5">
+          <button onClick={onClose} aria-label="Yopish" className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/5">
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="px-5 pt-4">
-          <div className="flex h-11 items-center gap-2 rounded-2xl bg-ink/5 px-3">
+          <div className="flex h-11 items-center gap-2 rounded-xl bg-ink/5 px-3">
             <Search className="h-4 w-4 text-ink/60" />
             <input
               autoFocus

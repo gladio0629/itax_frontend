@@ -4,13 +4,17 @@ function hashSeed(seed: string): number {
   return h;
 }
 
+// Decorative initials-avatar gradients only — not brand colors, and kept
+// distinct from blue/yellow/orange/red (brand accent, brand yellow, warning,
+// danger) so avatars never read as a status color. Each pair is dark enough
+// that white initials clear 4.5:1 contrast.
 const PALETTES: [string, string][] = [
-  ["#0FB67C", "#0A8A5C"],
-  ["#2F7FE0", "#1C5AAB"],
-  ["#F5A524", "#D9870E"],
-  ["#8B5CF6", "#6633D1"],
-  ["#E5484D", "#C23337"],
-  ["#14B8B0", "#0E8A84"],
+  ["#64748B", "#48566B"],
+  ["#2A6FC4", "#1C5AAB"],
+  ["#9C6708", "#6B4103"],
+  ["#7C4CE8", "#6633D1"],
+  ["#D13138", "#C23337"],
+  ["#0A756E", "#043F38"],
 ];
 
 function initials(name: string): string {

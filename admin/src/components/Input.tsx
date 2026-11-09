@@ -23,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, Props>(
         )}
         <div
           className={cn(
-            "flex h-11 items-center gap-2 rounded-2xl border bg-card px-4 transition-colors",
+            "flex h-11 items-center gap-2 rounded-xl border bg-card px-4 transition-colors",
             error ? "border-danger" : "border-border focus-within:border-accent"
           )}
         >

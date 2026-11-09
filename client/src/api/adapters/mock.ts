@@ -10,11 +10,13 @@ import type {
   NotificationItem,
   OrderWithDetails,
   OtpRequestResult,
+  PassengerWalletEntry,
   Profile,
   Quote,
   QuoteInput,
   RouteSuggestion,
   SavedCard,
+  WalletSummary,
 } from "../types";
 
 const DEMO_OTP_CODE = "0000";
@@ -270,6 +272,80 @@ export const mockAdapter: ApiAdapter = {
         avatarSeed: p.avatarSeed,
         rating: p.rating,
         totalTrips: p.totalTrips,
+      };
+    }),
+
+  /**
+   * Passenger wallet — all balance/ledger computation lives here, never in
+   * a component. Derived believably from the passenger's own card-paid
+   * orders (card is the only payment method that ever touches the
+   * in-app wallet — cash trips are paid directly to the driver):
+   *  - a couple of seeded top-ups kick off the balance,
+   *  - each completed card order debits a `trip_payment`,
+   *  - each cancelled card order is paired with a `refund`,
+   *  - a referral `bonus` mirrors getReferralCode()'s bonusSom.
+   * The balance never goes negative (passengers top up before it would).
+   */
+  getWallet: () =>
+    withLatency<WalletSummary>(() => {
+      const scenarios = getDemoScenarios();
+      const passengerId = currentPassengerId();
+      const myCardOrders = db
+        .orders()
+        .filter((o) => o.passengerId === passengerId && o.paymentMethod === "card")
+        .sort((a, b) => a.createdAt - b.createdAt);
+
+      const oldestTs = myCardOrders[0]?.createdAt ?? Date.now() - 25 * 86_400_000;
+
+      type Draft = Omit<PassengerWalletEntry, "balanceAfter">;
+      const drafts: Draft[] = [
+        { id: `wtp_${passengerId}_seed1`, type: "topup", amount: 300_000, createdAt: oldestTs - 6 * 86_400_000 },
+        { id: `wtp_${passengerId}_seed2`, type: "bonus", amount: 60_000, createdAt: oldestTs - 2 * 86_400_000 },
+      ];
+
+      for (const o of myCardOrders) {
+        if (o.status === "completed") {
+          drafts.push({ id: `wtx_${o.id}`, type: "trip_payment", amount: -o.price, createdAt: o.createdAt, orderId: o.id });
+        } else if (o.status === "cancelled") {
+          // Charged then refunded in full — cancellations never cost the passenger.
+          drafts.push({ id: `wtx_${o.id}`, type: "trip_payment", amount: -o.price, createdAt: o.createdAt, orderId: o.id });
+          drafts.push({ id: `wrf_${o.id}`, type: "refund", amount: o.price, createdAt: o.createdAt + 1, orderId: o.id });
+        }
+      }
+
+      // One more top-up roughly halfway through, so the ledger isn't just a
+      // single opening deposit for passengers with few trips.
+      drafts.push({ id: `wtp_${passengerId}_seed3`, type: "topup", amount: 150_000, createdAt: oldestTs + 10 * 86_400_000 });
+
+      drafts.sort((a, b) => a.createdAt - b.createdAt);
+      let running = 0;
+      for (const d of drafts) running = Math.max(0, running + d.amount);
+
+      // Demo-only "low balance" scenario: there's no debt/blocking concept
+      // for passengers (that's driver-only) — just a believable extra trip
+      // that brings the balance down, so the low-balance notice has
+      // something real to show, while balance === newest balanceAfter.
+      if (scenarios.walletLimit && running > 4_000) {
+        drafts.push({
+          id: `wtx_${passengerId}_lowbal`,
+          type: "trip_payment",
+          amount: -(running - 4_000),
+          createdAt: Date.now() - 2 * 3_600_000,
+        });
+        running = 4_000;
+      }
+
+      const entries: PassengerWalletEntry[] = [];
+      let acc = 0;
+      for (const d of drafts) {
+        acc = Math.max(0, acc + d.amount);
+        entries.push({ ...d, balanceAfter: acc });
+      }
+
+      return {
+        balance: acc,
+        lowBalance: acc < 20_000,
+        entries: [...entries].reverse(),
       };
     }),
 

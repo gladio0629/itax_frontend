@@ -107,7 +107,7 @@ export function VerificationScreen() {
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Rad etish sababi..."
                 rows={2}
-                className="w-full rounded-2xl border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent"
+                className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent"
               />
               <div className="flex gap-2">
                 <Button variant="danger" size="sm" loading={busyId === d.id} disabled={!reason.trim()} onClick={() => handleReject(d.id)}>

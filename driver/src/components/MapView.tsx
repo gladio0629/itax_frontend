@@ -39,36 +39,36 @@ export function MapView({
     >
       <defs>
         <linearGradient id="mapBgDriver" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#16261F" />
-          <stop offset="100%" stopColor="#0E1A16" />
+          <stop offset="0%" stopColor="#141f3d" />
+          <stop offset="100%" stopColor="#0a1020" />
         </linearGradient>
       </defs>
       <rect width="380" height="380" fill="url(#mapBgDriver)" />
       {Array.from({ length: 10 }).map((_, i) => (
-        <line key={`v${i}`} x1={i * 38} y1="0" x2={i * 38} y2="380" stroke="#24352D" strokeWidth="1" opacity="0.5" />
+        <line key={`v${i}`} x1={i * 38} y1="0" x2={i * 38} y2="380" stroke="#223059" strokeWidth="1" opacity="0.5" />
       ))}
       {Array.from({ length: 10 }).map((_, i) => (
-        <line key={`h${i}`} x1="0" y1={i * 38} x2="380" y2={i * 38} stroke="#24352D" strokeWidth="1" opacity="0.5" />
+        <line key={`h${i}`} x1="0" y1={i * 38} x2="380" y2={i * 38} stroke="#223059" strokeWidth="1" opacity="0.5" />
       ))}
-      <path d={pathD} fill="none" stroke="#0E1A16" strokeWidth="10" strokeLinecap="round" opacity="0.9" />
+      <path d={pathD} fill="none" stroke="#0a1020" strokeWidth="10" strokeLinecap="round" opacity="0.9" />
       <path
         d={pathD}
         fill="none"
-        stroke="#1ED697"
+        stroke="#6E96E6"
         strokeWidth="4"
         strokeLinecap="round"
         strokeDasharray="2 10"
       />
-      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="7" fill="#F6F8F7" />
-      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="3" fill="#0E1A16" />
-      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="7" fill="#1ED697" />
-      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="3" fill="#0E1A16" />
+      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="7" fill="#EDF1F8" />
+      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="3" fill="#0a1020" />
+      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="7" fill="#6E96E6" />
+      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="3" fill="#0a1020" />
       {showCar && (
         <g transform={`translate(${carX - 14}, ${carY - 14})`}>
-          <circle cx="14" cy="14" r="16" fill="#1ED697" opacity="0.18" />
-          <circle cx="14" cy="14" r="13" fill="#1ED697" />
+          <circle cx="14" cy="14" r="16" fill="#6E96E6" opacity="0.18" />
+          <circle cx="14" cy="14" r="13" fill="#6E96E6" />
           <foreignObject x="2" y="2" width="24" height="24">
-            <div className="flex h-6 w-6 items-center justify-center text-[#0b1512]">
+            <div className="flex h-6 w-6 items-center justify-center text-bg">
               <Car className="h-3.5 w-3.5" />
             </div>
           </foreignObject>

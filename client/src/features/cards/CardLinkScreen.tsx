@@ -27,6 +27,7 @@ export function CardLinkScreen() {
   const [label, setLabel] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState(false);
 
   const digits = cardNumber.replace(/\s/g, "");
   const isValid = digits.length === 16 && expiry.length === 5 && cvv.length === 3 && label.trim().length > 0;
@@ -43,6 +44,7 @@ export function CardLinkScreen() {
 
   async function submit() {
     setSubmitting(true);
+    setSubmitError(false);
     try {
       const review = await api.linkCard({
         label: label.trim(),
@@ -50,6 +52,8 @@ export function CardLinkScreen() {
         brand: detectBrand(digits),
       });
       setReviewId(review.id);
+    } catch {
+      setSubmitError(true);
     } finally {
       setSubmitting(false);
     }
@@ -72,26 +76,26 @@ export function CardLinkScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#0E1A16]">
-      <ScreenHeader title="" transparent />
+    <div className="flex h-full flex-col bg-bg">
+      <ScreenHeader title="Karta bog'lash" />
       <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <div className="mb-6 flex items-center gap-2 text-white/70">
+        <div className="mb-6 flex items-center gap-2 text-ink/60">
           <Lock className="h-4 w-4" />
           <p className="text-xs">IZGO Pay &middot; xavfsiz to'lov provayderi orqali</p>
         </div>
 
-        <div className="mb-6 h-44 w-full rounded-3xl bg-gradient-to-br from-[#1ED697] to-[#0E6B4C] p-5 text-white shadow-soft">
+        <div className="mb-6 h-44 w-full rounded-2xl bg-accent p-5 text-white shadow-soft">
           <p className="text-xs opacity-70">Karta raqami</p>
           <p className="mt-2 text-lg font-semibold tabular tracking-widest">
             {cardNumber || "\u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022"}
           </p>
-          <div className="mt-6 flex justify-between text-xs opacity-80">
+          <div className="mt-6 flex justify-between text-xs opacity-80 tabular">
             <span>{expiry || "OY/YIL"}</span>
             <span>IZGO PAY</span>
           </div>
         </div>
 
-        <div className="space-y-4 rounded-3xl bg-white p-5">
+        <div className="space-y-4 rounded-2xl bg-card p-5 shadow-softer">
           <Input
             label="Karta raqami"
             inputMode="numeric"
@@ -124,11 +128,12 @@ export function CardLinkScreen() {
           />
         </div>
 
-        <p className="mt-4 flex items-center gap-2 text-xs text-white/50">
+        <p className="mt-4 flex items-center gap-2 text-xs text-ink/60">
           <ShieldCheck className="h-3.5 w-3.5" /> IZGO karta raqamingizni saqlamaydi, faqat oxirgi 4 raqam ko'rinadi.
         </p>
       </div>
       <div className="px-6" style={{ paddingBottom: "calc(var(--safe-bottom) + 24px)" }}>
+        {submitError && <p className="mb-3 text-xs font-medium text-danger">Karta bog'lanmadi. Qaytadan urining.</p>}
         <Button fullWidth disabled={!isValid} loading={submitting} onClick={submit}>
           Kartani bog'lash
         </Button>

@@ -67,7 +67,7 @@ export function WalletTopupScreen() {
                 setCustom("");
               }}
               className={cn(
-                "rounded-2xl border px-4 py-3.5 text-sm font-semibold transition-colors",
+                "rounded-xl border px-4 py-3.5 text-sm font-semibold transition-colors",
                 !custom && amount === v ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/80"
               )}
             >

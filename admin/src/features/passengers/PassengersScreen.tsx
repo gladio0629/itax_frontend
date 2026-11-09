@@ -50,17 +50,18 @@ export function PassengersScreen() {
       key: "name",
       header: "Yo'lovchi",
       sortValue: (p) => p.name,
+      width: "240px",
       render: (p) => (
-        <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           <Avatar seed={p.avatarSeed} name={p.name} />
-          <div>
-            <p className="font-medium text-ink">{p.name}</p>
-            <p className="text-xs text-ink/50">{p.phoneMasked}</p>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink">{p.name}</p>
+            <p className="truncate text-xs text-ink/50">{p.phoneMasked}</p>
           </div>
         </div>
       ),
     },
-    { key: "city", header: "Shahar", render: (p) => cityName(p.cityId) },
+    { key: "city", header: "Shahar", render: (p) => <span className="block max-w-[140px] truncate">{cityName(p.cityId)}</span> },
     { key: "rating", header: "Reyting", sortValue: (p) => p.rating, render: (p) => <span className="tabular">{p.rating.toFixed(1)}</span> },
     { key: "trips", header: "Safarlar", sortValue: (p) => p.totalTrips, render: (p) => <span className="tabular">{p.totalTrips}</span> },
   ];

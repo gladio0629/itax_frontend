@@ -5,7 +5,7 @@ function hashSeed(seed: string): number {
 }
 
 const PALETTES: [string, string][] = [
-  ["#0FB67C", "#0A8A5C"],
+  ["#D6409F", "#A52F7C"],
   ["#2F7FE0", "#1C5AAB"],
   ["#F5A524", "#D9870E"],
   ["#8B5CF6", "#6633D1"],

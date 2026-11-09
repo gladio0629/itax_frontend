@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/cn";
 
 function formatPhoneInput(raw: string): string {
@@ -47,13 +48,20 @@ export function RegistrationScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [citiesError, setCitiesError] = useState(false);
 
-  useEffect(() => {
-    api.getCities().then((list) => {
-      setCities(list);
-      setCityId((prev) => prev || list[0]?.id || "");
-    });
-  }, []);
+  function loadCities() {
+    setCitiesError(false);
+    api
+      .getCities()
+      .then((list) => {
+        setCities(list);
+        setCityId((prev) => prev || list[0]?.id || "");
+      })
+      .catch(() => setCitiesError(true));
+  }
+
+  useEffect(loadCities, []);
 
   const phoneDigits = phone.replace(/\D/g, "");
   const canNextInfo = name.trim().length >= 3 && phoneDigits.length === 9 && !!cityId;
@@ -62,11 +70,15 @@ export function RegistrationScreen() {
 
   async function startOtp() {
     setOtpError(null);
-    const fullPhone = `+998 ${phone}`;
-    const res = await api.requestOtp(fullPhone);
-    setOtpRequestId(res.requestId);
-    setOtpDemoCode(res.demoCode);
-    setOtpDigits(["", "", "", ""]);
+    try {
+      const fullPhone = `+998 ${phone}`;
+      const res = await api.requestOtp(fullPhone);
+      setOtpRequestId(res.requestId);
+      setOtpDemoCode(res.demoCode);
+      setOtpDigits(["", "", "", ""]);
+    } catch {
+      setOtpError("Kod yuborilmadi. Qaytadan urinib ko'ring.");
+    }
   }
 
   function goToOtpStep() {
@@ -121,7 +133,7 @@ export function RegistrationScreen() {
         <div className="flex flex-1 items-center justify-center">
           {done ? (
             <div className="flex flex-col items-center gap-4 px-6 text-center animate-fade-in">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-white animate-check-pop">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-bg animate-check-pop">
                 <ShieldCheck className="h-9 w-9" />
               </div>
               <p className="text-lg font-semibold text-ink">Hujjatlar qabul qilindi!</p>
@@ -150,6 +162,10 @@ export function RegistrationScreen() {
     <div className="flex h-full flex-col bg-bg">
       <ScreenHeader title="Ro'yxatdan o'tish namunasi" />
 
+      <div className="flex justify-center pb-1">
+        <Logo size={36} />
+      </div>
+
       <div className="flex items-center justify-between px-6 pb-2 pt-1">
         {STEPS.map((s, i) => {
           const Icon = s.icon;
@@ -164,7 +180,7 @@ export function RegistrationScreen() {
                 <div
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors",
-                    isDone ? "bg-accent text-white" : isActive ? "bg-accent-10 text-accent" : "bg-ink/5 text-ink/60"
+                    isDone ? "bg-accent text-bg" : isActive ? "bg-accent-10 text-accent" : "bg-ink/5 text-ink/60"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -181,21 +197,30 @@ export function RegistrationScreen() {
         {step === 0 && (
           <div className="space-y-4">
             <p className="text-sm text-ink/60">Avval shaxsiy ma'lumotlaringizni kiriting.</p>
-            <Input label="To'liq ism" placeholder="Ism Familiya" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input
+              label="To'liq ism"
+              placeholder="Ism Familiya"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
             <Input
               label="Telefon raqam"
+              type="tel"
               inputMode="numeric"
+              autoComplete="tel-national"
               placeholder="90 123 45 67"
               value={phone}
               onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
-              leftIcon={<span className="text-sm font-medium text-ink/80">+998</span>}
+              leftIcon={<span className="text-sm font-semibold text-ink/80">+998</span>}
             />
             <div className="w-full">
               <label className="mb-2 block text-sm font-semibold text-ink/80">Shahar</label>
               <select
                 value={cityId}
                 onChange={(e) => setCityId(e.target.value)}
-                className="h-[52px] w-full rounded-2xl border border-border bg-card px-4 text-sm text-ink outline-none focus:border-accent"
+                disabled={cities.length === 0}
+                className="h-[52px] w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none focus:border-accent disabled:opacity-50"
               >
                 {cities.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -203,6 +228,15 @@ export function RegistrationScreen() {
                   </option>
                 ))}
               </select>
+              {citiesError && (
+                <button
+                  type="button"
+                  onClick={loadCities}
+                  className="mt-1.5 text-xs font-semibold text-danger"
+                >
+                  Shaharlar ro'yxati yuklanmadi. Qayta urinish.
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -233,14 +267,14 @@ export function RegistrationScreen() {
                 key={d.field}
                 onClick={() => fakeUpload(d.field, d.file)}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-colors",
+                  "flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-colors hover:brightness-105",
                   docs[d.field] ? "border-accent bg-accent-5" : "border-border bg-card"
                 )}
               >
                 <div
                   className={cn(
                     "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-                    docs[d.field] ? "bg-accent text-white" : "bg-ink/5 text-ink/60"
+                    docs[d.field] ? "bg-accent text-bg" : "bg-ink/5 text-ink/60"
                   )}
                 >
                   {docs[d.field] ? <FileCheck2 className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
@@ -264,7 +298,7 @@ export function RegistrationScreen() {
                 +998 {phone} raqamiga yuborilgan 4 xonali kodni kiriting.
               </p>
               {otpDemoCode && (
-                <p className="mt-1 text-xs font-medium text-accent">Demo kod: {otpDemoCode}</p>
+                <p className="mt-1 text-xs font-semibold text-accent">Demo kod: {otpDemoCode}</p>
               )}
             </div>
             <div className="flex gap-3">
@@ -277,15 +311,18 @@ export function RegistrationScreen() {
                   value={d}
                   onChange={(e) => onDigitChange(i, e.target.value)}
                   inputMode="numeric"
+                  type="text"
+                  autoComplete={i === 0 ? "one-time-code" : "off"}
+                  aria-label={`Tasdiqlash kodi, ${i + 1}-xona`}
                   maxLength={1}
                   className={cn(
-                    "h-14 w-14 rounded-2xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
+                    "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
                     otpError ? "border-danger" : "border-border focus:border-accent"
                   )}
                 />
               ))}
             </div>
-            {otpError && <p className="text-xs font-medium text-danger">{otpError}</p>}
+            {otpError && <p className="text-xs font-semibold text-danger">{otpError}</p>}
           </div>
         )}
       </div>

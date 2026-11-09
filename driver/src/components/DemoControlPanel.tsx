@@ -18,9 +18,12 @@ export function DemoControlPanel() {
   if (!isDemo) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+    <div
+      className="fixed right-4 z-50 flex flex-col items-end gap-3"
+      style={{ bottom: "calc(var(--safe-bottom) + 92px)" }}
+    >
       {open && (
-        <div className="w-72 rounded-3xl bg-[#13201c] p-5 text-white shadow-2xl animate-slide-up">
+        <div className="w-72 rounded-2xl bg-[#0f1830] p-5 text-white shadow-2xl animate-slide-up border border-white/10">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">Demo boshqaruv paneli</p>
             <button onClick={() => setOpen(false)} aria-label="Yopish" className="rounded-full p-1 hover:bg-white/10">
@@ -70,7 +73,7 @@ export function DemoControlPanel() {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Demo boshqaruv paneli"
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-[#13201c] text-white shadow-2xl transition-transform active:scale-95"
+        className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0f1830] text-white shadow-2xl transition-transform hover:brightness-110 active:scale-95 border border-white/10"
       >
         <FlaskConical className="h-5 w-5" />
       </button>

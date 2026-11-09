@@ -4,12 +4,17 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Card } from "@/components/Card";
 import { cn } from "@/lib/cn";
 
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <button
       onClick={() => onChange(!value)}
-      className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", value ? "bg-accent" : "bg-ink/15")}
-      aria-pressed={value}
+      role="switch"
+      aria-checked={value}
+      aria-label={label}
+      className={cn(
+        "relative flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
+        value ? "bg-accent" : "bg-ink/15"
+      )}
     >
       <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-softer transition-transform", value ? "translate-x-5" : "translate-x-0.5")} />
     </button>
@@ -30,19 +35,19 @@ export function SettingsScreen() {
             <span className="flex items-center gap-3 text-sm font-medium text-ink">
               <Bell className="h-4 w-4 text-ink/60" /> Push-bildirishnomalar
             </span>
-            <Toggle value={pushEnabled} onChange={setPushEnabled} />
+            <Toggle value={pushEnabled} onChange={setPushEnabled} label="Push-bildirishnomalar" />
           </div>
           <div className="flex items-center justify-between p-4">
             <span className="flex items-center gap-3 text-sm font-medium text-ink">
               <Bell className="h-4 w-4 text-ink/60" /> SMS orqali xabarlar
             </span>
-            <Toggle value={smsEnabled} onChange={setSmsEnabled} />
+            <Toggle value={smsEnabled} onChange={setSmsEnabled} label="SMS orqali xabarlar" />
           </div>
         </Card>
 
         <p className="mb-2 px-1 text-xs font-semibold text-ink/60">TIL</p>
-        <Card className="mb-5 flex items-center justify-between p-4" padded={false}>
-          <div className="flex items-center justify-between p-4 w-full">
+        <Card className="mb-5" padded={false}>
+          <div className="flex items-center justify-between p-4">
             <span className="flex items-center gap-3 text-sm font-medium text-ink">
               <Globe className="h-4 w-4 text-ink/60" /> Interfeys tili
             </span>

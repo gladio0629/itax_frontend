@@ -11,22 +11,22 @@ export function MapView({ className }: { className?: string }) {
     <svg viewBox="0 0 380 380" className={cn("h-full w-full", className)} role="img" aria-label="Yo'nalish xaritasi">
       <defs>
         <linearGradient id="mapBgAdmin" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#eef5f1" />
-          <stop offset="100%" stopColor="#dce8e1" />
+          <stop offset="0%" stopColor="#eef1f8" />
+          <stop offset="100%" stopColor="#dde4f1" />
         </linearGradient>
       </defs>
       <rect width="380" height="380" fill="url(#mapBgAdmin)" />
       {Array.from({ length: 10 }).map((_, i) => (
-        <line key={`v${i}`} x1={i * 38} y1="0" x2={i * 38} y2="380" stroke="#c7d6cd" strokeWidth="1" opacity="0.6" />
+        <line key={`v${i}`} x1={i * 38} y1="0" x2={i * 38} y2="380" stroke="#cdd3e0" strokeWidth="1" opacity="0.6" />
       ))}
       {Array.from({ length: 10 }).map((_, i) => (
-        <line key={`h${i}`} x1="0" y1={i * 38} x2="380" y2={i * 38} stroke="#c7d6cd" strokeWidth="1" opacity="0.6" />
+        <line key={`h${i}`} x1="0" y1={i * 38} x2="380" y2={i * 38} stroke="#cdd3e0" strokeWidth="1" opacity="0.6" />
       ))}
       <path d={pathD} fill="none" stroke="#ffffff" strokeWidth="10" strokeLinecap="round" opacity="0.9" />
-      <path d={pathD} fill="none" stroke="#0FB67C" strokeWidth="4" strokeLinecap="round" strokeDasharray="2 10" />
-      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="7" fill="#0e1a16" />
+      <path d={pathD} fill="none" stroke="#264A9F" strokeWidth="4" strokeLinecap="round" strokeDasharray="2 10" />
+      <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="7" fill="#16264d" />
       <circle cx={PATH.p0[0]} cy={PATH.p0[1]} r="3" fill="#ffffff" />
-      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="7" fill="#0FB67C" />
+      <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="7" fill="#264A9F" />
       <circle cx={PATH.p3[0]} cy={PATH.p3[1]} r="3" fill="#ffffff" />
     </svg>
   );
