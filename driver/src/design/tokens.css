@@ -1,0 +1,28 @@
+:root {
+  --color-bg: #f6f8f7;
+  --color-card: #ffffff;
+  --color-text-rgb: 14 26 22;
+  --color-accent-rgb: 15 182 124;
+  --color-accent-5: rgba(15, 182, 124, 0.05);
+  --color-accent-10: rgba(15, 182, 124, 0.1);
+  --color-warning: #f5a524;
+  --color-danger: #e5484d;
+  --color-border: rgba(14, 26, 22, 0.08);
+  --shadow-color: rgba(14, 26, 22, 0.1);
+  --radius-card: 24px;
+  --radius-sheet: 24px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+[data-theme="dark"] {
+  --color-bg: #0b1512;
+  --color-card: #15241f;
+  --color-text-rgb: 246 248 247;
+  --color-accent-rgb: 30 214 151;
+  --color-accent-5: rgba(30, 214, 151, 0.08);
+  --color-accent-10: rgba(30, 214, 151, 0.16);
+  --color-warning: #f5a524;
+  --color-danger: #f2555b;
+  --color-border: rgba(246, 248, 247, 0.1);
+  --shadow-color: rgba(0, 0, 0, 0.4);
+}

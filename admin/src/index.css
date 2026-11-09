@@ -1,0 +1,59 @@
+@import "./design/fonts.css";
+@import "./design/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  html,
+  body {
+    background: var(--color-bg);
+    color: rgb(var(--color-text-rgb));
+  }
+  body {
+    font-family: "InterVariable", "Inter", system-ui, sans-serif;
+    font-feature-settings: "cv11", "tnum" 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .tabular {
+    font-feature-settings: "tnum" 1;
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-accent-rgb));
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      var(--color-border) 25%,
+      rgb(var(--color-text-rgb) / 0.04) 37%,
+      var(--color-border) 63%
+    );
+    background-size: 400% 100%;
+  }
+}

@@ -1,0 +1,19 @@
+:root {
+  --color-bg: #f6f8f7;
+  --color-card: #ffffff;
+  --color-text-rgb: 14 26 22;
+  --color-accent-rgb: 15 182 124;
+  --color-accent-5: rgba(15, 182, 124, 0.05);
+  --color-accent-10: rgba(15, 182, 124, 0.1);
+  --color-warning: #f5a524;
+  --color-danger: #e5484d;
+  --color-border: rgba(14, 26, 22, 0.08);
+  --shadow-color: rgba(14, 26, 22, 0.1);
+  --radius-card: 24px;
+  --radius-sheet: 24px;
+
+  /* Admin-only: dark sidebar, independent of the light content area above. */
+  --color-sidebar-bg: #0e1a16;
+  --color-sidebar-text-rgb: 246 248 247;
+  --color-sidebar-border: rgba(246, 248, 247, 0.08);
+}
