@@ -1,37 +1,37 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
-  ShieldCheck,
   Car,
   Users,
   Route,
   Wallet,
   SlidersHorizontal,
-  LifeBuoy,
-  AlertTriangle,
-  KeySquare,
+  MessageSquareWarning,
+  UsersRound,
+  PhoneIncoming,
   History,
-  Settings,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo } from "./Logo";
+import type { Section } from "@/api/types";
 
-const NAV = [
-  { to: "/dashboard", label: "Boshqaruv paneli", icon: LayoutDashboard },
-  { to: "/verification", label: "Haydovchilarni tekshirish", icon: ShieldCheck },
-  { to: "/drivers", label: "Haydovchilar", icon: Car },
-  { to: "/passengers", label: "Yo'lovchilar", icon: Users },
-  { to: "/orders", label: "Buyurtmalar", icon: Route },
-  { to: "/wallet", label: "Hamyon va to'lovlar", icon: Wallet },
-  { to: "/tariffs", label: "Tariflar", icon: SlidersHorizontal },
-  { to: "/support", label: "Qo'llab-quvvatlash", icon: LifeBuoy },
-  { to: "/risk", label: "Xavf va firibgarlik", icon: AlertTriangle },
-  { to: "/roles", label: "Rollar", icon: KeySquare },
-  { to: "/audit", label: "Audit jurnali", icon: History },
-  { to: "/settings", label: "Sozlamalar", icon: Settings },
-] as const;
+const NAV: { to: string; section: Section; label: string; icon: typeof LayoutDashboard }[] = [
+  { to: "/dashboard", section: "stats", label: "Umumiy statistika", icon: LayoutDashboard },
+  { to: "/drivers", section: "drivers", label: "Haydovchilar", icon: Car },
+  { to: "/passengers", section: "passengers", label: "Yo'lovchilar", icon: Users },
+  { to: "/orders", section: "orders", label: "Buyurtmalar", icon: Route },
+  { to: "/wallet", section: "wallet", label: "Hamyon va to'lovlar", icon: Wallet },
+  { to: "/tariffs", section: "tariffs", label: "Tariflar", icon: SlidersHorizontal },
+  { to: "/complaints", section: "complaints", label: "Shikoyatlar", icon: MessageSquareWarning },
+  { to: "/staff", section: "staff", label: "Xodimlar", icon: UsersRound },
+  { to: "/operator/queue", section: "operatorQueue", label: "Operator: Navbat", icon: PhoneIncoming },
+  { to: "/operator/history", section: "operatorHistory", label: "Operator: Tarix", icon: History },
+  { to: "/audit", section: "audit", label: "Audit jurnali", icon: ClipboardList },
+];
 
-export function Sidebar({ badges }: { badges: Partial<Record<string, number>> }) {
+export function Sidebar({ sections, badges }: { sections: Section[]; badges: Partial<Record<string, number>> }) {
+  const items = NAV.filter((n) => sections.includes(n.section));
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col bg-sidebar-bg text-sidebar-text">
       <div className="flex items-center gap-2.5 px-6 py-6">
@@ -42,7 +42,7 @@ export function Sidebar({ badges }: { badges: Partial<Record<string, number>> })
         </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-6">
-        {NAV.map(({ to, label, icon: Icon }) => {
+        {items.map(({ to, label, icon: Icon }) => {
           const badge = badges[to];
           return (
             <NavLink
@@ -60,7 +60,7 @@ export function Sidebar({ badges }: { badges: Partial<Record<string, number>> })
                 {label}
               </span>
               {!!badge && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold text-white">
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold text-bg">
                   {badge}
                 </span>
               )}

@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { FlaskConical, RotateCcw, X } from "lucide-react";
 import { useDemoStore, type DemoScenarios } from "@/stores/demoStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useMeStore } from "@/stores/meStore";
+import { api } from "@/api/client";
+import { ALL_ROLES } from "@/mockDb/db";
+import type { AdminRole } from "@/api/types";
+import { ROLE_LABEL } from "./Topbar";
 import { cn } from "@/lib/cn";
 
 const SCENARIO_LABELS: Record<keyof DemoScenarios, { label: string; hint: string }> = {
@@ -9,13 +15,28 @@ const SCENARIO_LABELS: Record<keyof DemoScenarios, { label: string; hint: string
   forceErrors: { label: "Xatoliklarni qaytarish", hint: "So'rovlar ko'pincha xato bilan tugaydi" },
   walletLimit: { label: "Hamyon limiti", hint: "Balans -50 000 so'mga yetdi deb hisoblanadi" },
   fastForward: { label: "Vaqtni tezlashtirish", hint: "Kutish vaqtlari qisqartiriladi" },
+  shortSession: { label: "Qisqa seans", hint: "Harakatsizlikdan chiqish 20 soniyaga qisqaradi" },
 };
 
 export function DemoControlPanel() {
   const { isDemo, scenarios, toggle, resetDb } = useDemoStore();
+  const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
   const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState<AdminRole | null>(null);
 
   if (!isDemo) return null;
+
+  async function loginAsRole(role: AdminRole) {
+    setSwitching(role);
+    try {
+      await api.loginAsRole(role);
+      useMeStore.getState().clear();
+      setAuthenticated(true);
+      window.location.href = "/";
+    } finally {
+      setSwitching(null);
+    }
+  }
 
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
@@ -48,6 +69,23 @@ export function DemoControlPanel() {
               );
             })}
           </div>
+
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <p className="mb-2 text-xs font-semibold">Rol sifatida kirish</p>
+            <div className="grid grid-cols-2 gap-2">
+              {ALL_ROLES.map((role) => (
+                <button
+                  key={role}
+                  onClick={() => loginAsRole(role)}
+                  disabled={switching !== null}
+                  className="rounded-xl bg-white/5 px-2.5 py-2 text-left text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
+                >
+                  {switching === role ? "..." : ROLE_LABEL[role]}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
             onClick={resetDb}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 py-2.5 text-xs font-semibold hover:bg-white/5"

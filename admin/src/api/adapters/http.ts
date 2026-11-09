@@ -14,43 +14,75 @@ function notImplemented<T extends keyof ApiAdapter>(name: T): ApiAdapter[T] {
 }
 
 export const httpAdapter: ApiAdapter = {
-  login: notImplemented("login"),
-  requestTwoFactor: notImplemented("requestTwoFactor"),
-  verifyTwoFactor: notImplemented("verifyTwoFactor"),
+  requestLogin: notImplemented("requestLogin"),
+  verifyLoginStep: notImplemented("verifyLoginStep"),
+  resendLoginCode: notImplemented("resendLoginCode"),
   getReviewStatus: notImplemented("getReviewStatus"),
   logout: notImplemented("logout"),
-  getCurrentAdmin: notImplemented("getCurrentAdmin"),
+  getMe: notImplemented("getMe"),
   isAuthenticated: () => false,
+  loginAsRole: notImplemented("loginAsRole"),
 
   getDashboardStats: notImplemented("getDashboardStats"),
+  getMarketingStats: notImplemented("getMarketingStats"),
 
   getCities: notImplemented("getCities"),
 
-  getPendingDrivers: notImplemented("getPendingDrivers"),
+  getStaff: notImplemented("getStaff"),
+  createStaff: notImplemented("createStaff"),
+  updateStaff: notImplemented("updateStaff"),
+  setStaffStatus: notImplemented("setStaffStatus"),
+  archiveStaff: notImplemented("archiveStaff"),
+  restoreStaff: notImplemented("restoreStaff"),
+
   getDrivers: notImplemented("getDrivers"),
-  approveDriver: notImplemented("approveDriver"),
-  rejectDriver: notImplemented("rejectDriver"),
+  updateDriverProfile: notImplemented("updateDriverProfile"),
+  setDriverStatus: notImplemented("setDriverStatus"),
+  archiveDriver: notImplemented("archiveDriver"),
+  restoreDriver: notImplemented("restoreDriver"),
 
   getPassengers: notImplemented("getPassengers"),
+  createPassenger: notImplemented("createPassenger"),
+  updatePassenger: notImplemented("updatePassenger"),
+  setPassengerStatus: notImplemented("setPassengerStatus"),
+  archivePassenger: notImplemented("archivePassenger"),
+  restorePassenger: notImplemented("restorePassenger"),
 
   getOrders: notImplemented("getOrders"),
+  createOrderForPassenger: notImplemented("createOrderForPassenger"),
+  updateOrderFields: notImplemented("updateOrderFields"),
+  cancelOrder: notImplemented("cancelOrder"),
 
   getWalletLedger: notImplemented("getWalletLedger"),
+  proposeWalletAdjustment: notImplemented("proposeWalletAdjustment"),
+  getAdjustmentProposals: notImplemented("getAdjustmentProposals"),
+  approveAdjustment: notImplemented("approveAdjustment"),
+  rejectAdjustment: notImplemented("rejectAdjustment"),
 
   getTariffs: notImplemented("getTariffs"),
   getTariffProposals: notImplemented("getTariffProposals"),
-  proposeTariffChange: notImplemented("proposeTariffChange"),
-  approveTariffChange: notImplemented("approveTariffChange"),
-  rejectTariffChange: notImplemented("rejectTariffChange"),
+  proposeTariffCreate: notImplemented("proposeTariffCreate"),
+  proposeTariffEdit: notImplemented("proposeTariffEdit"),
+  proposeTariffArchive: notImplemented("proposeTariffArchive"),
+  approveTariffProposal: notImplemented("approveTariffProposal"),
+  rejectTariffProposal: notImplemented("rejectTariffProposal"),
 
-  getSupportTickets: notImplemented("getSupportTickets"),
-  getRiskItems: notImplemented("getRiskItems"),
-  resolveComplaint: notImplemented("resolveComplaint"),
-
-  getAdminUsers: notImplemented("getAdminUsers"),
-  updateAdminRole: notImplemented("updateAdminRole"),
+  getComplaints: notImplemented("getComplaints"),
+  assignComplaint: notImplemented("assignComplaint"),
+  setComplaintStatus: notImplemented("setComplaintStatus"),
+  addComplaintNote: notImplemented("addComplaintNote"),
 
   getAuditLog: notImplemented("getAuditLog"),
 
   revealPhone: notImplemented("revealPhone"),
+
+  getQueue: notImplemented("getQueue"),
+  getActiveTask: notImplemented("getActiveTask"),
+  startTask: notImplemented("startTask"),
+  rejectQueueItem: notImplemented("rejectQueueItem"),
+  finishTask: notImplemented("finishTask"),
+  getHistory: notImplemented("getHistory"),
+  editHistoryEntry: notImplemented("editHistoryEntry"),
+
+  recordExport: notImplemented("recordExport"),
 };

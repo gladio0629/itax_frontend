@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api } from "@/api/client";
+import { useMeStore } from "./meStore";
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -12,6 +13,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAuthenticated: (v) => set({ isAuthenticated: v }),
   logout: async () => {
     await api.logout();
+    useMeStore.getState().clear();
     set({ isAuthenticated: false });
   },
 }));

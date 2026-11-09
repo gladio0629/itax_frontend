@@ -1,44 +1,56 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, Mail, ShieldCheck } from "lucide-react";
+import { IdCard, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Logo } from "@/components/Logo";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
+import { useMeStore } from "@/stores/meStore";
 import { cn } from "@/lib/cn";
 
-type Phase = "credentials" | "code" | "review";
+type Phase = "identifier" | "code" | "review";
 
 export function LoginScreen() {
   const navigate = useNavigate();
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
-  const [phase, setPhase] = useState<Phase>("credentials");
-  const [email, setEmail] = useState("kamola@izgo.uz");
-  const [password, setPassword] = useState("");
+  const [phase, setPhase] = useState<Phase>("identifier");
+  const [identifier, setIdentifier] = useState("kamola@izgo.example");
   const [loading, setLoading] = useState(false);
-  const [credError, setCredError] = useState<string | null>(null);
+  const [identifierError, setIdentifierError] = useState<string | null>(null);
 
   const [requestId, setRequestId] = useState<string | null>(null);
+  const [destination, setDestination] = useState("");
   const [demoCode, setDemoCode] = useState("");
-  const [digits, setDigits] = useState<string[]>(["", "", "", ""]);
+  const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const [resending, setResending] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const inputsRef = useRef<HTMLInputElement[]>([]);
 
-  async function handleLogin() {
+  useEffect(() => {
+    if (phase !== "code" || resendSeconds <= 0) return;
+    const t = setTimeout(() => setResendSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, resendSeconds]);
+
+  async function handleStart() {
     if (loading) return;
     setLoading(true);
-    setCredError(null);
+    setIdentifierError(null);
     try {
-      await api.login(email, password);
-      const res = await api.requestTwoFactor();
+      const res = await api.requestLogin(identifier);
       setRequestId(res.requestId);
+      setDestination(res.maskedDestination);
       setDemoCode(res.demoCode);
+      setResendSeconds(res.resendSeconds);
+      setDigits(Array(6).fill(""));
       setPhase("code");
-    } catch {
-      setCredError("Email yoki parol noto'g'ri.");
+      setTimeout(() => inputsRef.current[0]?.focus(), 0);
+    } catch (e) {
+      setIdentifierError(e instanceof Error ? e.message : "Foydalanuvchi topilmadi.");
     } finally {
       setLoading(false);
     }
@@ -49,15 +61,36 @@ export function LoginScreen() {
     setLoading(true);
     setCodeError(null);
     try {
-      const review = await api.verifyTwoFactor(requestId, code);
-      setReviewId(review.id);
-      setPhase("review");
-    } catch {
-      setCodeError("Kod noto'g'ri. Qaytadan urinib ko'ring.");
-      setDigits(["", "", "", ""]);
+      const res = await api.verifyLoginStep(requestId, code);
+      if (res.done) {
+        setReviewId(res.reviewId);
+        setPhase("review");
+      } else {
+        setRequestId(res.requestId);
+        setDestination(res.maskedDestination);
+        setDemoCode(res.demoCode);
+        setResendSeconds(res.resendSeconds);
+        setDigits(Array(6).fill(""));
+        setTimeout(() => inputsRef.current[0]?.focus(), 0);
+      }
+    } catch (e) {
+      setCodeError(e instanceof Error ? e.message : "Kod noto'g'ri.");
+      setDigits(Array(6).fill(""));
       inputsRef.current[0]?.focus();
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    if (!requestId || resendSeconds > 0) return;
+    setResending(true);
+    try {
+      const res = await api.resendLoginCode(requestId);
+      setDemoCode(res.demoCode);
+      setResendSeconds(res.resendSeconds);
+    } finally {
+      setResending(false);
     }
   }
 
@@ -66,8 +99,8 @@ export function LoginScreen() {
     const next = [...digits];
     next[i] = v;
     setDigits(next);
-    if (v && i < 3) inputsRef.current[i + 1]?.focus();
-    if (next.every((d) => d) && next.join("").length === 4) handleVerify(next.join(""));
+    if (v && i < 5) inputsRef.current[i + 1]?.focus();
+    if (next.every((d) => d) && next.join("").length === 6) handleVerify(next.join(""));
   }
 
   return (
@@ -81,32 +114,24 @@ export function LoginScreen() {
           </div>
         </div>
 
-        {phase === "credentials" && (
+        {phase === "identifier" && (
           <div className="space-y-4">
             <Input
-              label="Email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              leftIcon={<Mail className="h-4 w-4" />}
+              label="Email yoki telefon"
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              leftIcon={<IdCard className="h-4 w-4" />}
+              error={identifierError ?? undefined}
+              onKeyDown={(e) => e.key === "Enter" && handleStart()}
               autoFocus
             />
-            <Input
-              label="Parol"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              leftIcon={<Lock className="h-4 w-4" />}
-              error={credError ?? undefined}
-              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-            />
             <p className="text-xs text-ink/50">
-              Demo: kamola@izgo.uz / javlon@izgo.uz / shahnoza@izgo.uz — parol: demo1234
+              Demo: kamola@izgo.example (superadmin) · behzod@izgo.example (egasi) · javlon@izgo.example (menejer) ·
+              shahnoza@izgo.example (marketolog) · dilnoza@izgo.example (operator)
             </p>
-            <Button fullWidth loading={loading} disabled={!email || !password} onClick={handleLogin}>
-              Kirish
+            <Button fullWidth loading={loading} disabled={!identifier.trim()} onClick={handleStart}>
+              Davom etish
             </Button>
           </div>
         )}
@@ -117,12 +142,12 @@ export function LoginScreen() {
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-ink">Ikki bosqichli tasdiqlash</p>
+              <p className="text-sm font-semibold text-ink">Tasdiqlash kodi</p>
               <p className="mt-1 text-xs text-ink/60">
-                Email manzilingizga yuborilgan 4 xonali kodni kiriting. (Demo kod: {demoCode})
+                {destination} manziliga yuborilgan 6 xonali kodni kiriting. (Demo kod: {demoCode})
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               {digits.map((d, i) => (
                 <input
                   key={i}
@@ -134,19 +159,26 @@ export function LoginScreen() {
                   inputMode="numeric"
                   maxLength={1}
                   className={cn(
-                    "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
+                    "h-12 w-11 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
                     codeError ? "border-danger" : "border-border focus:border-accent"
                   )}
                 />
               ))}
             </div>
             {codeError && <p className="text-xs font-medium text-danger">{codeError}</p>}
-            <Button
-              fullWidth
-              loading={loading}
-              disabled={digits.some((d) => !d)}
-              onClick={() => handleVerify(digits.join(""))}
-            >
+            <div className="flex items-center justify-between text-xs">
+              <button
+                onClick={handleResend}
+                disabled={resendSeconds > 0 || resending}
+                className="font-semibold text-accent disabled:text-ink/40"
+              >
+                {resendSeconds > 0 ? `Qayta yuborish (${resendSeconds}s)` : "Kodni qayta yuborish"}
+              </button>
+              <button onClick={() => setPhase("identifier")} className="text-ink/50">
+                Orqaga
+              </button>
+            </div>
+            <Button fullWidth loading={loading} disabled={digits.some((d) => !d)} onClick={() => handleVerify(digits.join(""))}>
               Tasdiqlash
             </Button>
           </div>
@@ -158,8 +190,9 @@ export function LoginScreen() {
             title="Tekshiruvga yuborildi"
             description="Kirish tasdiqlanmoqda. Bir necha soniya kutib turing."
             onApproved={() => {
+              useMeStore.getState().clear();
               setAuthenticated(true);
-              navigate("/dashboard", { replace: true });
+              navigate("/", { replace: true });
             }}
           />
         )}

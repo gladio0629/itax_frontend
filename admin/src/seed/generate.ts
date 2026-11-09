@@ -21,7 +21,10 @@ export type Tariff = {
   frontSeatSurcharge: number;
   fuelAdjustmentPct: number;
   commissionPct: number;
+  archived: boolean;
 };
+
+export type DriverStatus = "auto_review" | "active" | "blocked";
 
 export type Driver = {
   id: string;
@@ -36,10 +39,13 @@ export type Driver = {
   totalTrips: number;
   online: boolean;
   walletBalance: number;
-  documentsStatus: "approved" | "pending" | "rejected";
+  status: DriverStatus;
+  archived: boolean;
   avatarSeed: string;
   joinedAt: number;
 };
+
+export type PassengerStatus = "active" | "blocked";
 
 export type Passenger = {
   id: string;
@@ -49,6 +55,9 @@ export type Passenger = {
   totalTrips: number;
   avatarSeed: string;
   cityId: string;
+  status: PassengerStatus;
+  archived: boolean;
+  joinedAt: number;
 };
 
 export type OrderMode = "car" | "seat";
@@ -76,6 +85,8 @@ export type Order = {
   createdAt: number;
   rating?: number;
   cancelReason?: string;
+  note?: string;
+  createdByAdminId?: string;
   /** Only present on orders created live during the demo session — lets the
    * mock server compute status transitions as a pure function of time
    * instead of needing timers/intervals. */
@@ -88,13 +99,16 @@ export type Order = {
   };
 };
 
-export type WalletEntryType = "cash" | "card" | "commission" | "topup";
+export type WalletEntryType = "cash" | "card" | "commission" | "topup" | "adjustment";
 export type WalletEntry = {
   id: string;
   driverId: string;
   type: WalletEntryType;
   amount: number;
   orderId?: string;
+  reason?: string;
+  createdByAdminId?: string;
+  createdByAdminName?: string;
   createdAt: number;
   balanceAfter: number;
 };
@@ -107,15 +121,28 @@ export type ComplaintType =
   | "service_quality"
   | "payment_dispute";
 
+export type ComplaintNote = {
+  id: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  createdAt: number;
+};
+
+export type ComplaintStatus = "open" | "reviewing" | "resolved" | "dismissed";
+
 export type Complaint = {
   id: string;
   type: ComplaintType;
   orderId?: string;
   driverId?: string;
   passengerId?: string;
-  status: "open" | "reviewing" | "resolved" | "dismissed";
+  status: ComplaintStatus;
   description: string;
   createdAt: number;
+  assignedToId?: string;
+  assignedToName?: string;
+  notes: ComplaintNote[];
 };
 
 export const CITIES: City[] = [
@@ -160,6 +187,7 @@ export const DEFAULT_TARIFF: Tariff = {
   frontSeatSurcharge: 15000,
   fuelAdjustmentPct: 0,
   commissionPct: 10,
+  archived: false,
 };
 
 export function roundPrice(v: number): number {
@@ -233,7 +261,13 @@ const COMPLAINT_TEMPLATES: Record<ComplaintType, string[]> = {
   ],
 };
 
+// Bump whenever the shape of persisted seed data changes, so a browser
+// holding an old-shape localStorage snapshot gets a fresh reseed instead of
+// crashing on missing/renamed fields.
+export const SCHEMA_VERSION = 2;
+
 export type SeedData = {
+  schemaVersion: number;
   cities: City[];
   tariffs: Tariff[];
   drivers: Driver[];
@@ -255,7 +289,7 @@ export function generateSeed(): SeedData {
     const name = `${rng.pick(MALE_NAMES)} ${rng.pick(SURNAMES)}`;
     const car = rng.pick(CAR_MODELS);
     const city = rng.pick(CITIES);
-    const docStatus = i < 10 ? "approved" : rng.pick(["pending", "approved"] as const);
+    const status = i < 10 ? "active" : rng.pick(["auto_review", "active", "blocked"] as const);
     return {
       id: `drv_${String(i + 1).padStart(2, "0")}`,
       name,
@@ -269,7 +303,8 @@ export function generateSeed(): SeedData {
       totalTrips: rng.int(40, 820),
       online: rng.bool(0.5),
       walletBalance: rng.int(-20000, 480000),
-      documentsStatus: docStatus,
+      status,
+      archived: i === 11,
       avatarSeed: `d${i}`,
       joinedAt: NOW - rng.int(30, 540) * 86_400_000,
     };
@@ -288,6 +323,9 @@ export function generateSeed(): SeedData {
       totalTrips: rng.int(1, 140),
       avatarSeed: `p${i}`,
       cityId: rng.pick(CITIES).id,
+      status: i === 2 ? "blocked" : "active",
+      archived: i === 29,
+      joinedAt: NOW - rng.int(1, 400) * 86_400_000,
     };
   });
 
@@ -361,10 +399,12 @@ export function generateSeed(): SeedData {
       status: rng.pick(["open", "reviewing", "resolved", "dismissed"]),
       description: rng.pick(COMPLAINT_TEMPLATES[type]),
       createdAt: NOW - rng.int(0, 20) * 86_400_000,
+      notes: [],
     };
   });
 
   return {
+    schemaVersion: SCHEMA_VERSION,
     cities: CITIES,
     tariffs,
     drivers,
