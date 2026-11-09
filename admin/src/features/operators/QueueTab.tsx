@@ -6,14 +6,23 @@ import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonCard } from "@/components/Skeleton";
+import { ListToolbar } from "@/components/ListToolbar";
+import { FilterSelect } from "@/components/FilterSelect";
+import { useAdapterList } from "@/hooks/useAdapterList";
 import { api } from "@/api/client";
-import type { ActiveTask, HistoryResult, QueueListItem, QueueReason } from "@/api/types";
+import type { ActiveTask, HistoryResult, OperatorQueueQuery, QueueReason } from "@/api/types";
 
 const REASON_LABEL: Record<QueueReason, string> = {
   login_issue: "Kirishda muammo",
   info_needed: "Ma'lumot kerak",
   complaint: "Shikoyat",
 };
+const REASON_OPTIONS: { value: QueueReason | "all"; label: string }[] = [
+  { value: "all", label: "Barcha sabablar" },
+  { value: "login_issue", label: REASON_LABEL.login_issue },
+  { value: "info_needed", label: REASON_LABEL.info_needed },
+  { value: "complaint", label: REASON_LABEL.complaint },
+];
 
 function waitingFor(ts: number): string {
   const mins = Math.max(0, Math.round((Date.now() - ts) / 60_000));
@@ -21,31 +30,29 @@ function waitingFor(ts: number): string {
   return `${mins} daqiqa`;
 }
 
-export function OperatorQueueScreen() {
-  const [queue, setQueue] = useState<QueueListItem[] | null>(null);
+export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: () => void }) {
+  const [search, setSearch] = useState("");
+  const [reason, setReason] = useState<QueueReason | "all">("all");
+  const query: OperatorQueueQuery = { search, reason };
+  const { items: queue, error, reload } = useAdapterList(api.getQueue, query);
+
   const [active, setActive] = useState<ActiveTask | null>(null);
-  const [error, setError] = useState(false);
+  const [activeLoaded, setActiveLoaded] = useState(!canWork);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [pendingResult, setPendingResult] = useState<HistoryResult | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [note, setNote] = useState("");
+  const [pendingResult, setPendingResult] = useState<HistoryResult | null>(null);
   const [finishing, setFinishing] = useState<HistoryResult | null>(null);
   const [activeRejectReason, setActiveRejectReason] = useState("");
 
-  async function load() {
-    setError(false);
-    try {
-      const [q, a] = await Promise.all([api.getQueue(), api.getActiveTask()]);
-      setQueue(q);
-      setActive(a);
-    } catch {
-      setError(true);
-    }
-  }
   useEffect(() => {
-    load();
-  }, []);
+    if (!canWork) return;
+    api.getActiveTask().then((t) => {
+      setActive(t);
+      setActiveLoaded(true);
+    });
+  }, [canWork]);
 
   async function start(id: string) {
     setBusyId(id);
@@ -53,7 +60,8 @@ export function OperatorQueueScreen() {
       const task = await api.startTask(id);
       setActive(task);
       setNote("");
-      await load();
+      reload();
+      onChanged();
     } finally {
       setBusyId(null);
     }
@@ -66,7 +74,8 @@ export function OperatorQueueScreen() {
       await api.rejectQueueItem(id, rejectReason.trim());
       setRejectingId(null);
       setRejectReason("");
-      await load();
+      reload();
+      onChanged();
     } finally {
       setBusyId(null);
     }
@@ -86,15 +95,16 @@ export function OperatorQueueScreen() {
       setNote("");
       setActiveRejectReason("");
       setFinishing(null);
-      await load();
+      reload();
+      onChanged();
     } finally {
       setBusyId(null);
       setPendingResult(null);
     }
   }
 
-  if (error) return <ErrorState onRetry={load} />;
-  if (!queue) {
+  if (error) return <ErrorState onRetry={reload} />;
+  if (!queue || !activeLoaded) {
     return (
       <div className="grid grid-cols-2 gap-5">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -103,6 +113,8 @@ export function OperatorQueueScreen() {
       </div>
     );
   }
+
+  const hasActiveFilters = reason !== "all";
 
   return (
     <div className="space-y-6">
@@ -143,8 +155,25 @@ export function OperatorQueueScreen() {
         </Card>
       )}
 
+      <ListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Telefon bo'yicha qidirish..."
+        resultCount={queue.length}
+        hasActiveFilters={hasActiveFilters}
+        onClear={() => setReason("all")}
+      >
+        <FilterSelect value={reason} onChange={setReason} options={REASON_OPTIONS} aria-label="Sabab bo'yicha filtr" />
+      </ListToolbar>
+
       {queue.length === 0 ? (
-        <EmptyState icon={<Phone className="h-6 w-6" />} title="Navbat bo'sh" description="Hozircha qo'ng'iroq kutayotgan mijozlar yo'q." />
+        <EmptyState
+          icon={<Phone className="h-6 w-6" />}
+          title="Hech narsa topilmadi"
+          description="Navbat bo'sh yoki filtrlarga mos mijoz yo'q."
+          actionLabel={hasActiveFilters ? "Filtrlarni tozalash" : undefined}
+          onAction={hasActiveFilters ? () => setReason("all") : undefined}
+        />
       ) : (
         <div className="space-y-3">
           {queue.map((q) => (
@@ -160,13 +189,13 @@ export function OperatorQueueScreen() {
                   </p>
                 </div>
               </div>
-              {rejectingId === q.id ? (
+              {!canWork ? null : rejectingId === q.id ? (
                 <div className="flex items-center gap-2">
                   <input
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     placeholder="Sabab..."
-                    className="h-9 w-48 rounded-xl border border-border bg-card px-3 text-xs text-ink outline-none focus:border-accent"
+                    className="h-9 w-48 rounded-xl border border-border bg-card px-3 text-xs text-ink outline-none transition-colors focus:border-accent"
                     autoFocus
                   />
                   <Button size="sm" variant="danger" loading={busyId === q.id} disabled={!rejectReason.trim()} onClick={() => rejectFromQueue(q.id)}>

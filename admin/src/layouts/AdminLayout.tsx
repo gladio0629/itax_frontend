@@ -8,6 +8,7 @@ import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useAuthStore } from "@/stores/authStore";
+import type { SectionBadges } from "@/api/types";
 
 const TITLES: Record<string, string> = {
   "/dashboard": "Umumiy statistika",
@@ -18,8 +19,7 @@ const TITLES: Record<string, string> = {
   "/tariffs": "Tariflar",
   "/complaints": "Shikoyatlar",
   "/staff": "Xodimlar",
-  "/operator/queue": "Operator: Navbat",
-  "/operator/history": "Operator: Tarix",
+  "/operators": "Operatorlar",
   "/audit": "Audit jurnali",
   "/account": "Profil",
 };
@@ -29,16 +29,11 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const { me } = usePermissions();
-  const [badges, setBadges] = useState<Partial<Record<string, number>>>({});
+  const [badges, setBadges] = useState<SectionBadges>({});
 
   useEffect(() => {
     if (!me) return;
-    if (me.sections.includes("complaints")) {
-      api.getComplaints().then((items) => setBadges((b) => ({ ...b, "/complaints": items.filter((c) => c.status === "open").length || undefined }))).catch(() => {});
-    }
-    if (me.sections.includes("operatorQueue")) {
-      api.getQueue().then((items) => setBadges((b) => ({ ...b, "/operator/queue": items.length || undefined }))).catch(() => {});
-    }
+    api.getSectionBadges().then(setBadges).catch(() => {});
   }, [me, location.pathname]);
 
   async function handleLogout() {

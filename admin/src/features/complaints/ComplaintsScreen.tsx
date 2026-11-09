@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, MessageSquareWarning, UserPlus, X } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
@@ -7,11 +7,13 @@ import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonCard } from "@/components/Skeleton";
 import { ExportButton } from "@/components/ExportButton";
+import { ListToolbar } from "@/components/ListToolbar";
+import { FilterSelect } from "@/components/FilterSelect";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAdapterList } from "@/hooks/useAdapterList";
 import { formatDateTime } from "@/lib/format";
-import { cn } from "@/lib/cn";
-import type { Complaint, ComplaintStatus, ComplaintType } from "@/api/types";
+import type { Complaint, ComplaintCategoryFilter, ComplaintQuery, ComplaintStatus, ComplaintType } from "@/api/types";
 
 const TYPE_LABEL: Record<ComplaintType, string> = {
   service_quality: "Xizmat sifati",
@@ -34,35 +36,33 @@ const STATUS_LABEL: Record<ComplaintStatus, string> = {
   resolved: "Hal qilindi",
   dismissed: "Rad etildi",
 };
-
-type Filter = "all" | "open" | "fraud";
+const STATUS_OPTIONS: { value: ComplaintStatus | "all"; label: string }[] = [
+  { value: "all", label: "Barcha holatlar" },
+  ...(Object.keys(STATUS_LABEL) as ComplaintStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+];
+const CATEGORY_OPTIONS: { value: ComplaintCategoryFilter; label: string }[] = [
+  { value: "all", label: "Barcha turlar" },
+  { value: "fraud", label: "Firibgarlik/xavf" },
+  { value: "service", label: "Xizmat/to'lov" },
+];
 
 export function ComplaintsScreen() {
   const { me } = usePermissions();
-  const [items, setItems] = useState<Complaint[] | null>(null);
-  const [error, setError] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<ComplaintStatus | "all">("all");
+  const [category, setCategory] = useState<ComplaintCategoryFilter>("all");
+  const query: ComplaintQuery = { search, status, category };
+  const { items, error, reload } = useAdapterList(api.getComplaints, query);
 
-  async function load() {
-    setError(false);
-    try {
-      setItems(await api.getComplaints());
-    } catch {
-      setError(true);
-    }
-  }
-  useEffect(() => {
-    load();
-  }, []);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
 
   async function assignToMe(id: string) {
     if (!me) return;
     setBusyId(id);
     try {
-      const updated = await api.assignComplaint(id, me.id);
-      setItems((prev) => prev?.map((c) => (c.id === id ? updated : c)) ?? null);
+      await api.assignComplaint(id, me.id);
+      reload();
     } finally {
       setBusyId(null);
     }
@@ -71,8 +71,8 @@ export function ComplaintsScreen() {
   async function close(id: string, status: "resolved" | "dismissed") {
     setBusyId(id);
     try {
-      const updated = await api.setComplaintStatus(id, status);
-      setItems((prev) => prev?.map((c) => (c.id === id ? updated : c)) ?? null);
+      await api.setComplaintStatus(id, status);
+      reload();
     } finally {
       setBusyId(null);
     }
@@ -83,15 +83,15 @@ export function ComplaintsScreen() {
     if (!text) return;
     setBusyId(id);
     try {
-      const updated = await api.addComplaintNote(id, text);
-      setItems((prev) => prev?.map((c) => (c.id === id ? updated : c)) ?? null);
+      await api.addComplaintNote(id, text);
       setNoteDrafts((d) => ({ ...d, [id]: "" }));
+      reload();
     } finally {
       setBusyId(null);
     }
   }
 
-  if (error) return <ErrorState onRetry={load} />;
+  if (error) return <ErrorState onRetry={reload} />;
   if (!items) {
     return (
       <div className="grid grid-cols-2 gap-5">
@@ -102,39 +102,45 @@ export function ComplaintsScreen() {
     );
   }
 
-  const filtered = items.filter((c) => {
-    if (filter === "open") return c.status === "open" || c.status === "reviewing";
-    if (filter === "fraud") return FRAUD_TYPES.includes(c.type);
-    return true;
-  });
+  const hasActiveFilters = status !== "all" || category !== "all";
+  function clearFilters() {
+    setStatus("all");
+    setCategory("all");
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          {(["all", "open", "fraud"] as Filter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-colors", filter === f ? "bg-ink text-bg" : "bg-ink/5 text-ink/70")}
-            >
-              {f === "all" ? "Barchasi" : f === "open" ? "Ochiq" : "Firibgarlik/xavf"}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ListToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Tavsif bo'yicha qidirish..."
+          resultCount={items.length}
+          hasActiveFilters={hasActiveFilters}
+          onClear={clearFilters}
+        >
+          <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />
+          <FilterSelect value={category} onChange={setCategory} options={CATEGORY_OPTIONS} aria-label="Turi bo'yicha filtr" />
+        </ListToolbar>
         <ExportButton
           section="complaints"
-          rows={filtered}
+          rows={items}
           filenamePrefix="shikoyatlar"
           buildRow={(c) => ({ Turi: TYPE_LABEL[c.type], Holat: c.status, Tasvir: c.description })}
         />
       </div>
 
-      {filtered.length === 0 ? (
-        <EmptyState icon={<MessageSquareWarning className="h-6 w-6" />} title="Shikoyatlar yo'q" description="Tanlangan filtrga mos shikoyat topilmadi." />
+      {items.length === 0 ? (
+        <EmptyState
+          icon={<MessageSquareWarning className="h-6 w-6" />}
+          title="Hech narsa topilmadi"
+          description="Qidiruv yoki filtrlarga mos shikoyat yo'q."
+          actionLabel={hasActiveFilters ? "Filtrlarni tozalash" : undefined}
+          onAction={hasActiveFilters ? clearFilters : undefined}
+        />
       ) : (
         <div className="grid grid-cols-2 gap-5">
-          {filtered.map((c) => (
+          {items.map((c: Complaint) => (
             <Card key={c.id} className="space-y-3">
               <div className="flex items-center justify-between">
                 <Badge tone={FRAUD_TYPES.includes(c.type) ? "danger" : "info"}>{TYPE_LABEL[c.type]}</Badge>
@@ -161,7 +167,7 @@ export function ComplaintsScreen() {
                       value={noteDrafts[c.id] ?? ""}
                       onChange={(e) => setNoteDrafts((d) => ({ ...d, [c.id]: e.target.value }))}
                       placeholder="Izoh qo'shish..."
-                      className="h-9 flex-1 rounded-xl border border-border bg-card px-3 text-xs text-ink outline-none focus:border-accent"
+                      className="h-9 flex-1 rounded-xl border border-border bg-card px-3 text-xs text-ink outline-none transition-colors focus:border-accent"
                     />
                     <Button size="sm" variant="secondary" disabled={!noteDrafts[c.id]?.trim()} loading={busyId === c.id} onClick={() => addNote(c.id)}>
                       Qo'shish

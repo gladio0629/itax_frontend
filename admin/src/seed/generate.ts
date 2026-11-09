@@ -39,6 +39,9 @@ export type Driver = {
   totalTrips: number;
   online: boolean;
   walletBalance: number;
+  /** How negative walletBalance may go before the driver is cut off. A
+   * fixed company policy value, not something a screen computes. */
+  debtLimit: number;
   status: DriverStatus;
   archived: boolean;
   avatarSeed: string;
@@ -86,6 +89,9 @@ export type Order = {
   rating?: number;
   cancelReason?: string;
   note?: string;
+  /** Requested pickup window, editable by admins who create/edit an order
+   * on a passenger's behalf. Absent means "as soon as possible". */
+  timeWindow?: { from: string; to: string };
   createdByAdminId?: string;
   /** Only present on orders created live during the demo session — lets the
    * mock server compute status transitions as a pure function of time
@@ -264,7 +270,7 @@ const COMPLAINT_TEMPLATES: Record<ComplaintType, string[]> = {
 // Bump whenever the shape of persisted seed data changes, so a browser
 // holding an old-shape localStorage snapshot gets a fresh reseed instead of
 // crashing on missing/renamed fields.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type SeedData = {
   schemaVersion: number;
@@ -303,6 +309,7 @@ export function generateSeed(): SeedData {
       totalTrips: rng.int(40, 820),
       online: rng.bool(0.5),
       walletBalance: rng.int(-20000, 480000),
+      debtLimit: -50000,
       status,
       archived: i === 11,
       avatarSeed: `d${i}`,

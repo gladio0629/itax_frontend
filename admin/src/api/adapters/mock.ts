@@ -1,5 +1,5 @@
 import { ApiError, withLatency } from "@/mockDb/latency";
-import { roadDistanceKm, computePrice, type Order, type Tariff, type Driver, type Passenger, type Complaint } from "@/seed/generate";
+import { roadDistanceKm, computePrice, type Order, type Tariff, type Driver, type Passenger, type Complaint, type ComplaintType } from "@/seed/generate";
 import {
   db,
   ROLE_SECTIONS,
@@ -35,7 +35,6 @@ import {
 } from "@/mockDb/db";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
-  DashboardStats,
   MarketingStats,
   OrderWithNames,
   WalletLedgerRow,
@@ -45,7 +44,51 @@ import type {
   LoginStep,
   QueueListItem,
   ActiveTask,
+  StaffRow,
+  StaffQuery,
+  DriverQuery,
+  PassengerQuery,
+  OrderQuery,
+  WalletQuery,
+  TariffQuery,
+  TariffProposalQuery,
+  AdjustmentProposalQuery,
+  ComplaintQuery,
+  AuditQuery,
+  OperatorQueueQuery,
+  OperatorInProgressQuery,
+  OperatorApprovedQuery,
+  SectionBadges,
+  OperatorCounts,
+  ArchivableStatusFilter,
 } from "../types";
+
+const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
+
+function matchesSearch(haystack: string, search?: string): boolean {
+  if (!search || !search.trim()) return true;
+  return haystack.toLowerCase().includes(search.trim().toLowerCase());
+}
+
+/** Shared "status + archived" filter used by Staff, Drivers and Passengers:
+ * no value or "all" means every non-archived row, "archived" means only
+ * archived ones, anything else is that exact status among non-archived
+ * rows. Business-rule filtering lives here, not in a screen's .filter(). */
+function filterByArchivableStatus<S extends string, T extends { archived: boolean; status: S }>(
+  rows: T[],
+  status: ArchivableStatusFilter<S> | undefined
+): T[] {
+  if (!status || status === "all") return rows.filter((r) => !r.archived);
+  if (status === "archived") return rows.filter((r) => r.archived);
+  return rows.filter((r) => !r.archived && r.status === status);
+}
+
+function dayStartMs(dateStr: string): number {
+  return new Date(`${dateStr}T00:00:00`).getTime();
+}
+function dayEndMs(dateStr: string): number {
+  return new Date(`${dateStr}T23:59:59.999`).getTime();
+}
 
 function requireSession() {
   const s = getSession();
@@ -70,6 +113,10 @@ function assertCanActOnRole(actor: AdminUser, role: AdminRole) {
 function assertContactInfo(role: AdminRole, phone: string, email: string) {
   if (!phone.trim()) throw new ApiError("VALIDATION", "Telefon raqami talab qilinadi.");
   if (role !== "operator" && !email.trim()) throw new ApiError("VALIDATION", "Email talab qilinadi.");
+}
+
+function requireAction(actor: AdminUser, action: "export" | "operatorWork" | "operatorSupervise") {
+  if (!ROLE_ACTIONS[actor.role].includes(action)) throw new ApiError("FORBIDDEN", "Bu amal uchun ruxsatingiz yo'q.");
 }
 
 function maskEmail(email: string): string {
@@ -176,6 +223,7 @@ function decorateOrder(o: Order): OrderWithNames {
     driverName: o.driverId ? drivers.find((d) => d.id === o.driverId)?.name ?? "—" : null,
     fromCityName: cities.find((c) => c.id === o.fromCityId)?.name ?? o.fromCityId,
     toCityName: cities.find((c) => c.id === o.toCityId)?.name ?? o.toCityId,
+    canCancel: !["completed", "cancelled", "no_driver"].includes(o.status),
   };
 }
 
@@ -375,53 +423,7 @@ export const mockAdapter: ApiAdapter = {
       });
     }),
 
-  getDashboardStats: () =>
-    withLatency<DashboardStats>(() => {
-      const drivers = db.drivers();
-      const passengers = db.passengers();
-      const orders = db.orders();
-      const complaints = db.complaints();
-      const dayMs = 86_400_000;
-      const refNow = db.generatedAt();
-      const todayKey = new Date(refNow).toDateString();
-      const weekStart = refNow - 7 * dayMs;
-
-      const ordersToday = orders.filter((o) => new Date(o.createdAt).toDateString() === todayKey);
-      const completedToday = ordersToday.filter((o) => o.status === "completed");
-      const revenueToday = completedToday.reduce((sum, o) => sum + o.price, 0);
-
-      const weekOrders = orders.filter((o) => o.createdAt >= weekStart && o.status === "completed");
-      const revenueWeek = weekOrders.reduce((sum, o) => sum + o.price, 0);
-
-      const weekPoints = Array.from({ length: 7 }, (_, i) => {
-        const dayStart = refNow - (6 - i) * dayMs;
-        const d = new Date(dayStart);
-        const dayKey = d.toDateString();
-        const dayCompleted = orders.filter((o) => o.status === "completed" && new Date(o.createdAt).toDateString() === dayKey);
-        return {
-          date: d.toLocaleDateString("uz-UZ", { day: "numeric", month: "short" }),
-          revenue: dayCompleted.reduce((sum, o) => sum + o.price, 0),
-          orders: dayCompleted.length,
-        };
-      });
-
-      return {
-        driversOnline: drivers.filter((d) => d.online).length,
-        driversTotal: drivers.length,
-        passengersTotal: passengers.length,
-        ordersToday: ordersToday.length,
-        completedToday: completedToday.length,
-        revenueToday,
-        revenueWeek,
-        weekPoints,
-        openComplaints: complaints.filter((c) => c.status === "open").length,
-        flaggedComplaints: complaints.filter(
-          (c) => ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"].includes(c.type) && c.status !== "dismissed"
-        ).length,
-      };
-    }),
-
-  getMarketingStats: (period) =>
+  getStats: (period) =>
     withLatency<MarketingStats>(() => {
       const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
       const dayMs = 86_400_000;
@@ -431,24 +433,43 @@ export const mockAdapter: ApiAdapter = {
       const passengers = db.passengers();
       const orders = db.orders();
       const cities = db.cities();
+      const tariff = db.tariffs().find((t) => !t.archived) ?? db.tariffs()[0];
+
+      const periodOrders = orders.filter((o) => o.createdAt >= since);
+      const completedPeriodOrders = periodOrders.filter((o) => o.status === "completed");
 
       const statusCounts = new Map<Order["status"], number>();
-      for (const o of orders) if (o.createdAt >= since) statusCounts.set(o.status, (statusCounts.get(o.status) ?? 0) + 1);
+      for (const o of periodOrders) statusCounts.set(o.status, (statusCounts.get(o.status) ?? 0) + 1);
       const ordersByStatus = Array.from(statusCounts.entries()).map(([status, count]) => ({ status, count }));
 
       const routeCounts = new Map<string, number>();
-      for (const o of orders) {
-        if (o.createdAt < since) continue;
+      const routeIncome = new Map<string, number>();
+      for (const o of periodOrders) {
         const key = `${o.fromCityId}__${o.toCityId}`;
         routeCounts.set(key, (routeCounts.get(key) ?? 0) + 1);
+        if (o.status === "completed") routeIncome.set(key, (routeIncome.get(key) ?? 0) + o.price);
       }
+      const cityName = (id: string) => cities.find((c) => c.id === id)?.name ?? id;
       const ordersByRoute = Array.from(routeCounts.entries())
         .sort((a, b) => b[1] - a[1])
         .slice(0, 8)
         .map(([key, count]) => {
           const [f, t] = key.split("__");
-          return { from: cities.find((c) => c.id === f)?.name ?? f, to: cities.find((c) => c.id === t)?.name ?? t, count };
+          return { from: cityName(f), to: cityName(t), count };
         });
+      const incomeByRoute = Array.from(routeIncome.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([key, income]) => {
+          const [f, t] = key.split("__");
+          return { from: cityName(f), to: cityName(t), income };
+        });
+
+      const cityIncome = new Map<string, number>();
+      for (const o of completedPeriodOrders) cityIncome.set(o.fromCityId, (cityIncome.get(o.fromCityId) ?? 0) + o.price);
+      const incomeByCity = Array.from(cityIncome.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([cityId, income]) => ({ city: cityName(cityId), income }));
 
       const bucketCount = Math.min(days, 14);
       const step = Math.max(1, Math.floor(days / bucketCount));
@@ -462,6 +483,20 @@ export const mockAdapter: ApiAdapter = {
           drivers: drivers.filter((x) => new Date(x.joinedAt).toDateString() === dayKey).length,
         };
       });
+      const incomeOverTime = Array.from({ length: bucketCount }, (_, i) => {
+        const dayStart = refNow - (bucketCount - 1 - i) * step * dayMs;
+        const d = new Date(dayStart);
+        const dayKey = d.toDateString();
+        const income = orders
+          .filter((o) => o.status === "completed" && new Date(o.createdAt).toDateString() === dayKey)
+          .reduce((s, o) => s + o.price, 0);
+        return { date: d.toLocaleDateString("uz-UZ", { day: "numeric", month: "short" }), income };
+      });
+
+      const totalIncome = completedPeriodOrders.reduce((s, o) => s + o.price, 0);
+      const totalCommission = Math.round(totalIncome * (tariff.commissionPct / 100));
+      const averageOrderValue = completedPeriodOrders.length ? Math.round(totalIncome / completedPeriodOrders.length) : 0;
+      const walletTotalBalance = drivers.reduce((s, d) => s + d.walletBalance, 0);
 
       return {
         period,
@@ -474,12 +509,41 @@ export const mockAdapter: ApiAdapter = {
         ordersByStatus,
         ordersByRoute,
         registrations,
+        totalIncome,
+        totalCommission,
+        averageOrderValue,
+        walletTotalBalance,
+        incomeOverTime,
+        incomeByRoute,
+        incomeByCity,
       };
     }),
 
   getCities: () => withLatency(() => db.cities()),
 
-  getStaff: () => withLatency(() => readStaff()),
+  getSectionBadges: () =>
+    withLatency<SectionBadges>(() => {
+      const actor = currentAdmin();
+      const badges: SectionBadges = {};
+      if (ROLE_SECTIONS[actor.role].includes("complaints")) {
+        const openCount = db.complaints().filter((c) => c.status === "open").length;
+        if (openCount) badges.complaints = openCount;
+      }
+      if (ROLE_SECTIONS[actor.role].includes("operators")) {
+        const waitingCount = readQueue().filter((q) => q.status === "waiting").length;
+        if (waitingCount) badges.operators = waitingCount;
+      }
+      return badges;
+    }),
+
+  getStaff: (query: StaffQuery) =>
+    withLatency<StaffRow[]>(() => {
+      const actor = currentAdmin();
+      let rows = filterByArchivableStatus(readStaff(), query.status);
+      if (query.role && query.role !== "all") rows = rows.filter((u) => u.role === query.role);
+      if (query.search) rows = rows.filter((u) => matchesSearch(`${u.name} ${u.email} ${u.phone}`, query.search));
+      return rows.map((u) => ({ ...u, canEdit: u.id !== actor.id && canCreateRole(actor.role, u.role) }));
+    }),
 
   createStaff: (input) =>
     withLatency<AdminUser>(() => {
@@ -592,7 +656,12 @@ export const mockAdapter: ApiAdapter = {
       return updated;
     }),
 
-  getDrivers: () => withLatency(() => db.drivers()),
+  getDrivers: (query: DriverQuery) =>
+    withLatency<Driver[]>(() => {
+      let rows = filterByArchivableStatus(db.drivers(), query.status);
+      if (query.search) rows = rows.filter((d) => matchesSearch(`${d.name} ${d.plate} ${d.carModel}`, query.search));
+      return rows;
+    }),
 
   updateDriverProfile: (id, patch) =>
     withLatency<Driver>(() => {
@@ -648,7 +717,12 @@ export const mockAdapter: ApiAdapter = {
       return d;
     }),
 
-  getPassengers: () => withLatency(() => db.passengers()),
+  getPassengers: (query: PassengerQuery) =>
+    withLatency<Passenger[]>(() => {
+      let rows = filterByArchivableStatus(db.passengers(), query.status);
+      if (query.search) rows = rows.filter((p) => matchesSearch(p.name, query.search));
+      return rows;
+    }),
 
   createPassenger: (input) =>
     withLatency<Passenger>(() => {
@@ -725,7 +799,14 @@ export const mockAdapter: ApiAdapter = {
       return p;
     }),
 
-  getOrders: () => withLatency<OrderWithNames[]>(() => db.orders().map(decorateOrder)),
+  getOrders: (query: OrderQuery) =>
+    withLatency<OrderWithNames[]>(() => {
+      let rows = db.orders();
+      if (query.status && query.status !== "all") rows = rows.filter((o) => o.status === query.status);
+      const decorated = rows.map(decorateOrder);
+      if (!query.search) return decorated;
+      return decorated.filter((o) => matchesSearch(`${o.id} ${o.passengerName} ${o.driverName ?? ""} ${o.fromCityName} ${o.toCityName}`, query.search));
+    }),
 
   createOrderForPassenger: (input) =>
     withLatency<OrderWithNames>(() => {
@@ -748,6 +829,7 @@ export const mockAdapter: ApiAdapter = {
         paymentMethod: input.paymentMethod,
         status: driver ? "accepted" : "searching",
         createdAt: Date.now(),
+        timeWindow: input.timeWindow,
         createdByAdminId: actor.id,
       };
       db.addOrder(order);
@@ -765,7 +847,8 @@ export const mockAdapter: ApiAdapter = {
   updateOrderFields: (id, patch) =>
     withLatency<OrderWithNames>(() => {
       const actor = currentAdmin();
-      db.updateOrder(id, patch);
+      const { timeWindow, ...rest } = patch;
+      db.updateOrder(id, { ...rest, timeWindow: timeWindow === null ? undefined : timeWindow });
       addAuditEntry({ actorId: actor.id, actorName: actor.name, action: "order_edit", targetType: "order", targetId: id, detail: "Buyurtma tahrirlandi" });
       const o = db.getOrder(id);
       if (!o) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");
@@ -782,12 +865,21 @@ export const mockAdapter: ApiAdapter = {
       return decorateOrder(o);
     }),
 
-  getWalletLedger: () =>
+  getWalletLedger: (query: WalletQuery) =>
     withLatency<WalletLedgerRow[]>(() => {
       const drivers = db.drivers();
-      return [...db.walletEntries()]
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .map((e) => ({ ...e, driverName: drivers.find((d) => d.id === e.driverId)?.name ?? "—" }));
+      let rows = [...db.walletEntries()].sort((a, b) => b.createdAt - a.createdAt);
+      if (query.type && query.type !== "all") rows = rows.filter((e) => e.type === query.type);
+      const decorated = rows.map((e) => ({ ...e, driverName: drivers.find((d) => d.id === e.driverId)?.name ?? "—" }));
+      if (!query.search) return decorated;
+      return decorated.filter((e) => matchesSearch(e.driverName, query.search));
+    }),
+
+  getDriverWalletInfo: (driverId) =>
+    withLatency(() => {
+      const d = db.getDriver(driverId);
+      if (!d) throw new ApiError("NOT_FOUND", "Haydovchi topilmadi");
+      return { balance: d.walletBalance, debtLimit: d.debtLimit };
     }),
 
   proposeWalletAdjustment: (driverId, amount, reason) =>
@@ -815,7 +907,12 @@ export const mockAdapter: ApiAdapter = {
       return proposal;
     }),
 
-  getAdjustmentProposals: () => withLatency(() => readAdjustmentProposals()),
+  getAdjustmentProposals: (query: AdjustmentProposalQuery) =>
+    withLatency(() => {
+      const rows = readAdjustmentProposals();
+      if (!query.status || query.status === "all") return rows;
+      return rows.filter((p) => p.status === query.status);
+    }),
 
   approveAdjustment: (proposalId) =>
     withLatency<ReviewRequest>(() => {
@@ -854,8 +951,20 @@ export const mockAdapter: ApiAdapter = {
       return updated;
     }),
 
-  getTariffs: () => withLatency(() => db.tariffs()),
-  getTariffProposals: () => withLatency(() => readTariffProposals()),
+  getTariffs: (query: TariffQuery) =>
+    withLatency<Tariff[]>(() => {
+      let rows = db.tariffs();
+      if (query.status === "active") rows = rows.filter((t) => !t.archived);
+      if (query.status === "archived") rows = rows.filter((t) => t.archived);
+      if (query.search) rows = rows.filter((t) => matchesSearch(t.name, query.search));
+      return rows;
+    }),
+  getTariffProposals: (query: TariffProposalQuery) =>
+    withLatency(() => {
+      const rows = readTariffProposals();
+      if (!query.status || query.status === "all") return rows;
+      return rows.filter((p) => p.status === query.status);
+    }),
 
   proposeTariffCreate: (input) =>
     withLatency<TariffProposal>(() => {
@@ -968,7 +1077,15 @@ export const mockAdapter: ApiAdapter = {
       return updated;
     }),
 
-  getComplaints: () => withLatency(() => db.complaints()),
+  getComplaints: (query: ComplaintQuery) =>
+    withLatency<Complaint[]>(() => {
+      let rows = db.complaints();
+      if (query.status && query.status !== "all") rows = rows.filter((c) => c.status === query.status);
+      if (query.category === "fraud") rows = rows.filter((c) => FRAUD_TYPES.includes(c.type));
+      if (query.category === "service") rows = rows.filter((c) => !FRAUD_TYPES.includes(c.type));
+      if (query.search) rows = rows.filter((c) => matchesSearch(c.description, query.search));
+      return rows;
+    }),
 
   assignComplaint: (id, toId) =>
     withLatency<Complaint>(() => {
@@ -1015,7 +1132,15 @@ export const mockAdapter: ApiAdapter = {
       return c;
     }),
 
-  getAuditLog: () => withLatency(() => readAuditLog()),
+  getAuditLog: (query: AuditQuery) =>
+    withLatency(() => {
+      let rows = readAuditLog();
+      if (query.action && query.action !== "all") rows = rows.filter((e) => e.action === query.action);
+      if (query.dateFrom) rows = rows.filter((e) => e.createdAt >= dayStartMs(query.dateFrom!));
+      if (query.dateTo) rows = rows.filter((e) => e.createdAt <= dayEndMs(query.dateTo!));
+      if (query.search) rows = rows.filter((e) => matchesSearch(`${e.actorName} ${e.detail} ${e.targetType} ${e.targetId}`, query.search));
+      return rows;
+    }),
 
   revealPhone: (entityType, entityId) =>
     withLatency(() => {
@@ -1034,7 +1159,13 @@ export const mockAdapter: ApiAdapter = {
       return { phone };
     }),
 
-  getQueue: () => withLatency(() => readQueue().filter((q) => q.status === "waiting").map(toQueueListItem)),
+  getQueue: (query: OperatorQueueQuery) =>
+    withLatency(() => {
+      let rows = readQueue().filter((q) => q.status === "waiting");
+      if (query.reason && query.reason !== "all") rows = rows.filter((q) => q.reason === query.reason);
+      if (query.search) rows = rows.filter((q) => matchesSearch(q.phoneMasked, query.search));
+      return rows.map(toQueueListItem);
+    }),
 
   getActiveTask: () =>
     withLatency<ActiveTask | null>(() => {
@@ -1045,6 +1176,7 @@ export const mockAdapter: ApiAdapter = {
   startTask: (queueId) =>
     withLatency<ActiveTask>(() => {
       const actor = currentAdmin();
+      requireAction(actor, "operatorWork");
       const list = readQueue();
       const alreadyActive = list.find((q) => q.assignedOperatorId === actor.id && q.status === "in_progress");
       if (alreadyActive) throw new ApiError("ACTIVE_TASK_EXISTS", "Sizda allaqachon faol vazifa bor.");
@@ -1052,6 +1184,8 @@ export const mockAdapter: ApiAdapter = {
       if (!item || item.status !== "waiting") throw new ApiError("NOT_FOUND", "Vazifa topilmadi yoki band.");
       item.status = "in_progress";
       item.assignedOperatorId = actor.id;
+      item.assignedOperatorName = actor.name;
+      item.startedAt = Date.now();
       saveQueue(list);
       addAuditEntry({ actorId: actor.id, actorName: actor.name, action: "operator_task_start", targetType: "queue", targetId: queueId, detail: "Vazifa boshlandi" });
       return item;
@@ -1060,6 +1194,7 @@ export const mockAdapter: ApiAdapter = {
   rejectQueueItem: (queueId, reason) =>
     withLatency<QueueListItem>(() => {
       const actor = currentAdmin();
+      requireAction(actor, "operatorWork");
       const list = readQueue();
       const item = list.find((q) => q.id === queueId);
       if (!item) throw new ApiError("NOT_FOUND", "Topilmadi");
@@ -1089,6 +1224,7 @@ export const mockAdapter: ApiAdapter = {
   finishTask: (queueId, result, note, rejectReason) =>
     withLatency<HistoryEntry>(() => {
       const actor = currentAdmin();
+      requireAction(actor, "operatorWork");
       if (result === "rejected" && !rejectReason) throw new ApiError("VALIDATION", "Rad etish sababini kiriting.");
       const list = readQueue();
       const item = list.find((q) => q.id === queueId);
@@ -1096,6 +1232,8 @@ export const mockAdapter: ApiAdapter = {
       if (result === "callback") {
         item.status = "waiting";
         item.assignedOperatorId = undefined;
+        item.assignedOperatorName = undefined;
+        item.startedAt = undefined;
       } else {
         item.status = result === "rejected" ? "rejected" : "done";
       }
@@ -1121,20 +1259,40 @@ export const mockAdapter: ApiAdapter = {
       return entry;
     }),
 
-  getHistory: () =>
-    withLatency(() => {
+  getOperatorsInProgress: (query: OperatorInProgressQuery) =>
+    withLatency<QueueListItem[]>(() => {
       const actor = currentAdmin();
-      const all = readHistory();
-      return actor.role === "operator" ? all.filter((h) => h.operatorId === actor.id) : all;
+      requireAction(actor, "operatorSupervise");
+      let rows = readQueue().filter((q) => q.status === "in_progress");
+      if (query.search) rows = rows.filter((q) => matchesSearch(`${q.assignedOperatorName ?? ""} ${q.phoneMasked}`, query.search));
+      return rows.map(toQueueListItem);
+    }),
+
+  getHistory: (query: OperatorApprovedQuery) =>
+    withLatency<HistoryEntry[]>(() => {
+      const actor = currentAdmin();
+      let rows = readHistory();
+      if (actor.role === "operator") {
+        rows = rows.filter((h) => h.operatorId === actor.id);
+      } else {
+        requireAction(actor, "operatorSupervise");
+        if (query.operatorId && query.operatorId !== "all") rows = rows.filter((h) => h.operatorId === query.operatorId);
+      }
+      if (query.result && query.result !== "all") rows = rows.filter((h) => h.result === query.result);
+      if (query.dateFrom) rows = rows.filter((h) => h.resolvedAt >= dayStartMs(query.dateFrom!));
+      if (query.dateTo) rows = rows.filter((h) => h.resolvedAt <= dayEndMs(query.dateTo!));
+      if (query.search) rows = rows.filter((h) => matchesSearch(`${h.phoneMasked} ${h.note} ${h.operatorName}`, query.search));
+      return rows;
     }),
 
   editHistoryEntry: (id, patch) =>
     withLatency<HistoryEntry>(() => {
       const actor = currentAdmin();
+      requireAction(actor, "operatorWork");
       const all = readHistory();
       const entry = all.find((h) => h.id === id);
       if (!entry) throw new ApiError("NOT_FOUND", "Topilmadi");
-      if (actor.role === "operator" && entry.operatorId !== actor.id) throw new ApiError("FORBIDDEN", "Faqat o'z tarixingizni tahrirlay olasiz.");
+      if (entry.operatorId !== actor.id) throw new ApiError("FORBIDDEN", "Faqat o'z tarixingizni tahrirlay olasiz.");
       Object.assign(entry, patch, { edited: true });
       saveHistory(all);
       addAuditEntry({
@@ -1148,10 +1306,26 @@ export const mockAdapter: ApiAdapter = {
       return entry;
     }),
 
+  getOperatorCounts: () =>
+    withLatency<OperatorCounts>(() => {
+      const all = readQueue();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const history = readHistory();
+      return {
+        queue: all.filter((q) => q.status === "waiting").length,
+        inProgress: all.filter((q) => q.status === "in_progress").length,
+        approvedToday: history.filter((h) => h.resolvedAt >= todayStart.getTime() && h.result === "resolved").length,
+      };
+    }),
+
+  getOperatorsList: () =>
+    withLatency(() => readStaff().filter((u) => u.role === "operator" && !u.archived).map((u) => ({ id: u.id, name: u.name }))),
+
   recordExport: (section) =>
     withLatency<void>(() => {
       const actor = currentAdmin();
-      if (!ROLE_ACTIONS[actor.role].includes("export")) throw new ApiError("FORBIDDEN", "Eksport huquqingiz yo'q.");
+      requireAction(actor, "export");
       addAuditEntry({ actorId: actor.id, actorName: actor.name, action: "export", targetType: "section", targetId: section, detail: `${section} eksport qilindi` });
     }),
 };

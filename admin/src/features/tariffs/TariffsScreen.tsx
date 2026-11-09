@@ -5,12 +5,14 @@ import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { ReviewStatus } from "@/components/ReviewStatus";
-import { Drawer } from "@/components/Drawer";
+import { FormDrawer } from "@/components/FormDrawer";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonCard } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
+import { ListToolbar } from "@/components/ListToolbar";
 import { api } from "@/api/client";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { Tariff, TariffProposal } from "@/api/types";
 
 const FIELD_LABEL: Record<keyof Omit<Tariff, "id" | "archived">, string> = {
@@ -39,7 +41,10 @@ function tariffToForm(t: Tariff): FormState {
 const EMPTY_FORM: FormState = { name: "", baseFare: "15000", perKmCar: "850", perKmSeat: "230", frontSeatSurcharge: "15000", fuelAdjustmentPct: "0", commissionPct: "10" };
 
 export function TariffsScreen() {
-  const [tariffs, setTariffs] = useState<Tariff[] | null>(null);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const [active, setActive] = useState<Tariff[] | null>(null);
+  const [archived, setArchived] = useState<Tariff[]>([]);
   const [proposals, setProposals] = useState<TariffProposal[]>([]);
   const [error, setError] = useState(false);
   const [drawer, setDrawer] = useState<"create" | Tariff | null>(null);
@@ -53,8 +58,13 @@ export function TariffsScreen() {
   async function load() {
     setError(false);
     try {
-      const [t, p] = await Promise.all([api.getTariffs(), api.getTariffProposals()]);
-      setTariffs(t);
+      const [a, ar, p] = await Promise.all([
+        api.getTariffs({ search: debouncedSearch, status: "active" }),
+        api.getTariffs({ search: debouncedSearch, status: "archived" }),
+        api.getTariffProposals({ status: "pending_second" }),
+      ]);
+      setActive(a);
+      setArchived(ar);
       setProposals(p);
     } catch {
       setError(true);
@@ -62,7 +72,8 @@ export function TariffsScreen() {
   }
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   function openCreate() {
     setForm(EMPTY_FORM);
@@ -129,7 +140,7 @@ export function TariffsScreen() {
   }
 
   if (error) return <ErrorState onRetry={load} />;
-  if (!tariffs) {
+  if (!active) {
     return (
       <div className="grid grid-cols-2 gap-5">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -159,16 +170,12 @@ export function TariffsScreen() {
     );
   }
 
-  const pending = proposals.filter((p) => p.status === "pending_second");
-  const active = tariffs.filter((t) => !t.archived);
-  const archived = tariffs.filter((t) => t.archived);
-
   return (
     <div className="space-y-6">
-      {pending.length > 0 && (
+      {proposals.length > 0 && (
         <Card className="space-y-3">
           <p className="text-sm font-semibold text-ink">Tasdiqlashni kutayotgan o'zgarishlar</p>
-          {pending.map((p) => (
+          {proposals.map((p) => (
             <div key={p.id} className="rounded-2xl bg-ink/5 p-4">
               <div className="mb-2 flex items-center justify-between">
                 <Badge tone="warning">
@@ -198,8 +205,8 @@ export function TariffsScreen() {
         </Card>
       )}
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">Tariflar</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Tarif nomi..." resultCount={active.length + archived.length} hasActiveFilters={false} onClear={() => {}} />
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" /> Yangi tarif
         </Button>
@@ -229,7 +236,7 @@ export function TariffsScreen() {
             </ul>
           </Card>
         ))}
-        {active.length === 0 && <p className="text-sm text-ink/50">Faol tarif yo'q.</p>}
+        {active.length === 0 && <p className="text-sm text-ink/50">Faol tarif topilmadi.</p>}
       </div>
 
       {archived.length > 0 && (
@@ -248,24 +255,27 @@ export function TariffsScreen() {
         </div>
       )}
 
-      <Drawer open={drawer !== null} onClose={() => setDrawer(null)} title={drawer === "create" ? "Yangi tarif" : "Tarifni tahrirlash"}>
-        <div className="space-y-4">
-          <Input label="Nomi" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
-          {NUMERIC_FIELDS.map((key) => (
-            <Input
-              key={key}
-              label={FIELD_LABEL[key]}
-              type="number"
-              value={form[key]}
-              onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-            />
-          ))}
-          <p className="text-xs text-ink/50">O'zgarish kuchga kirishi uchun ikkinchi admin tasdiqlashi kerak.</p>
-          <Button fullWidth loading={saving} disabled={!form.name.trim()} onClick={handleSave}>
-            Taklif qilish
-          </Button>
-        </div>
-      </Drawer>
+      <FormDrawer
+        open={drawer !== null}
+        onClose={() => setDrawer(null)}
+        title={drawer === "create" ? "Yangi tarif" : "Tarifni tahrirlash"}
+        onSubmit={handleSave}
+        submitLabel="Taklif qilish"
+        loading={saving}
+        disabled={!form.name.trim()}
+      >
+        <Input label="Nomi" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+        {NUMERIC_FIELDS.map((key) => (
+          <Input
+            key={key}
+            label={FIELD_LABEL[key]}
+            type="number"
+            value={form[key]}
+            onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+          />
+        ))}
+        <p className="text-xs text-ink/50">O'zgarish kuchga kirishi uchun ikkinchi admin tasdiqlashi kerak.</p>
+      </FormDrawer>
 
       <ConfirmDialog
         open={archiving !== null}

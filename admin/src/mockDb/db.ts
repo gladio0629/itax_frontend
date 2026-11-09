@@ -154,11 +154,17 @@ export type Section =
   | "tariffs"
   | "complaints"
   | "staff"
-  | "operatorQueue"
-  | "operatorHistory"
+  | "operators"
   | "audit";
 
-export type Action = "export";
+/** "export" gates the CSV buttons. "operatorWork" is the one operator
+ * action (start/finish/reject a call task) — the adapter rejects the
+ * mutation for anyone without it, not just the UI hiding the button.
+ * "operatorSupervise" is the read-only superadmin/owner/menejer view of
+ * every operator's Navbat/Jarayonda/Bugungi tasdiqlanganlar. The single
+ * "operators" section renders a different screen depending on which of
+ * the two the role has — never a `role === "operator"` check. */
+export type Action = "export" | "operatorWork" | "operatorSupervise";
 
 export const ALL_ROLES: AdminRole[] = ["superadmin", "owner", "menejer", "marketolog", "operator"];
 
@@ -171,8 +177,7 @@ const ALL_SECTIONS: Section[] = [
   "tariffs",
   "complaints",
   "staff",
-  "operatorQueue",
-  "operatorHistory",
+  "operators",
   "audit",
 ];
 
@@ -181,15 +186,15 @@ export const ROLE_SECTIONS: Record<AdminRole, Section[]> = {
   owner: ALL_SECTIONS,
   menejer: ALL_SECTIONS,
   marketolog: ["stats"],
-  operator: ["operatorQueue", "operatorHistory"],
+  operator: ["operators"],
 };
 
 export const ROLE_ACTIONS: Record<AdminRole, Action[]> = {
-  superadmin: ["export"],
-  owner: ["export"],
-  menejer: [],
+  superadmin: ["export", "operatorSupervise"],
+  owner: ["export", "operatorSupervise"],
+  menejer: ["operatorSupervise"],
   marketolog: [],
-  operator: [],
+  operator: ["operatorWork"],
 };
 
 export const CREATABLE_ROLES: Record<AdminRole, AdminRole[]> = {
@@ -205,7 +210,7 @@ export const ROLE_LANDING: Record<AdminRole, string> = {
   owner: "/dashboard",
   menejer: "/dashboard",
   marketolog: "/dashboard",
-  operator: "/operator/queue",
+  operator: "/operators",
 };
 
 export function canCreateRole(actorRole: AdminRole, targetRole: AdminRole): boolean {
@@ -283,6 +288,18 @@ const DEFAULT_STAFF: AdminUser[] = [
     avatarSeed: "aa5",
     createdByAdminId: "adm_03",
     createdAt: Date.UTC(2025, 7, 15),
+  },
+  {
+    id: "adm_07",
+    name: "Sevinch Yo'ldasheva",
+    email: "",
+    phone: "+998 90 000 00 07",
+    role: "operator",
+    status: "active",
+    archived: false,
+    avatarSeed: "aa6",
+    createdByAdminId: "adm_03",
+    createdAt: Date.UTC(2025, 8, 3),
   },
 ];
 
@@ -473,6 +490,10 @@ export type QueueItem = {
   waitingSinceAt: number;
   status: QueueStatus;
   assignedOperatorId?: string;
+  assignedOperatorName?: string;
+  /** Set when startTask() moves this to "in_progress" — the supervisor
+   * view's running timer counts from this, not from the client's clock. */
+  startedAt?: number;
 };
 
 export type HistoryResult = "resolved" | "callback" | "rejected";
@@ -491,65 +512,101 @@ export type HistoryEntry = {
   edited: boolean;
 };
 
+function randomPhone(rng: ReturnType<typeof makeRng>): string {
+  return `+998 9${rng.int(0, 9)} ${rng.int(100, 999)} ${rng.int(10, 99)} ${rng.int(10, 99)}`;
+}
+function maskLast2(full: string): string {
+  return full.replace(/(\d{3}) (\d{2}) (\d{2})$/, "*** ** $3");
+}
+
 function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } {
   const rng = makeRng(90_210);
   const reasons: QueueReason[] = ["login_issue", "info_needed", "complaint"];
   const now = Date.now();
-  const queue: QueueItem[] = Array.from({ length: 7 }, (_, i) => {
-    const full = `+998 9${rng.int(0, 9)} ${rng.int(100, 999)} ${rng.int(10, 99)} ${rng.int(10, 99)}`;
+  const dayMs = 86_400_000;
+  const operators = [
+    { id: "adm_05", name: "Dilnoza Qosimova" },
+    { id: "adm_07", name: "Sevinch Yo'ldasheva" },
+  ];
+
+  const waiting: QueueItem[] = Array.from({ length: 6 }, (_, i) => {
+    const full = randomPhone(rng);
     return {
       id: `q_${i + 1}`,
-      phoneMasked: full.replace(/(\d{3}) (\d{2}) (\d{2})$/, "*** ** $3"),
+      phoneMasked: maskLast2(full),
       phoneFull: full,
       reason: rng.pick(reasons),
       waitingSinceAt: now - rng.int(1, 45) * 60_000,
-      status: "waiting",
+      status: "waiting" as const,
     };
   });
-  const operators = [
-    { id: "adm_05", name: "Dilnoza Qosimova" },
-    { id: "adm_06", name: "Oybek Niyazov" },
-  ];
-  const results: HistoryResult[] = ["resolved", "callback", "rejected"];
-  const history: HistoryEntry[] = Array.from({ length: 14 }, (_, i) => {
+
+  // One active ("Jarayonda") task per operator, so the supervisor view and
+  // the operator's own "one active task" state aren't both empty on first load.
+  const inProgress: QueueItem[] = operators.map((op, i) => {
+    const full = randomPhone(rng);
+    const startedAt = now - rng.int(1, 8) * 60_000;
+    return {
+      id: `q_active_${i + 1}`,
+      phoneMasked: maskLast2(full),
+      phoneFull: full,
+      reason: rng.pick(reasons),
+      waitingSinceAt: startedAt - rng.int(2, 10) * 60_000,
+      status: "in_progress" as const,
+      assignedOperatorId: op.id,
+      assignedOperatorName: op.name,
+      startedAt,
+    };
+  });
+
+  const results: HistoryResult[] = ["resolved", "resolved", "resolved", "callback", "rejected"];
+  // Most history resolved today, so "Bugungi tasdiqlanganlar" isn't empty by
+  // default; the rest spread over the past month so date/result filters have
+  // something to narrow down.
+  const history: HistoryEntry[] = Array.from({ length: 20 }, (_, i) => {
     const op = rng.pick(operators);
-    const full = `+998 9${rng.int(0, 9)} ${rng.int(100, 999)} ${rng.int(10, 99)} ${rng.int(10, 99)}`;
+    const full = randomPhone(rng);
     const result = rng.pick(results);
+    const resolvedAt = i < 9 ? now - rng.int(0, 7 * 3600_000) : now - rng.int(1, 29) * dayMs;
     return {
       id: `h_${i + 1}`,
       queueItemId: `qh_${i + 1}`,
       operatorId: op.id,
       operatorName: op.name,
-      phoneMasked: full.replace(/(\d{3}) (\d{2}) (\d{2})$/, "*** ** $3"),
+      phoneMasked: maskLast2(full),
       reason: rng.pick(reasons),
       result,
       note: result === "rejected" ? "Mijoz javob bermadi" : "Muammo hal qilindi, mijozga tushuntirildi.",
       rejectReason: result === "rejected" ? "Mijoz javob bermadi" : undefined,
-      createdAt: now - rng.int(1, 30) * 86_400_000,
-      resolvedAt: now - rng.int(1, 30) * 86_400_000 + 5 * 60_000,
+      createdAt: resolvedAt - 5 * 60_000,
+      resolvedAt,
       edited: false,
     };
   });
-  return { queue, history };
+
+  return { queue: [...waiting, ...inProgress], history };
 }
 
 const QUEUE_KEY = "operator_queue";
 const HISTORY_KEY = "operator_history";
+const OPERATOR_SCHEMA_KEY = "operator_windows_version";
+const OPERATOR_SCHEMA_VERSION = 2;
+
 export function getQueue(): QueueItem[] {
-  const existing = readJSON<QueueItem[] | null>(QUEUE_KEY, null);
+  const version = readJSON<number>(OPERATOR_SCHEMA_KEY, 0);
+  const existing = version === OPERATOR_SCHEMA_VERSION ? readJSON<QueueItem[] | null>(QUEUE_KEY, null) : null;
   if (existing) return existing;
   const { queue, history } = seedOperatorWindows();
   writeJSON(QUEUE_KEY, queue);
   writeJSON(HISTORY_KEY, history);
+  writeJSON(OPERATOR_SCHEMA_KEY, OPERATOR_SCHEMA_VERSION);
   return queue;
 }
 export function saveQueue(list: QueueItem[]) {
   writeJSON(QUEUE_KEY, list);
 }
 export function getHistory(): HistoryEntry[] {
-  const existing = readJSON<HistoryEntry[] | null>(HISTORY_KEY, null);
-  if (existing) return existing;
-  getQueue(); // seeds both together
+  getQueue(); // reseeds both together if the version doesn't match
   return readJSON<HistoryEntry[]>(HISTORY_KEY, []);
 }
 export function saveHistory(list: HistoryEntry[]) {

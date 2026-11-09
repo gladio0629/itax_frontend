@@ -6,22 +6,38 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Drawer } from "@/components/Drawer";
+import { FormDrawer } from "@/components/FormDrawer";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ExportButton } from "@/components/ExportButton";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
+import { ListToolbar } from "@/components/ListToolbar";
+import { FilterSelect } from "@/components/FilterSelect";
 import { api } from "@/api/client";
-import { cn } from "@/lib/cn";
-import type { City, Passenger } from "@/api/types";
+import { useAdapterList } from "@/hooks/useAdapterList";
+import type { ArchivableStatusFilter, City, Passenger, PassengerQuery, PassengerStatus } from "@/api/types";
 
 type Confirm = { type: "block" | "unblock" | "archive" | "restore"; passenger: Passenger };
 
+const STATUS_OPTIONS: { value: ArchivableStatusFilter<PassengerStatus>; label: string }[] = [
+  { value: "all", label: "Barchasi" },
+  { value: "active", label: "Faol" },
+  { value: "blocked", label: "Bloklangan" },
+  { value: "archived", label: "Arxivlangan" },
+];
+
 export function PassengersScreen() {
-  const [passengers, setPassengers] = useState<Passenger[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<ArchivableStatusFilter<PassengerStatus>>("all");
+  const query: PassengerQuery = { search, status };
+  const { items: passengers, error, reload } = useAdapterList(api.getPassengers, query);
+
   const [cities, setCities] = useState<City[]>([]);
-  const [error, setError] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  useEffect(() => {
+    api.getCities().then(setCities).catch(() => {});
+  }, []);
+
   const [selected, setSelected] = useState<Passenger | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
@@ -31,20 +47,6 @@ export function PassengersScreen() {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [acting, setActing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-
-  async function load() {
-    setError(false);
-    try {
-      const [p, c] = await Promise.all([api.getPassengers(), api.getCities()]);
-      setPassengers(p);
-      setCities(c);
-    } catch {
-      setError(true);
-    }
-  }
-  useEffect(() => {
-    load();
-  }, []);
 
   function cityName(id: string) {
     return cities.find((c) => c.id === id)?.name ?? id;
@@ -82,7 +84,7 @@ export function PassengersScreen() {
         setToast("Profil saqlandi");
       }
       setDrawer(null);
-      await load();
+      reload();
     } finally {
       setSaving(false);
     }
@@ -98,10 +100,10 @@ export function PassengersScreen() {
       else if (type === "unblock") updated = await api.setPassengerStatus(passenger.id, "active");
       else if (type === "archive") updated = await api.archivePassenger(passenger.id);
       else updated = await api.restorePassenger(passenger.id);
-      setPassengers((prev) => prev?.map((p) => (p.id === updated.id ? updated : p)) ?? null);
       setSelected((prev) => (prev?.id === updated.id ? updated : prev));
       setToast(type === "block" ? "Bloklandi" : type === "unblock" ? "Blokdan chiqarildi" : type === "archive" ? "Arxivlandi" : "Tiklandi");
       setConfirm(null);
+      reload();
     } finally {
       setActing(false);
     }
@@ -133,7 +135,7 @@ export function PassengersScreen() {
     },
   ];
 
-  if (error) return <ErrorState onRetry={load} />;
+  if (error) return <ErrorState onRetry={reload} />;
   if (!passengers) {
     return (
       <div className="space-y-3">
@@ -144,21 +146,25 @@ export function PassengersScreen() {
     );
   }
 
-  const rows = passengers.filter((p) => (showArchived ? p.archived : !p.archived));
+  const hasActiveFilters = status !== "all";
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          onClick={() => setShowArchived((v) => !v)}
-          className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-colors", showArchived ? "bg-ink text-bg" : "bg-ink/5 text-ink/70")}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ListToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Ism bo'yicha qidirish..."
+          resultCount={passengers.length}
+          hasActiveFilters={hasActiveFilters}
+          onClear={() => setStatus("all")}
         >
-          {showArchived ? "Arxivlanganlar" : "Faol yo'lovchilar"}
-        </button>
-        <div className="flex items-center gap-2">
+          <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />
+        </ListToolbar>
+        <div className="flex shrink-0 items-center gap-2">
           <ExportButton
             section="passengers"
-            rows={rows}
+            rows={passengers}
             filenamePrefix="yolovchilar"
             buildRow={(p) => ({ Ism: p.name, Shahar: cityName(p.cityId), Reyting: p.rating, Safarlar: p.totalTrips, Holat: p.status })}
           />
@@ -169,13 +175,13 @@ export function PassengersScreen() {
       </div>
 
       <DataTable
+        key={`${search}-${status}`}
         columns={columns}
-        rows={rows}
+        rows={passengers}
         rowKey={(p) => p.id}
-        searchFields={(p) => p.name}
-        searchPlaceholder="Ism bo'yicha qidirish..."
         emptyIcon={<Users className="h-6 w-6" />}
         emptyTitle="Yo'lovchi topilmadi"
+        emptyDescription="Qidiruv yoki filtrlarga mos yo'lovchi yo'q."
         onRowClick={(p) => {
           setSelected(p);
           setPhone(null);
@@ -245,39 +251,41 @@ export function PassengersScreen() {
         )}
       </Drawer>
 
-      <Drawer open={drawer !== null} onClose={() => setDrawer(null)} title={drawer === "create" ? "Yangi yo'lovchi" : "Tahrirlash"}>
-        <div className="space-y-4">
-          <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
-          {drawer === "create" && (
-            <Input
-              label="Telefon"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              placeholder="+998 90 000 00 00"
-            />
-          )}
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-ink/80">Shahar</label>
-            <select
-              value={form.cityId}
-              onChange={(e) => setForm((f) => ({ ...f, cityId: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none transition-colors focus:border-accent"
-            >
-              {cities.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button fullWidth loading={saving} disabled={!form.name.trim() || (drawer === "create" && !form.phone.trim())} onClick={handleSave}>
-            Saqlash
-          </Button>
+      <FormDrawer
+        open={drawer !== null}
+        onClose={() => setDrawer(null)}
+        title={drawer === "create" ? "Yangi yo'lovchi" : "Tahrirlash"}
+        onSubmit={handleSave}
+        loading={saving}
+        disabled={!form.name.trim() || (drawer === "create" && !form.phone.trim())}
+      >
+        <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+        {drawer === "create" && (
+          <Input
+            label="Telefon"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={form.phone}
+            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+            placeholder="+998 90 000 00 00"
+          />
+        )}
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-ink/80">Shahar</label>
+          <select
+            value={form.cityId}
+            onChange={(e) => setForm((f) => ({ ...f, cityId: e.target.value }))}
+            className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none transition-colors focus:border-accent"
+          >
+            {cities.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
-      </Drawer>
+      </FormDrawer>
 
       <ConfirmDialog
         open={confirm !== null}

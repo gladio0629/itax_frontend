@@ -23,10 +23,10 @@ export const httpAdapter: ApiAdapter = {
   isAuthenticated: () => false,
   loginAsRole: notImplemented("loginAsRole"),
 
-  getDashboardStats: notImplemented("getDashboardStats"),
-  getMarketingStats: notImplemented("getMarketingStats"),
+  getStats: notImplemented("getStats"),
 
   getCities: notImplemented("getCities"),
+  getSectionBadges: notImplemented("getSectionBadges"),
 
   getStaff: notImplemented("getStaff"),
   createStaff: notImplemented("createStaff"),
@@ -54,6 +54,7 @@ export const httpAdapter: ApiAdapter = {
   cancelOrder: notImplemented("cancelOrder"),
 
   getWalletLedger: notImplemented("getWalletLedger"),
+  getDriverWalletInfo: notImplemented("getDriverWalletInfo"),
   proposeWalletAdjustment: notImplemented("proposeWalletAdjustment"),
   getAdjustmentProposals: notImplemented("getAdjustmentProposals"),
   approveAdjustment: notImplemented("approveAdjustment"),
@@ -81,8 +82,11 @@ export const httpAdapter: ApiAdapter = {
   startTask: notImplemented("startTask"),
   rejectQueueItem: notImplemented("rejectQueueItem"),
   finishTask: notImplemented("finishTask"),
+  getOperatorsInProgress: notImplemented("getOperatorsInProgress"),
   getHistory: notImplemented("getHistory"),
   editHistoryEntry: notImplemented("editHistoryEntry"),
+  getOperatorCounts: notImplemented("getOperatorCounts"),
+  getOperatorsList: notImplemented("getOperatorsList"),
 
   recordExport: notImplemented("recordExport"),
 };

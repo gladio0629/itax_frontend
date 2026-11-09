@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Car, UserCheck, UserPlus, Users } from "lucide-react";
+import { Car, TrendingUp, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { Card } from "@/components/Card";
 import { SkeletonCard } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { api } from "@/api/client";
+import { formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { MarketingStats, StatsPeriod } from "@/api/types";
 
@@ -23,7 +24,11 @@ const PERIODS: { key: StatsPeriod; label: string }[] = [
   { key: "90d", label: "90 kun" },
 ];
 
-export function MarketingStatsScreen() {
+/** The one "Umumiy statistika" screen every role with the "stats" section
+ * sees — superadmin, owner and menejer already have "all statistics" per
+ * the permissions matrix, and marketolog's statistics are no longer
+ * money-free, so there is no reason left for two different screens. */
+export function StatsScreen() {
   const [period, setPeriod] = useState<StatsPeriod>("7d");
   const [stats, setStats] = useState<MarketingStats | null>(null);
   const [error, setError] = useState(false);
@@ -31,7 +36,7 @@ export function MarketingStatsScreen() {
   async function load(p: StatsPeriod) {
     setError(false);
     try {
-      setStats(await api.getMarketingStats(p));
+      setStats(await api.getStats(p));
     } catch {
       setError(true);
     }
@@ -59,18 +64,48 @@ export function MarketingStatsScreen() {
         <ErrorState onRetry={() => load(period)} />
       ) : !stats ? (
         <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-5 xl:grid-cols-4">
+            <StatCard icon={<Wallet className="h-5 w-5" />} label="Davr daromadi" value={formatSom(stats.totalIncome)} tone="accent" />
+            <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Komissiya" value={formatSom(stats.totalCommission)} />
+            <StatCard icon={<Wallet className="h-5 w-5" />} label="O'rtacha buyurtma qiymati" value={formatSom(stats.averageOrderValue)} />
+            <StatCard
+              icon={<Wallet className="h-5 w-5" />}
+              label="Haydovchilar hamyoni (jami)"
+              value={formatSom(stats.walletTotalBalance)}
+              tone={stats.walletTotalBalance < 0 ? "danger" : "neutral"}
+            />
             <StatCard icon={<Users className="h-5 w-5" />} label="Jami yo'lovchilar" value={String(stats.passengersTotal)} hint={`+${stats.passengersNew} yangi`} tone="accent" />
             <StatCard icon={<Car className="h-5 w-5" />} label="Jami haydovchilar" value={String(stats.driversTotal)} hint={`+${stats.driversNew} yangi`} />
             <StatCard icon={<UserCheck className="h-5 w-5" />} label="Faol haydovchilar" value={String(stats.driversActive)} tone="accent" />
             <StatCard icon={<UserPlus className="h-5 w-5" />} label="Bloklangan haydovchilar" value={String(stats.driversBlocked)} tone="warning" />
           </div>
+
+          <Card>
+            <p className="mb-4 text-sm font-semibold text-ink">Daromad dinamikasi</p>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stats.incomeOverTime}>
+                  <CartesianGrid stroke="rgba(14,20,32,0.06)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: "rgba(14,20,32,0.5)" }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: "rgba(14,20,32,0.5)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={64}
+                    tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
+                  />
+                  <Tooltip formatter={(v: number) => formatSom(v)} contentStyle={{ borderRadius: 16, border: "1px solid rgba(14,20,32,0.08)", fontSize: 12 }} />
+                  <Line type="monotone" dataKey="income" name="Daromad" stroke="#264A9F" strokeWidth={2.5} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
 
           <div className="grid grid-cols-2 gap-6">
             <Card>
@@ -105,20 +140,35 @@ export function MarketingStatsScreen() {
             </Card>
           </div>
 
-          <Card>
-            <p className="mb-4 text-sm font-semibold text-ink">Eng ko'p buyurtma qilingan yo'nalishlar</p>
-            <div className="space-y-2">
-              {stats.ordersByRoute.map((r, i) => (
-                <div key={i} className="flex items-center justify-between rounded-xl bg-ink/5 px-4 py-2.5 text-sm">
-                  <span className="text-ink">
-                    {r.from} → {r.to}
-                  </span>
-                  <span className="tabular font-semibold text-ink">{r.count}</span>
-                </div>
-              ))}
-              {stats.ordersByRoute.length === 0 && <p className="text-sm text-ink/50">Ma'lumot yo'q.</p>}
-            </div>
-          </Card>
+          <div className="grid grid-cols-2 gap-6">
+            <Card>
+              <p className="mb-4 text-sm font-semibold text-ink">Daromad bo'yicha yo'nalishlar</p>
+              <div className="space-y-2">
+                {stats.incomeByRoute.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-xl bg-ink/5 px-4 py-2.5 text-sm">
+                    <span className="text-ink">
+                      {r.from} → {r.to}
+                    </span>
+                    <span className="tabular font-semibold text-ink">{formatSom(r.income)}</span>
+                  </div>
+                ))}
+                {stats.incomeByRoute.length === 0 && <p className="text-sm text-ink/50">Ma'lumot yo'q.</p>}
+              </div>
+            </Card>
+
+            <Card>
+              <p className="mb-4 text-sm font-semibold text-ink">Daromad bo'yicha shaharlar</p>
+              <div className="space-y-2">
+                {stats.incomeByCity.map((c, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-xl bg-ink/5 px-4 py-2.5 text-sm">
+                    <span className="text-ink">{c.city}</span>
+                    <span className="tabular font-semibold text-ink">{formatSom(c.income)}</span>
+                  </div>
+                ))}
+                {stats.incomeByCity.length === 0 && <p className="text-sm text-ink/50">Ma'lumot yo'q.</p>}
+              </div>
+            </Card>
+          </div>
         </>
       )}
     </div>

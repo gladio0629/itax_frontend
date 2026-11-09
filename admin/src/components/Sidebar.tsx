@@ -8,13 +8,12 @@ import {
   SlidersHorizontal,
   MessageSquareWarning,
   UsersRound,
-  PhoneIncoming,
-  History,
+  Headset,
   ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo } from "./Logo";
-import type { Section } from "@/api/types";
+import type { Section, SectionBadges } from "@/api/types";
 
 const NAV: { to: string; section: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { to: "/dashboard", section: "stats", label: "Umumiy statistika", icon: LayoutDashboard },
@@ -25,12 +24,11 @@ const NAV: { to: string; section: Section; label: string; icon: typeof LayoutDas
   { to: "/tariffs", section: "tariffs", label: "Tariflar", icon: SlidersHorizontal },
   { to: "/complaints", section: "complaints", label: "Shikoyatlar", icon: MessageSquareWarning },
   { to: "/staff", section: "staff", label: "Xodimlar", icon: UsersRound },
-  { to: "/operator/queue", section: "operatorQueue", label: "Operator: Navbat", icon: PhoneIncoming },
-  { to: "/operator/history", section: "operatorHistory", label: "Operator: Tarix", icon: History },
+  { to: "/operators", section: "operators", label: "Operatorlar", icon: Headset },
   { to: "/audit", section: "audit", label: "Audit jurnali", icon: ClipboardList },
 ];
 
-export function Sidebar({ sections, badges }: { sections: Section[]; badges: Partial<Record<string, number>> }) {
+export function Sidebar({ sections, badges }: { sections: Section[]; badges: SectionBadges }) {
   const items = NAV.filter((n) => sections.includes(n.section));
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col bg-sidebar-bg text-sidebar-text">
@@ -42,8 +40,8 @@ export function Sidebar({ sections, badges }: { sections: Section[]; badges: Par
         </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-6">
-        {items.map(({ to, label, icon: Icon }) => {
-          const badge = badges[to];
+        {items.map(({ to, section, label, icon: Icon }) => {
+          const badge = badges[section];
           return (
             <NavLink
               key={to}

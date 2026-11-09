@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Ban, Car, CheckCircle2, Eye, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
@@ -11,10 +11,13 @@ import { ExportButton } from "@/components/ExportButton";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
+import { ListToolbar } from "@/components/ListToolbar";
+import { FilterSelect } from "@/components/FilterSelect";
 import { api } from "@/api/client";
+import { useAdapterList } from "@/hooks/useAdapterList";
 import { formatDate, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { Driver, DriverStatus } from "@/api/types";
+import type { ArchivableStatusFilter, Driver, DriverQuery, DriverStatus } from "@/api/types";
 
 const STATUS_TONE: Record<DriverStatus, "accent" | "warning" | "danger"> = {
   active: "accent",
@@ -26,13 +29,22 @@ const STATUS_LABEL: Record<DriverStatus, string> = {
   auto_review: "Avtomatik tekshiruvda",
   blocked: "Bloklangan",
 };
+const STATUS_OPTIONS: { value: ArchivableStatusFilter<DriverStatus>; label: string }[] = [
+  { value: "all", label: "Barchasi" },
+  { value: "active", label: STATUS_LABEL.active },
+  { value: "auto_review", label: STATUS_LABEL.auto_review },
+  { value: "blocked", label: STATUS_LABEL.blocked },
+  { value: "archived", label: "Arxivlangan" },
+];
 
 type Confirm = { type: "block" | "unblock" | "archive" | "restore"; driver: Driver };
 
 export function DriversScreen() {
-  const [drivers, setDrivers] = useState<Driver[] | null>(null);
-  const [error, setError] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<ArchivableStatusFilter<DriverStatus>>("all");
+  const query: DriverQuery = { search, status };
+  const { items: drivers, error, reload } = useAdapterList(api.getDrivers, query);
+
   const [selected, setSelected] = useState<Driver | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "", carModel: "", carColor: "", plate: "" });
@@ -42,18 +54,6 @@ export function DriversScreen() {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [acting, setActing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-
-  async function load() {
-    setError(false);
-    try {
-      setDrivers(await api.getDrivers());
-    } catch {
-      setError(true);
-    }
-  }
-  useEffect(() => {
-    load();
-  }, []);
 
   function openDetail(d: Driver) {
     setSelected(d);
@@ -81,9 +81,9 @@ export function DriversScreen() {
     try {
       const updated = await api.updateDriverProfile(selected.id, form);
       setSelected(updated);
-      setDrivers((prev) => prev?.map((d) => (d.id === updated.id ? updated : d)) ?? null);
       setEditing(false);
       setToast("Profil saqlandi");
+      reload();
     } finally {
       setSaving(false);
     }
@@ -99,10 +99,10 @@ export function DriversScreen() {
       else if (type === "unblock") updated = await api.setDriverStatus(driver.id, "active");
       else if (type === "archive") updated = await api.archiveDriver(driver.id);
       else updated = await api.restoreDriver(driver.id);
-      setDrivers((prev) => prev?.map((d) => (d.id === updated.id ? updated : d)) ?? null);
       setSelected((prev) => (prev?.id === updated.id ? updated : prev));
       setToast(type === "block" ? "Bloklandi" : type === "unblock" ? "Blokdan chiqarildi" : type === "archive" ? "Arxivlandi" : "Tiklandi");
       setConfirm(null);
+      reload();
     } finally {
       setActing(false);
     }
@@ -139,7 +139,7 @@ export function DriversScreen() {
       key: "wallet",
       header: "Hamyon",
       sortValue: (d) => d.walletBalance,
-      render: (d) => <span className={cn("tabular", d.walletBalance < 0 && "text-danger")}>{formatSom(d.walletBalance)}</span>,
+      render: (d) => <span className={cn("tabular", d.walletBalance < d.debtLimit && "text-danger")}>{formatSom(d.walletBalance)}</span>,
     },
     {
       key: "online",
@@ -153,7 +153,7 @@ export function DriversScreen() {
     },
   ];
 
-  if (error) return <ErrorState onRetry={load} />;
+  if (error) return <ErrorState onRetry={reload} />;
   if (!drivers) {
     return (
       <div className="space-y-3">
@@ -164,33 +164,37 @@ export function DriversScreen() {
     );
   }
 
-  const rows = drivers.filter((d) => (showArchived ? d.archived : !d.archived));
+  const hasActiveFilters = status !== "all";
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          onClick={() => setShowArchived((v) => !v)}
-          className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-colors", showArchived ? "bg-ink text-bg" : "bg-ink/5 text-ink/70")}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ListToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Ism, davlat raqami yoki model..."
+          resultCount={drivers.length}
+          hasActiveFilters={hasActiveFilters}
+          onClear={() => setStatus("all")}
         >
-          {showArchived ? "Arxivlanganlar" : "Faol haydovchilar"}
-        </button>
+          <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />
+        </ListToolbar>
         <ExportButton
           section="drivers"
-          rows={rows}
+          rows={drivers}
           filenamePrefix="haydovchilar"
           buildRow={(d) => ({ Ism: d.name, Avtomobil: `${d.carModel} ${d.plate}`, Reyting: d.rating, Safarlar: d.totalTrips, Holat: d.status })}
         />
       </div>
 
       <DataTable
+        key={`${search}-${status}`}
         columns={columns}
-        rows={rows}
+        rows={drivers}
         rowKey={(d) => d.id}
-        searchFields={(d) => `${d.name} ${d.plate} ${d.carModel}`}
-        searchPlaceholder="Ism, davlat raqami yoki model..."
         emptyIcon={<Car className="h-6 w-6" />}
         emptyTitle="Haydovchi topilmadi"
+        emptyDescription="Qidiruv yoki filtrlarga mos haydovchi yo'q."
         onRowClick={openDetail}
       />
 
@@ -235,7 +239,11 @@ export function DriversScreen() {
               </div>
               <div>
                 <p className="text-xs text-ink/50">Hamyon balansi</p>
-                <p className="font-semibold text-ink">{formatSom(selected.walletBalance)}</p>
+                <p className={cn("font-semibold", selected.walletBalance < selected.debtLimit ? "text-danger" : "text-ink")}>{formatSom(selected.walletBalance)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-ink/50">Qarz limiti</p>
+                <p className="font-semibold text-ink">{formatSom(selected.debtLimit)}</p>
               </div>
               <div>
                 <p className="text-xs text-ink/50">Qo'shilgan sana</p>

@@ -1,18 +1,22 @@
 import { useEffect, useState } from "react";
-import { Plus, Route as RouteIcon, X } from "lucide-react";
+import { Pencil, Plus, Route as RouteIcon, X } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Drawer } from "@/components/Drawer";
+import { FormDrawer } from "@/components/FormDrawer";
 import { MapView } from "@/components/MapView";
 import { ExportButton } from "@/components/ExportButton";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
+import { ListToolbar } from "@/components/ListToolbar";
+import { FilterSelect } from "@/components/FilterSelect";
 import { api } from "@/api/client";
+import { useAdapterList } from "@/hooks/useAdapterList";
 import { formatDateTime, formatKm, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { City, OrderMode, OrderStatus, OrderWithNames, Passenger, PaymentMethod } from "@/api/types";
+import type { City, OrderMode, OrderQuery, OrderStatus, OrderWithNames, Passenger, PaymentMethod } from "@/api/types";
 
 const STATUS_TONE: Record<OrderStatus, "accent" | "warning" | "danger" | "neutral" | "info"> = {
   completed: "accent",
@@ -30,6 +34,10 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   searching: "Qidirilmoqda",
   no_driver: "Haydovchi topilmadi",
 };
+const STATUS_OPTIONS: { value: OrderStatus | "all"; label: string }[] = [
+  { value: "all", label: "Barcha holatlar" },
+  ...(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+];
 
 const SEATS = [
   { id: "front", label: "Old o'rindiq" },
@@ -38,14 +46,26 @@ const SEATS = [
   { id: "back-right", label: "Orqa o'ng" },
 ];
 
+const TIME_OPTIONS = Array.from({ length: 17 }, (_, i) => `${String(6 + i).padStart(2, "0")}:00`);
+
 export function OrdersScreen() {
-  const [orders, setOrders] = useState<OrderWithNames[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<OrderStatus | "all">("all");
+  const query: OrderQuery = { search, status };
+  const { items: orders, error, reload } = useAdapterList(api.getOrders, query);
+
   const [cities, setCities] = useState<City[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
-  const [error, setError] = useState(false);
+  useEffect(() => {
+    Promise.all([api.getCities(), api.getPassengers({})]).then(([c, p]) => {
+      setCities(c);
+      setPassengers(p);
+    });
+  }, []);
+
   const [selected, setSelected] = useState<OrderWithNames | null>(null);
-  const [editingNote, setEditingNote] = useState(false);
-  const [note, setNote] = useState("");
+  const [editingOrder, setEditingOrder] = useState(false);
+  const [editForm, setEditForm] = useState({ seatIds: [] as string[], note: "", timeFrom: "", timeTo: "" });
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [saving, setSaving] = useState(false);
@@ -58,29 +78,21 @@ export function OrdersScreen() {
     mode: "car" as OrderMode,
     seatIds: [] as string[],
     paymentMethod: "cash" as PaymentMethod,
+    setTimeWindow: false,
+    timeFrom: "08:00",
+    timeTo: "10:00",
   });
-
-  async function load() {
-    setError(false);
-    try {
-      const [o, c, p] = await Promise.all([api.getOrders(), api.getCities(), api.getPassengers()]);
-      setOrders(o);
-      setCities(c);
-      setPassengers(p);
-    } catch {
-      setError(true);
-    }
-  }
-  useEffect(() => {
-    load();
-  }, []);
 
   function openDetail(o: OrderWithNames) {
     setSelected(o);
-    setEditingNote(false);
+    setEditingOrder(false);
     setCancelling(false);
-    setNote(o.note ?? "");
     setCancelReason("");
+  }
+
+  function startEditOrder(o: OrderWithNames) {
+    setEditForm({ seatIds: o.seatIds, note: o.note ?? "", timeFrom: o.timeWindow?.from ?? "", timeTo: o.timeWindow?.to ?? "" });
+    setEditingOrder(true);
   }
 
   function openCreate() {
@@ -91,6 +103,9 @@ export function OrdersScreen() {
       mode: "car",
       seatIds: [],
       paymentMethod: "cash",
+      setTimeWindow: false,
+      timeFrom: "08:00",
+      timeTo: "10:00",
     });
     setCreating(true);
   }
@@ -98,25 +113,37 @@ export function OrdersScreen() {
   async function handleCreate() {
     setSaving(true);
     try {
-      const order = await api.createOrderForPassenger(form);
+      const order = await api.createOrderForPassenger({
+        passengerId: form.passengerId,
+        fromCityId: form.fromCityId,
+        toCityId: form.toCityId,
+        mode: form.mode,
+        seatIds: form.seatIds,
+        paymentMethod: form.paymentMethod,
+        timeWindow: form.setTimeWindow ? { from: form.timeFrom, to: form.timeTo } : undefined,
+      });
       setToast("Buyurtma yaratildi");
       setCreating(false);
-      await load();
+      reload();
       setSelected(order);
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleSaveNote() {
+  async function handleSaveEdit() {
     if (!selected) return;
     setSaving(true);
     try {
-      const updated = await api.updateOrderFields(selected.id, { note });
+      const updated = await api.updateOrderFields(selected.id, {
+        seatIds: selected.mode === "seat" ? editForm.seatIds : undefined,
+        note: editForm.note,
+        timeWindow: editForm.timeFrom && editForm.timeTo ? { from: editForm.timeFrom, to: editForm.timeTo } : null,
+      });
       setSelected(updated);
-      setOrders((prev) => prev?.map((o) => (o.id === updated.id ? updated : o)) ?? null);
-      setEditingNote(false);
+      setEditingOrder(false);
       setToast("Saqlandi");
+      reload();
     } finally {
       setSaving(false);
     }
@@ -128,9 +155,9 @@ export function OrdersScreen() {
     try {
       const updated = await api.cancelOrder(selected.id, cancelReason.trim());
       setSelected(updated);
-      setOrders((prev) => prev?.map((o) => (o.id === updated.id ? updated : o)) ?? null);
       setCancelling(false);
       setToast("Buyurtma bekor qilindi");
+      reload();
     } finally {
       setSaving(false);
     }
@@ -170,7 +197,7 @@ export function OrdersScreen() {
     },
   ];
 
-  if (error) return <ErrorState onRetry={load} />;
+  if (error) return <ErrorState onRetry={reload} />;
   if (!orders) {
     return (
       <div className="space-y-3">
@@ -181,35 +208,47 @@ export function OrdersScreen() {
     );
   }
 
-  const cancellable = selected && !["completed", "cancelled", "no_driver"].includes(selected.status);
+  const hasActiveFilters = status !== "all";
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end gap-2">
-        <ExportButton
-          section="orders"
-          rows={orders}
-          filenamePrefix="buyurtmalar"
-          buildRow={(o) => ({ ID: o.id, Yolnalish: `${o.fromCityName}-${o.toCityName}`, Yolovchi: o.passengerName, Narx: o.price, Holat: o.status })}
-        />
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="h-4 w-4" /> Yangi buyurtma
-        </Button>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ListToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Buyurtma, ism yoki shahar..."
+          resultCount={orders.length}
+          hasActiveFilters={hasActiveFilters}
+          onClear={() => setStatus("all")}
+        >
+          <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />
+        </ListToolbar>
+        <div className="flex shrink-0 items-center gap-2">
+          <ExportButton
+            section="orders"
+            rows={orders}
+            filenamePrefix="buyurtmalar"
+            buildRow={(o) => ({ ID: o.id, Yolnalish: `${o.fromCityName}-${o.toCityName}`, Yolovchi: o.passengerName, Narx: o.price, Holat: o.status })}
+          />
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="h-4 w-4" /> Yangi buyurtma
+          </Button>
+        </div>
       </div>
 
       <DataTable
+        key={`${search}-${status}`}
         columns={columns}
         rows={orders}
         rowKey={(o) => o.id}
-        searchFields={(o) => `${o.id} ${o.passengerName} ${o.driverName ?? ""} ${o.fromCityName} ${o.toCityName}`}
-        searchPlaceholder="Buyurtma, ism yoki shahar..."
         emptyIcon={<RouteIcon className="h-6 w-6" />}
         emptyTitle="Buyurtma topilmadi"
+        emptyDescription="Qidiruv yoki filtrlarga mos buyurtma yo'q."
         onRowClick={openDetail}
       />
 
       <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? `Buyurtma #${selected.id.replace("ord_", "")}` : ""}>
-        {selected && (
+        {selected && !editingOrder && (
           <div className="space-y-5">
             <div className="h-56 overflow-hidden rounded-2xl">
               <MapView />
@@ -245,41 +284,30 @@ export function OrdersScreen() {
                 <p className="text-xs text-ink/50">To'lov</p>
                 <p className="font-semibold text-ink">{selected.paymentMethod === "cash" ? "Naqd" : "Karta"}</p>
               </div>
+              <div>
+                <p className="text-xs text-ink/50">Vaqt oralig'i</p>
+                <p className="font-semibold text-ink">{selected.timeWindow ? `${selected.timeWindow.from} – ${selected.timeWindow.to}` : "Tez orada"}</p>
+              </div>
+              {selected.mode === "seat" && (
+                <div>
+                  <p className="text-xs text-ink/50">O'rindiqlar</p>
+                  <p className="font-semibold text-ink">{selected.seatIds.length}</p>
+                </div>
+              )}
             </div>
             {selected.cancelReason && <div className="rounded-2xl bg-danger/10 p-3 text-xs text-danger">Bekor qilish sababi: {selected.cancelReason}</div>}
 
             <div className="border-t border-border pt-4">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold text-ink/50">Izoh</p>
-                {!editingNote && (
-                  <button onClick={() => setEditingNote(true)} className="text-xs font-semibold text-accent">
-                    Tahrirlash
-                  </button>
-                )}
+                <button onClick={() => startEditOrder(selected)} className="flex items-center gap-1 text-xs font-semibold text-accent">
+                  <Pencil className="h-3 w-3" /> Tahrirlash
+                </button>
               </div>
-              {editingNote ? (
-                <div className="space-y-2">
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    rows={2}
-                    className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none transition-colors focus:border-accent"
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" loading={saving} onClick={handleSaveNote}>
-                      Saqlash
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingNote(false)}>
-                      Bekor qilish
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-ink/70">{selected.note || "Izoh yo'q"}</p>
-              )}
+              <p className="text-sm text-ink/70">{selected.note || "Izoh yo'q"}</p>
             </div>
 
-            {cancellable && (
+            {selected.canCancel && (
               <div className="border-t border-border pt-4">
                 {cancelling ? (
                   <div className="space-y-2">
@@ -308,113 +336,210 @@ export function OrdersScreen() {
             )}
           </div>
         )}
+
+        {selected && editingOrder && (
+          <div className="space-y-4">
+            {selected.mode === "seat" && (
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-ink/80">O'rindiqlar</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {SEATS.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() =>
+                        setEditForm((f) => ({
+                          ...f,
+                          seatIds: f.seatIds.includes(s.id) ? f.seatIds.filter((x) => x !== s.id) : [...f.seatIds, s.id],
+                        }))
+                      }
+                      className={cn(
+                        "rounded-xl border-2 py-2 text-xs font-semibold",
+                        editForm.seatIds.includes(s.id) ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
+                      )}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-ink/80">Vaqt oralig'i</label>
+              <div className="flex items-center gap-3">
+                <select
+                  value={editForm.timeFrom}
+                  onChange={(e) => setEditForm((f) => ({ ...f, timeFrom: e.target.value }))}
+                  className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+                >
+                  <option value="">—</option>
+                  {TIME_OPTIONS.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+                <span className="text-sm text-ink/60">dan</span>
+                <select
+                  value={editForm.timeTo}
+                  onChange={(e) => setEditForm((f) => ({ ...f, timeTo: e.target.value }))}
+                  className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+                >
+                  <option value="">—</option>
+                  {TIME_OPTIONS.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-ink/80">Izoh</label>
+              <textarea
+                value={editForm.note}
+                onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
+                rows={3}
+                className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" fullWidth onClick={() => setEditingOrder(false)}>
+                Bekor qilish
+              </Button>
+              <Button fullWidth loading={saving} onClick={handleSaveEdit}>
+                Saqlash
+              </Button>
+            </div>
+          </div>
+        )}
       </Drawer>
 
-      <Drawer open={creating} onClose={() => setCreating(false)} title="Yangi buyurtma">
-        <div className="space-y-4">
+      <FormDrawer
+        open={creating}
+        onClose={() => setCreating(false)}
+        title="Yangi buyurtma"
+        onSubmit={handleCreate}
+        submitLabel="Buyurtma yaratish"
+        loading={saving}
+        disabled={!form.passengerId || form.fromCityId === form.toCityId || (form.mode === "seat" && form.seatIds.length === 0)}
+      >
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-ink/80">Yo'lovchi</label>
+          <select
+            value={form.passengerId}
+            onChange={(e) => setForm((f) => ({ ...f, passengerId: e.target.value }))}
+            className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none focus:border-accent"
+          >
+            {passengers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-ink/80">Yo'lovchi</label>
+            <label className="mb-2 block text-sm font-semibold text-ink/80">Qayerdan</label>
             <select
-              value={form.passengerId}
-              onChange={(e) => setForm((f) => ({ ...f, passengerId: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none focus:border-accent"
+              value={form.fromCityId}
+              onChange={(e) => setForm((f) => ({ ...f, fromCityId: e.target.value }))}
+              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
             >
-              {passengers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-ink/80">Qayerdan</label>
-              <select
-                value={form.fromCityId}
-                onChange={(e) => setForm((f) => ({ ...f, fromCityId: e.target.value }))}
-                className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
-              >
-                {cities.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-ink/80">Qayerga</label>
-              <select
-                value={form.toCityId}
-                onChange={(e) => setForm((f) => ({ ...f, toCityId: e.target.value }))}
-                className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
-              >
-                {cities.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setForm((f) => ({ ...f, mode: "car", seatIds: [] }))}
-              className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.mode === "car" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-ink/80">Qayerga</label>
+            <select
+              value={form.toCityId}
+              onChange={(e) => setForm((f) => ({ ...f, toCityId: e.target.value }))}
+              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
             >
-              Butun mashina
-            </button>
-            <button
-              onClick={() => setForm((f) => ({ ...f, mode: "seat" }))}
-              className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.mode === "seat" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
-            >
-              Bir joy
-            </button>
-          </div>
-          {form.mode === "seat" && (
-            <div className="grid grid-cols-2 gap-2">
-              {SEATS.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() =>
-                    setForm((f) => ({
-                      ...f,
-                      seatIds: f.seatIds.includes(s.id) ? f.seatIds.filter((x) => x !== s.id) : [...f.seatIds, s.id],
-                    }))
-                  }
-                  className={cn(
-                    "rounded-xl border-2 py-2 text-xs font-semibold",
-                    form.seatIds.includes(s.id) ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
-                  )}
-                >
-                  {s.label}
-                </button>
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setForm((f) => ({ ...f, paymentMethod: "cash" }))}
-              className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.paymentMethod === "cash" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
-            >
-              Naqd
-            </button>
-            <button
-              onClick={() => setForm((f) => ({ ...f, paymentMethod: "card" }))}
-              className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.paymentMethod === "card" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
-            >
-              Karta
-            </button>
+            </select>
           </div>
-          <Button
-            fullWidth
-            loading={saving}
-            disabled={!form.passengerId || form.fromCityId === form.toCityId || (form.mode === "seat" && form.seatIds.length === 0)}
-            onClick={handleCreate}
-          >
-            Buyurtma yaratish
-          </Button>
         </div>
-      </Drawer>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setForm((f) => ({ ...f, mode: "car", seatIds: [] }))}
+            className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.mode === "car" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+          >
+            Butun mashina
+          </button>
+          <button
+            onClick={() => setForm((f) => ({ ...f, mode: "seat" }))}
+            className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.mode === "seat" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+          >
+            Bir joy
+          </button>
+        </div>
+        {form.mode === "seat" && (
+          <div className="grid grid-cols-2 gap-2">
+            {SEATS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    seatIds: f.seatIds.includes(s.id) ? f.seatIds.filter((x) => x !== s.id) : [...f.seatIds, s.id],
+                  }))
+                }
+                className={cn(
+                  "rounded-xl border-2 py-2 text-xs font-semibold",
+                  form.seatIds.includes(s.id) ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setForm((f) => ({ ...f, paymentMethod: "cash" }))}
+            className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.paymentMethod === "cash" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+          >
+            Naqd
+          </button>
+          <button
+            onClick={() => setForm((f) => ({ ...f, paymentMethod: "card" }))}
+            className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.paymentMethod === "card" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+          >
+            Karta
+          </button>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-ink/70">
+          <input type="checkbox" checked={form.setTimeWindow} onChange={(e) => setForm((f) => ({ ...f, setTimeWindow: e.target.checked }))} className="h-4 w-4 rounded border-border accent-accent" />
+          Vaqt oralig'ini belgilash
+        </label>
+        {form.setTimeWindow && (
+          <div className="flex items-center gap-3">
+            <select
+              value={form.timeFrom}
+              onChange={(e) => setForm((f) => ({ ...f, timeFrom: e.target.value }))}
+              className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+            >
+              {TIME_OPTIONS.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+            <span className="text-sm text-ink/60">dan</span>
+            <select
+              value={form.timeTo}
+              onChange={(e) => setForm((f) => ({ ...f, timeTo: e.target.value }))}
+              className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+            >
+              {TIME_OPTIONS.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </FormDrawer>
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>

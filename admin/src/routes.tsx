@@ -9,7 +9,7 @@ import { RequireSection } from "@/components/RequireSection";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/Skeleton";
 
-const StatsRouter = lazy(() => import("@/features/dashboard/StatsRouter").then((m) => ({ default: m.StatsRouter })));
+const StatsScreen = lazy(() => import("@/features/dashboard/StatsScreen").then((m) => ({ default: m.StatsScreen })));
 const DriversScreen = lazy(() => import("@/features/drivers/DriversScreen").then((m) => ({ default: m.DriversScreen })));
 const PassengersScreen = lazy(() => import("@/features/passengers/PassengersScreen").then((m) => ({ default: m.PassengersScreen })));
 const OrdersScreen = lazy(() => import("@/features/orders/OrdersScreen").then((m) => ({ default: m.OrdersScreen })));
@@ -17,8 +17,7 @@ const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen").then((m
 const TariffsScreen = lazy(() => import("@/features/tariffs/TariffsScreen").then((m) => ({ default: m.TariffsScreen })));
 const ComplaintsScreen = lazy(() => import("@/features/complaints/ComplaintsScreen").then((m) => ({ default: m.ComplaintsScreen })));
 const StaffScreen = lazy(() => import("@/features/staff/StaffScreen").then((m) => ({ default: m.StaffScreen })));
-const OperatorQueueScreen = lazy(() => import("@/features/operator/OperatorQueueScreen").then((m) => ({ default: m.OperatorQueueScreen })));
-const OperatorHistoryScreen = lazy(() => import("@/features/operator/OperatorHistoryScreen").then((m) => ({ default: m.OperatorHistoryScreen })));
+const OperatorsScreen = lazy(() => import("@/features/operators/OperatorsScreen").then((m) => ({ default: m.OperatorsScreen })));
 const AuditScreen = lazy(() => import("@/features/audit/AuditScreen").then((m) => ({ default: m.AuditScreen })));
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -65,7 +64,7 @@ export function AppRoutes() {
           element={
             <RequireSection section="stats">
               <Lazy>
-                <StatsRouter />
+                <StatsScreen />
               </Lazy>
             </RequireSection>
           }
@@ -141,21 +140,11 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/operator/queue"
+          path="/operators"
           element={
-            <RequireSection section="operatorQueue">
+            <RequireSection section="operators">
               <Lazy>
-                <OperatorQueueScreen />
-              </Lazy>
-            </RequireSection>
-          }
-        />
-        <Route
-          path="/operator/history"
-          element={
-            <RequireSection section="operatorHistory">
-              <Lazy>
-                <OperatorHistoryScreen />
+                <OperatorsScreen />
               </Lazy>
             </RequireSection>
           }

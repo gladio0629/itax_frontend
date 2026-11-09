@@ -1,34 +1,46 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Ban, CheckCircle2, Pencil, Plus, RotateCcw, Trash2, UsersRound } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Avatar } from "@/components/Avatar";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { Drawer } from "@/components/Drawer";
+import { FormDrawer } from "@/components/FormDrawer";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ExportButton } from "@/components/ExportButton";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
+import { ListToolbar } from "@/components/ListToolbar";
+import { FilterSelect } from "@/components/FilterSelect";
 import { ROLE_LABEL } from "@/components/Topbar";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAdapterList } from "@/hooks/useAdapterList";
 import { formatDateTime } from "@/lib/format";
-import { cn } from "@/lib/cn";
-import type { AdminRole, AdminUser } from "@/api/types";
+import type { AdminRole, AdminUser, ArchivableStatusFilter, StaffQuery, StaffRow, StaffStatus } from "@/api/types";
 
 type FormState = { name: string; email: string; phone: string; role: AdminRole | "" };
 const EMPTY_FORM: FormState = { name: "", email: "", phone: "", role: "" };
 
 type Confirm = { type: "block" | "unblock" | "archive" | "restore"; user: AdminUser };
 
+const STATUS_OPTIONS: { value: ArchivableStatusFilter<StaffStatus>; label: string }[] = [
+  { value: "all", label: "Barchasi" },
+  { value: "active", label: "Faol" },
+  { value: "blocked", label: "Bloklangan" },
+  { value: "archived", label: "Arxivlangan" },
+];
+
 export function StaffScreen() {
   const { me } = usePermissions();
-  const [staff, setStaff] = useState<AdminUser[] | null>(null);
-  const [error, setError] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-  const [drawer, setDrawer] = useState<"create" | AdminUser | null>(null);
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState<AdminRole | "all">("all");
+  const [status, setStatus] = useState<ArchivableStatusFilter<StaffStatus>>("all");
+  const query: StaffQuery = { search, role, status };
+  const { items: staff, error, reload } = useAdapterList(api.getStaff, query);
+
+  const [drawer, setDrawer] = useState<"create" | StaffRow | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -36,24 +48,12 @@ export function StaffScreen() {
   const [acting, setActing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  async function load() {
-    setError(false);
-    try {
-      setStaff(await api.getStaff());
-    } catch {
-      setError(true);
-    }
-  }
-  useEffect(() => {
-    load();
-  }, []);
-
   function openCreate() {
     setForm(EMPTY_FORM);
     setFormError(null);
     setDrawer("create");
   }
-  function openEdit(u: AdminUser) {
+  function openEdit(u: StaffRow) {
     setForm({ name: u.name, email: u.email, phone: u.phone, role: u.role });
     setFormError(null);
     setDrawer(u);
@@ -75,7 +75,7 @@ export function StaffScreen() {
         setToast("Xodim tahrirlandi");
       }
       setDrawer(null);
-      await load();
+      reload();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Xatolik yuz berdi");
     } finally {
@@ -96,13 +96,13 @@ export function StaffScreen() {
         type === "block" ? "Xodim bloklandi" : type === "unblock" ? "Xodim blokdan chiqarildi" : type === "archive" ? "Xodim arxivlandi" : "Xodim tiklandi"
       );
       setConfirm(null);
-      await load();
+      reload();
     } finally {
       setActing(false);
     }
   }
 
-  if (error) return <ErrorState onRetry={load} />;
+  if (error) return <ErrorState onRetry={reload} />;
   if (!staff || !me) {
     return (
       <div className="space-y-3">
@@ -113,10 +113,10 @@ export function StaffScreen() {
     );
   }
 
-  const rows = staff.filter((u) => (showArchived ? u.archived : !u.archived));
   const canCreate = me.creatableRoles.length > 0;
+  const hasActiveFilters = role !== "all" || status !== "all";
 
-  const columns: Column<AdminUser>[] = [
+  const columns: Column<StaffRow>[] = [
     {
       key: "name",
       header: "Xodim",
@@ -154,8 +154,7 @@ export function StaffScreen() {
       header: "",
       width: "160px",
       render: (u) => {
-        const editable = me.creatableRoles.includes(u.role) && u.id !== me.id;
-        if (!editable) return null;
+        if (!u.canEdit) return null;
         return (
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             {!u.archived && (
@@ -189,17 +188,30 @@ export function StaffScreen() {
 
   return (
     <div className="relative space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          onClick={() => setShowArchived((v) => !v)}
-          className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-colors", showArchived ? "bg-ink text-bg" : "bg-ink/5 text-ink/70")}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ListToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Ism, email yoki telefon..."
+          resultCount={staff.length}
+          hasActiveFilters={hasActiveFilters}
+          onClear={() => {
+            setRole("all");
+            setStatus("all");
+          }}
         >
-          {showArchived ? "Arxivlanganlar" : "Faol xodimlar"}
-        </button>
-        <div className="flex items-center gap-2">
+          <FilterSelect
+            value={role}
+            onChange={setRole}
+            options={[{ value: "all", label: "Barcha rollar" }, ...(Object.keys(ROLE_LABEL) as AdminRole[]).map((r) => ({ value: r, label: ROLE_LABEL[r] }))]}
+            aria-label="Rol bo'yicha filtr"
+          />
+          <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />
+        </ListToolbar>
+        <div className="flex shrink-0 items-center gap-2">
           <ExportButton
             section="staff"
-            rows={rows}
+            rows={staff}
             filenamePrefix="xodimlar"
             buildRow={(u) => ({ Ism: u.name, Email: u.email, Telefon: u.phone, Rol: ROLE_LABEL[u.role], Holat: u.status })}
           />
@@ -212,64 +224,61 @@ export function StaffScreen() {
       </div>
 
       <DataTable
+        key={`${search}-${role}-${status}`}
         columns={columns}
-        rows={rows}
+        rows={staff}
         rowKey={(u) => u.id}
-        searchFields={(u) => `${u.name} ${u.email} ${u.phone}`}
-        searchPlaceholder="Ism, email yoki telefon..."
         emptyIcon={<UsersRound className="h-6 w-6" />}
         emptyTitle="Xodim topilmadi"
+        emptyDescription="Qidiruv yoki filtrlarga mos xodim yo'q."
       />
 
-      <Drawer open={drawer !== null} onClose={() => setDrawer(null)} title={drawer === "create" ? "Yangi xodim" : "Xodimni tahrirlash"}>
-        <div className="space-y-4">
-          <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
-          <Input
-            label="Telefon"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={form.phone}
-            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+998 90 000 00 00"
-            hint="Xodim telefon raqamini sizga aytadi — hisob shu raqam bilan yaratiladi."
-          />
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-ink/80">Rol</label>
-            <select
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as AdminRole }))}
-              className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none transition-colors focus:border-accent"
-            >
-              <option value="" disabled>
-                Tanlang...
-              </option>
-              {me.creatableRoles.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABEL[r]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Input
-            label={emailRequired ? "Email" : "Email (ixtiyoriy)"}
-            type="email"
-            autoComplete="email"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            hint={!emailRequired ? "Operatorlar faqat telefon SMS kodi bilan kiradi — email shart emas." : undefined}
-          />
-          {formError && <p className="text-xs font-medium text-danger">{formError}</p>}
-          <Button
-            fullWidth
-            loading={saving}
-            disabled={!form.name.trim() || !form.phone.trim() || !form.role || (emailRequired && !form.email.trim())}
-            onClick={handleSave}
+      <FormDrawer
+        open={drawer !== null}
+        onClose={() => setDrawer(null)}
+        title={drawer === "create" ? "Yangi xodim" : "Xodimni tahrirlash"}
+        onSubmit={handleSave}
+        loading={saving}
+        error={formError}
+        disabled={!form.name.trim() || !form.phone.trim() || !form.role || (emailRequired && !form.email.trim())}
+      >
+        <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+        <Input
+          label="Telefon"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          value={form.phone}
+          onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+          placeholder="+998 90 000 00 00"
+          hint="Xodim telefon raqamini sizga aytadi — hisob shu raqam bilan yaratiladi."
+        />
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-ink/80">Rol</label>
+          <select
+            value={form.role}
+            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as AdminRole }))}
+            className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none transition-colors focus:border-accent"
           >
-            Saqlash
-          </Button>
+            <option value="" disabled>
+              Tanlang...
+            </option>
+            {me.creatableRoles.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]}
+              </option>
+            ))}
+          </select>
         </div>
-      </Drawer>
+        <Input
+          label={emailRequired ? "Email" : "Email (ixtiyoriy)"}
+          type="email"
+          autoComplete="email"
+          value={form.email}
+          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+          hint={!emailRequired ? "Operatorlar faqat telefon SMS kodi bilan kiradi — email shart emas." : undefined}
+        />
+      </FormDrawer>
 
       <ConfirmDialog
         open={confirm !== null}
