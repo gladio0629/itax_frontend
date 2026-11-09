@@ -26,6 +26,7 @@ export function OperatorQueueScreen() {
   const [active, setActive] = useState<ActiveTask | null>(null);
   const [error, setError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pendingResult, setPendingResult] = useState<HistoryResult | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [note, setNote] = useState("");
@@ -78,6 +79,7 @@ export function OperatorQueueScreen() {
       return;
     }
     setBusyId(active.id);
+    setPendingResult(result);
     try {
       await api.finishTask(active.id, result, note.trim(), result === "rejected" ? activeRejectReason.trim() : undefined);
       setActive(null);
@@ -87,6 +89,7 @@ export function OperatorQueueScreen() {
       await load();
     } finally {
       setBusyId(null);
+      setPendingResult(null);
     }
   }
 
@@ -122,18 +125,18 @@ export function OperatorQueueScreen() {
               value={activeRejectReason}
               onChange={(e) => setActiveRejectReason(e.target.value)}
               placeholder="Rad etish sababi (shart)..."
-              className="h-10 w-full rounded-xl border border-danger bg-card px-3 text-sm text-ink outline-none"
+              className="h-10 w-full rounded-xl border border-danger bg-card px-3 text-sm text-ink outline-none transition-colors focus:border-accent"
               autoFocus
             />
           )}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" loading={busyId === active.id} onClick={() => finish("resolved")}>
+            <Button size="sm" disabled={!!busyId} loading={pendingResult === "resolved"} onClick={() => finish("resolved")}>
               Hal qilindi
             </Button>
-            <Button size="sm" variant="secondary" loading={busyId === active.id} onClick={() => finish("callback")}>
+            <Button size="sm" variant="secondary" disabled={!!busyId} loading={pendingResult === "callback"} onClick={() => finish("callback")}>
               Qayta qo'ng'iroq
             </Button>
-            <Button size="sm" variant="danger" loading={busyId === active.id} onClick={() => finish("rejected")}>
+            <Button size="sm" variant="danger" disabled={!!busyId} loading={pendingResult === "rejected"} onClick={() => finish("rejected")}>
               Rad etish
             </Button>
           </div>

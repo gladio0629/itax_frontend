@@ -159,8 +159,8 @@ export function LoginScreen() {
                   inputMode="numeric"
                   maxLength={1}
                   className={cn(
-                    "h-12 w-11 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
-                    codeError ? "border-danger" : "border-border focus:border-accent"
+                    "h-12 w-11 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors focus:border-accent",
+                    codeError ? "border-danger" : "border-border"
                   )}
                 />
               ))}

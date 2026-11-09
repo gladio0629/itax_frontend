@@ -222,7 +222,15 @@ export function StaffScreen() {
         <div className="space-y-4">
           <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
           <Input label="Email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-          <Input label="Telefon" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+998 90 000 00 00" />
+          <Input
+            label="Telefon"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={form.phone}
+            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+            placeholder="+998 90 000 00 00"
+          />
           <div>
             <label className="mb-2 block text-sm font-semibold text-ink/80">Rol</label>
             <select
