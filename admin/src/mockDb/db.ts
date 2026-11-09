@@ -126,6 +126,10 @@ export type StaffStatus = "active" | "blocked";
 export type AdminUser = {
   id: string;
   name: string;
+  /** Required for every role except "operator" — operators log in with a
+   * phone SMS code only, so they may not have an email at all. Empty
+   * string means "no email", never null/undefined, to keep every screen's
+   * display code simple. */
   email: string;
   phone: string;
   role: AdminRole;
@@ -259,7 +263,7 @@ const DEFAULT_STAFF: AdminUser[] = [
   {
     id: "adm_05",
     name: "Dilnoza Qosimova",
-    email: "dilnoza@izgo.example",
+    email: "",
     phone: "+998 90 000 00 05",
     role: "operator",
     status: "active",
@@ -271,7 +275,7 @@ const DEFAULT_STAFF: AdminUser[] = [
   {
     id: "adm_06",
     name: "Oybek Niyazov",
-    email: "oybek@izgo.example",
+    email: "",
     phone: "+998 90 000 00 06",
     role: "operator",
     status: "blocked",
@@ -294,7 +298,8 @@ export function getStaffMember(id: string): AdminUser | undefined {
 }
 export function findStaffByEmailOrPhone(value: string): AdminUser | undefined {
   const v = value.trim().toLowerCase();
-  return getStaff().find((u) => u.email.toLowerCase() === v || u.phone.replace(/\s+/g, "") === v.replace(/\s+/g, ""));
+  if (!v) return undefined;
+  return getStaff().find((u) => (u.email && u.email.toLowerCase() === v) || u.phone.replace(/\s+/g, "") === v.replace(/\s+/g, ""));
 }
 export function saveStaff(list: AdminUser[]) {
   writeJSON(STAFF_KEY, list);

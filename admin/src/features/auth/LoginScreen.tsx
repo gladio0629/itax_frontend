@@ -128,7 +128,7 @@ export function LoginScreen() {
             />
             <p className="text-xs text-ink/50">
               Demo: kamola@izgo.example (superadmin) · behzod@izgo.example (egasi) · javlon@izgo.example (menejer) ·
-              shahnoza@izgo.example (marketolog) · dilnoza@izgo.example (operator)
+              shahnoza@izgo.example (marketolog) · +998 90 000 00 05 (operator, email yo'q)
             </p>
             <Button fullWidth loading={loading} disabled={!identifier.trim()} onClick={handleStart}>
               Davom etish

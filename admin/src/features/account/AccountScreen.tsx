@@ -18,7 +18,7 @@ export function AccountScreen() {
             <Avatar seed={me.avatarSeed} name={me.name} size={48} />
             <div>
               <p className="font-semibold text-ink">{me.name}</p>
-              <p className="text-xs text-ink/50">{me.email}</p>
+              {me.email && <p className="text-xs text-ink/50">{me.email}</p>}
               <p className="text-xs text-ink/50">{me.phone}</p>
               <Badge tone="accent" className="mt-1">
                 {ROLE_LABEL[me.role]}

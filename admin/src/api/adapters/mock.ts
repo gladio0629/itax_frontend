@@ -64,6 +64,14 @@ function assertCanActOnRole(actor: AdminUser, role: AdminRole) {
   if (!canCreateRole(actor.role, role)) throw new ApiError("FORBIDDEN", "Bu rol uchun ruxsatingiz yo'q.");
 }
 
+// Phone is how every staff member is created and how operators log in, so
+// it's always required. Email is required for everyone except operators,
+// who authenticate with a phone SMS code only.
+function assertContactInfo(role: AdminRole, phone: string, email: string) {
+  if (!phone.trim()) throw new ApiError("VALIDATION", "Telefon raqami talab qilinadi.");
+  if (role !== "operator" && !email.trim()) throw new ApiError("VALIDATION", "Email talab qilinadi.");
+}
+
 function maskEmail(email: string): string {
   const [user, domain] = email.split("@");
   return user.length <= 2 ? `${user[0] ?? "*"}***@${domain}` : `${user.slice(0, 2)}***@${domain}`;
@@ -477,11 +485,12 @@ export const mockAdapter: ApiAdapter = {
     withLatency<AdminUser>(() => {
       const actor = currentAdmin();
       assertCanActOnRole(actor, input.role);
+      assertContactInfo(input.role, input.phone, input.email);
       const id = `adm_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
       const user: AdminUser = {
         id,
         name: input.name,
-        email: input.email,
+        email: input.email.trim(),
         phone: input.phone,
         role: input.role,
         status: "active",
@@ -511,6 +520,7 @@ export const mockAdapter: ApiAdapter = {
       assertCanActOnRole(actor, target.role);
       if (patch.role) assertCanActOnRole(actor, patch.role);
       const updated: AdminUser = { ...target, ...patch };
+      assertContactInfo(updated.role, updated.phone, updated.email);
       upsertStaffMember(updated);
       addAuditEntry({
         actorId: actor.id,

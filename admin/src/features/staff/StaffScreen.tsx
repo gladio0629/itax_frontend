@@ -59,8 +59,11 @@ export function StaffScreen() {
     setDrawer(u);
   }
 
+  const emailRequired = form.role !== "operator";
+
   async function handleSave() {
-    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.role) return;
+    if (!form.name.trim() || !form.phone.trim() || !form.role) return;
+    if (emailRequired && !form.email.trim()) return;
     setSaving(true);
     setFormError(null);
     try {
@@ -124,7 +127,7 @@ export function StaffScreen() {
           <Avatar seed={u.avatarSeed} name={u.name} />
           <div className="min-w-0">
             <p className="truncate font-medium text-ink">{u.name}</p>
-            <p className="truncate text-xs text-ink/50">{u.email}</p>
+            <p className="truncate text-xs text-ink/50">{u.email || u.phone}</p>
           </div>
         </div>
       ),
@@ -221,7 +224,6 @@ export function StaffScreen() {
       <Drawer open={drawer !== null} onClose={() => setDrawer(null)} title={drawer === "create" ? "Yangi xodim" : "Xodimni tahrirlash"}>
         <div className="space-y-4">
           <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
-          <Input label="Email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
           <Input
             label="Telefon"
             type="tel"
@@ -230,6 +232,7 @@ export function StaffScreen() {
             value={form.phone}
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
             placeholder="+998 90 000 00 00"
+            hint="Xodim telefon raqamini sizga aytadi — hisob shu raqam bilan yaratiladi."
           />
           <div>
             <label className="mb-2 block text-sm font-semibold text-ink/80">Rol</label>
@@ -248,11 +251,19 @@ export function StaffScreen() {
               ))}
             </select>
           </div>
+          <Input
+            label={emailRequired ? "Email" : "Email (ixtiyoriy)"}
+            type="email"
+            autoComplete="email"
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            hint={!emailRequired ? "Operatorlar faqat telefon SMS kodi bilan kiradi — email shart emas." : undefined}
+          />
           {formError && <p className="text-xs font-medium text-danger">{formError}</p>}
           <Button
             fullWidth
             loading={saving}
-            disabled={!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.role}
+            disabled={!form.name.trim() || !form.phone.trim() || !form.role || (emailRequired && !form.email.trim())}
             onClick={handleSave}
           >
             Saqlash
