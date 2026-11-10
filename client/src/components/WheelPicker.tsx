@@ -35,8 +35,11 @@ export function WheelPicker({
       programmaticScroll.current = false;
     }, 50);
     return () => clearTimeout(id);
+    // Re-centers on `value` too, not just `options` — needed so a keyboard
+    // step (which changes `value` without the user scrolling) still moves
+    // the wheel to match, the same way a touch-driven scroll already does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [options]);
+  }, [options, value]);
 
   function handleScroll() {
     if (settleTimer.current) clearTimeout(settleTimer.current);
@@ -50,6 +53,22 @@ export function WheelPicker({
     }, 120);
   }
 
+  function step(delta: number) {
+    const idx = options.indexOf(value);
+    const next = options[Math.max(0, Math.min(options.length - 1, idx + delta))];
+    if (next !== undefined && next !== value) onChange(next);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      step(-1);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      step(1);
+    }
+  }
+
   return (
     <div className="relative" style={{ height: ITEM_HEIGHT * VISIBLE_COUNT }}>
       <div
@@ -60,9 +79,11 @@ export function WheelPicker({
       <div
         ref={containerRef}
         onScroll={handleScroll}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
         role="listbox"
         aria-label={ariaLabel}
-        className="no-scrollbar h-full overflow-y-auto overscroll-contain"
+        className="no-scrollbar h-full overflow-y-auto overscroll-contain focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-yellow"
         style={{ scrollSnapType: "y mandatory" }}
       >
         <div style={{ height: PAD }} aria-hidden="true" />

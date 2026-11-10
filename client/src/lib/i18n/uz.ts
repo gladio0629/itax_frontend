@@ -11,6 +11,8 @@ export const uz = {
 
   "common.back": "Orqaga",
   "common.close": "Yopish",
+  "calendar.prevMonth": "Oldingi oy",
+  "calendar.nextMonth": "Keyingi oy",
   "common.cancel": "Bekor qilish",
   "common.confirm": "Tasdiqlash",
   "common.save": "Saqlash",

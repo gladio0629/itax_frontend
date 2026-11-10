@@ -11,6 +11,8 @@ export const ru: Dictionary = {
 
   "common.back": "Назад",
   "common.close": "Закрыть",
+  "calendar.prevMonth": "Предыдущий месяц",
+  "calendar.nextMonth": "Следующий месяц",
   "common.cancel": "Отмена",
   "common.confirm": "Подтвердить",
   "common.save": "Сохранить",

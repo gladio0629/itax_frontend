@@ -271,7 +271,11 @@ export function OrderSheet({
       </div>
 
       <div className="border-t border-border px-5 py-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
-        {submitError && <p className="mb-2 text-xs font-medium text-danger">{t("order.submitError")}</p>}
+        {submitError && (
+          <p role="alert" aria-live="polite" className="mb-2 text-xs font-medium text-danger">
+            {t("order.submitError")}
+          </p>
+        )}
         <div className="flex items-center gap-2">
           {step > 0 && (
             <Button variant="secondary" onClick={() => setStep(step - 1)}>

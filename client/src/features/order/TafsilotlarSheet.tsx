@@ -144,7 +144,11 @@ export function TafsilotlarSheet({
 
         <PaymentMethodSection value={paymentMethod} onChange={setPaymentMethod} />
 
-        {error && <p className="mt-3 text-xs font-medium text-danger">{t("order.submitError")}</p>}
+        {error && (
+          <p role="alert" aria-live="polite" className="mt-3 text-xs font-medium text-danger">
+            {t("order.submitError")}
+          </p>
+        )}
 
         <div className="mt-5 flex gap-2">
           <Button variant="danger" onClick={onCancel}>

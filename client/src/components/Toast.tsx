@@ -9,7 +9,9 @@ export function Toast({ message, onDone }: { message: string; onDone: () => void
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-28 z-[60] flex justify-center px-6 animate-slide-up">
-      <div className="rounded-2xl bg-ink px-4 py-2.5 text-xs font-semibold text-bg shadow-soft">{message}</div>
+      <div role="status" aria-live="polite" className="rounded-2xl bg-ink px-4 py-2.5 text-xs font-semibold text-bg shadow-soft">
+        {message}
+      </div>
     </div>
   );
 }

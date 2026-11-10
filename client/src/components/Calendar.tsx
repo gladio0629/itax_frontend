@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { monthNames, weekdayNames } from "@/lib/format";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/cn";
 
 function toISODate(d: Date): string {
@@ -19,6 +20,7 @@ export function Calendar({
   onChange: (iso: string) => void;
   intlTag: string;
 }) {
+  const { t } = useT();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const initial = value ? new Date(`${value}T00:00:00`) : today;
@@ -53,7 +55,7 @@ export function Calendar({
         <button
           type="button"
           onClick={() => changeMonth(-1)}
-          aria-label="Previous month"
+          aria-label={t("calendar.prevMonth")}
           className="flex h-8 w-8 items-center justify-center rounded-xl text-ink/70 hover:bg-ink/5"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -64,7 +66,7 @@ export function Calendar({
         <button
           type="button"
           onClick={() => changeMonth(1)}
-          aria-label="Next month"
+          aria-label={t("calendar.nextMonth")}
           className="flex h-8 w-8 items-center justify-center rounded-xl text-ink/70 hover:bg-ink/5"
         >
           <ChevronRight className="h-4 w-4" />
