@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { ConfettiBurst } from "@/components/ConfettiBurst";
 import { useQuery } from "@/lib/useQuery";
+import { useHeaderTone } from "@/lib/headerTone";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { formatSom, formatSomParts, formatRelativeDay } from "@/lib/format";
@@ -42,6 +43,9 @@ export function BonusScreen() {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [celebrateKey, setCelebrateKey] = useState(0);
   const [detailSource, setDetailSource] = useState<BonusSource | null>(null);
+
+  // The hero is navy in both themes, so the floating hamburger over it goes white.
+  useHeaderTone("onDark");
 
   const summary = useQuery(() => api.getBonusSummary(), []);
   const sources = useQuery(() => api.getBonusSources(), []);
