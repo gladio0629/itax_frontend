@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Star, Lock, RotateCcw, HelpCircle } from "lucide-react";
+import { Star, Lock, HelpCircle } from "lucide-react";
 import { api } from "@/api/client";
 import type { OrderWithDetails } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -10,8 +10,6 @@ import { Avatar } from "@/components/Avatar";
 import { MapView } from "@/components/MapView";
 import { SkeletonList } from "@/components/Skeleton";
 import { formatSom, formatKm, formatRelativeDay, formatTime } from "@/lib/format";
-import { useOrderStore } from "@/stores/orderStore";
-import { defaultAddressesForCity } from "@/clientData/addresses";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { RatingReasonsSheet } from "./RatingReasonsSheet";
@@ -29,7 +27,6 @@ export function HistoryDetailScreen() {
   const { orderId = "" } = useParams();
   const navigate = useNavigate();
   const { t, intlTag } = useT();
-  const { setField } = useOrderStore();
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
   const [pendingFive, setPendingFive] = useState(false);
   const [ratingError, setRatingError] = useState(false);
@@ -55,15 +52,6 @@ export function HistoryDetailScreen() {
     if (!order?.ratingEditable) return;
     if (value === 5) setPendingFive(true);
     else rate(value);
-  }
-
-  function reorder() {
-    if (!order) return;
-    const fromAddr = defaultAddressesForCity(order.fromCityId)[0];
-    const toAddr = defaultAddressesForCity(order.toCityId)[0];
-    if (fromAddr) setField("fromAddressId", fromAddr.id);
-    if (toAddr) setField("toAddressId", toAddr.id);
-    navigate("/home");
   }
 
   if (!order) {
@@ -152,20 +140,12 @@ export function HistoryDetailScreen() {
           </Card>
         )}
 
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <button
-            onClick={reorder}
-            className="flex items-center justify-center gap-2 rounded-xl bg-accent-5 py-3.5 text-sm font-semibold text-accent"
-          >
-            <RotateCcw className="h-4 w-4" /> {t("history.reorder")}
-          </button>
-          <button
-            onClick={() => navigate("/help")}
-            className="flex items-center justify-center gap-2 rounded-xl bg-ink/5 py-3.5 text-sm font-semibold text-ink/80"
-          >
-            <HelpCircle className="h-4 w-4" /> {t("history.help")}
-          </button>
-        </div>
+        <button
+          onClick={() => navigate("/help")}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-ink/5 py-3.5 text-sm font-semibold text-ink/80"
+        >
+          <HelpCircle className="h-4 w-4" /> {t("history.help")}
+        </button>
       </div>
 
       {pendingFive && (
