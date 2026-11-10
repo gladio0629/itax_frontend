@@ -9,6 +9,7 @@ import { SkeletonList } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { formatSom, formatKm } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
+import { RatingReasonsSheet } from "@/features/history/RatingReasonsSheet";
 
 export function OrderFinishedScreen() {
   const { orderId = "" } = useParams();
@@ -20,6 +21,7 @@ export function OrderFinishedScreen() {
   const [suggestion, setSuggestion] = useState<RouteSuggestion | null>(null);
   const [error, setError] = useState(false);
   const [ratingError, setRatingError] = useState(false);
+  const [pendingFive, setPendingFive] = useState(false);
 
   function load() {
     setError(false);
@@ -29,15 +31,20 @@ export function OrderFinishedScreen() {
 
   useEffect(load, [orderId]);
 
-  async function submitRating(value: number) {
+  async function submitRating(value: number, reasons?: string[], note?: string) {
     setRating(value);
     setRatingError(false);
     try {
-      await api.rateOrder(orderId, value);
+      await api.rateOrder(orderId, value, reasons, note);
       setSubmitted(true);
     } catch {
       setRatingError(true);
     }
+  }
+
+  function onStarClick(value: number) {
+    if (value === 5) setPendingFive(true);
+    else submitRating(value);
   }
 
   if (error) {
@@ -57,7 +64,8 @@ export function OrderFinishedScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-bg px-5 overflow-y-auto" style={{ paddingTop: "calc(var(--safe-top) + 32px)" }}>
+    <div className="relative h-full bg-bg">
+      <div className="h-full overflow-y-auto px-5" style={{ paddingTop: "calc(var(--safe-top) + 32px)" }}>
       <div className="flex flex-col items-center gap-3 pb-6 text-center animate-scale-in">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-bg animate-check-pop">
           <PartyPopper className="h-9 w-9" />
@@ -72,7 +80,7 @@ export function OrderFinishedScreen() {
         <p className="mb-3 text-center text-sm font-semibold text-ink">Haydovchini baholang</p>
         <div className="flex justify-center gap-2">
           {[1, 2, 3, 4, 5].map((v) => (
-            <button key={v} onClick={() => submitRating(v)} aria-label={`${v} yulduz`} className="p-1">
+            <button key={v} onClick={() => onStarClick(v)} aria-label={`${v} yulduz`} className="p-1">
               <Star className={`h-8 w-8 transition-colors ${v <= rating ? "fill-warning text-warning" : "text-ink/20"}`} />
             </button>
           ))}
@@ -119,6 +127,17 @@ export function OrderFinishedScreen() {
           Bosh sahifaga qaytish
         </Button>
       </div>
+      </div>
+
+      {pendingFive && (
+        <RatingReasonsSheet
+          onClose={() => setPendingFive(false)}
+          onSubmit={(reasons, note) => {
+            setPendingFive(false);
+            submitRating(5, reasons, note);
+          }}
+        />
+      )}
     </div>
   );
 }

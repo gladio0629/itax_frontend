@@ -19,6 +19,7 @@ import type {
   BonusSummary,
   CreateOrderInput,
   NotificationItem,
+  OrderHistoryPage,
   OrderWithDetails,
   OtpRequestResult,
   PassengerWalletEntry,
@@ -40,6 +41,7 @@ const BONUS_MIN_WITHDRAW = 50_000;
 const BONUS_MONTHLY_MAX = 300_000;
 const BONUS_TRIP_RATE = 0.02;
 const BONUS_WITHDRAWALS_KEY = "bonus_withdrawals";
+const RATING_REASONS_KEY = "rating_reasons";
 
 type BonusLedgerEntry = { id: string; sourceId: string; type: "earn" | "withdraw"; amount: number; createdAt: number };
 
@@ -97,13 +99,19 @@ function currentPassengerId(): string {
   return db.passengers()[2].id; // fixed demo passenger: a stable "me"
 }
 
+const RATING_EDIT_WINDOW_MS = 7 * 86_400_000;
+
 function toDetails(order: Order): OrderWithDetails {
   const driver = order.driverId ? db.drivers().find((d) => d.id === order.driverId) : undefined;
+  const ratingEditable =
+    order.status === "completed" && (!order.rating || Date.now() - order.createdAt < RATING_EDIT_WINDOW_MS);
   return {
     ...order,
     driver,
     fromCity: cityOf(order.fromCityId),
     toCity: cityOf(order.toCityId),
+    ratingEditable,
+    lockedReasonKey: order.status === "completed" && !ratingEditable ? "history.rating.lockedReason" : undefined,
   };
 }
 
@@ -356,20 +364,35 @@ export const mockAdapter: ApiAdapter = {
       return toDetails(db.getOrder(orderId)!);
     }),
 
-  rateOrder: (orderId: string, rating: number) =>
+  rateOrder: (orderId: string, rating: number, reasons?: string[], note?: string) =>
     withLatency<OrderWithDetails>(() => {
+      const order = db.getOrder(orderId);
+      if (!order) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");
+      const editable =
+        order.status === "completed" && (!order.rating || Date.now() - order.createdAt < RATING_EDIT_WINDOW_MS);
+      if (!editable) throw new ApiError("LOCKED", "Bahoni tahrirlab bo'lmaydi");
       db.updateOrder(orderId, { rating });
+      if (reasons) {
+        const all = readJSON<Record<string, { reasons: string[]; note?: string }>>(RATING_REASONS_KEY, {});
+        all[orderId] = { reasons, note };
+        writeJSON(RATING_REASONS_KEY, all);
+      }
       return toDetails(db.getOrder(orderId)!);
     }, { minMs: 200, maxMs: 500 }),
 
-  getOrderHistory: () =>
-    withLatency(() =>
-      db
+  getOrderHistory: (params) =>
+    withLatency<OrderHistoryPage>(() => {
+      let list = db
         .orders()
         .filter((o) => o.passengerId === currentPassengerId())
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .map(toDetails)
-    ),
+        .sort((a, b) => b.createdAt - a.createdAt);
+      if (params?.status) list = list.filter((o) => o.status === params.status);
+      const pageSize = 8;
+      const cursor = params?.cursor ?? 0;
+      const orders = list.slice(cursor, cursor + pageSize).map(toDetails);
+      const nextCursor = cursor + pageSize < list.length ? cursor + pageSize : null;
+      return { orders, nextCursor };
+    }),
 
   getSavedCards: () => withLatency(() => readJSON<SavedCard[]>("saved_cards", [])),
 

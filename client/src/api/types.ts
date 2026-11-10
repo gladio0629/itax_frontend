@@ -3,12 +3,13 @@ import type {
   Driver,
   Order,
   OrderMode,
+  OrderStatus,
   PaymentMethod,
 } from "@/seed/generate";
 import type { ReviewKind, ReviewRequest } from "@/mockDb/db";
 import type { Address } from "@/clientData/addresses";
 
-export type { City, Driver, Order, OrderMode, PaymentMethod, ReviewKind, ReviewRequest, Address };
+export type { City, Driver, Order, OrderMode, OrderStatus, PaymentMethod, ReviewKind, ReviewRequest, Address };
 
 export type ServiceType = "passenger" | "delivery";
 export type CargoPreset = "small" | "medium" | "large";
@@ -87,6 +88,13 @@ export type OrderWithDetails = Order & {
   driver?: Driver;
   fromCity: City;
   toCity: City;
+  ratingEditable: boolean;
+  lockedReasonKey?: string;
+};
+
+export type OrderHistoryPage = {
+  orders: OrderWithDetails[];
+  nextCursor: number | null;
 };
 
 export type NotificationItem = {

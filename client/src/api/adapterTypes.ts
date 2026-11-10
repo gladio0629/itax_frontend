@@ -6,6 +6,8 @@ import type {
   City,
   CreateOrderInput,
   NotificationItem,
+  OrderHistoryPage,
+  OrderStatus,
   OrderWithDetails,
   OtpRequestResult,
   Profile,
@@ -42,8 +44,8 @@ export interface ApiAdapter {
   createOrder(input: CreateOrderInput): Promise<OrderWithDetails>;
   getOrder(orderId: string): Promise<OrderWithDetails>;
   cancelOrder(orderId: string, reason: string): Promise<OrderWithDetails>;
-  rateOrder(orderId: string, rating: number): Promise<OrderWithDetails>;
-  getOrderHistory(): Promise<OrderWithDetails[]>;
+  rateOrder(orderId: string, rating: number, reasons?: string[], note?: string): Promise<OrderWithDetails>;
+  getOrderHistory(params?: { status?: OrderStatus; cursor?: number }): Promise<OrderHistoryPage>;
 
   getSavedCards(): Promise<SavedCard[]>;
   linkCard(payload: { label: string }): Promise<ReviewRequest>;
