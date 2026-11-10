@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
 
-const ITEM_HEIGHT = 40;
+const ITEM_HEIGHT = 44;
 const VISIBLE_COUNT = 5;
 const PAD = Math.floor(VISIBLE_COUNT / 2) * ITEM_HEIGHT;
 

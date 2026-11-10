@@ -84,9 +84,9 @@ export function FakeMap({
       {pickupLabel && (
         <div
           className="pointer-events-none absolute left-1/2 max-w-[56%] -translate-x-1/2 rounded-full bg-card/90 px-3 py-1.5 text-center shadow-softer backdrop-blur-sm"
-          style={{ top: "calc(var(--safe-top) + 76px)" }}
+          style={{ top: "calc(var(--safe-top) + 84px)" }}
         >
-          <p className="truncate text-[10px] font-medium text-ink/60">{pickupLabel}</p>
+          <p className="truncate text-xs font-medium text-ink/70">{pickupLabel}</p>
         </div>
       )}
 

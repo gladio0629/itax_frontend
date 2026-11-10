@@ -6,6 +6,8 @@ import type { Profile } from "@/api/types";
 import { Avatar } from "@/components/Avatar";
 import { SkeletonCard } from "@/components/Skeleton";
 import { LanguageSheet } from "@/components/LanguageSheet";
+import { PageTitle } from "@/components/PageTitle";
+import { Switch } from "@/components/Switch";
 import { useAuthStore } from "@/stores/authStore";
 import { useTheme } from "@/lib/theme";
 import { useT } from "@/lib/i18n/provider";
@@ -28,7 +30,7 @@ function Row({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 p-4 text-left active:bg-ink/5"
+      className="flex min-h-[68px] w-full items-center gap-3 p-4 text-left active:bg-ink/5"
     >
       <span
         className={cn(
@@ -59,11 +61,9 @@ export function SettingsScreen() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <div className="pl-16 pr-5" style={{ paddingTop: "calc(var(--safe-top) + 24px)" }}>
-        <h1 className="text-lg font-semibold text-ink">{t("drawer.sozlamalar")}</h1>
-      </div>
+      <PageTitle>{t("drawer.sozlamalar")}</PageTitle>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4">
+      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4 pt-2">
         <button
           onClick={() => navigate("/settings/account")}
           className="mb-5 flex w-full items-center gap-4 rounded-2xl bg-card p-4 shadow-softer active:scale-[0.99] transition-transform"
@@ -87,28 +87,16 @@ export function SettingsScreen() {
         </div>
 
         <div className="mb-4 divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-softer">
-          <div className="flex items-center gap-3 p-4">
+          <div className="flex min-h-[68px] items-center gap-3 p-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
               {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </span>
             <span className="flex-1 text-sm font-medium text-ink">{t("settings.theme")}</span>
-            <button
-              onClick={toggleTheme}
-              role="switch"
-              aria-checked={theme === "dark"}
-              aria-label={theme === "dark" ? t("theme.toggleToLight") : t("theme.toggleToDark")}
-              className={cn(
-                "relative flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
-                theme === "dark" ? "bg-accent" : "bg-ink/15"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-softer transition-transform",
-                  theme === "dark" ? "translate-x-5" : "translate-x-0.5"
-                )}
-              />
-            </button>
+            <Switch
+              checked={theme === "dark"}
+              onChange={toggleTheme}
+              label={theme === "dark" ? t("theme.toggleToLight") : t("theme.toggleToDark")}
+            />
           </div>
           <Row
             icon={Globe}

@@ -5,17 +5,17 @@ type Props = {
   right?: ReactNode;
 };
 
-// The back arrow itself is owned by AppShell (same floating, no-backdrop
-// control that shows the hamburger on top-level screens) — this header
-// only reserves the matching space so the title stays centered and never
-// sits under it.
+// The back arrow itself is owned by AppShell (a 44px floating control at
+// safe-top + 16px). This header occupies that same 44px row so the title is
+// vertically centred on the arrow, and its 8px bottom margin starts content
+// below the arrow instead of beside it.
 export function ScreenHeader({ title, right }: Props) {
   return (
     <div
-      className="flex items-center justify-between pl-16 pr-4 pb-2"
-      style={{ paddingTop: "calc(var(--safe-top) + 16px)" }}
+      className="mb-2 flex h-11 shrink-0 items-center gap-2 pl-[60px] pr-4"
+      style={{ marginTop: "calc(var(--safe-top) + 16px)" }}
     >
-      {title && <h1 className="flex-1 text-center text-sm font-semibold text-ink">{title}</h1>}
+      <h1 className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-ink">{title}</h1>
       <div className="flex min-w-[44px] justify-end">{right}</div>
     </div>
   );

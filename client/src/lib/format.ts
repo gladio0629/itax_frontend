@@ -18,7 +18,7 @@ function groupedNumber(value: number, intlTag: string): string {
 export function formatSom(value: number, intlTag = "uz-Latn"): string {
   const sign = value < 0 ? "-" : "";
   const abs = Math.abs(Math.round(value));
-  return `${sign}${groupedNumber(abs, intlTag)} so'm`;
+  return `${sign}${groupedNumber(abs, intlTag)}\u00a0so'm`;
 }
 
 /** Same grouping as formatSom, split for the Bonus hero's large-integer +
@@ -28,7 +28,7 @@ export function formatSomParts(value: number, intlTag = "uz-Latn"): { whole: str
 }
 
 export function formatKm(value: number, intlTag = "uz-Latn"): string {
-  return `${groupedNumber(Math.round(value), intlTag)} km`;
+  return `${groupedNumber(Math.round(value), intlTag)}\u00a0km`;
 }
 
 const UZ_MONTHS = [

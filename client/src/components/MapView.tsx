@@ -35,6 +35,7 @@ export function MapView({
   return (
     <svg
       viewBox="0 0 380 380"
+      preserveAspectRatio="xMidYMid slice"
       className={cn("h-full w-full", dim && "opacity-60", className)}
       role="img"
       aria-label={t("map.routeLabel")}

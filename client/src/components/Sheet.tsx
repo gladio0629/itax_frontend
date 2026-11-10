@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -45,9 +45,8 @@ type SheetProps = {
 };
 
 /**
- * Simple modal bottom sheet — fixed height to content, swipe-down or
- * backdrop tap to dismiss. For the multi-snap-point drag sheet used by the
- * home order flow, see `DragSheet` below.
+ * Modal bottom sheet — height fits content (max 88%), swipe the handle down,
+ * tap the backdrop or press Escape to dismiss.
  */
 export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -81,14 +80,15 @@ export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
         style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
       >
         <div
-          className="flex shrink-0 cursor-grab touch-none justify-center bg-card pt-2"
+          className="flex shrink-0 cursor-grab touch-none justify-center pt-2"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          aria-hidden="true"
         >
           <div className="h-1.5 w-10 rounded-full bg-ink/15" />
         </div>
-        <div className="overflow-y-auto overscroll-contain">{children}</div>
+        <div className="min-h-0 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );
@@ -96,78 +96,143 @@ export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
 
 export type SnapPoint = "collapsed" | "half" | "full";
 
+const SNAP_ORDER: SnapPoint[] = ["collapsed", "half", "full"];
+
+// The full snap stops below the row of floating map controls (hamburger,
+// greeting, bell — 44px tall at safe-top + 16px) plus a 24px gap, so the sheet
+// never slices through them.
+const FULL_TOP_CLEARANCE = 84;
+
+function snapHeights(containerH: number, safeTop: number): Record<SnapPoint, number> {
+  const full = Math.max(0, containerH - safeTop - FULL_TOP_CLEARANCE);
+  return {
+    collapsed: Math.min(full, Math.max(280, Math.min(360, containerH * 0.44))),
+    half: Math.min(full, containerH * 0.6),
+    full,
+  };
+}
+
 type DragSheetProps = {
   snap: SnapPoint;
   onSnapChange: (snap: SnapPoint) => void;
-  heightsVh: Record<SnapPoint, number>;
   children: ReactNode;
   ariaLabel: string;
+  /** Accessible name for the drag handle, which is also a button (tap or ↑/↓ keys change the snap). */
+  handleLabel: string;
+  /** Settled visible height in px, e.g. so floating chrome can sit above the sheet. */
+  onVisibleHeightChange?: (px: number) => void;
 };
 
-const SNAP_ORDER: SnapPoint[] = ["collapsed", "half", "full"];
-
 /**
- * Three-snap-point draggable sheet for the home order flow. Snapping is
- * position-based (nearest snap point on release), not velocity-based —
- * a deliberate simplification for this demo.
+ * Three-snap-point draggable sheet for the home order flow. The panel is
+ * always the full-snap height and moves with translateY (compositor-only);
+ * layout is measured in effects, never during render. Snapping is
+ * position-based (nearest snap point on release).
  */
-export function DragSheet({ snap, onSnapChange, heightsVh, children, ariaLabel }: DragSheetProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ startY: number; startHeight: number } | null>(null);
+export function DragSheet({ snap, onSnapChange, children, ariaLabel, handleLabel, onVisibleHeightChange }: DragSheetProps) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ h: 0, safeTop: 0 });
+  const drag = useRef<{ startY: number; startHeight: number; moved: boolean } | null>(null);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
 
-  function pxHeight(pct: number) {
-    const containerHeight = containerRef.current?.parentElement?.clientHeight ?? window.innerHeight;
-    return (pct / 100) * containerHeight;
-  }
+  useLayoutEffect(() => {
+    const parent = sheetRef.current?.parentElement;
+    if (!parent) return;
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;visibility:hidden;height:var(--safe-top)";
+    const measure = () => {
+      parent.appendChild(probe);
+      const safeTop = probe.offsetHeight;
+      probe.remove();
+      setBox({ h: parent.clientHeight, safeTop });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(parent);
+    return () => ro.disconnect();
+  }, []);
+
+  const heights = snapHeights(box.h, box.safeTop);
+  const visible = dragHeight ?? heights[snap];
+
+  useEffect(() => {
+    if (box.h) onVisibleHeightChange?.(heights[snap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snap, box.h, box.safeTop]);
 
   function onPointerDown(e: React.PointerEvent) {
-    drag.current = { startY: e.clientY, startHeight: pxHeight(heightsVh[snap]) };
+    drag.current = { startY: e.clientY, startHeight: heights[snap], moved: false };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   }
   function onPointerMove(e: React.PointerEvent) {
     if (!drag.current) return;
     const dy = drag.current.startY - e.clientY;
-    const min = pxHeight(heightsVh.collapsed) * 0.7;
-    const max = pxHeight(heightsVh.full);
-    setDragHeight(Math.max(min, Math.min(max, drag.current.startHeight + dy)));
+    if (Math.abs(dy) > 4) drag.current.moved = true;
+    if (!drag.current.moved) return;
+    setDragHeight(Math.max(heights.collapsed * 0.7, Math.min(heights.full, drag.current.startHeight + dy)));
   }
   function onPointerUp() {
     if (!drag.current) return;
-    const current = dragHeight ?? pxHeight(heightsVh[snap]);
+    const moved = drag.current.moved;
+    const current = dragHeight ?? heights[snap];
+    drag.current = null;
+    setDragHeight(null);
+    if (!moved) return;
     let nearest: SnapPoint = snap;
     let best = Infinity;
     for (const point of SNAP_ORDER) {
-      const d = Math.abs(pxHeight(heightsVh[point]) - current);
+      const d = Math.abs(heights[point] - current);
       if (d < best) {
         best = d;
         nearest = point;
       }
     }
-    drag.current = null;
-    setDragHeight(null);
     onSnapChange(nearest);
   }
-
-  const height = dragHeight ?? pxHeight(heightsVh[snap]);
+  function step(delta: number) {
+    const i = SNAP_ORDER.indexOf(snap);
+    const next = SNAP_ORDER[Math.max(0, Math.min(SNAP_ORDER.length - 1, i + delta))];
+    if (next !== snap) onSnapChange(next);
+  }
 
   return (
     <div
-      ref={containerRef}
+      ref={sheetRef}
       role="dialog"
       aria-label={ariaLabel}
-      className="absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-sheet bg-card shadow-soft"
-      style={{ height, transition: dragHeight == null ? "height 300ms cubic-bezier(0.2,0.8,0.2,1)" : "none" }}
+      className="absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-sheet bg-card shadow-soft will-change-transform"
+      style={{
+        height: heights.full,
+        transform: `translateY(${heights.full - visible}px)`,
+        transition: dragHeight == null ? "transform 300ms cubic-bezier(0.2,0.8,0.2,1)" : "none",
+        visibility: box.h ? undefined : "hidden",
+      }}
     >
-      <div
-        className="flex shrink-0 cursor-grab touch-none items-center justify-center py-2"
+      <button
+        type="button"
+        aria-label={handleLabel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onClick={(e) => {
+          // Pointer taps are handled (or ignored) in onPointerUp; this is the keyboard Enter/Space path.
+          if (e.detail === 0) step(snap === "collapsed" ? 1 : -1);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            step(1);
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            step(-1);
+          }
+        }}
+        className="flex h-11 w-full shrink-0 cursor-grab touch-none items-center justify-center rounded-t-sheet"
       >
-        <div className="h-1.5 w-10 rounded-full bg-ink/15" />
-      </div>
-      <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar">{children}</div>
+        <span className="h-1.5 w-10 rounded-full bg-ink/15" />
+      </button>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain no-scrollbar">{children}</div>
     </div>
   );
 }

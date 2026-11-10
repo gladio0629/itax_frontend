@@ -88,7 +88,7 @@ export function AddressPickerSheet({
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
       </div>
       <div className="px-5 pt-3">
-        <div className="flex h-11 items-center gap-2 rounded-xl bg-ink/5 px-3">
+        <div className="flex h-12 items-center gap-2 rounded-xl bg-ink/5 px-3 focus-within:ring-2 focus-within:ring-accent">
           <Search className="h-4 w-4 text-ink/60" />
           <input
             autoFocus
@@ -102,22 +102,22 @@ export function AddressPickerSheet({
 
       <button
         onClick={() => setPickingOnMap(true)}
-        className="mx-5 mt-3 flex items-center gap-2 rounded-xl bg-accent-5 px-4 py-3 text-sm font-semibold text-accent"
+        className="mx-5 mt-3 flex min-h-[48px] items-center gap-2 rounded-xl bg-accent-5 px-4 py-3 text-sm font-semibold text-accent"
       >
         <MapIcon className="h-4 w-4" /> {t("address.pickOnMap")}
       </button>
 
-      <div className="mt-1 max-h-72 flex-1 overflow-y-auto px-2 pb-2">
+      <div className="mt-2 max-h-72 flex-1 divide-y divide-border overflow-y-auto overscroll-contain px-4 pb-2">
         {results.map((addr) => (
           <button
             key={addr.id}
             onClick={() => onSelect(addr)}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-ink/5"
+            className="flex min-h-[56px] w-full items-center gap-3 px-1 py-2 text-left hover:bg-ink/5"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5 text-accent">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
               <MapPin className="h-4 w-4" />
             </div>
-            <p className="text-sm font-semibold text-ink">{addr.label}</p>
+            <p className="min-w-0 truncate text-sm font-semibold text-ink">{addr.label}</p>
           </button>
         ))}
         {query.trim() && results.length === 0 && (

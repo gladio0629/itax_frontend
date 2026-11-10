@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpDown, Armchair, Car as CarIcon, ChevronRight, Pencil, X } from "lucide-react";
+import { Armchair, Car as CarIcon, ChevronRight, Pencil, X } from "lucide-react";
 import { api } from "@/api/client";
 import type { Address, Seat } from "@/api/types";
 import type { OrderDraft } from "@/stores/orderStore";
 import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/Skeleton";
+import { Switch } from "@/components/Switch";
 import { formatSom } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
@@ -17,6 +18,7 @@ import { TimePickerSheet } from "./TimePickerSheet";
 import { PassengerCountButtons } from "./PassengerCountButtons";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
+import { RouteFields } from "./RouteFields";
 
 const STEP_KEYS = ["order.step.route", "order.step.details", "order.step.summary"] as const;
 
@@ -29,8 +31,8 @@ function StepHeader({
 }) {
   const { t } = useT();
   return (
-    <div className="px-5 pb-1 pt-1">
-      <div className="flex items-center gap-2">
+    <div className="px-5 pb-1 pt-2">
+      <div className="flex items-center gap-3">
         <div className="flex flex-1 items-center gap-1.5">
           {STEP_KEYS.map((_, i) => (
             <span
@@ -42,12 +44,14 @@ function StepHeader({
         <button
           onClick={onClose}
           aria-label={t("common.close")}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-ink/5 text-ink/60"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
         >
-          <X className="h-3.5 w-3.5" />
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/70">
+            <X className="h-4 w-4" />
+          </span>
         </button>
       </div>
-      <p className="mt-2 text-xs font-semibold text-ink/60">{t(STEP_KEYS[step])}</p>
+      <p className="mt-1 text-xs font-semibold text-ink/60">{t(STEP_KEYS[step])}</p>
     </div>
   );
 }
@@ -129,10 +133,10 @@ export function OrderSheet({
 
       <div className="flex-1 overflow-y-auto px-5 pb-4 pt-3">
         {step === 0 && (
-          <RouteStep
-            draft={draft}
-            addresses={addresses}
-            onOpenPicker={setPicker}
+          <RouteFields
+            from={addresses.from}
+            to={addresses.to}
+            onPick={setPicker}
             onSwap={() => {
               const f = draft.fromAddressId;
               setField("fromAddressId", draft.toAddressId);
@@ -176,27 +180,15 @@ export function OrderSheet({
             )}
 
             <div className="rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium text-ink">{t("order.now")}</span>
-                <button
-                  onClick={() =>
+                <Switch
+                  checked={draft.timing.timeMode === "now"}
+                  onChange={() =>
                     draft.timing.timeMode === "now" ? setTimePickerOpen(true) : setField("timing", { timeMode: "now" })
                   }
-                  role="switch"
-                  aria-checked={draft.timing.timeMode === "now"}
-                  aria-label={t("order.now")}
-                  className={cn(
-                    "relative flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
-                    draft.timing.timeMode === "now" ? "bg-brand-yellow" : "bg-ink/15"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-softer transition-transform",
-                      draft.timing.timeMode === "now" ? "translate-x-5" : "translate-x-0.5"
-                    )}
-                  />
-                </button>
+                  label={t("order.now")}
+                />
               </div>
               {draft.timing.timeMode === "scheduled" && (
                 <button
@@ -245,7 +237,7 @@ export function OrderSheet({
               </div>
             )}
             {quote.status === "error" && (
-              <button onClick={quote.refetch} className="text-xs font-semibold text-danger underline">
+              <button onClick={quote.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
                 {t("order.quoteError")}
               </button>
             )}
@@ -341,47 +333,5 @@ function SegmentButton({
     >
       <Icon className="h-4 w-4" /> {label}
     </button>
-  );
-}
-
-function RouteStep({
-  draft,
-  addresses,
-  onOpenPicker,
-  onSwap,
-}: {
-  draft: OrderDraft;
-  addresses: { from: Address | null; to: Address | null };
-  onOpenPicker: (which: "from" | "to") => void;
-  onSwap: () => void;
-}) {
-  const { t } = useT();
-  return (
-    <div className="space-y-1 rounded-xl bg-accent-5 p-2">
-      <button onClick={() => onOpenPicker("from")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left">
-        <span className="h-2.5 w-2.5 rounded-full bg-ink" />
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-ink/60">{t("order.from")}</p>
-          <p className="truncate text-sm font-semibold text-ink">{addresses.from?.label ?? t("order.choosePlace")}</p>
-        </div>
-      </button>
-      <div className="relative">
-        <div className="mx-3 h-px bg-border" />
-        <button
-          onClick={onSwap}
-          aria-label={t("order.swap")}
-          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-card text-accent shadow-softer"
-        >
-          <ArrowUpDown className="h-4 w-4" />
-        </button>
-      </div>
-      <button onClick={() => onOpenPicker("to")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left">
-        <span className="h-2.5 w-2.5 rounded-full bg-brand-yellow" />
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-ink/60">{t("order.to")}</p>
-          <p className="truncate text-sm font-semibold text-ink">{addresses.to?.label ?? t("order.choosePlace")}</p>
-        </div>
-      </button>
-    </div>
   );
 }

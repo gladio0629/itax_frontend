@@ -34,7 +34,7 @@ export function CardsScreen() {
   return (
     <div className="flex h-full flex-col bg-bg">
       <ScreenHeader title={t("cards.title")} />
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="scroll-pb-bar flex-1 overflow-y-auto overscroll-contain px-4">
         {error ? (
           <ErrorState onRetry={load} />
         ) : cards === null ? (

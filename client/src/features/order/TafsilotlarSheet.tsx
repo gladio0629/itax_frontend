@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowUpDown } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { api } from "@/api/client";
 import type { OrderMode, OrderTiming, OrderWithDetails, PaymentMethod, Seat } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
@@ -12,6 +12,7 @@ import { SeatMap } from "./SeatMap";
 import { AddressPickerSheet } from "./AddressPickerSheet";
 import { TimePickerSheet } from "./TimePickerSheet";
 import { timingSummary } from "./timingSummary";
+import { RouteFields } from "./RouteFields";
 
 export function TafsilotlarSheet({
   order,
@@ -80,38 +81,20 @@ export function TafsilotlarSheet({
 
   return (
     <Sheet open onClose={onClose} ariaLabel={t("track.details")}>
-      <div className="px-5 pb-6 pt-3">
+      <div className="px-5 pt-3">
         <h2 className="mb-4 text-sm font-semibold text-ink">{t("track.details")}</h2>
 
-        <div className="mb-4 space-y-1 rounded-xl bg-accent-5 p-2">
-          <button onClick={() => setPicker("from")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left">
-            <span className="h-2.5 w-2.5 rounded-full bg-ink" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-ink/60">{t("order.from")}</p>
-              <p className="truncate text-sm font-semibold text-ink">{fromAddress?.label ?? t("order.choosePlace")}</p>
-            </div>
-          </button>
-          <div className="relative">
-            <div className="mx-3 h-px bg-border" />
-            <button
-              onClick={() => {
-                const f = fromAddressId;
-                setFromAddressId(toAddressId);
-                setToAddressId(f);
-              }}
-              aria-label={t("order.swap")}
-              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-card text-accent shadow-softer"
-            >
-              <ArrowUpDown className="h-4 w-4" />
-            </button>
-          </div>
-          <button onClick={() => setPicker("to")} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left">
-            <span className="h-2.5 w-2.5 rounded-full bg-brand-yellow" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-ink/60">{t("order.to")}</p>
-              <p className="truncate text-sm font-semibold text-ink">{toAddress?.label ?? t("order.choosePlace")}</p>
-            </div>
-          </button>
+        <div className="mb-4">
+          <RouteFields
+            from={fromAddress}
+            to={toAddress}
+            onPick={setPicker}
+            onSwap={() => {
+              const f = fromAddressId;
+              setFromAddressId(toAddressId);
+              setToAddressId(f);
+            }}
+          />
         </div>
 
         <div className="mb-4">
@@ -137,9 +120,10 @@ export function TafsilotlarSheet({
 
         <button
           onClick={() => setTimePickerOpen(true)}
-          className="mb-4 flex w-full items-center justify-between rounded-xl bg-accent-5 px-4 py-3 text-left text-sm font-semibold text-accent"
+          className="mb-4 flex min-h-[48px] w-full items-center justify-between gap-3 rounded-xl bg-accent-5 px-4 py-3 text-left text-sm font-semibold text-accent"
         >
           <span className="tabular">{timingSummary(timing, t)}</span>
+          <Pencil className="h-4 w-4 shrink-0" aria-hidden="true" />
         </button>
 
         <PaymentMethodSection value={paymentMethod} onChange={setPaymentMethod} />
@@ -150,8 +134,8 @@ export function TafsilotlarSheet({
           </p>
         )}
 
-        <div className="mt-5 flex gap-2">
-          <Button variant="danger" onClick={onCancel}>
+        <div className="sticky bottom-0 -mx-5 mt-5 grid grid-cols-2 gap-3 border-t border-border bg-card px-5 pt-3">
+          <Button variant="dangerSoft" fullWidth onClick={onCancel}>
             {t("cancel.confirmAction")}
           </Button>
           <Button fullWidth loading={saving} onClick={save}>

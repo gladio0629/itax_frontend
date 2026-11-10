@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "brand";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "dangerSoft" | "brand";
 type Size = "md" | "sm";
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -28,6 +28,7 @@ const variants: Record<Variant, string> = {
   secondary: "bg-accent-5 text-accent hover:bg-accent-10",
   ghost: "bg-transparent text-ink/80 hover:bg-ink/5",
   danger: "bg-danger text-bg shadow-soft hover:brightness-105",
+  dangerSoft: "bg-danger/10 text-danger hover:bg-danger/15",
 };
 
 const sizes: Record<Size, string> = {

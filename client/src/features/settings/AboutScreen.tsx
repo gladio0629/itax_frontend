@@ -11,7 +11,7 @@ export function AboutScreen() {
   return (
     <div className="flex h-full flex-col bg-bg">
       <ScreenHeader title={t("settings.about")} />
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <div className="mb-5 flex flex-col items-center gap-3 py-4 text-center">
           <Logo size={64} />
           <p className="text-sm font-semibold text-ink">IZGO</p>

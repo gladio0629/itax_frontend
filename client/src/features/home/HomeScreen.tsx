@@ -9,6 +9,7 @@ import { DragSheet, type SnapPoint } from "@/components/Sheet";
 import { Skeleton } from "@/components/Skeleton";
 import { LowConnectionBanner } from "@/components/LowConnectionBanner";
 import { useOrderStore } from "@/stores/orderStore";
+import { useDemoStore } from "@/stores/demoStore";
 import { useT } from "@/lib/i18n/provider";
 import { formatKm } from "@/lib/format";
 import { OrderSheet } from "@/features/order/OrderSheet";
@@ -25,6 +26,13 @@ export function HomeScreen() {
   const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
+  const setFabPlacement = useDemoStore((s) => s.setFabPlacement);
+
+  // The floating demo control would sit on the order flow; step it aside.
+  useEffect(() => {
+    setFabPlacement({ hidden: expanded });
+  }, [expanded, setFabPlacement]);
+  useEffect(() => () => setFabPlacement({ hidden: false, bottomPx: null }), [setFabPlacement]);
 
   useEffect(() => {
     api.getProfile().then((p) => setProfileName(p.name.split(" ")[0])).catch(() => {});
@@ -101,12 +109,12 @@ export function HomeScreen() {
       <button
         aria-label={t("home.locateMe")}
         className="absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-card shadow-soft"
-        style={{ top: "calc(var(--safe-top) + 72px)" }}
+        style={{ top: "calc(var(--safe-top) + 76px)" }}
       >
         <LocateFixed className="h-5 w-5 text-accent" />
       </button>
 
-      <div className="absolute inset-x-0 top-0" style={{ paddingTop: "calc(var(--safe-top) + 64px)" }}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 [&>*]:pointer-events-auto" style={{ paddingTop: "calc(var(--safe-top) + 128px)" }}>
         <LowConnectionBanner />
       </div>
 
@@ -116,8 +124,9 @@ export function HomeScreen() {
           setSnap(s);
           if (s !== "full") setExpanded(false);
         }}
-        heightsVh={{ collapsed: 30, half: 58, full: 92 }}
         ariaLabel={t("home.orderSheet")}
+        handleLabel={t("sheet.handle")}
+        onVisibleHeightChange={(px) => setFabPlacement({ bottomPx: px })}
       >
         {expanded ? (
           <OrderSheet

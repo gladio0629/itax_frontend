@@ -107,9 +107,9 @@ export function AccountScreen() {
   return (
     <div className="relative flex h-full flex-col bg-bg">
       <ScreenHeader title={t("settings.account")} />
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <Card className="mb-5 p-5">
-          <div className="mb-4 flex items-center gap-4">
+          <div className={`flex items-center gap-4 ${editing ? "mb-4" : ""}`}>
             <Avatar seed={profile.avatarSeed} name={profile.name} size={56} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-semibold text-ink">{profile.name}</p>
@@ -119,7 +119,7 @@ export function AccountScreen() {
               <button
                 onClick={() => setEditing(true)}
                 aria-label={t("account.edit")}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-5 text-accent"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent"
               >
                 <Pencil className="h-4 w-4" />
               </button>
@@ -132,7 +132,7 @@ export function AccountScreen() {
               <Input label={t("account.lastName")} value={lastName} onChange={(e) => setLastName(e.target.value)} />
               <button
                 onClick={() => setPhoneSheetOpen(true)}
-                className="flex w-full items-center justify-between rounded-xl border border-dashed border-accent/40 px-4 py-3 text-xs font-semibold text-accent"
+                className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-dashed border-accent/40 px-4 py-3 text-xs font-semibold text-accent"
               >
                 {t("account.changePhone")}
               </button>
@@ -166,7 +166,7 @@ export function AccountScreen() {
                     <button
                       onClick={() => setDeleteTarget(a)}
                       aria-label={t("account.deleteAccount")}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-danger/10 text-danger"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-danger/10 text-danger"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

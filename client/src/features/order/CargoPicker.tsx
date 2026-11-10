@@ -34,24 +34,24 @@ function Stepper({
   onChange: (v: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-xl bg-accent-5 px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-accent-5 py-2 pl-4 pr-2">
       <span className="text-sm font-medium text-ink">{label}</span>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => onChange(Math.max(min, Math.round((value - step) * 10) / 10))}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-ink shadow-softer active:scale-95"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-card text-ink shadow-softer active:scale-95"
           aria-label={`${label} −`}
         >
           <Minus className="h-3.5 w-3.5" />
         </button>
-        <span className="w-14 text-center text-sm font-semibold tabular text-ink">
+        <span className="w-16 whitespace-nowrap text-center text-sm font-semibold tabular text-ink">
           {value} {unit}
         </span>
         <button
           type="button"
           onClick={() => onChange(Math.min(max, Math.round((value + step) * 10) / 10))}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-ink shadow-softer active:scale-95"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-card text-ink shadow-softer active:scale-95"
           aria-label={`${label} +`}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -113,7 +113,7 @@ export function CargoPicker({ value, onChange }: { value: CargoInput; onChange: 
           onChange={(e) => onChange({ ...value, note: e.target.value.slice(0, 200) })}
           placeholder={t("cargo.notePlaceholder")}
           rows={3}
-          className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink transition-colors focus:border-accent"
         />
       </div>
     </div>

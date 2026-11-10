@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -7,6 +7,7 @@ import { Logo } from "@/components/Logo";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
+import { useLiftDemoFab } from "@/stores/demoStore";
 
 function formatPhoneInput(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 9);
@@ -15,6 +16,8 @@ function formatPhoneInput(raw: string): string {
 }
 
 export function PhoneScreen() {
+  const footerRef = useRef<HTMLDivElement>(null);
+  useLiftDemoFab(footerRef);
   const { t } = useT();
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,7 +63,7 @@ export function PhoneScreen() {
           error={error ?? undefined}
         />
       </div>
-      <div style={{ paddingBottom: "calc(var(--safe-bottom) + 24px)" }}>
+      <div ref={footerRef} style={{ paddingBottom: "calc(var(--safe-bottom) + 24px)" }}>
         <Button fullWidth disabled={!isValid} loading={loading} onClick={handleSubmit}>
           {t("auth.continue")}
         </Button>

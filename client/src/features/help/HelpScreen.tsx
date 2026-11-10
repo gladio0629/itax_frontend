@@ -61,14 +61,14 @@ export function HelpScreen() {
   return (
     <div className="flex h-full flex-col bg-bg">
       <ScreenHeader title={t("history.help")} />
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <p className="mb-2 px-1 text-xs font-semibold text-ink/60">{t("help.faqTitle")}</p>
         <Card className="mb-5 divide-y divide-border" padded={false}>
           {FAQ_KEYS.map((key, i) => (
             <div key={key}>
               <button
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                className="flex w-full items-center justify-between p-4 text-left"
+                className="flex min-h-[52px] w-full items-center justify-between gap-3 p-4 text-left"
               >
                 <span className="text-sm font-medium text-ink">{t(`${key}.q` as TranslationKey)}</span>
                 <ChevronDown className={cn("h-4 w-4 shrink-0 text-ink/60 transition-transform", openIndex === i && "rotate-180")} />
@@ -106,7 +106,7 @@ export function HelpScreen() {
                     key={tp}
                     onClick={() => setTopic(tp)}
                     className={cn(
-                      "rounded-xl border-2 px-4 py-2 text-xs font-semibold transition-colors",
+                      "min-h-[44px] rounded-xl border-2 px-4 py-2 text-xs font-semibold transition-colors",
                       topic === tp ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
                     )}
                   >

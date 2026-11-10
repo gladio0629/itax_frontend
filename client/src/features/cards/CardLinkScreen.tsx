@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, CreditCard } from "lucide-react";
 import { api } from "@/api/client";
@@ -7,6 +7,7 @@ import { Input } from "@/components/Input";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { useT } from "@/lib/i18n/provider";
+import { useLiftDemoFab } from "@/stores/demoStore";
 
 /**
  * Simulated provider-hosted card-link page. IZGO never collects a card
@@ -15,6 +16,8 @@ import { useT } from "@/lib/i18n/provider";
  * and hands back a brand + last 4 digits; mock.ts invents those.
  */
 export function CardLinkScreen() {
+  const footerRef = useRef<HTMLDivElement>(null);
+  useLiftDemoFab(footerRef);
   const { t } = useT();
   const navigate = useNavigate();
   const [label, setLabel] = useState("");
@@ -49,7 +52,7 @@ export function CardLinkScreen() {
   return (
     <div className="flex h-full flex-col bg-bg">
       <ScreenHeader title={t("cardLink.title")} />
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
+      <div className="scroll-pb-bar flex-1 overflow-y-auto overscroll-contain px-4">
         <div className="mb-6 flex flex-col items-center gap-3 rounded-2xl bg-accent p-6 text-center text-white shadow-soft">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15">
             <CreditCard className="h-6 w-6" />
@@ -71,7 +74,7 @@ export function CardLinkScreen() {
           <ShieldCheck className="h-3.5 w-3.5" /> {t("cardLink.privacyNote")}
         </p>
       </div>
-      <div className="px-6" style={{ paddingBottom: "calc(var(--safe-bottom) + 24px)" }}>
+      <div ref={footerRef} className="px-4 pt-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}>
         {submitError && <p className="mb-3 text-xs font-medium text-danger">{t("cardLink.error")}</p>}
         <Button fullWidth loading={submitting} onClick={submit}>
           {t("cardLink.submit")}

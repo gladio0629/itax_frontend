@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/Button";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
+import { useLiftDemoFab } from "@/stores/demoStore";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { RouteIllustration, PriceIllustration, TrustIllustration } from "./illustrations";
 
@@ -15,6 +16,8 @@ const SLIDES = [
 ] satisfies { Illustration: typeof RouteIllustration; titleKey: TranslationKey; descKey: TranslationKey }[];
 
 export function OnboardingScreen() {
+  const footerRef = useRef<HTMLDivElement>(null);
+  useLiftDemoFab(footerRef);
   const { t } = useT();
   const [index, setIndex] = useState(0);
   const navigate = useNavigate();
@@ -60,7 +63,7 @@ export function OnboardingScreen() {
         ))}
       </div>
 
-      <div style={{ paddingBottom: "calc(var(--safe-bottom) + 24px)" }}>
+      <div ref={footerRef} style={{ paddingBottom: "calc(var(--safe-bottom) + 24px)" }}>
         <Button
           fullWidth
           onClick={() => (isLast ? finish() : setIndex((i) => i + 1))}

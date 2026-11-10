@@ -7,6 +7,7 @@ import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonList } from "@/components/Skeleton";
+import { PageTitle } from "@/components/PageTitle";
 import { formatRelativeDay, formatSom } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
@@ -71,7 +72,7 @@ function TabPane({
   const { t } = useT();
   const navigate = useNavigate();
   return (
-    <div className="h-full w-full shrink-0 overflow-y-auto px-4 pt-4" style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}>
+    <div className="scroll-pb h-full w-full shrink-0 overflow-y-auto overscroll-contain px-4 pt-4">
       {data.state === "loading" && data.orders.length === 0 && <SkeletonList count={5} />}
       {data.state === "error" && <ErrorState onRetry={onRetry} />}
       {data.state === "ready" && data.orders.length === 0 && (
@@ -180,11 +181,9 @@ export function HistoryScreen() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <div className="pl-16 pr-5" style={{ paddingTop: "calc(var(--safe-top) + 24px)" }}>
-        <h1 className="text-lg font-semibold text-ink">{t("history.title")}</h1>
-      </div>
+      <PageTitle>{t("history.title")}</PageTitle>
 
-      <div role="tablist" className="mt-3 flex border-b border-border px-4">
+      <div role="tablist" className="flex border-b border-border px-4">
         {FILTERS.map((f, i) => (
           <button
             key={f}
@@ -192,7 +191,7 @@ export function HistoryScreen() {
             aria-selected={activeIndex === i}
             onClick={() => setActiveIndex(i)}
             className={cn(
-              "relative flex-1 py-3 text-center text-sm font-semibold transition-colors",
+              "relative min-h-[44px] flex-1 py-3 text-center text-sm font-semibold transition-colors",
               activeIndex === i ? "text-ink" : "text-ink/50"
             )}
           >

@@ -30,6 +30,7 @@ export const en: Dictionary = {
   "home.notifications": "Notifications",
   "home.locateMe": "Locate me",
   "home.orderSheet": "Order sheet",
+  "sheet.handle": "Resize panel",
   "home.whereTo": "Where to?",
   "home.recentPlaces": "Recent places",
   "home.noRecentPlaces": "No trips yet.",
@@ -310,6 +311,7 @@ export const en: Dictionary = {
 
   "inbox.emptyTitle": "No notifications",
   "inbox.emptyDesc": "News about your orders will show up here.",
+  "inbox.unread": "Unread",
 
   "cards.title": "My cards",
   "cards.emptyTitle": "No card added yet",

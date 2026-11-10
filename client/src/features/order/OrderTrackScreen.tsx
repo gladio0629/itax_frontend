@@ -124,7 +124,7 @@ export function OrderTrackScreen() {
     <div className="relative flex h-full flex-col bg-bg">
       <ScreenHeader title={showNoDriver ? t("track.notFound") : t("track.title")} />
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="scroll-pb-bar flex-1 overflow-y-auto overscroll-contain px-4">
         <div className="relative mb-4 h-48 overflow-hidden rounded-2xl">
           <MapView showCar={order.status === "in_progress" || order.status === "accepted"} carProgress={order.status === "in_progress" ? tripProgress : 0.08} dim={order.status === "searching"} />
         </div>
@@ -165,29 +165,32 @@ export function OrderTrackScreen() {
             </Button>
             <Card className="p-4">
               <p className="mb-3 text-xs font-semibold text-ink/60">{t("track.statusTitle")}</p>
-              <div className="flex items-center justify-between">
+              <ol className="flex items-start">
                 {STATUS_STEPS.map((step, i) => {
                   const activeIdx = order.status === "accepted" ? 0 : 2;
                   const done = i <= activeIdx;
                   const Icon = step.icon;
                   return (
-                    <div key={step.key} className="flex flex-1 flex-col items-center gap-1.5">
-                      <div className="flex w-full items-center">
-                        {i > 0 && <span className={`h-0.5 flex-1 ${done ? "bg-accent" : "bg-border"}`} />}
-                        <div
-                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                            done ? "bg-accent text-bg" : "bg-ink/5 text-ink/60"
-                          }`}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                        </div>
-                        {i === 0 && <span className="h-0.5 flex-1" />}
-                      </div>
-                      <span className="text-[10px] text-ink/60 text-center">{t(step.labelKey)}</span>
-                    </div>
+                    <li key={step.key} className="relative flex flex-1 flex-col items-center gap-2 text-center">
+                      {i > 0 && (
+                        <span
+                          aria-hidden="true"
+                          className={`absolute top-3.5 h-0.5 -translate-y-1/2 ${done ? "bg-accent" : "bg-border"}`}
+                          style={{ left: "calc(-50% + 18px)", right: "calc(50% + 18px)" }}
+                        />
+                      )}
+                      <span
+                        className={`relative flex h-7 w-7 items-center justify-center rounded-full ${
+                          done ? "bg-accent text-bg" : "bg-ink/5 text-ink/60"
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      </span>
+                      <span className="px-1 text-xs text-ink/70">{t(step.labelKey)}</span>
+                    </li>
                   );
                 })}
-              </div>
+              </ol>
             </Card>
           </div>
         )}

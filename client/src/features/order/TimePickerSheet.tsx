@@ -72,7 +72,7 @@ export function TimePickerSheet({
               key={d}
               onClick={() => setDate(d)}
               className={cn(
-                "flex-1 rounded-xl border-2 py-2.5 text-xs font-semibold transition-colors",
+                "h-11 flex-1 rounded-xl border-2 px-2 text-xs font-semibold transition-colors",
                 date === d ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
               )}
             >
@@ -82,7 +82,7 @@ export function TimePickerSheet({
           <button
             onClick={() => setCalendarOpen((v) => !v)}
             className={cn(
-              "flex-1 rounded-xl border-2 py-2.5 text-xs font-semibold transition-colors",
+              "h-11 flex-1 rounded-xl border-2 px-2 text-xs font-semibold transition-colors",
               date !== "today" && date !== "tomorrow"
                 ? "border-accent bg-accent-5 text-accent"
                 : "border-border text-ink/70"
@@ -93,7 +93,7 @@ export function TimePickerSheet({
         </div>
 
         {calendarOpen && (
-          <div className="mb-4 rounded-xl border border-border p-3">
+          <div className="mb-4 rounded-xl border border-border px-1 py-2">
             <Calendar
               intlTag={intlTag}
               value={date !== "today" && date !== "tomorrow" ? date : undefined}
@@ -109,7 +109,7 @@ export function TimePickerSheet({
           <button
             onClick={() => setTimeKind("exact")}
             className={cn(
-              "flex-1 rounded-xl border-2 py-2.5 text-xs font-semibold transition-colors",
+              "h-11 flex-1 rounded-xl border-2 px-2 text-xs font-semibold transition-colors",
               timeKind === "exact" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
             )}
           >
@@ -118,7 +118,7 @@ export function TimePickerSheet({
           <button
             onClick={() => setTimeKind("range")}
             className={cn(
-              "flex-1 rounded-xl border-2 py-2.5 text-xs font-semibold transition-colors",
+              "h-11 flex-1 rounded-xl border-2 px-2 text-xs font-semibold transition-colors",
               timeKind === "range" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
             )}
           >
@@ -134,7 +134,7 @@ export function TimePickerSheet({
               <button
                 onClick={() => setRangeField("from")}
                 className={cn(
-                  "flex-1 rounded-xl border-2 py-2 text-xs font-semibold tabular transition-colors",
+                  "h-11 flex-1 rounded-xl border-2 px-2 text-xs font-semibold tabular transition-colors",
                   rangeField === "from" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
                 )}
               >
@@ -143,7 +143,7 @@ export function TimePickerSheet({
               <button
                 onClick={() => setRangeField("to")}
                 className={cn(
-                  "flex-1 rounded-xl border-2 py-2 text-xs font-semibold tabular transition-colors",
+                  "h-11 flex-1 rounded-xl border-2 px-2 text-xs font-semibold tabular transition-colors",
                   rangeField === "to" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
                 )}
               >

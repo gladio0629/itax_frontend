@@ -30,6 +30,7 @@ export const uz = {
   "home.notifications": "Bildirishnomalar",
   "home.locateMe": "Joylashuvni aniqlash",
   "home.orderSheet": "Buyurtma varag'i",
+  "sheet.handle": "Varaq balandligini o'zgartirish",
   "home.whereTo": "Qayerga boramiz?",
   "home.recentPlaces": "So'nggi joylar",
   "home.noRecentPlaces": "Hali buyurtmalar yo'q.",
@@ -310,6 +311,7 @@ export const uz = {
 
   "inbox.emptyTitle": "Bildirishnomalar yo'q",
   "inbox.emptyDesc": "Buyurtmalaringiz bo'yicha yangiliklar shu yerda ko'rinadi.",
+  "inbox.unread": "O'qilmagan",
 
   "cards.title": "Kartalarim",
   "cards.emptyTitle": "Hali karta qo'shilmagan",

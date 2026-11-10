@@ -68,7 +68,7 @@ export function HistoryDetailScreen() {
   return (
     <div className="relative flex h-full flex-col bg-bg">
       <ScreenHeader title={t("history.detailTitle")} />
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <div className="relative mb-4 h-40 overflow-hidden rounded-2xl">
           <MapView />
         </div>
@@ -121,7 +121,7 @@ export function HistoryDetailScreen() {
                   disabled={!order.ratingEditable}
                   onClick={() => onStarClick(v)}
                   aria-label={`${v} ★`}
-                  className="p-1 disabled:opacity-40"
+                  className="flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-40"
                 >
                   <Star
                     className={`h-8 w-8 transition-colors ${

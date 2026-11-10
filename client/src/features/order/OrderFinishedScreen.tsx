@@ -67,7 +67,7 @@ export function OrderFinishedScreen() {
 
   return (
     <div className="relative h-full bg-bg">
-      <div className="h-full overflow-y-auto px-5" style={{ paddingTop: "calc(var(--safe-top) + 32px)" }}>
+      <div className="scroll-pb h-full overflow-y-auto overscroll-contain px-4" style={{ paddingTop: "calc(var(--safe-top) + 32px)" }}>
       <div className="flex flex-col items-center gap-3 pb-6 text-center animate-scale-in">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-bg animate-check-pop">
           <PartyPopper className="h-9 w-9" />
@@ -80,7 +80,7 @@ export function OrderFinishedScreen() {
         <p className="mb-3 text-center text-sm font-semibold text-ink">{t("finished.rateTitle")}</p>
         <div className="flex justify-center gap-2">
           {[1, 2, 3, 4, 5].map((v) => (
-            <button key={v} onClick={() => onStarClick(v)} aria-label={`${v} \u2605`} className="p-1">
+            <button key={v} onClick={() => onStarClick(v)} aria-label={`${v} \u2605`} className="flex h-11 w-11 items-center justify-center rounded-full">
               <Star className={`h-8 w-8 transition-colors ${v <= rating ? "fill-brand-yellow text-brand-yellow" : "text-ink/20"}`} />
             </button>
           ))}
@@ -101,10 +101,10 @@ export function OrderFinishedScreen() {
       {suggestion && (
         <button
           onClick={() => navigate("/home")}
-          className="mb-6 flex items-center justify-between rounded-2xl bg-accent-5 px-5 py-4 text-left"
+          className="mb-6 flex w-full items-center justify-between gap-3 rounded-2xl bg-accent-5 px-4 py-4 text-left"
         >
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-accent">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-accent">
               <MapPin className="h-4 w-4" />
             </div>
             <div>
@@ -112,11 +112,11 @@ export function OrderFinishedScreen() {
               <p className="text-sm font-semibold text-ink">{suggestion.label}</p>
             </div>
           </div>
-          <span className="text-xs font-semibold tabular text-accent">{t("finished.suggestionFrom", { price: formatSom(suggestion.fromPrice, intlTag) })}</span>
+          <span className="shrink-0 whitespace-nowrap text-xs font-semibold tabular text-accent">{t("finished.suggestionFrom", { price: formatSom(suggestion.fromPrice, intlTag) })}</span>
         </button>
       )}
 
-      <div className="pb-8">
+      <div>
         <Button
           fullWidth
           onClick={() => {

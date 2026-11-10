@@ -22,5 +22,8 @@ Phone screen accepts any valid Uzbek phone number. The OTP code is always **0000
   (`Tekshiruvga yuborildi` → auto-approves in 2–4s)
 - Trip history, ratings, profile, notifications
 
-Use the floating Demo Control Panel (bottom-right) to reset the database or simulate
-"no driver found", slow internet, forced errors, or fast-forwarded time.
+Use the floating **DEMO** pill (bottom-right; it doubles as the demo badge) to open the Demo
+Control Panel: reset the database or simulate "no driver found", slow internet, forced errors,
+or fast-forwarded time. On a full-screen phone the pill steps aside so it never covers the app:
+it hides while a sheet, the drawer or the expanded order flow is open, sits just above any
+bottom bar or the home sheet, and scroll areas reserve room so their last item clears it.

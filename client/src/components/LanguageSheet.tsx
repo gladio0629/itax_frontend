@@ -12,7 +12,7 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
     <Sheet open onClose={onClose} ariaLabel={t("settings.language")}>
       <div className="px-5 pb-6 pt-3">
         <h2 className="mb-3 text-sm font-semibold text-ink">{t("settings.language")}</h2>
-        <div className="space-y-1">
+        <div className="space-y-2">
           {LOCALES.map((l) => (
             <button
               key={l}
@@ -20,7 +20,7 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
                 setLocale(l);
                 onClose();
               }}
-              className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-ink/5"
+              className="flex min-h-[48px] w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-ink/5"
             >
               <span className="text-sm font-medium text-ink">{LOCALE_LABEL[l]}</span>
               {locale === l && <Check className="h-4 w-4 text-accent" />}

@@ -30,6 +30,7 @@ export const ru: Dictionary = {
   "home.notifications": "Уведомления",
   "home.locateMe": "Определить местоположение",
   "home.orderSheet": "Лист заказа",
+  "sheet.handle": "Изменить высоту панели",
   "home.whereTo": "Куда едем?",
   "home.recentPlaces": "Недавние места",
   "home.noRecentPlaces": "Заказов пока нет.",
@@ -310,6 +311,7 @@ export const ru: Dictionary = {
 
   "inbox.emptyTitle": "Уведомлений нет",
   "inbox.emptyDesc": "Новости по вашим заказам будут отображаться здесь.",
+  "inbox.unread": "Не прочитано",
 
   "cards.title": "Мои карты",
   "cards.emptyTitle": "Карта пока не добавлена",

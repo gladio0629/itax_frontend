@@ -56,7 +56,7 @@ export function Calendar({
           type="button"
           onClick={() => changeMonth(-1)}
           aria-label={t("calendar.prevMonth")}
-          className="flex h-8 w-8 items-center justify-center rounded-xl text-ink/70 hover:bg-ink/5"
+          className="flex h-11 w-11 items-center justify-center rounded-xl text-ink/70 hover:bg-ink/5"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -67,17 +67,17 @@ export function Calendar({
           type="button"
           onClick={() => changeMonth(1)}
           aria-label={t("calendar.nextMonth")}
-          className="flex h-8 w-8 items-center justify-center rounded-xl text-ink/70 hover:bg-ink/5"
+          className="flex h-11 w-11 items-center justify-center rounded-xl text-ink/70 hover:bg-ink/5"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-ink/40">
+      <div className="grid grid-cols-7 text-center text-xs font-medium text-ink/60">
         {weekdayNames(intlTag).map((w) => (
           <div key={w}>{w}</div>
         ))}
       </div>
-      <div className="mt-1 grid grid-cols-7 gap-1">
+      <div className="mt-1 grid grid-cols-7 gap-y-1">
         {cells.map((day, i) => {
           if (day === null) return <div key={`pad${i}`} />;
           const cellDate = new Date(viewYear, viewMonth, day);
@@ -91,11 +91,11 @@ export function Calendar({
               disabled={isPast}
               onClick={() => onChange(iso)}
               className={cn(
-                "flex h-9 items-center justify-center rounded-xl text-sm tabular transition-colors",
+                "flex h-11 items-center justify-center rounded-xl text-sm tabular transition-colors",
                 isSelected
                   ? "bg-brand-yellow text-on-yellow font-semibold"
                   : isPast
-                  ? "text-ink/20"
+                  ? "text-ink/30"
                   : "text-ink hover:bg-ink/5"
               )}
             >

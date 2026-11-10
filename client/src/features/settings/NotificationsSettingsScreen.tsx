@@ -6,25 +6,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Card } from "@/components/Card";
 import { SkeletonList } from "@/components/Skeleton";
 import { useT } from "@/lib/i18n/provider";
-import { cn } from "@/lib/cn";
-
-function Toggle({ value, onChange, disabled, label }: { value: boolean; onChange: () => void; disabled?: boolean; label: string }) {
-  return (
-    <button
-      onClick={onChange}
-      disabled={disabled}
-      role="switch"
-      aria-checked={value}
-      aria-label={label}
-      className={cn(
-        "relative flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-40",
-        value ? "bg-accent" : "bg-ink/15"
-      )}
-    >
-      <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-softer transition-transform", value ? "translate-x-5" : "translate-x-0.5")} />
-    </button>
-  );
-}
+import { Switch } from "@/components/Switch";
 
 export function NotificationsSettingsScreen() {
   const { t } = useT();
@@ -56,14 +38,14 @@ export function NotificationsSettingsScreen() {
   return (
     <div className="flex h-full flex-col bg-bg">
       <ScreenHeader title={t("notifPrefs.title")} />
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <Card className="mb-4 p-4">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-ink">{t("notifPrefs.master")}</p>
               <p className="text-xs text-ink/60">{t("notifPrefs.masterDesc")}</p>
             </div>
-            <Toggle value={prefs.master} onChange={() => patch("master")} label={t("notifPrefs.master")} />
+            <Switch checked={prefs.master} onChange={() => patch("master")} label={t("notifPrefs.master")} />
           </div>
         </Card>
 
@@ -76,12 +58,8 @@ export function NotificationsSettingsScreen() {
               <p className="text-sm font-medium text-ink">{t("notifPrefs.orderStatus")}</p>
               <p className="text-xs text-ink/60">{t("notifPrefs.orderStatusDesc")}</p>
             </div>
-            <Toggle
-              value={prefs.master && prefs.orderStatus}
-              disabled={!prefs.master}
-              onChange={() => patch("orderStatus")}
-              label={t("notifPrefs.orderStatus")}
-            />
+            <Switch checked={prefs.master && prefs.orderStatus} disabled={!prefs.master}
+              onChange={() => patch("orderStatus")} label={t("notifPrefs.orderStatus")} />
           </div>
           <div className="flex items-center gap-3 p-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
@@ -91,12 +69,8 @@ export function NotificationsSettingsScreen() {
               <p className="text-sm font-medium text-ink">{t("notifPrefs.news")}</p>
               <p className="text-xs text-ink/60">{t("notifPrefs.newsDesc")}</p>
             </div>
-            <Toggle
-              value={prefs.master && prefs.news}
-              disabled={!prefs.master}
-              onChange={() => patch("news")}
-              label={t("notifPrefs.news")}
-            />
+            <Switch checked={prefs.master && prefs.news} disabled={!prefs.master}
+              onChange={() => patch("news")} label={t("notifPrefs.news")} />
           </div>
           <div className="flex items-center gap-3 p-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
@@ -106,12 +80,8 @@ export function NotificationsSettingsScreen() {
               <p className="text-sm font-medium text-ink">{t("notifPrefs.bonus")}</p>
               <p className="text-xs text-ink/60">{t("notifPrefs.bonusDesc")}</p>
             </div>
-            <Toggle
-              value={prefs.master && prefs.bonus}
-              disabled={!prefs.master}
-              onChange={() => patch("bonus")}
-              label={t("notifPrefs.bonus")}
-            />
+            <Switch checked={prefs.master && prefs.bonus} disabled={!prefs.master}
+              onChange={() => patch("bonus")} label={t("notifPrefs.bonus")} />
           </div>
         </Card>
       </div>

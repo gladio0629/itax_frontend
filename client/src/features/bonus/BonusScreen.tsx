@@ -125,7 +125,7 @@ export function BonusScreen() {
 
   return (
     <div className="relative flex h-full flex-col bg-bg">
-      <div className="relative overflow-hidden bg-on-yellow px-5 pb-6 text-white" style={{ paddingTop: "calc(var(--safe-top) + 64px)" }}>
+      <div className="relative overflow-hidden bg-on-yellow px-4 pb-6 text-white" style={{ paddingTop: "calc(var(--safe-top) + 68px)" }}>
         {celebrateKey > 0 && <ConfettiBurst key={celebrateKey} />}
         <p className="text-xs font-medium text-white/60">{t("bonus.balanceCaption")}</p>
         <div className="mt-1 flex items-end gap-1.5">
@@ -140,9 +140,11 @@ export function BonusScreen() {
           <button
             onClick={() => setRulesOpen(true)}
             aria-label={t("bonus.rules")}
-            className="ml-1 mb-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/10"
+            className="-mb-2.5 flex h-11 w-11 items-center justify-center rounded-full"
           >
-            <Info className="h-3.5 w-3.5" />
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10">
+              <Info className="h-3.5 w-3.5" />
+            </span>
           </button>
         </div>
 
@@ -175,7 +177,7 @@ export function BonusScreen() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-5">
+      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4 pt-5">
         <p className="mb-3 text-sm font-semibold text-ink">{t("bonus.sourcesTitle")}</p>
         {sources.status === "loading" && (
           <div className="space-y-2">
@@ -208,13 +210,13 @@ export function BonusScreen() {
         )}
 
         <p className="mb-3 mt-6 text-sm font-semibold text-ink">{t("bonus.historyTitle")}</p>
-        <div className="mb-3 flex gap-2 overflow-x-auto no-scrollbar pb-1">
+        <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto overscroll-x-contain no-scrollbar px-4 pb-1">
           {HISTORY_FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                "shrink-0 rounded-xl border-2 px-4 py-2 text-xs font-semibold transition-colors",
+                "h-11 shrink-0 rounded-xl border-2 px-4 text-xs font-semibold transition-colors",
                 filter === f ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
               )}
             >
