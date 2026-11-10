@@ -9,6 +9,7 @@ import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonList } from "@/components/Skeleton";
+import { useT } from "@/lib/i18n/provider";
 
 const BRAND_LABEL: Record<SavedCard["brand"], string> = {
   uzcard: "Uzcard",
@@ -17,6 +18,7 @@ const BRAND_LABEL: Record<SavedCard["brand"], string> = {
 };
 
 export function CardsScreen() {
+  const { t } = useT();
   const navigate = useNavigate();
   const [cards, setCards] = useState<SavedCard[] | null>(null);
   const [error, setError] = useState(false);
@@ -31,7 +33,7 @@ export function CardsScreen() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <ScreenHeader title="Kartalarim" />
+      <ScreenHeader title={t("cards.title")} />
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         {error ? (
           <ErrorState onRetry={load} />
@@ -40,8 +42,8 @@ export function CardsScreen() {
         ) : cards.length === 0 ? (
           <EmptyState
             icon={<CreditCard className="h-7 w-7" />}
-            title="Hali karta qo'shilmagan"
-            description="Kartangizni bog'lab, buyurtmalar uchun onlayn to'lov qilishingiz mumkin."
+            title={t("cards.emptyTitle")}
+            description={t("cards.emptyDesc")}
           />
         ) : (
           <div className="space-y-3">
@@ -63,7 +65,7 @@ export function CardsScreen() {
       </div>
       <BottomBar>
         <Button fullWidth variant="secondary" onClick={() => navigate("/cards/link")}>
-          <Plus className="h-4 w-4" /> Yangi karta qo'shish
+          <Plus className="h-4 w-4" /> {t("cards.addNew")}
         </Button>
       </BottomBar>
     </div>

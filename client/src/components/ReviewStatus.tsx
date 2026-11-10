@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Clock3, Send, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { api } from "@/api/client";
+import { useT } from "@/lib/i18n/provider";
 
 export type ReviewStatusValue = "pending" | "approved" | "rejected";
 
@@ -14,9 +15,9 @@ type Props = {
 };
 
 const STEPS = [
-  { key: "submitted", label: "Yuborildi", icon: Send },
-  { key: "reviewing", label: "Tekshirilmoqda", icon: Clock3 },
-  { key: "done", label: "Yakunlandi", icon: Check },
+  { key: "submitted", labelKey: "review.submitted", icon: Send },
+  { key: "reviewing", labelKey: "review.reviewing", icon: Clock3 },
+  { key: "done", labelKey: "review.done", icon: Check },
 ] as const;
 
 /**
@@ -27,6 +28,7 @@ const STEPS = [
  * celebratory confirmation before calling back.
  */
 export function ReviewStatus({ reviewId, title, description, onApproved, onRejected }: Props) {
+  const { t } = useT();
   const [status, setStatus] = useState<ReviewStatusValue>("pending");
   const [settled, setSettled] = useState(false);
   const calledBack = useRef(false);
@@ -109,16 +111,16 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
         <p className="text-lg font-semibold text-ink">
           {settled
             ? status === "approved"
-              ? "Tasdiqlandi!"
-              : "Rad etildi"
-            : title ?? "Tekshiruvga yuborildi"}
+              ? t("review.approvedTitle")
+              : t("review.rejectedTitle")
+            : title ?? t("review.submittedTitle")}
         </p>
         <p className="text-sm text-ink/60 max-w-[280px]">
           {settled
             ? status === "approved"
-              ? "Hammasi tayyor, davom etishingiz mumkin."
-              : "Ma'lumotlarni qayta tekshirib, qaytadan yuboring."
-            : description ?? "Bir necha soniyada natija chiqadi. Kuting, iltimos."}
+              ? t("review.approvedDesc")
+              : t("review.rejectedDesc")
+            : description ?? t("review.submittedDesc")}
         </p>
       </div>
 
@@ -148,7 +150,7 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
                 </div>
                 {i === 0 && <span className="h-0.5 flex-1" />}
               </div>
-              <span className="text-xs text-ink/60">{step.label}</span>
+              <span className="text-xs text-ink/60">{t(step.labelKey)}</span>
             </div>
           );
         })}

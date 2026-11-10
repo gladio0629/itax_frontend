@@ -116,7 +116,9 @@ export function HistoryDetailScreen() {
           <p className="text-xs font-semibold text-ink/60">{t("history.paymentTitle")}</p>
           <Row label={t("history.serviceType")} value={order.mode === "car" ? t("order.wholeCar") : t("order.perSeat")} />
           <Row label={t("history.paymentMethod")} value={order.paymentMethod === "cash" ? t("order.cash") : t("order.card")} />
-          {order.cancelReason && <Row label={t("history.cancelReason")} value={order.cancelReason} />}
+          {order.cancelReason && (
+            <Row label={t("history.cancelReason")} value={t(order.cancelReason as TranslationKey)} />
+          )}
           <div className="h-px bg-border" />
           <Row label={t("order.total")} value={formatSom(order.price, intlTag)} bold />
         </Card>

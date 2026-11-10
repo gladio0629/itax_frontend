@@ -4,27 +4,18 @@ import { Button } from "@/components/Button";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/authStore";
+import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
 import { RouteIllustration, PriceIllustration, TrustIllustration } from "./illustrations";
 
 const SLIDES = [
-  {
-    Illustration: RouteIllustration,
-    title: "Shaharlar aro qulay sayohat",
-    description: "IZGO bilan O'zbekiston bo'ylab istalgan shaharga tez va qulay yetib boring.",
-  },
-  {
-    Illustration: PriceIllustration,
-    title: "Narxni oldindan bilib oling",
-    description: "Yo'l boshlanishidan oldin aniq narxni ko'rasiz — hech qanday yashirin to'lov yo'q.",
-  },
-  {
-    Illustration: TrustIllustration,
-    title: "Ishonchli haydovchilar",
-    description: "Barcha haydovchilar hujjatlari tekshirilgan va yo'lovchilar tomonidan baholangan.",
-  },
-];
+  { Illustration: RouteIllustration, titleKey: "onboarding.slide1.title", descKey: "onboarding.slide1.desc" },
+  { Illustration: PriceIllustration, titleKey: "onboarding.slide2.title", descKey: "onboarding.slide2.desc" },
+  { Illustration: TrustIllustration, titleKey: "onboarding.slide3.title", descKey: "onboarding.slide3.desc" },
+] satisfies { Illustration: typeof RouteIllustration; titleKey: TranslationKey; descKey: TranslationKey }[];
 
 export function OnboardingScreen() {
+  const { t } = useT();
   const [index, setIndex] = useState(0);
   const navigate = useNavigate();
   const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
@@ -42,7 +33,7 @@ export function OnboardingScreen() {
         <Logo size={32} />
         {!isLast && (
           <button onClick={finish} className="text-sm font-medium text-ink/60 h-11 px-2">
-            O'tkazib yuborish
+            {t("onboarding.skip")}
           </button>
         )}
       </div>
@@ -52,8 +43,8 @@ export function OnboardingScreen() {
           <slide.Illustration />
         </div>
         <div className="space-y-3 text-center">
-          <h1 className="text-xl font-semibold text-ink">{slide.title}</h1>
-          <p className="mx-auto max-w-[280px] text-sm text-ink/60">{slide.description}</p>
+          <h1 className="text-xl font-semibold text-ink">{t(slide.titleKey)}</h1>
+          <p className="mx-auto max-w-[280px] text-sm text-ink/60">{t(slide.descKey)}</p>
         </div>
       </div>
 
@@ -74,7 +65,7 @@ export function OnboardingScreen() {
           fullWidth
           onClick={() => (isLast ? finish() : setIndex((i) => i + 1))}
         >
-          {isLast ? "Boshlash" : "Davom etish"}
+          {isLast ? t("onboarding.start") : t("auth.continue")}
         </Button>
       </div>
     </div>

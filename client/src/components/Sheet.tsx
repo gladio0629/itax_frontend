@@ -77,7 +77,7 @@ export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
       <div className="absolute inset-0 animate-fade-in bg-black/40" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
-        className="absolute inset-x-0 bottom-0 max-h-[88%] animate-slide-up overflow-y-auto rounded-t-sheet bg-card shadow-soft will-change-transform"
+        className="absolute inset-x-0 bottom-0 max-h-[88%] animate-slide-up overflow-y-auto overscroll-contain rounded-t-sheet bg-card shadow-soft will-change-transform"
         style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -165,7 +165,7 @@ export function DragSheet({ snap, onSnapChange, heightsVh, children, ariaLabel }
       >
         <div className="h-1.5 w-10 rounded-full bg-ink/15" />
       </div>
-      <div className="flex-1 overflow-y-auto no-scrollbar">{children}</div>
+      <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar">{children}</div>
     </div>
   );
 }

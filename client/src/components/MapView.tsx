@@ -1,5 +1,6 @@
 import { Car } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n/provider";
 
 // Stylized, fully static SVG "map" — no real map tiles or external service.
 // A single cubic bezier represents the route; cubicPoint() lets us place a
@@ -27,6 +28,7 @@ export function MapView({
   className?: string;
   dim?: boolean;
 }) {
+  const { t } = useT();
   const [carX, carY] = cubicPoint(Math.min(1, Math.max(0, carProgress)));
   const pathD = `M ${PATH.p0[0]} ${PATH.p0[1]} C ${PATH.p1[0]} ${PATH.p1[1]}, ${PATH.p2[0]} ${PATH.p2[1]}, ${PATH.p3[0]} ${PATH.p3[1]}`;
 
@@ -35,7 +37,7 @@ export function MapView({
       viewBox="0 0 380 380"
       className={cn("h-full w-full", dim && "opacity-60", className)}
       role="img"
-      aria-label="Yo'nalish xaritasi"
+      aria-label={t("map.routeLabel")}
     >
       <rect width="380" height="380" className="fill-accent/10" />
       {Array.from({ length: 10 }).map((_, i) => (

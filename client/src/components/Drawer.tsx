@@ -73,7 +73,7 @@ export function Drawer({ open, onClose, children, ariaLabel }: Props) {
       <div className="absolute inset-0 animate-fade-in bg-black/40" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
-        className="absolute inset-y-0 left-0 flex w-[82%] max-w-[320px] flex-col animate-drawer-in overflow-y-auto bg-card shadow-soft will-change-transform"
+        className="absolute inset-y-0 left-0 flex w-[82%] max-w-[320px] flex-col animate-drawer-in overflow-y-auto overscroll-contain bg-card shadow-soft will-change-transform"
         style={{ paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

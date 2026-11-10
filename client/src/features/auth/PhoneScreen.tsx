@@ -6,6 +6,7 @@ import { Input } from "@/components/Input";
 import { Logo } from "@/components/Logo";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
+import { useT } from "@/lib/i18n/provider";
 
 function formatPhoneInput(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 9);
@@ -14,6 +15,7 @@ function formatPhoneInput(raw: string): string {
 }
 
 export function PhoneScreen() {
+  const { t } = useT();
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export function PhoneScreen() {
       setPhone(fullPhone);
       navigate("/auth/otp", { state: { requestId: res.requestId, demoCode: res.demoCode, phone: fullPhone } });
     } catch {
-      setError("Kod yuborilmadi. Internetni tekshirib, qayta urinib ko'ring.");
+      setError(t("auth.otpSendError"));
     } finally {
       setLoading(false);
     }
@@ -45,12 +47,10 @@ export function PhoneScreen() {
         <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-10 text-accent">
           <Phone className="h-7 w-7" />
         </div>
-        <h1 className="mb-2 text-xl font-semibold text-ink">Telefon raqamingiz</h1>
-        <p className="mb-8 text-sm text-ink/60">
-          Tasdiqlash kodini yuborishimiz uchun raqamingizni kiriting.
-        </p>
+        <h1 className="mb-2 text-xl font-semibold text-ink">{t("auth.phoneTitle")}</h1>
+        <p className="mb-8 text-sm text-ink/60">{t("auth.phoneDesc")}</p>
         <Input
-          label="Telefon raqam"
+          label={t("auth.phoneLabel")}
           inputMode="numeric"
           autoFocus
           placeholder="90 123 45 67"
@@ -62,7 +62,7 @@ export function PhoneScreen() {
       </div>
       <div style={{ paddingBottom: "calc(var(--safe-bottom) + 24px)" }}>
         <Button fullWidth disabled={!isValid} loading={loading} onClick={handleSubmit}>
-          Davom etish
+          {t("auth.continue")}
         </Button>
       </div>
     </div>

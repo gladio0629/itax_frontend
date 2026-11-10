@@ -3,9 +3,11 @@ import { Phone, MessageCircle, Star } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
 import { Toast } from "@/components/Toast";
+import { useT } from "@/lib/i18n/provider";
 import type { Driver } from "@/api/types";
 
 export function DriverCard({ driver }: { driver: Driver }) {
+  const { t } = useT();
   const [toast, setToast] = useState<string | null>(null);
 
   return (
@@ -22,15 +24,15 @@ export function DriverCard({ driver }: { driver: Driver }) {
       </div>
       <div className="flex gap-2">
         <button
-          onClick={() => setToast("Demo versiya: qo'ng'iroq amalga oshirilmaydi")}
-          aria-label="Qo'ng'iroq qilish"
+          onClick={() => setToast(t("driver.callDemoNote"))}
+          aria-label={t("driver.call")}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-10 text-accent"
         >
           <Phone className="h-4 w-4" />
         </button>
         <button
-          onClick={() => setToast("Demo versiya: xabar yuborilmaydi")}
-          aria-label="Xabar yozish"
+          onClick={() => setToast(t("driver.messageDemoNote"))}
+          aria-label={t("driver.message")}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/80"
         >
           <MessageCircle className="h-4 w-4" />

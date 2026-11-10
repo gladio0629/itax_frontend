@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { useT } from "@/lib/i18n/provider";
 
 type Props = {
   title?: string;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function ScreenHeader({ title, onBack, showBack = true, right, transparent }: Props) {
+  const { t } = useT();
   const navigate = useNavigate();
   return (
     <div
@@ -21,7 +23,7 @@ export function ScreenHeader({ title, onBack, showBack = true, right, transparen
         {showBack && (
           <button
             onClick={onBack ?? (() => navigate(-1))}
-            aria-label="Orqaga"
+            aria-label={t("common.back")}
             className={
               "flex h-11 w-11 items-center justify-center rounded-full transition-colors " +
               (transparent ? "bg-card/80 backdrop-blur-sm shadow-softer" : "bg-ink/5")

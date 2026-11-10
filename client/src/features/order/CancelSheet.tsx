@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/Button";
+import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
 
-const REASONS = [
-  "Reja o'zgardi",
-  "Juda uzoq kutdim",
-  "Narxni qayta ko'rib chiqdim",
-  "Boshqa yo'l tanladim",
-  "Boshqa sabab",
+const REASON_KEYS: TranslationKey[] = [
+  "cancel.reason.plansChanged",
+  "cancel.reason.waitedTooLong",
+  "cancel.reason.priceReconsidered",
+  "cancel.reason.choseAnotherWay",
+  "cancel.reason.other",
 ];
 
 export function CancelSheet({
@@ -20,7 +22,8 @@ export function CancelSheet({
   onConfirm: (reason: string) => void;
   loading?: boolean;
 }) {
-  const [reason, setReason] = useState<string | null>(null);
+  const { t } = useT();
+  const [reason, setReason] = useState<TranslationKey | null>(null);
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-ink/40 animate-fade-in" onClick={onClose}>
@@ -30,34 +33,34 @@ export function CancelSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">Buyurtmani bekor qilish</h2>
-          <button onClick={onClose} aria-label="Yopish" className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/5">
+          <h2 className="text-sm font-semibold text-ink">{t("cancel.title")}</h2>
+          <button onClick={onClose} aria-label={t("common.close")} className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/5">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="mb-3 text-xs text-ink/60">Sababni tanlang:</p>
+        <p className="mb-3 text-xs text-ink/60">{t("cancel.pickReason")}</p>
         <div className="mb-5 space-y-2">
-          {REASONS.map((r) => (
+          {REASON_KEYS.map((key) => (
             <button
-              key={r}
-              onClick={() => setReason(r)}
+              key={key}
+              onClick={() => setReason(key)}
               className={cn(
                 "flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition-colors",
-                reason === r ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/80"
+                reason === key ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/80"
               )}
             >
               <span
                 className={cn(
                   "h-4 w-4 shrink-0 rounded-full border-2",
-                  reason === r ? "border-accent bg-accent" : "border-ink/30"
+                  reason === key ? "border-accent bg-accent" : "border-ink/30"
                 )}
               />
-              {r}
+              {t(key)}
             </button>
           ))}
         </div>
         <Button fullWidth variant="danger" disabled={!reason} loading={loading} onClick={() => reason && onConfirm(reason)}>
-          Buyurtmani bekor qilish
+          {t("cancel.confirmAction")}
         </Button>
       </div>
     </div>

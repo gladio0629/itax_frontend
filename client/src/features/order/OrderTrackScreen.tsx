@@ -13,12 +13,20 @@ import { Toast } from "@/components/Toast";
 import { formatClock, formatSom } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
 import { defaultAddressesForCity } from "@/clientData/addresses";
+import { useT } from "@/lib/i18n/provider";
 import { DriverCard } from "./DriverCard";
 import { CancelSheet } from "./CancelSheet";
 
 const SEARCH_TIMEOUT_S = 300; // 5 minutes, per spec — server usually resolves far sooner
 
+const STATUS_STEPS = [
+  { key: "accepted", labelKey: "track.step.accepted" as const, icon: Check },
+  { key: "pickup", labelKey: "track.step.pickup" as const, icon: Navigation },
+  { key: "in_progress", labelKey: "track.step.inProgress" as const, icon: Clock3 },
+];
+
 export function OrderTrackScreen() {
+  const { t, intlTag } = useT();
   const { orderId = "" } = useParams();
   const navigate = useNavigate();
   const { draft } = useOrderStore();
@@ -73,7 +81,7 @@ export function OrderTrackScreen() {
       });
       navigate(`/order/track/${res.id}`, { replace: true });
     } catch {
-      setToast("Qayta urinishda xatolik. Yana urinib ko'ring.");
+      setToast(t("track.retryError"));
     } finally {
       setRetrying(false);
     }
@@ -85,7 +93,7 @@ export function OrderTrackScreen() {
       await api.cancelOrder(orderId, reason);
       navigate("/home", { replace: true });
     } catch {
-      setToast("Bekor qilinmadi. Qaytadan urining.");
+      setToast(t("track.cancelError"));
     } finally {
       setCancelling(false);
     }
@@ -94,7 +102,7 @@ export function OrderTrackScreen() {
   if (error && !order) {
     return (
       <div className="flex h-full flex-col bg-bg">
-        <ScreenHeader title="Buyurtma" />
+        <ScreenHeader title={t("track.title")} />
         <ErrorState onRetry={poll} />
       </div>
     );
@@ -112,7 +120,7 @@ export function OrderTrackScreen() {
 
   return (
     <div className="relative flex h-full flex-col bg-bg">
-      <ScreenHeader title={showNoDriver ? "Topilmadi" : "Buyurtma"} />
+      <ScreenHeader title={showNoDriver ? t("track.notFound") : t("track.title")} />
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         <div className="relative mb-4 h-48 overflow-hidden rounded-2xl">
@@ -129,7 +137,7 @@ export function OrderTrackScreen() {
               </div>
             </div>
             <div>
-              <p className="text-lg font-semibold text-ink">Haydovchi qidirilmoqda…</p>
+              <p className="text-lg font-semibold text-ink">{t("track.searching")}</p>
               <p className="mt-1 text-sm text-ink/60 tabular">{formatClock(elapsed)}</p>
             </div>
           </div>
@@ -141,10 +149,8 @@ export function OrderTrackScreen() {
               <SearchX className="h-7 w-7" />
             </div>
             <div>
-              <p className="text-lg font-semibold text-ink">Haydovchi topilmadi</p>
-              <p className="mt-1 max-w-[260px] text-sm text-ink/60">
-                Hozircha bu yo'nalishda bo'sh haydovchi yo'q. Qayta urinib ko'ring yoki boshqa vaqtni tanlang.
-              </p>
+              <p className="text-lg font-semibold text-ink">{t("track.noDriverTitle")}</p>
+              <p className="mt-1 max-w-[260px] text-sm text-ink/60">{t("track.noDriverDesc")}</p>
             </div>
           </div>
         )}
@@ -153,13 +159,9 @@ export function OrderTrackScreen() {
           <div className="space-y-4 animate-slide-up">
             <DriverCard driver={order.driver} />
             <Card className="p-4">
-              <p className="mb-3 text-xs font-semibold text-ink/60">HOLAT</p>
+              <p className="mb-3 text-xs font-semibold text-ink/60">{t("track.statusTitle")}</p>
               <div className="flex items-center justify-between">
-                {[
-                  { key: "accepted", label: "Qabul qilindi", icon: Check },
-                  { key: "pickup", label: "Yo'lda", icon: Navigation },
-                  { key: "in_progress", label: "Safar boshlandi", icon: Clock3 },
-                ].map((step, i) => {
+                {STATUS_STEPS.map((step, i) => {
                   const activeIdx = order.status === "accepted" ? 0 : 2;
                   const done = i <= activeIdx;
                   const Icon = step.icon;
@@ -176,7 +178,7 @@ export function OrderTrackScreen() {
                         </div>
                         {i === 0 && <span className="h-0.5 flex-1" />}
                       </div>
-                      <span className="text-[10px] text-ink/60 text-center">{step.label}</span>
+                      <span className="text-[10px] text-ink/60 text-center">{t(step.labelKey)}</span>
                     </div>
                   );
                 })}
@@ -189,23 +191,23 @@ export function OrderTrackScreen() {
       <BottomBar>
         {showNoDriver ? (
           <Button fullWidth loading={retrying} onClick={retrySearch}>
-            Qayta urinish
+            {t("common.retry")}
           </Button>
         ) : order.status === "searching" ? (
           <Button fullWidth variant="secondary" onClick={() => setCancelOpen(true)}>
-            Bekor qilish
+            {t("cancel.confirmAction")}
           </Button>
         ) : order.status === "accepted" ? (
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold tabular text-ink">{formatSom(order.price)}</span>
+            <span className="text-sm font-semibold tabular text-ink">{formatSom(order.price, intlTag)}</span>
             <Button variant="secondary" size="sm" onClick={() => setCancelOpen(true)}>
-              Bekor qilish
+              {t("cancel.confirmAction")}
             </Button>
           </div>
         ) : (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-ink/60">Safar davom etmoqda</span>
-            <span className="text-sm font-semibold tabular text-ink">{formatSom(order.price)}</span>
+            <span className="text-sm text-ink/60">{t("track.inProgress")}</span>
+            <span className="text-sm font-semibold tabular text-ink">{formatSom(order.price, intlTag)}</span>
           </div>
         )}
       </BottomBar>

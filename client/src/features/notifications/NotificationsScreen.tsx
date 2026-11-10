@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonList } from "@/components/Skeleton";
 import { formatRelativeDay } from "@/lib/format";
+import { useT } from "@/lib/i18n/provider";
 
 const KIND_ICON: Record<NotificationItem["kind"], typeof Bell> = {
   order: Bell,
@@ -17,6 +18,7 @@ const KIND_ICON: Record<NotificationItem["kind"], typeof Bell> = {
 type LoadState = "loading" | "error" | "ready";
 
 export function NotificationsScreen() {
+  const { t, intlTag } = useT();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [state, setState] = useState<LoadState>("loading");
 
@@ -41,7 +43,7 @@ export function NotificationsScreen() {
   return (
     <div className="flex h-full flex-col bg-bg">
       <div className="pl-16 pr-5" style={{ paddingTop: "calc(var(--safe-top) + 24px)" }}>
-        <h1 className="text-lg font-semibold text-ink">Bildirishnomalar</h1>
+        <h1 className="text-lg font-semibold text-ink">{t("home.notifications")}</h1>
       </div>
       <div
         className="flex-1 overflow-y-auto px-4 pt-4"
@@ -52,8 +54,8 @@ export function NotificationsScreen() {
         {state === "ready" && items.length === 0 && (
           <EmptyState
             icon={<Bell className="h-7 w-7" />}
-            title="Bildirishnomalar yo'q"
-            description="Buyurtmalaringiz va hamyoningiz bo'yicha yangiliklar shu yerda ko'rinadi."
+            title={t("inbox.emptyTitle")}
+            description={t("inbox.emptyDesc")}
           />
         )}
         {state === "ready" && items.length > 0 && (
@@ -73,7 +75,7 @@ export function NotificationsScreen() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-ink">{n.title}</p>
                     <p className="mt-0.5 text-xs text-ink/60">{n.body}</p>
-                    <p className="mt-1 text-[11px] text-ink/60">{formatRelativeDay(n.createdAt)}</p>
+                    <p className="mt-1 text-[11px] text-ink/60">{formatRelativeDay(n.createdAt, intlTag)}</p>
                   </div>
                 </button>
               );

@@ -6,11 +6,13 @@ import { ReviewStatus } from "@/components/ReviewStatus";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/cn";
 
 type LocationState = { requestId: string; demoCode: string; phone: string };
 
 export function OtpScreen() {
+  const { t } = useT();
   const location = useLocation();
   const navigate = useNavigate();
   const completeAuth = useAuthStore((s) => s.completeAuth);
@@ -51,7 +53,7 @@ export function OtpScreen() {
       setReviewId(review.id);
       setPhase("review");
     } catch {
-      setError("Kod noto'g'ri. Qaytadan urinib ko'ring.");
+      setError(t("auth.otpError"));
       setDigits(["", "", "", ""]);
       inputsRef.current[0]?.focus();
     } finally {
@@ -73,12 +75,10 @@ export function OtpScreen() {
   if (phase === "review" && reviewId) {
     return (
       <div className="flex h-full flex-col bg-bg">
-        <ScreenHeader title="Tasdiqlash" showBack={false} />
+        <ScreenHeader title={t("auth.confirmTitle")} showBack={false} />
         <div className="flex flex-1 items-center justify-center">
           <ReviewStatus
             reviewId={reviewId}
-            title="Tekshiruvga yuborildi"
-            description="Raqamingiz tasdiqlanmoqda. Bir necha soniya kutib turing."
             onApproved={() => {
               completeAuth();
               navigate("/home", { replace: true });
@@ -95,10 +95,8 @@ export function OtpScreen() {
         <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-10 text-accent">
           <ShieldCheck className="h-7 w-7" />
         </div>
-        <h1 className="mb-2 text-xl font-semibold text-ink">Kodni kiriting</h1>
-        <p className="mb-8 text-sm text-ink/60">
-          {state.phone} raqamiga yuborilgan 4 xonali kodni kiriting.
-        </p>
+        <h1 className="mb-2 text-xl font-semibold text-ink">{t("auth.enterCodeTitle")}</h1>
+        <p className="mb-8 text-sm text-ink/60">{t("auth.enterCodeDesc", { phone: state.phone })}</p>
 
         <div className="flex gap-3">
           {digits.map((d, i) => (
@@ -125,7 +123,11 @@ export function OtpScreen() {
           onClick={() => setSeconds(30)}
           className="mt-6 text-sm font-semibold text-accent disabled:text-ink/40"
         >
-          {seconds > 0 ? <span className="tabular">{`Qayta yuborish (${seconds}s)`}</span> : "Kodni qayta yuborish"}
+          {seconds > 0 ? (
+            <span className="tabular">{t("auth.resendIn", { seconds })}</span>
+          ) : (
+            t("auth.resend")
+          )}
         </button>
       </div>
 
@@ -136,7 +138,7 @@ export function OtpScreen() {
           disabled={digits.some((d) => !d)}
           onClick={() => handleVerify(digits.join(""))}
         >
-          Tasdiqlash
+          {t("common.confirm")}
         </Button>
       </div>
     </div>

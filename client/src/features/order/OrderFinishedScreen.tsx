@@ -9,9 +9,11 @@ import { SkeletonList } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { formatSom, formatKm } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
+import { useT } from "@/lib/i18n/provider";
 import { RatingReasonsSheet } from "@/features/history/RatingReasonsSheet";
 
 export function OrderFinishedScreen() {
+  const { t, intlTag } = useT();
   const { orderId = "" } = useParams();
   const navigate = useNavigate();
   const resetDraft = useOrderStore((s) => s.reset);
@@ -70,32 +72,30 @@ export function OrderFinishedScreen() {
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-bg animate-check-pop">
           <PartyPopper className="h-9 w-9" />
         </div>
-        <h1 className="text-xl font-semibold text-ink">Safar yakunlandi!</h1>
-        <p className="max-w-[260px] text-sm text-ink/60">
-          Manzilga xavfsiz yetib oldingiz. IZGO bilan sayohatingiz uchun rahmat.
-        </p>
+        <h1 className="text-xl font-semibold text-ink">{t("finished.title")}</h1>
+        <p className="max-w-[260px] text-sm text-ink/60">{t("finished.subtitle")}</p>
       </div>
 
       <Card className="mb-4 p-5">
-        <p className="mb-3 text-center text-sm font-semibold text-ink">Haydovchini baholang</p>
+        <p className="mb-3 text-center text-sm font-semibold text-ink">{t("finished.rateTitle")}</p>
         <div className="flex justify-center gap-2">
           {[1, 2, 3, 4, 5].map((v) => (
-            <button key={v} onClick={() => onStarClick(v)} aria-label={`${v} yulduz`} className="p-1">
+            <button key={v} onClick={() => onStarClick(v)} aria-label={`${v} \u2605`} className="p-1">
               <Star className={`h-8 w-8 transition-colors ${v <= rating ? "fill-warning text-warning" : "text-ink/20"}`} />
             </button>
           ))}
         </div>
-        {submitted && <p className="mt-3 text-center text-xs font-medium text-accent">Rahmat! Bahoyingiz qabul qilindi.</p>}
-        {ratingError && <p className="mt-3 text-center text-xs font-medium text-danger">Baho yuborilmadi. Qaytadan urining.</p>}
+        {submitted && <p className="mt-3 text-center text-xs font-medium text-accent">{t("finished.ratingThanks")}</p>}
+        {ratingError && <p className="mt-3 text-center text-xs font-medium text-danger">{t("order.submitError")}</p>}
       </Card>
 
       <Card className="mb-4 space-y-3 p-5">
-        <p className="text-xs font-semibold text-ink/60">CHEK</p>
-        <Row label="Yo'nalish" value={`${order.fromCity.name} \u2192 ${order.toCity.name}`} />
-        <Row label="Masofa" value={formatKm(order.distanceKm)} />
-        <Row label="To'lov usuli" value={order.paymentMethod === "cash" ? "Naqd pul" : "Karta"} />
+        <p className="text-xs font-semibold text-ink/60">{t("finished.receiptTitle")}</p>
+        <Row label={t("order.route")} value={`${order.fromCity.name} \u2192 ${order.toCity.name}`} />
+        <Row label={t("finished.distance")} value={formatKm(order.distanceKm, intlTag)} />
+        <Row label={t("history.paymentMethod")} value={order.paymentMethod === "cash" ? t("order.cash") : t("order.card")} />
         <div className="h-px bg-border" />
-        <Row label="Jami to'landi" value={formatSom(order.price)} bold />
+        <Row label={t("finished.totalPaid")} value={formatSom(order.price, intlTag)} bold />
       </Card>
 
       {suggestion && (
@@ -108,11 +108,11 @@ export function OrderFinishedScreen() {
               <MapPin className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-xs text-ink/60">Keyingi safar uchun taklif</p>
+              <p className="text-xs text-ink/60">{t("finished.suggestionLabel")}</p>
               <p className="text-sm font-semibold text-ink">{suggestion.label}</p>
             </div>
           </div>
-          <span className="text-xs font-semibold tabular text-accent">dan {formatSom(suggestion.fromPrice)}</span>
+          <span className="text-xs font-semibold tabular text-accent">{t("finished.suggestionFrom", { price: formatSom(suggestion.fromPrice, intlTag) })}</span>
         </button>
       )}
 
@@ -124,7 +124,7 @@ export function OrderFinishedScreen() {
             navigate("/home");
           }}
         >
-          Bosh sahifaga qaytish
+          {t("finished.backHome")}
         </Button>
       </div>
       </div>
