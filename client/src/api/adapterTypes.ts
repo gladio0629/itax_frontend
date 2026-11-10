@@ -1,4 +1,5 @@
 import type {
+  Address,
   City,
   CreateOrderInput,
   NotificationItem,
@@ -10,6 +11,7 @@ import type {
   ReviewRequest,
   RouteSuggestion,
   SavedCard,
+  Seat,
   WalletSummary,
 } from "./types";
 
@@ -23,6 +25,11 @@ export interface ApiAdapter {
   getCities(): Promise<City[]>;
   getPopularRoutes(): Promise<RouteSuggestion[]>;
   getRecentRoutes(): Promise<RouteSuggestion[]>;
+  getAddressSuggestions(query: string, excludeCityId?: string): Promise<Address[]>;
+  getRecentAddresses(): Promise<Address[]>;
+  reverseGeocode(x: number, y: number, excludeCityId?: string): Promise<Address>;
+  getPickupEta(): Promise<{ minutes: number }>;
+  getSeatMap(input: { fromAddressId: string; toAddressId: string }): Promise<Seat[]>;
   getQuote(input: QuoteInput): Promise<Quote>;
 
   requestOtp(phone: string): Promise<OtpRequestResult>;
@@ -36,7 +43,7 @@ export interface ApiAdapter {
   getOrderHistory(): Promise<OrderWithDetails[]>;
 
   getSavedCards(): Promise<SavedCard[]>;
-  linkCard(payload: { label: string; last4: string; brand: SavedCard["brand"] }): Promise<ReviewRequest>;
+  linkCard(payload: { label: string }): Promise<ReviewRequest>;
 
   getNotifications(): Promise<NotificationItem[]>;
   markNotificationRead(id: string): Promise<void>;

@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { Toast } from "@/components/Toast";
 import { formatClock, formatSom } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
+import { defaultAddressesForCity } from "@/clientData/addresses";
 import { DriverCard } from "./DriverCard";
 import { CancelSheet } from "./CancelSheet";
 
@@ -56,14 +57,19 @@ export function OrderTrackScreen() {
   async function retrySearch() {
     setRetrying(true);
     try {
+      const fromAddressId =
+        draft.fromAddressId || defaultAddressesForCity(order?.fromCityId ?? "")[0]?.id || "";
+      const toAddressId =
+        draft.toAddressId || defaultAddressesForCity(order?.toCityId ?? "")[0]?.id || "";
       const res = await api.createOrder({
-        fromCityId: order?.fromCityId ?? draft.fromCityId,
-        toCityId: order?.toCityId ?? draft.toCityId,
+        serviceType: draft.serviceType,
+        fromAddressId,
+        toAddressId,
         mode: order?.mode ?? draft.mode,
         seatIds: order?.seatIds ?? draft.seatIds,
+        cargo: draft.cargo,
         paymentMethod: order?.paymentMethod ?? draft.paymentMethod,
-        timeMode: draft.timeMode,
-        timeRange: draft.timeRange,
+        timing: draft.timing,
       });
       navigate(`/order/track/${res.id}`, { replace: true });
     } catch {

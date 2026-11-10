@@ -6,7 +6,6 @@ import { OnboardingScreen } from "@/features/onboarding/OnboardingScreen";
 import { PhoneScreen } from "@/features/auth/PhoneScreen";
 import { OtpScreen } from "@/features/auth/OtpScreen";
 import { HomeScreen } from "@/features/home/HomeScreen";
-import { OrderConfigureScreen } from "@/features/order/OrderConfigureScreen";
 import { OrderTrackScreen } from "@/features/order/OrderTrackScreen";
 import { OrderFinishedScreen } from "@/features/order/OrderFinishedScreen";
 import { BonusScreen } from "@/features/bonus/BonusScreen";
@@ -47,7 +46,6 @@ export const router = createBrowserRouter(
       >
         <Route path="/home" element={<HomeScreen />} />
         <Route path="/bonus" element={<BonusScreen />} />
-        <Route path="/order/configure" element={<OrderConfigureScreen />} />
         <Route path="/order/track/:orderId" element={<OrderTrackScreen />} />
         <Route path="/order/finished/:orderId" element={<OrderFinishedScreen />} />
 

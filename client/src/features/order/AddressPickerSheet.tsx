@@ -1,0 +1,136 @@
+import { useEffect, useState } from "react";
+import { MapPin, Search, Map as MapIcon, Clock3 } from "lucide-react";
+import { api } from "@/api/client";
+import type { Address } from "@/api/types";
+import { Sheet } from "@/components/Sheet";
+import { FakeMap } from "@/components/FakeMap";
+import { Button } from "@/components/Button";
+import { useT } from "@/lib/i18n/provider";
+
+export function AddressPickerSheet({
+  title,
+  excludeCityId,
+  onSelect,
+  onClose,
+}: {
+  title: string;
+  excludeCityId?: string;
+  onSelect: (address: Address) => void;
+  onClose: () => void;
+}) {
+  const { t } = useT();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Address[]>([]);
+  const [recent, setRecent] = useState<Address[]>([]);
+  const [pickingOnMap, setPickingOnMap] = useState(false);
+  const [pin, setPin] = useState({ x: 50, y: 50 });
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    api.getRecentAddresses().then(setRecent).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      api.getAddressSuggestions(query, excludeCityId).then(setResults).catch(() => {});
+    }, 200);
+    return () => clearTimeout(id);
+  }, [query, excludeCityId]);
+
+  async function confirmMapPin() {
+    setConfirming(true);
+    try {
+      const addr = await api.reverseGeocode(pin.x, pin.y, excludeCityId);
+      onSelect(addr);
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  if (pickingOnMap) {
+    return (
+      <Sheet open onClose={() => setPickingOnMap(false)} ariaLabel={t("address.pickOnMap")}>
+        <div className="flex items-center justify-between px-5 pt-3">
+          <h2 className="text-sm font-semibold text-ink">{t("address.pickOnMap")}</h2>
+        </div>
+        <div
+          className="relative mx-4 mt-3 h-64 overflow-hidden rounded-2xl"
+          onPointerDown={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setPin({
+              x: Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100)),
+              y: Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100)),
+            });
+          }}
+        >
+          <FakeMap className="absolute inset-0" />
+          <div
+            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-full flex-col items-center"
+            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+          >
+            <div className="h-5 w-5 rounded-full border-2 border-on-yellow bg-brand-yellow shadow-soft" />
+            <div className="h-3 w-0.5 bg-on-yellow" />
+          </div>
+        </div>
+        <div className="px-5 pb-4 pt-4">
+          <Button fullWidth loading={confirming} onClick={confirmMapPin}>
+            {t("common.confirm")}
+          </Button>
+        </div>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet open onClose={onClose} ariaLabel={title}>
+      <div className="px-5 pt-3">
+        <h2 className="text-sm font-semibold text-ink">{title}</h2>
+      </div>
+      <div className="px-5 pt-3">
+        <div className="flex h-11 items-center gap-2 rounded-xl bg-ink/5 px-3">
+          <Search className="h-4 w-4 text-ink/60" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("address.searchPlaceholder")}
+            className="h-full w-full bg-transparent text-sm outline-none placeholder:text-ink/60"
+          />
+        </div>
+      </div>
+
+      <button
+        onClick={() => setPickingOnMap(true)}
+        className="mx-5 mt-3 flex items-center gap-2 rounded-xl bg-accent-5 px-4 py-3 text-sm font-semibold text-accent"
+      >
+        <MapIcon className="h-4 w-4" /> {t("address.pickOnMap")}
+      </button>
+
+      {!query && recent.length > 0 && (
+        <div className="px-5 pt-4">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-ink/60">
+            <Clock3 className="h-3.5 w-3.5" /> {t("address.recent")}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-1 max-h-72 flex-1 overflow-y-auto px-2 pb-2">
+        {(query ? results : recent).map((addr) => (
+          <button
+            key={addr.id}
+            onClick={() => onSelect(addr)}
+            className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left hover:bg-ink/5"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5 text-accent">
+              <MapPin className="h-4 w-4" />
+            </div>
+            <p className="text-sm font-semibold text-ink">{addr.label}</p>
+          </button>
+        ))}
+        {query && results.length === 0 && (
+          <p className="px-3 py-6 text-center text-sm text-ink/60">{t("address.notFound")}</p>
+        )}
+      </div>
+    </Sheet>
+  );
+}

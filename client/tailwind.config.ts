@@ -68,6 +68,18 @@ export default {
           from: { transform: "translateX(-100%)" },
           to: { transform: "translateX(0)" },
         },
+        "drift-a": {
+          "0%,100%": { transform: "translate(0,0)" },
+          "50%": { transform: "translate(14px,-8px)" },
+        },
+        "drift-b": {
+          "0%,100%": { transform: "translate(0,0)" },
+          "50%": { transform: "translate(-10px,10px)" },
+        },
+        "bob-y": {
+          "0%,100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-4px)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.3s ease-out",
@@ -78,6 +90,9 @@ export default {
         "drive-bob": "drive-bob 1.2s ease-in-out infinite",
         "check-pop": "check-pop 0.5s cubic-bezier(0.34,1.56,0.64,1)",
         "drawer-in": "drawer-in 0.26s cubic-bezier(0.2,0.8,0.2,1)",
+        "drift-a": "drift-a 9s ease-in-out infinite",
+        "drift-b": "drift-b 11s ease-in-out infinite",
+        "bob-y": "bob-y 1.6s ease-in-out infinite",
       },
     },
   },

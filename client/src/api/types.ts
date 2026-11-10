@@ -6,8 +6,34 @@ import type {
   PaymentMethod,
 } from "@/seed/generate";
 import type { ReviewKind, ReviewRequest } from "@/mockDb/db";
+import type { Address } from "@/clientData/addresses";
 
-export type { City, Driver, Order, OrderMode, PaymentMethod, ReviewKind, ReviewRequest };
+export type { City, Driver, Order, OrderMode, PaymentMethod, ReviewKind, ReviewRequest, Address };
+
+export type ServiceType = "passenger" | "delivery";
+export type CargoPreset = "small" | "medium" | "large";
+export type CargoInput = {
+  preset: CargoPreset;
+  volumeM3: number;
+  weightKg: number;
+  note?: string;
+};
+
+export type SeatPosition = "front" | "back-left" | "back-mid" | "back-right";
+export type Seat = {
+  id: SeatPosition;
+  position: SeatPosition;
+  taken: boolean;
+  price: number;
+};
+
+/** Quote/validation/error text is returned as a translation key + params,
+ * never as localized text — the UI maps it through useT(). */
+export type QuoteLine = {
+  key: string;
+  params?: Record<string, string | number>;
+  amount: number;
+};
 
 export type RouteSuggestion = {
   fromCityId: string;
@@ -17,29 +43,43 @@ export type RouteSuggestion = {
   label: string;
 };
 
+export type OrderTiming =
+  | { timeMode: "now" }
+  | {
+      timeMode: "scheduled";
+      date: "today" | "tomorrow" | string; // string = ISO date for "boshqa sana"
+      timeKind: "exact" | "range";
+      time?: string;
+      timeRange?: { from: string; to: string };
+    };
+
 export type QuoteInput = {
-  fromCityId: string;
-  toCityId: string;
+  serviceType: ServiceType;
+  fromAddressId: string;
+  toAddressId: string;
   mode: OrderMode;
   seatIds: string[];
+  cargo?: CargoInput;
 };
 
 export type Quote = {
   distanceKm: number;
-  price: number;
-  perSeatPrice?: number;
+  lines: QuoteLine[];
+  total: number;
+  currency: "som";
   etaMinutes: number;
   durationMinutes: number;
 };
 
 export type CreateOrderInput = {
-  fromCityId: string;
-  toCityId: string;
+  serviceType: ServiceType;
+  fromAddressId: string;
+  toAddressId: string;
   mode: OrderMode;
   seatIds: string[];
+  cargo?: CargoInput;
   paymentMethod: PaymentMethod;
-  timeMode: "now" | "range";
-  timeRange?: { from: string; to: string };
+  timing: OrderTiming;
   promoCode?: string;
 };
 

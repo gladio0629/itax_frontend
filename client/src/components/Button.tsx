@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "brand";
 type Size = "md" | "sm";
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -22,6 +22,9 @@ const variants: Record<Variant, string> = {
   secondary: "bg-accent-5 text-accent hover:bg-accent-10",
   ghost: "bg-transparent text-ink/80 hover:bg-ink/5",
   danger: "bg-danger text-bg shadow-soft",
+  // Brand yellow is a fill-only color, always paired with navy (on-yellow)
+  // text — reserved for the primary order-submission CTA, not general use.
+  brand: "bg-brand-yellow text-on-yellow shadow-soft hover:brightness-105",
 };
 
 const sizes: Record<Size, string> = {

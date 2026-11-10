@@ -1,14 +1,19 @@
 import { create } from "zustand";
 import type { OrderMode, PaymentMethod } from "@/seed/generate";
+import type { CargoInput, OrderTiming, ServiceType } from "@/api/types";
+import { ADDRESSES } from "@/clientData/addresses";
 
-type OrderDraft = {
-  fromCityId: string;
-  toCityId: string;
+const DEFAULT_FROM_ADDRESS = ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "";
+
+export type OrderDraft = {
+  serviceType: ServiceType;
+  fromAddressId: string;
+  toAddressId: string;
   mode: OrderMode;
   seatIds: string[];
-  timeMode: "now" | "range";
-  timeRange: { from: string; to: string };
+  cargo: CargoInput;
   paymentMethod: PaymentMethod;
+  timing: OrderTiming;
   promoCode: string;
 };
 
@@ -21,13 +26,14 @@ type OrderDraftState = {
 };
 
 const initialDraft: OrderDraft = {
-  fromCityId: "",
-  toCityId: "",
+  serviceType: "passenger",
+  fromAddressId: DEFAULT_FROM_ADDRESS,
+  toAddressId: "",
   mode: "car",
   seatIds: [],
-  timeMode: "now",
-  timeRange: { from: "08:00", to: "12:00" },
+  cargo: { preset: "small", volumeM3: 1, weightKg: 20 },
   paymentMethod: "cash",
+  timing: { timeMode: "now" },
   promoCode: "",
 };
 

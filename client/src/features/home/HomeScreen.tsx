@@ -1,213 +1,177 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUpDown, Bell, MapPin, Clock3, TrendingUp } from "lucide-react";
+import { Bell, Clock3, LocateFixed, MapPin } from "lucide-react";
 import { api } from "@/api/client";
-import type { City, RouteSuggestion } from "@/api/types";
-import { MapView } from "@/components/MapView";
-import { Card } from "@/components/Card";
-import { Button } from "@/components/Button";
-import { LowConnectionBanner } from "@/components/LowConnectionBanner";
+import type { Address } from "@/api/types";
+import { addressById } from "@/clientData/addresses";
+import { FakeMap } from "@/components/FakeMap";
+import { DragSheet, type SnapPoint } from "@/components/Sheet";
 import { Skeleton } from "@/components/Skeleton";
-import { ErrorState } from "@/components/ErrorState";
-import { formatSom, formatKm } from "@/lib/format";
+import { LowConnectionBanner } from "@/components/LowConnectionBanner";
 import { useOrderStore } from "@/stores/orderStore";
-import { CityPickerSheet } from "./CityPickerSheet";
-
-type LoadState = "loading" | "error" | "ready";
+import { useT } from "@/lib/i18n/provider";
+import { OrderSheet } from "@/features/order/OrderSheet";
 
 export function HomeScreen() {
   const navigate = useNavigate();
-  const { draft, setField } = useOrderStore();
-  const [state, setState] = useState<LoadState>("loading");
-  const [cities, setCities] = useState<City[]>([]);
-  const [popular, setPopular] = useState<RouteSuggestion[]>([]);
-  const [recent, setRecent] = useState<RouteSuggestion[]>([]);
+  const { t } = useT();
+  const { draft, setField, reset } = useOrderStore();
   const [profileName, setProfileName] = useState("");
-  const [picker, setPicker] = useState<"from" | "to" | null>(null);
+  const [eta, setEta] = useState<number | null>(null);
+  const [recent, setRecent] = useState<Address[]>([]);
+  const [recentLoading, setRecentLoading] = useState(true);
+  const [snap, setSnap] = useState<SnapPoint>("collapsed");
+  const [expanded, setExpanded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
-  async function load() {
-    setState("loading");
+  useEffect(() => {
+    api.getProfile().then((p) => setProfileName(p.name.split(" ")[0])).catch(() => {});
+    api.getPickupEta().then((r) => setEta(r.minutes)).catch(() => {});
+    api
+      .getRecentAddresses()
+      .then(setRecent)
+      .catch(() => setRecent([]))
+      .finally(() => setRecentLoading(false));
+  }, []);
+
+  const fromAddress = addressById(draft.fromAddressId) ?? null;
+  const toAddress = addressById(draft.toAddressId) ?? null;
+
+  function openFlow(presetTo?: Address) {
+    if (presetTo) setField("toAddressId", presetTo.id);
+    setExpanded(true);
+    setSnap("full");
+  }
+
+  function collapseFlow() {
+    setExpanded(false);
+    setSnap("collapsed");
+  }
+
+  async function submit() {
+    setSubmitting(true);
+    setSubmitError(false);
     try {
-      const [c, pop, rec, profile] = await Promise.all([
-        api.getCities(),
-        api.getPopularRoutes(),
-        api.getRecentRoutes(),
-        api.getProfile(),
-      ]);
-      setCities(c);
-      setPopular(pop);
-      setRecent(rec);
-      setProfileName(profile.name.split(" ")[0]);
-      if (!draft.fromCityId) setField("fromCityId", "tsh");
-      setState("ready");
+      const order = await api.createOrder({
+        serviceType: draft.serviceType,
+        fromAddressId: draft.fromAddressId,
+        toAddressId: draft.toAddressId,
+        mode: draft.mode,
+        seatIds: draft.seatIds,
+        cargo: draft.serviceType === "delivery" ? draft.cargo : undefined,
+        paymentMethod: draft.paymentMethod,
+        timing: draft.timing,
+        promoCode: draft.promoCode || undefined,
+      });
+      navigate(`/order/track/${order.id}`);
+      reset();
+      collapseFlow();
     } catch {
-      setState("error");
+      setSubmitError(true);
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function cityName(id: string) {
-    return cities.find((c) => c.id === id)?.name ?? "";
-  }
-
-  function goConfigure(fromId: string, toId: string) {
-    setField("fromCityId", fromId);
-    setField("toCityId", toId);
-    navigate("/order/configure");
-  }
-
-  const canSearch = !!draft.fromCityId && !!draft.toCityId && draft.fromCityId !== draft.toCityId;
-
   return (
-    <div className="relative flex h-full flex-col bg-bg">
-      <div
-        className="flex items-center justify-between pl-16 pr-5"
-        style={{ paddingTop: "calc(var(--safe-top) + 20px)" }}
-      >
-        <div>
-          <p className="text-xs text-ink/60">Xayrli kun{profileName ? "," : ""}</p>
-          <p className="text-lg font-semibold text-ink">{profileName || "Mehmon"} 👋</p>
+    <div className="relative h-full bg-bg">
+      <FakeMap pickupLabel={fromAddress ? `${t("order.pickupCaption")}: ${fromAddress.label}` : undefined} etaMinutes={eta ?? undefined} className="absolute inset-0" />
+
+      <div className="relative flex items-center justify-between pl-16 pr-5" style={{ paddingTop: "calc(var(--safe-top) + 16px)" }}>
+        <div className="rounded-2xl bg-card/90 px-3 py-2 shadow-softer backdrop-blur-sm">
+          <p className="text-[11px] text-ink/60">{t("home.greeting")}{profileName ? "," : ""}</p>
+          <p className="text-sm font-semibold text-ink">{profileName || t("home.guest")} 👋</p>
         </div>
         <button
           onClick={() => navigate("/notifications")}
-          aria-label="Bildirishnomalar"
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-card shadow-softer"
+          aria-label={t("home.notifications")}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-card/90 shadow-softer backdrop-blur-sm"
         >
           <Bell className="h-5 w-5 text-ink/80" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <button
+        aria-label={t("home.locateMe")}
+        className="absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-card shadow-soft"
+        style={{ top: "calc(var(--safe-top) + 72px)" }}
+      >
+        <LocateFixed className="h-5 w-5 text-accent" />
+      </button>
+
+      <div className="absolute inset-x-0 top-0" style={{ paddingTop: "calc(var(--safe-top) + 64px)" }}>
         <LowConnectionBanner />
+      </div>
 
-        <div className="relative mx-4 mt-3 h-40 overflow-hidden rounded-2xl">
-          <MapView />
-          <div className="absolute inset-0 bg-gradient-to-t from-bg/40 to-transparent" />
-        </div>
-
-        <Card className="relative z-10 mx-4 -mt-10 space-y-1 p-4">
-          <button
-            onClick={() => setPicker("from")}
-            className="flex w-full items-center gap-3 rounded-2xl px-2 py-3 text-left hover:bg-ink/5"
-          >
-            <span className="h-2.5 w-2.5 rounded-full bg-ink" />
-            <div className="flex-1">
-              <p className="text-[11px] text-ink/60">Qayerdan</p>
-              <p className="text-sm font-semibold text-ink">{cityName(draft.fromCityId) || "Shaharni tanlang"}</p>
-            </div>
-          </button>
-          <div className="mx-2 h-px bg-border" />
-          <button
-            onClick={() => setPicker("to")}
-            className="flex w-full items-center gap-3 rounded-2xl px-2 py-3 text-left hover:bg-ink/5"
-          >
-            <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-            <div className="flex-1">
-              <p className="text-[11px] text-ink/60">Qayerga</p>
-              <p className="text-sm font-semibold text-ink">{cityName(draft.toCityId) || "Shaharni tanlang"}</p>
-            </div>
-          </button>
-          <button
-            onClick={() => {
-              const f = draft.fromCityId;
-              setField("fromCityId", draft.toCityId);
-              setField("toCityId", f);
-            }}
-            aria-label="Almashtirish"
-            className="absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-accent-5 text-accent"
-          >
-            <ArrowUpDown className="h-4 w-4" />
-          </button>
-        </Card>
-
-        {state === "error" ? (
-          <ErrorState onRetry={load} />
+      <DragSheet
+        snap={expanded ? "full" : snap}
+        onSnapChange={(s) => {
+          setSnap(s);
+          if (s !== "full") setExpanded(false);
+        }}
+        heightsVh={{ collapsed: 30, half: 58, full: 92 }}
+        ariaLabel={t("home.orderSheet")}
+      >
+        {expanded ? (
+          <OrderSheet
+            draft={draft}
+            setField={setField}
+            addresses={{ from: fromAddress, to: toAddress }}
+            onAddressChange={(which, addr) => setField(which === "from" ? "fromAddressId" : "toAddressId", addr.id)}
+            onSubmit={submit}
+            submitting={submitting}
+            submitError={submitError}
+            onClose={collapseFlow}
+          />
         ) : (
-          <>
-            <section className="mt-6 px-5">
-              <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-ink">
-                <Clock3 className="h-4 w-4 text-ink/60" /> So'nggi yo'nalishlar
-              </p>
-              {state === "loading" ? (
-                <div className="flex gap-2">
-                  <Skeleton className="h-9 w-32 rounded-full" />
-                  <Skeleton className="h-9 w-28 rounded-full" />
-                </div>
-              ) : recent.length > 0 ? (
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                  {recent.map((r) => (
-                    <button
-                      key={`${r.fromCityId}-${r.toCityId}`}
-                      onClick={() => goConfigure(r.fromCityId, r.toCityId)}
-                      className="shrink-0 rounded-full border border-border bg-card px-4 py-2.5 text-xs font-semibold text-ink/80"
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-ink/60">Hali buyurtmalar yo'q — mashhur yo'nalishlardan birini tanlang.</p>
-              )}
-            </section>
+          <div className="px-5 pb-4">
+            <div className="mb-4 flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
+                <MapPin className="h-3.5 w-3.5" />
+              </span>
+              <p className="text-sm font-semibold text-ink">IZGO Taksi</p>
+            </div>
 
-            <section className="mt-6 px-5 pb-6">
-              <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-ink">
-                <TrendingUp className="h-4 w-4 text-ink/60" /> Mashhur yo'nalishlar
-              </p>
-              {state === "loading" ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-16 w-full rounded-2xl" />
-                  <Skeleton className="h-16 w-full rounded-2xl" />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {popular.map((r) => (
-                    <button
-                      key={`${r.fromCityId}-${r.toCityId}`}
-                      onClick={() => goConfigure(r.fromCityId, r.toCityId)}
-                      className="flex w-full items-center justify-between rounded-2xl bg-card px-4 py-3.5 text-left shadow-softer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5 text-accent">
-                          <MapPin className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-ink">{r.label}</p>
-                          <p className="text-xs text-ink/60">{formatKm(r.distanceKm)}</p>
-                        </div>
-                      </div>
-                      <p className="text-xs font-semibold text-ink/80 tabular">dan {formatSom(r.fromPrice)}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
-          </>
+            <button
+              onClick={() => openFlow()}
+              className="flex w-full items-center justify-between rounded-2xl bg-ink/5 px-5 py-4 text-left"
+            >
+              <span className="text-sm font-medium text-ink/60">{t("home.whereTo")}</span>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-bg">
+                <MapPin className="h-4 w-4" />
+              </span>
+            </button>
+
+            <p className="mb-2 mt-5 flex items-center gap-1.5 text-sm font-semibold text-ink">
+              <Clock3 className="h-4 w-4 text-ink/60" /> {t("home.recentPlaces")}
+            </p>
+            {recentLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-14 w-full rounded-2xl" />
+                <Skeleton className="h-14 w-full rounded-2xl" />
+              </div>
+            ) : recent.length === 0 ? (
+              <p className="text-xs text-ink/60">{t("home.noRecentPlaces")}</p>
+            ) : (
+              <div className="space-y-2">
+                {recent.map((addr) => (
+                  <button
+                    key={addr.id}
+                    onClick={() => openFlow(addr)}
+                    className="flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3.5 text-left shadow-softer"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
+                      <MapPin className="h-4 w-4" />
+                    </div>
+                    <p className="truncate text-sm font-semibold text-ink">{addr.label}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
-      </div>
-
-      <div className="px-5" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
-        <Button fullWidth disabled={!canSearch} onClick={() => navigate("/order/configure")}>
-          Buyurtma berish
-        </Button>
-      </div>
-
-      {picker && (
-        <CityPickerSheet
-          title={picker === "from" ? "Qayerdan" : "Qayerga"}
-          cities={cities}
-          excludeId={picker === "from" ? draft.toCityId : draft.fromCityId}
-          onClose={() => setPicker(null)}
-          onSelect={(id) => {
-            setField(picker === "from" ? "fromCityId" : "toCityId", id);
-            setPicker(null);
-          }}
-        />
-      )}
+      </DragSheet>
     </div>
   );
 }

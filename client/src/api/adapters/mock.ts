@@ -4,6 +4,14 @@ import { submitForReview, pollReview } from "@/lib/reviewMechanism";
 import { getDemoScenarios } from "@/stores/demoStore";
 import { computePrice, roadDistanceKm, DEFAULT_TARIFF, type City, type Order } from "@/seed/generate";
 import { readJSON, writeJSON } from "@/mockDb/storage";
+import {
+  ADDRESSES,
+  addressById,
+  addressesForQuery,
+  nearestAddress,
+  type Address,
+} from "@/clientData/addresses";
+import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   CreateOrderInput,
@@ -14,17 +22,34 @@ import type {
   Profile,
   Quote,
   QuoteInput,
+  QuoteLine,
   RouteSuggestion,
   SavedCard,
+  Seat,
+  SeatPosition,
   WalletSummary,
 } from "../types";
 
 const DEMO_OTP_CODE = "0000";
+const CARGO_RATES = { base: 20_000, perKm: 400, perM3: 15_000, perKg: 300 };
+const SEAT_POSITIONS: SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
 
 function cityOf(id: string): City {
   const c = db.cities().find((x) => x.id === id);
   if (!c) throw new ApiError("NOT_FOUND", "Shahar topilmadi");
   return c;
+}
+
+function addressOf(id: string): Address {
+  const a = addressById(id);
+  if (!a) throw new ApiError("NOT_FOUND", "Manzil topilmadi");
+  return a;
+}
+
+function hashSeed(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return h >>> 0;
 }
 
 function currentPassengerId(): string {
@@ -120,22 +145,98 @@ export const mockAdapter: ApiAdapter = {
       return result;
     }),
 
+  getAddressSuggestions: (query: string, excludeCityId?: string) =>
+    withLatency(() => addressesForQuery(query, excludeCityId), { minMs: 150, maxMs: 350 }),
+
+  getRecentAddresses: () =>
+    withLatency(() => {
+      const mine = db
+        .orders()
+        .filter((o) => o.passengerId === currentPassengerId())
+        .slice(0, 6);
+      const seen = new Set<string>();
+      const result: Address[] = [];
+      for (const o of mine) {
+        for (const cityId of [o.fromCityId, o.toCityId]) {
+          if (seen.has(cityId)) continue;
+          seen.add(cityId);
+          const addr = ADDRESSES.find((a) => a.cityId === cityId);
+          if (addr) result.push(addr);
+          if (result.length >= 4) break;
+        }
+        if (result.length >= 4) break;
+      }
+      return result;
+    }),
+
+  reverseGeocode: (x: number, y: number, excludeCityId?: string) =>
+    withLatency(() => nearestAddress(x, y, excludeCityId), { minMs: 200, maxMs: 450 }),
+
+  getPickupEta: () =>
+    withLatency(() => ({ minutes: 2 + Math.round(Math.random() * 6) }), { minMs: 150, maxMs: 300 }),
+
+  getSeatMap: ({ fromAddressId, toAddressId }) =>
+    withLatency<Seat[]>(() => {
+      const distanceKm = roadDistanceKm(addressOf(fromAddressId).cityId, addressOf(toAddressId).cityId);
+      const rng = makeRng(hashSeed(`${fromAddressId}|${toAddressId}`));
+      const takenIdx = rng.bool(0.3) ? rng.int(1, SEAT_POSITIONS.length - 1) : -1;
+      return SEAT_POSITIONS.map((position, i) => ({
+        id: position,
+        position,
+        taken: i === takenIdx,
+        price: computePrice(distanceKm, "seat", position === "front" ? ["front"] : [], DEFAULT_TARIFF),
+      }));
+    }, { minMs: 200, maxMs: 450 }),
+
   getQuote: (input: QuoteInput) =>
     withLatency<Quote>(() => {
-      const distanceKm = roadDistanceKm(input.fromCityId, input.toCityId);
+      const fromCityId = addressOf(input.fromAddressId).cityId;
+      const toCityId = addressOf(input.toAddressId).cityId;
+      const distanceKm = roadDistanceKm(fromCityId, toCityId);
       if (distanceKm === 0) throw new ApiError("INVALID_ROUTE", "Yo'nalishni tanlang");
-      const price = computePrice(distanceKm, input.mode, input.seatIds, DEFAULT_TARIFF);
-      return {
-        distanceKm,
-        price,
-        perSeatPrice:
-          input.mode === "seat"
-            ? computePrice(distanceKm, "seat", ["back-mid"], DEFAULT_TARIFF)
-            : undefined,
-        etaMinutes: 3 + Math.round(Math.random() * 6),
-        durationMinutes: Math.round((distanceKm / 70) * 60),
-      };
-    }),
+      const etaMinutes = 3 + Math.round(Math.random() * 6);
+      const durationMinutes = Math.round((distanceKm / 70) * 60);
+
+      if (input.serviceType === "delivery") {
+        const cargo = input.cargo ?? { preset: "small", volumeM3: 1, weightKg: 20 };
+        const volumeFee = Math.round(cargo.volumeM3 * CARGO_RATES.perM3);
+        const weightFee = Math.round(cargo.weightKg * CARGO_RATES.perKg);
+        const total = Math.round((CARGO_RATES.base + CARGO_RATES.perKm * distanceKm + volumeFee + weightFee) / 1000) * 1000;
+        const baseFee = total - volumeFee - weightFee;
+        const cargoLines: QuoteLine[] = [
+          { key: "quote.cargoBase", amount: baseFee },
+          { key: "quote.cargoVolume", params: { m3: cargo.volumeM3 }, amount: volumeFee },
+          { key: "quote.cargoWeight", params: { kg: cargo.weightKg }, amount: weightFee },
+        ];
+        return {
+          distanceKm,
+          lines: cargoLines,
+          total,
+          currency: "som",
+          etaMinutes,
+          durationMinutes,
+        };
+      }
+
+      const total = computePrice(distanceKm, input.mode, input.seatIds, DEFAULT_TARIFF);
+      if (input.mode === "car") {
+        return {
+          distanceKm,
+          lines: [{ key: "quote.carFare", amount: total }],
+          total,
+          currency: "som",
+          etaMinutes,
+          durationMinutes,
+        };
+      }
+      const frontSurcharge = input.seatIds.includes("front") ? DEFAULT_TARIFF.frontSeatSurcharge : 0;
+      const seatFare = total - frontSurcharge;
+      const seatLines: QuoteLine[] = [
+        { key: "quote.seatFare", params: { count: Math.max(input.seatIds.length, 1) }, amount: seatFare },
+      ];
+      if (frontSurcharge > 0) seatLines.push({ key: "quote.frontSurcharge", amount: frontSurcharge });
+      return { distanceKm, lines: seatLines, total, currency: "som", etaMinutes, durationMinutes };
+    }, { minMs: 300, maxMs: 600 }),
 
   requestOtp: (_phone: string) =>
     withLatency<OtpRequestResult>(() => ({
@@ -156,8 +257,24 @@ export const mockAdapter: ApiAdapter = {
   createOrder: (input: CreateOrderInput) =>
     withLatency<OrderWithDetails>(() => {
       const scenarios = getDemoScenarios();
-      const distanceKm = roadDistanceKm(input.fromCityId, input.toCityId);
-      const price = computePrice(distanceKm, input.mode, input.seatIds, DEFAULT_TARIFF);
+      const fromCityId = addressOf(input.fromAddressId).cityId;
+      const toCityId = addressOf(input.toAddressId).cityId;
+      const distanceKm = roadDistanceKm(fromCityId, toCityId);
+      const price =
+        input.serviceType === "delivery"
+          ? (() => {
+              const cargo = input.cargo ?? { preset: "small" as const, volumeM3: 1, weightKg: 20 };
+              return (
+                Math.round(
+                  (CARGO_RATES.base +
+                    CARGO_RATES.perKm * distanceKm +
+                    cargo.volumeM3 * CARGO_RATES.perM3 +
+                    cargo.weightKg * CARGO_RATES.perKg) /
+                    1000
+                ) * 1000
+              );
+            })()
+          : computePrice(distanceKm, input.mode, input.seatIds, DEFAULT_TARIFF);
       const now = Date.now();
       const searchMs = scenarios.noDriverFound
         ? 9_000 + Math.random() * 6_000
@@ -166,8 +283,8 @@ export const mockAdapter: ApiAdapter = {
         id: genId("ord"),
         passengerId: currentPassengerId(),
         driverId: null,
-        fromCityId: input.fromCityId,
-        toCityId: input.toCityId,
+        fromCityId,
+        toCityId,
         distanceKm,
         mode: input.mode,
         seatIds: input.seatIds,
@@ -217,9 +334,19 @@ export const mockAdapter: ApiAdapter = {
 
   linkCard: (payload) =>
     withLatency(() => {
+      // The (simulated) provider is what tokenizes a card — IZGO never
+      // receives a real number, so the brand/last4 are invented here.
+      const brands: SavedCard["brand"][] = ["uzcard", "humo", "visa"];
+      const rng = makeRng(hashSeed(payload.label + Date.now()));
+      const card: SavedCard = {
+        id: genId("card"),
+        label: payload.label,
+        last4: String(rng.int(1000, 9999)),
+        brand: rng.pick(brands),
+      };
       const review = submitForReview("card_link", payload);
       const cards = readJSON<SavedCard[]>("saved_cards", []);
-      cards.push({ id: genId("card"), ...payload });
+      cards.push(card);
       writeJSON("saved_cards", cards);
       return review;
     }, { minMs: 300, maxMs: 600 }),
