@@ -1,4 +1,4 @@
-import { generateSeed, type SeedData, type Order } from "@/seed/generate";
+import { generateSeed, type SeedData, type Order, type Passenger } from "@/seed/generate";
 import { readJSON, writeJSON } from "./storage";
 
 export type ReviewKind =
@@ -59,6 +59,11 @@ export const db = {
   },
   getOrder(id: string) {
     return load().orders.find((x) => x.id === id);
+  },
+  updatePassenger(id: string, patch: Partial<Passenger>) {
+    const p = load().passengers.find((x) => x.id === id);
+    if (p) Object.assign(p, patch);
+    persist();
   },
 };
 

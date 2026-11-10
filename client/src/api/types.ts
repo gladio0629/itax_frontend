@@ -147,6 +147,31 @@ export type OtpRequestResult = {
   demoCode: string;
 };
 
+export type NotificationPrefs = {
+  master: boolean;
+  orderStatus: boolean;
+  news: boolean;
+  bonus: boolean;
+};
+
+export type AccountSummary = {
+  id: string;
+  name: string;
+  phoneMasked: string;
+  avatarSeed: string;
+  active: boolean;
+};
+
+export type HelpTopic = "order" | "payment" | "app" | "other";
+
+export type HelpRequest = {
+  id: string;
+  topicKey: string;
+  message?: string;
+  status: "pending" | "in_review" | "resolved";
+  createdAt: number;
+};
+
 export type BonusSummary = {
   balance: number;
   minWithdraw: number;

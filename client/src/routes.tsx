@@ -14,8 +14,10 @@ import { CardLinkScreen } from "@/features/cards/CardLinkScreen";
 import { NotificationsScreen } from "@/features/notifications/NotificationsScreen";
 import { HistoryScreen } from "@/features/history/HistoryScreen";
 import { HistoryDetailScreen } from "@/features/history/HistoryDetailScreen";
-import { ProfileScreen } from "@/features/profile/ProfileScreen";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
+import { AccountScreen } from "@/features/settings/AccountScreen";
+import { NotificationsSettingsScreen } from "@/features/settings/NotificationsSettingsScreen";
+import { AboutScreen } from "@/features/settings/AboutScreen";
 import { HelpScreen } from "@/features/help/HelpScreen";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -55,8 +57,10 @@ export const router = createBrowserRouter(
         <Route path="/notifications" element={<NotificationsScreen />} />
         <Route path="/history" element={<HistoryScreen />} />
         <Route path="/history/:orderId" element={<HistoryDetailScreen />} />
-        <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
+        <Route path="/settings/account" element={<AccountScreen />} />
+        <Route path="/settings/notifications" element={<NotificationsSettingsScreen />} />
+        <Route path="/settings/about" element={<AboutScreen />} />
         <Route path="/help" element={<HelpScreen />} />
       </Route>
 

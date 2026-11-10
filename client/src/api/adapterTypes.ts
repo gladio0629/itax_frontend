@@ -1,11 +1,15 @@
 import type {
+  AccountSummary,
   Address,
   BonusHistoryPage,
   BonusSource,
   BonusSummary,
   City,
   CreateOrderInput,
+  HelpRequest,
+  HelpTopic,
   NotificationItem,
+  NotificationPrefs,
   OrderHistoryPage,
   OrderStatus,
   OrderWithDetails,
@@ -63,6 +67,22 @@ export interface ApiAdapter {
   getBonusSources(): Promise<BonusSource[]>;
   getBonusHistory(params?: { type?: "earn" | "withdraw"; cursor?: number }): Promise<BonusHistoryPage>;
   requestBonusWithdraw(amount: number): Promise<ReviewRequest>;
+
+  getNotificationPrefs(): Promise<NotificationPrefs>;
+  setNotificationPrefs(patch: Partial<NotificationPrefs>): Promise<NotificationPrefs>;
+
+  getAccounts(): Promise<AccountSummary[]>;
+  switchAccount(id: string): Promise<AccountSummary[]>;
+  addAccount(payload: { name: string; phone: string }): Promise<ReviewRequest>;
+  deleteAccount(id: string): Promise<ReviewRequest>;
+  requestAccountDeletion(): Promise<ReviewRequest>;
+
+  requestPhoneChange(newPhone: string): Promise<OtpRequestResult>;
+  confirmPhoneChange(requestId: string, code: string, newPhone: string): Promise<ReviewRequest>;
+  updateProfileName(firstName: string, lastName: string): Promise<Profile>;
+
+  submitHelpRequest(topic: HelpTopic, message?: string): Promise<ReviewRequest>;
+  getHelpRequests(): Promise<HelpRequest[]>;
 
   submitSupportTicket(message: string): Promise<ReviewRequest>;
 }

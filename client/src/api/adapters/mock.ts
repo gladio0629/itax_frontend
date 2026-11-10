@@ -1,4 +1,4 @@
-import { db } from "@/mockDb/db";
+import { db, getReviewRequest } from "@/mockDb/db";
 import { withLatency, ApiError } from "@/mockDb/latency";
 import { submitForReview, pollReview } from "@/lib/reviewMechanism";
 import { getDemoScenarios } from "@/stores/demoStore";
@@ -14,11 +14,14 @@ import {
 import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
+  AccountSummary,
   BonusHistoryPage,
   BonusSource,
   BonusSummary,
   CreateOrderInput,
+  HelpRequest,
   NotificationItem,
+  NotificationPrefs,
   OrderHistoryPage,
   OrderWithDetails,
   OtpRequestResult,
@@ -42,6 +45,21 @@ const BONUS_MONTHLY_MAX = 300_000;
 const BONUS_TRIP_RATE = 0.02;
 const BONUS_WITHDRAWALS_KEY = "bonus_withdrawals";
 const RATING_REASONS_KEY = "rating_reasons";
+const NOTIFICATION_PREFS_KEY = "notification_prefs";
+const ACCOUNTS_KEY = "accounts";
+const HELP_REQUESTS_KEY = "help_requests";
+const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = { master: true, orderStatus: true, news: true, bonus: true };
+
+function loadAccounts(): AccountSummary[] {
+  const stored = readJSON<AccountSummary[] | null>(ACCOUNTS_KEY, null);
+  if (stored) return stored;
+  const p = db.passengers().find((x) => x.id === currentPassengerId())!;
+  const seeded: AccountSummary[] = [
+    { id: p.id, name: p.name, phoneMasked: p.phoneMasked, avatarSeed: p.avatarSeed, active: true },
+  ];
+  writeJSON(ACCOUNTS_KEY, seeded);
+  return seeded;
+}
 
 type BonusLedgerEntry = { id: string; sourceId: string; type: "earn" | "withdraw"; amount: number; createdAt: number };
 
@@ -620,6 +638,87 @@ export const mockAdapter: ApiAdapter = {
       writeJSON(BONUS_WITHDRAWALS_KEY, withdrawals);
       return submitForReview("bonus_withdraw", { amount });
     }, { minMs: 300, maxMs: 600 }),
+
+  getNotificationPrefs: () => withLatency(() => readJSON<NotificationPrefs>(NOTIFICATION_PREFS_KEY, DEFAULT_NOTIFICATION_PREFS)),
+
+  setNotificationPrefs: (patch) =>
+    withLatency(() => {
+      const current = readJSON<NotificationPrefs>(NOTIFICATION_PREFS_KEY, DEFAULT_NOTIFICATION_PREFS);
+      const next = { ...current, ...patch };
+      writeJSON(NOTIFICATION_PREFS_KEY, next);
+      return next;
+    }, { minMs: 150, maxMs: 350 }),
+
+  getAccounts: () => withLatency(() => loadAccounts()),
+
+  switchAccount: (id: string) =>
+    withLatency(() => {
+      const accounts = loadAccounts().map((a) => ({ ...a, active: a.id === id }));
+      writeJSON(ACCOUNTS_KEY, accounts);
+      return accounts;
+    }, { minMs: 200, maxMs: 400 }),
+
+  addAccount: (payload: { name: string; phone: string }) =>
+    withLatency(() => {
+      const accounts = loadAccounts();
+      accounts.push({
+        id: genId("acc"),
+        name: payload.name,
+        phoneMasked: payload.phone,
+        avatarSeed: genId("av"),
+        active: false,
+      });
+      writeJSON(ACCOUNTS_KEY, accounts);
+      return submitForReview("account_add", payload);
+    }, { minMs: 300, maxMs: 600 }),
+
+  deleteAccount: (id: string) =>
+    withLatency(() => {
+      const accounts = loadAccounts();
+      const target = accounts.find((a) => a.id === id);
+      if (target?.active) throw new ApiError("INVALID", "Faol akkauntni o'chirib bo'lmaydi");
+      writeJSON(ACCOUNTS_KEY, accounts.filter((a) => a.id !== id));
+      return submitForReview("account_delete", { id });
+    }, { minMs: 300, maxMs: 600 }),
+
+  requestAccountDeletion: () =>
+    withLatency(() => submitForReview("account_delete", { self: true }), { minMs: 300, maxMs: 600 }),
+
+  requestPhoneChange: (_newPhone: string) =>
+    withLatency<OtpRequestResult>(() => ({ requestId: genId("otp"), demoCode: DEMO_OTP_CODE }), { minMs: 250, maxMs: 500 }),
+
+  confirmPhoneChange: (_requestId: string, code: string, newPhone: string) =>
+    withLatency(() => {
+      if (code !== DEMO_OTP_CODE) throw new ApiError("INVALID_CODE", "Kod noto'g'ri. Qaytadan urinib ko'ring.");
+      db.updatePassenger(currentPassengerId(), { phoneMasked: newPhone });
+      return submitForReview("phone_change", { newPhone });
+    }, { minMs: 200, maxMs: 400 }),
+
+  updateProfileName: (firstName: string, lastName: string) =>
+    withLatency<Profile>(() => {
+      const name = `${firstName.trim()} ${lastName.trim()}`.trim();
+      db.updatePassenger(currentPassengerId(), { name });
+      const p = db.passengers().find((x) => x.id === currentPassengerId())!;
+      return { id: p.id, name: p.name, phoneMasked: p.phoneMasked, avatarSeed: p.avatarSeed, rating: p.rating, totalTrips: p.totalTrips };
+    }, { minMs: 200, maxMs: 400 }),
+
+  submitHelpRequest: (topic, message) =>
+    withLatency(() => {
+      const review = submitForReview("support_ticket", { topic, message });
+      const requests = readJSON<HelpRequest[]>(HELP_REQUESTS_KEY, []);
+      requests.unshift({ id: review.id, topicKey: `help.topic.${topic}`, message, status: "pending", createdAt: Date.now() });
+      writeJSON(HELP_REQUESTS_KEY, requests);
+      return review;
+    }, { minMs: 300, maxMs: 600 }),
+
+  getHelpRequests: () =>
+    withLatency(() => {
+      const requests = readJSON<HelpRequest[]>(HELP_REQUESTS_KEY, []);
+      return requests.map((r) => {
+        const review = getReviewRequest(r.id);
+        return review && review.status !== "pending" ? { ...r, status: "resolved" as const } : r;
+      });
+    }),
 
   submitSupportTicket: (message: string) =>
     withLatency(() => submitForReview("support_ticket", { message }), { minMs: 300, maxMs: 600 }),
