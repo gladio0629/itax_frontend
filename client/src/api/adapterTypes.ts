@@ -19,8 +19,10 @@ import type {
   QuoteInput,
   ReviewRequest,
   RouteSuggestion,
+  SavedAddressInfo,
   SavedCard,
   Seat,
+  UpdateOrderInput,
   WalletSummary,
 } from "./types";
 
@@ -36,6 +38,7 @@ export interface ApiAdapter {
   getRecentRoutes(): Promise<RouteSuggestion[]>;
   getAddressSuggestions(query: string, excludeCityId?: string): Promise<Address[]>;
   getRecentAddresses(): Promise<Address[]>;
+  getSavedAddresses(fromAddressId: string): Promise<SavedAddressInfo[]>;
   reverseGeocode(x: number, y: number, excludeCityId?: string): Promise<Address>;
   getPickupEta(): Promise<{ minutes: number }>;
   getSeatMap(input: { fromAddressId: string; toAddressId: string }): Promise<Seat[]>;
@@ -47,6 +50,7 @@ export interface ApiAdapter {
 
   createOrder(input: CreateOrderInput): Promise<OrderWithDetails>;
   getOrder(orderId: string): Promise<OrderWithDetails>;
+  updateOrder(orderId: string, patch: UpdateOrderInput): Promise<OrderWithDetails>;
   cancelOrder(orderId: string, reason: string): Promise<OrderWithDetails>;
   rateOrder(orderId: string, rating: number, reasons?: string[], note?: string): Promise<OrderWithDetails>;
   getOrderHistory(params?: { status?: OrderStatus; cursor?: number }): Promise<OrderHistoryPage>;

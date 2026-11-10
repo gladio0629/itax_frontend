@@ -35,6 +35,31 @@ const UZ_MONTHS = [
   "yanvar", "fevral", "mart", "aprel", "may", "iyun",
   "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr",
 ];
+const RU_MONTHS = [
+  "январь", "февраль", "март", "апрель", "май", "июнь",
+  "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+];
+const EN_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const UZ_WEEKDAYS = ["Du", "Se", "Chor", "Pay", "Ju", "Sha", "Yak"];
+const RU_WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const EN_WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+/** Month names, Monday-first weekday short names — hand-rolled for uz since
+ * Chromium's ICU has no uz-Latn/uz-UZ locale data (see NUMBER_LOCALE_MAP). */
+export function monthNames(intlTag: string): string[] {
+  if (intlTag === "ru-RU") return RU_MONTHS;
+  if (intlTag === "en-US") return EN_MONTHS;
+  return UZ_MONTHS;
+}
+
+export function weekdayNames(intlTag: string): string[] {
+  if (intlTag === "ru-RU") return RU_WEEKDAYS;
+  if (intlTag === "en-US") return EN_WEEKDAYS;
+  return UZ_WEEKDAYS;
+}
 
 function formatLongDate(d: Date, intlTag: string): string {
   if (intlTag === "uz-Latn") return `${d.getDate()} ${UZ_MONTHS[d.getMonth()]}`;

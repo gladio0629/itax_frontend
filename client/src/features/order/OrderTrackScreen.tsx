@@ -16,6 +16,7 @@ import { defaultAddressesForCity } from "@/clientData/addresses";
 import { useT } from "@/lib/i18n/provider";
 import { DriverCard } from "./DriverCard";
 import { CancelSheet } from "./CancelSheet";
+import { TafsilotlarSheet } from "./TafsilotlarSheet";
 
 const SEARCH_TIMEOUT_S = 300; // 5 minutes, per spec — server usually resolves far sooner
 
@@ -34,6 +35,7 @@ export function OrderTrackScreen() {
   const [error, setError] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -158,6 +160,9 @@ export function OrderTrackScreen() {
         {(order.status === "accepted" || order.status === "in_progress") && order.driver && (
           <div className="space-y-4 animate-slide-up">
             <DriverCard driver={order.driver} />
+            <Button fullWidth variant="secondary" onClick={() => setDetailsOpen(true)}>
+              {t("track.details")}
+            </Button>
             <Card className="p-4">
               <p className="mb-3 text-xs font-semibold text-ink/60">{t("track.statusTitle")}</p>
               <div className="flex items-center justify-between">
@@ -214,6 +219,20 @@ export function OrderTrackScreen() {
 
       {cancelOpen && (
         <CancelSheet loading={cancelling} onClose={() => setCancelOpen(false)} onConfirm={confirmCancel} />
+      )}
+      {detailsOpen && (
+        <TafsilotlarSheet
+          order={order}
+          onClose={() => setDetailsOpen(false)}
+          onUpdated={(updated) => {
+            setOrder(updated);
+            setDetailsOpen(false);
+          }}
+          onCancel={() => {
+            setDetailsOpen(false);
+            setCancelOpen(true);
+          }}
+        />
       )}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>

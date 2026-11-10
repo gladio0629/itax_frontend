@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MapPin, Search, Map as MapIcon, Clock3 } from "lucide-react";
+import { MapPin, Search, Map as MapIcon } from "lucide-react";
 import { api } from "@/api/client";
 import type { Address } from "@/api/types";
 import { Sheet } from "@/components/Sheet";
@@ -21,16 +21,17 @@ export function AddressPickerSheet({
   const { t } = useT();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Address[]>([]);
-  const [recent, setRecent] = useState<Address[]>([]);
   const [pickingOnMap, setPickingOnMap] = useState(false);
   const [pin, setPin] = useState({ x: 50, y: 50 });
   const [confirming, setConfirming] = useState(false);
 
+  // Suggestions only appear once the user types — no default/"recent" list
+  // auto-shown on open, per spec.
   useEffect(() => {
-    api.getRecentAddresses().then(setRecent).catch(() => {});
-  }, []);
-
-  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
     const id = setTimeout(() => {
       api.getAddressSuggestions(query, excludeCityId).then(setResults).catch(() => {});
     }, 200);
@@ -106,20 +107,12 @@ export function AddressPickerSheet({
         <MapIcon className="h-4 w-4" /> {t("address.pickOnMap")}
       </button>
 
-      {!query && recent.length > 0 && (
-        <div className="px-5 pt-4">
-          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-ink/60">
-            <Clock3 className="h-3.5 w-3.5" /> {t("address.recent")}
-          </p>
-        </div>
-      )}
-
       <div className="mt-1 max-h-72 flex-1 overflow-y-auto px-2 pb-2">
-        {(query ? results : recent).map((addr) => (
+        {results.map((addr) => (
           <button
             key={addr.id}
             onClick={() => onSelect(addr)}
-            className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left hover:bg-ink/5"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-ink/5"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5 text-accent">
               <MapPin className="h-4 w-4" />
@@ -127,7 +120,7 @@ export function AddressPickerSheet({
             <p className="text-sm font-semibold text-ink">{addr.label}</p>
           </button>
         ))}
-        {query && results.length === 0 && (
+        {query.trim() && results.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-ink/60">{t("address.notFound")}</p>
         )}
       </div>

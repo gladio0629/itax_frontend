@@ -84,12 +84,41 @@ export type CreateOrderInput = {
   promoCode?: string;
 };
 
+/** Everything about an order that isn't on the shared Order type (which
+ * can't change — see seed/generate.ts) but that Tafsilotlar needs to show
+ * and edit: the addresses actually picked and the requested timing. */
+export type OrderExtras = {
+  fromAddressId: string;
+  toAddressId: string;
+  timing: OrderTiming;
+};
+
+export type UpdateOrderInput = Partial<{
+  fromAddressId: string;
+  toAddressId: string;
+  mode: OrderMode;
+  seatIds: string[];
+  cargo: CargoInput;
+  paymentMethod: PaymentMethod;
+  timing: OrderTiming;
+}>;
+
+export type SavedAddressInfo = {
+  address: Address;
+  distanceKm: number;
+  etaMinutes: number;
+};
+
 export type OrderWithDetails = Order & {
   driver?: Driver;
   fromCity: City;
   toCity: City;
   ratingEditable: boolean;
   lockedReasonKey?: string;
+  extras?: OrderExtras;
+  /** Whether updateOrder() will currently accept changes (false once the
+   * trip is in_progress or later). */
+  editable: boolean;
 };
 
 export type OrderHistoryPage = {

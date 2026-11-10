@@ -9,6 +9,7 @@ import {
   addressById,
   addressesForQuery,
   nearestAddress,
+  savedAddresses,
   type Address,
 } from "@/clientData/addresses";
 import { makeRng } from "@/lib/prng";
@@ -22,7 +23,9 @@ import type {
   HelpRequest,
   NotificationItem,
   NotificationPrefs,
+  OrderExtras,
   OrderHistoryPage,
+  OrderTiming,
   OrderWithDetails,
   OtpRequestResult,
   PassengerWalletEntry,
@@ -31,9 +34,11 @@ import type {
   QuoteInput,
   QuoteLine,
   RouteSuggestion,
+  SavedAddressInfo,
   SavedCard,
   Seat,
   SeatPosition,
+  UpdateOrderInput,
   WalletSummary,
 } from "../types";
 
@@ -48,7 +53,35 @@ const RATING_REASONS_KEY = "rating_reasons";
 const NOTIFICATION_PREFS_KEY = "notification_prefs";
 const ACCOUNTS_KEY = "accounts";
 const HELP_REQUESTS_KEY = "help_requests";
+const ORDER_EXTRAS_KEY = "order_extras";
 const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = { master: true, orderStatus: true, news: true, bonus: true };
+
+function loadOrderExtras(): Record<string, OrderExtras> {
+  return readJSON<Record<string, OrderExtras>>(ORDER_EXTRAS_KEY, {});
+}
+
+function saveOrderExtra(orderId: string, extras: OrderExtras) {
+  const all = loadOrderExtras();
+  all[orderId] = extras;
+  writeJSON(ORDER_EXTRAS_KEY, all);
+}
+
+/** Validation lives here, not in the UI — scheduled timing must name a
+ * real range and can't be in the past. */
+function validateTiming(timing: OrderTiming) {
+  if (timing.timeMode !== "scheduled") return;
+  if (timing.timeKind === "range" && timing.timeRange && timing.timeRange.from === timing.timeRange.to) {
+    throw new ApiError("INVALID_TIME_RANGE", "order.timing.invalidRange");
+  }
+  if (timing.date !== "today" && timing.date !== "tomorrow") {
+    const chosen = new Date(`${timing.date}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (!Number.isNaN(chosen.getTime()) && chosen < today) {
+      throw new ApiError("PAST_DATE", "order.timing.pastDate");
+    }
+  }
+}
 
 function loadAccounts(): AccountSummary[] {
   const stored = readJSON<AccountSummary[] | null>(ACCOUNTS_KEY, null);
@@ -130,6 +163,8 @@ function toDetails(order: Order): OrderWithDetails {
     toCity: cityOf(order.toCityId),
     ratingEditable,
     lockedReasonKey: order.status === "completed" && !ratingEditable ? "history.rating.lockedReason" : undefined,
+    extras: loadOrderExtras()[order.id],
+    editable: order.status === "accepted",
   };
 }
 
@@ -236,6 +271,15 @@ export const mockAdapter: ApiAdapter = {
       return result;
     }),
 
+  getSavedAddresses: (fromAddressId: string) =>
+    withLatency<SavedAddressInfo[]>(() => {
+      const fromCityId = addressOf(fromAddressId).cityId;
+      return savedAddresses().map((address) => {
+        const distanceKm = roadDistanceKm(fromCityId, address.cityId);
+        return { address, distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
+      });
+    }, { minMs: 150, maxMs: 350 }),
+
   reverseGeocode: (x: number, y: number, excludeCityId?: string) =>
     withLatency(() => nearestAddress(x, y, excludeCityId), { minMs: 200, maxMs: 450 }),
 
@@ -323,6 +367,7 @@ export const mockAdapter: ApiAdapter = {
 
   createOrder: (input: CreateOrderInput) =>
     withLatency<OrderWithDetails>(() => {
+      validateTiming(input.timing);
       const scenarios = getDemoScenarios();
       const fromCityId = addressOf(input.fromAddressId).cityId;
       const toCityId = addressOf(input.toAddressId).cityId;
@@ -365,6 +410,11 @@ export const mockAdapter: ApiAdapter = {
         },
       };
       db.addOrder(order);
+      saveOrderExtra(order.id, {
+        fromAddressId: input.fromAddressId,
+        toAddressId: input.toAddressId,
+        timing: input.timing,
+      });
       return toDetails(order);
     }, { minMs: 400, maxMs: 800 }),
 
@@ -375,6 +425,41 @@ export const mockAdapter: ApiAdapter = {
       resolveLiveStatus(order);
       return toDetails(order);
     }, { minMs: 150, maxMs: 400 }),
+
+  updateOrder: (orderId: string, patch: UpdateOrderInput) =>
+    withLatency<OrderWithDetails>(() => {
+      const order = db.getOrder(orderId);
+      if (!order) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");
+      resolveLiveStatus(order);
+      if (order.status !== "accepted") {
+        throw new ApiError("LOCKED", "order.locked.notEditable");
+      }
+      if (patch.timing) validateTiming(patch.timing);
+
+      const extras = loadOrderExtras()[orderId] ?? {
+        fromAddressId: ADDRESSES.find((a) => a.cityId === order.fromCityId)?.id ?? "",
+        toAddressId: ADDRESSES.find((a) => a.cityId === order.toCityId)?.id ?? "",
+        timing: { timeMode: "now" as const },
+      };
+      const nextExtras: OrderExtras = {
+        fromAddressId: patch.fromAddressId ?? extras.fromAddressId,
+        toAddressId: patch.toAddressId ?? extras.toAddressId,
+        timing: patch.timing ?? extras.timing,
+      };
+      const fromCityId = addressOf(nextExtras.fromAddressId).cityId;
+      const toCityId = addressOf(nextExtras.toAddressId).cityId;
+      const distanceKm = roadDistanceKm(fromCityId, toCityId);
+      if (distanceKm === 0) throw new ApiError("INVALID_ROUTE", "order.quoteError");
+
+      const mode = patch.mode ?? order.mode;
+      const seatIds = patch.seatIds ?? order.seatIds;
+      const paymentMethod = patch.paymentMethod ?? order.paymentMethod;
+      const price = computePrice(distanceKm, mode, seatIds, DEFAULT_TARIFF);
+
+      db.updateOrder(orderId, { fromCityId, toCityId, distanceKm, mode, seatIds, paymentMethod, price });
+      saveOrderExtra(orderId, nextExtras);
+      return toDetails(db.getOrder(orderId)!);
+    }, { minMs: 300, maxMs: 600 }),
 
   cancelOrder: (orderId: string, reason: string) =>
     withLatency<OrderWithDetails>(() => {

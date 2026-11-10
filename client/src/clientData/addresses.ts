@@ -49,6 +49,15 @@ export function defaultAddressesForCity(cityId: string): Address[] {
   return ADDRESSES.filter((a) => a.cityId === cityId);
 }
 
+// Seeded "saved" addresses for the demo passenger — deliberately in cities
+// other than the default Toshkent pickup, so tapping one from Home always
+// resolves to a valid (non-zero-distance) intercity route.
+const SAVED_ADDRESS_IDS = ["smq-1", "frg-2", "bxr-1"];
+
+export function savedAddresses(): Address[] {
+  return SAVED_ADDRESS_IDS.map((id) => addressById(id)).filter((a): a is Address => !!a);
+}
+
 export function nearestAddress(x: number, y: number, excludeCityId?: string): Address {
   let best = ADDRESSES[0];
   let bestD = Infinity;

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Clock3, LocateFixed, MapPin } from "lucide-react";
+import { Bell, Heart, LocateFixed, MapPin } from "lucide-react";
 import { api } from "@/api/client";
-import type { Address } from "@/api/types";
+import type { Address, SavedAddressInfo } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
 import { FakeMap } from "@/components/FakeMap";
 import { DragSheet, type SnapPoint } from "@/components/Sheet";
@@ -10,16 +10,17 @@ import { Skeleton } from "@/components/Skeleton";
 import { LowConnectionBanner } from "@/components/LowConnectionBanner";
 import { useOrderStore } from "@/stores/orderStore";
 import { useT } from "@/lib/i18n/provider";
+import { formatKm } from "@/lib/format";
 import { OrderSheet } from "@/features/order/OrderSheet";
 
 export function HomeScreen() {
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, intlTag } = useT();
   const { draft, setField, reset } = useOrderStore();
   const [profileName, setProfileName] = useState("");
   const [eta, setEta] = useState<number | null>(null);
-  const [recent, setRecent] = useState<Address[]>([]);
-  const [recentLoading, setRecentLoading] = useState(true);
+  const [saved, setSaved] = useState<SavedAddressInfo[]>([]);
+  const [savedLoading, setSavedLoading] = useState(true);
   const [snap, setSnap] = useState<SnapPoint>("collapsed");
   const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -28,12 +29,17 @@ export function HomeScreen() {
   useEffect(() => {
     api.getProfile().then((p) => setProfileName(p.name.split(" ")[0])).catch(() => {});
     api.getPickupEta().then((r) => setEta(r.minutes)).catch(() => {});
-    api
-      .getRecentAddresses()
-      .then(setRecent)
-      .catch(() => setRecent([]))
-      .finally(() => setRecentLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!draft.fromAddressId) return;
+    setSavedLoading(true);
+    api
+      .getSavedAddresses(draft.fromAddressId)
+      .then(setSaved)
+      .catch(() => setSaved([]))
+      .finally(() => setSavedLoading(false));
+  }, [draft.fromAddressId]);
 
   const fromAddress = addressById(draft.fromAddressId) ?? null;
   const toAddress = addressById(draft.toAddressId) ?? null;
@@ -144,27 +150,32 @@ export function HomeScreen() {
             </button>
 
             <p className="mb-2 mt-5 flex items-center gap-1.5 text-sm font-semibold text-ink">
-              <Clock3 className="h-4 w-4 text-ink/60" /> {t("home.recentPlaces")}
+              <Heart className="h-4 w-4 text-ink/60" /> {t("order.savedAddresses")}
             </p>
-            {recentLoading ? (
+            {savedLoading ? (
               <div className="space-y-2">
-                <Skeleton className="h-14 w-full rounded-2xl" />
-                <Skeleton className="h-14 w-full rounded-2xl" />
+                <Skeleton className="h-14 w-full rounded-xl" />
+                <Skeleton className="h-14 w-full rounded-xl" />
               </div>
-            ) : recent.length === 0 ? (
-              <p className="text-xs text-ink/60">{t("home.noRecentPlaces")}</p>
+            ) : saved.length === 0 ? (
+              <p className="text-xs text-ink/60">{t("home.noSavedAddresses")}</p>
             ) : (
               <div className="space-y-2">
-                {recent.map((addr) => (
+                {saved.map(({ address, distanceKm, etaMinutes }) => (
                   <button
-                    key={addr.id}
-                    onClick={() => openFlow(addr)}
-                    className="flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3.5 text-left shadow-softer"
+                    key={address.id}
+                    onClick={() => openFlow(address)}
+                    className="flex w-full items-center gap-3 rounded-xl bg-card px-4 py-3.5 text-left shadow-softer"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
                       <MapPin className="h-4 w-4" />
                     </div>
-                    <p className="truncate text-sm font-semibold text-ink">{addr.label}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">{address.label}</p>
+                      <p className="text-xs text-ink/60 tabular">
+                        {formatKm(distanceKm, intlTag)} &middot; ~{etaMinutes} {t("order.minutesShort")}
+                      </p>
+                    </div>
                   </button>
                 ))}
               </div>
