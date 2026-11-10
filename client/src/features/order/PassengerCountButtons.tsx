@@ -41,7 +41,7 @@ export function PassengerCountButtons({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-3 gap-2">
       {([1, 2, 3] as const).map((n) => {
         const disabled = availableCount < n;
         const active = mode === "seat" && seatIds.length === n;
@@ -50,26 +50,17 @@ export function PassengerCountButtons({
             key={n}
             type="button"
             disabled={disabled}
+            aria-pressed={active}
             onClick={() => selectCount(n)}
             className={cn(
-              "rounded-xl border-2 py-3.5 text-sm font-semibold transition-colors disabled:opacity-40",
-              active ? "border-brand-yellow bg-brand-yellow/10 text-on-yellow" : "border-border text-ink/70"
+              "min-h-[48px] rounded-xl border-2 px-2 py-3 text-sm font-semibold transition-colors disabled:opacity-40",
+              active ? "border-brand-yellow bg-brand-yellow text-on-yellow" : "border-border text-ink/70"
             )}
           >
             {t(COUNT_KEY[n])}
           </button>
         );
       })}
-      <button
-        type="button"
-        onClick={() => onChange("car", [])}
-        className={cn(
-          "rounded-xl border-2 py-3.5 text-sm font-semibold transition-colors",
-          mode === "car" ? "border-brand-yellow bg-brand-yellow/10 text-on-yellow" : "border-border text-ink/70"
-        )}
-      >
-        {t("order.wholeCar")}
-      </button>
     </div>
   );
 }

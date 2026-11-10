@@ -88,6 +88,12 @@ export const uz = {
   "seat.backMid": "O'rta",
   "seat.backRight": "O'ng",
   "seat.frontSurchargeNote": "Old o'rindiq uchun qo'shimcha to'lov olinadi",
+  "seat.selectedCount.one": "{{count}} ta joy tanlandi",
+  "seat.selectedCount.few": "{{count}} ta joy tanlandi",
+  "seat.selectedCount.other": "{{count}} ta joy tanlandi",
+  "seat.noneSelected": "Joyni tanlang",
+  "seat.taken": "band",
+  "seat.wholeCarHint": "Barcha 4 o'rindiq faqat siz uchun",
 
   "cargo.volumeTitle": "Yuk hajmi",
   "cargo.small": "Kichik",

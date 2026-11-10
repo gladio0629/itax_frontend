@@ -43,10 +43,10 @@ export function TafsilotlarSheet({
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (mode === "seat" && fromAddressId && toAddressId) {
+    if (fromAddressId && toAddressId) {
       api.getSeatMap({ fromAddressId, toAddressId }).then(setSeats).catch(() => setSeats([]));
     }
-  }, [mode, fromAddressId, toAddressId]);
+  }, [fromAddressId, toAddressId]);
 
   const fromAddress = addressById(fromAddressId) ?? null;
   const toAddress = addressById(toAddressId) ?? null;
@@ -107,15 +107,18 @@ export function TafsilotlarSheet({
               setSeatIds(s);
             }}
           />
-          {mode === "seat" && (
-            <div className="mt-3">
-              <SeatMap
-                seats={seats}
-                selected={seatIds}
-                onToggle={(id) => setSeatIds(seatIds.includes(id) ? seatIds.filter((s) => s !== id) : [...seatIds, id])}
-              />
-            </div>
-          )}
+          <div className="mt-3">
+            <SeatMap
+              seats={seats}
+              selected={seatIds}
+              onToggle={(id) => setSeatIds(seatIds.includes(id) ? seatIds.filter((s) => s !== id) : [...seatIds, id])}
+              wholeCar={mode === "car"}
+              onWholeCarChange={(whole) => {
+                setMode(whole ? "car" : "seat");
+                setSeatIds([]);
+              }}
+            />
+          </div>
         </div>
 
         <button
@@ -138,7 +141,7 @@ export function TafsilotlarSheet({
           <Button variant="dangerSoft" fullWidth onClick={onCancel}>
             {t("cancel.confirmAction")}
           </Button>
-          <Button fullWidth loading={saving} onClick={save}>
+          <Button fullWidth loading={saving} disabled={mode === "seat" && seatIds.length === 0} onClick={save}>
             {t("common.save")}
           </Button>
         </div>

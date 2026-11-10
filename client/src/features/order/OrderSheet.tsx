@@ -11,7 +11,7 @@ import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { useQuery } from "@/lib/useQuery";
 import { cn } from "@/lib/cn";
-import { SeatMap } from "./SeatMap";
+import { SeatMap, seatCountLabel } from "./SeatMap";
 import { CargoPicker } from "./CargoPicker";
 import { AddressPickerSheet } from "./AddressPickerSheet";
 import { TimePickerSheet } from "./TimePickerSheet";
@@ -94,13 +94,13 @@ export function OrderSheet({
   const canQuote = !!draft.fromAddressId && !!draft.toAddressId && draft.fromAddressId !== addresses.to?.id;
 
   useEffect(() => {
-    if (draft.serviceType === "passenger" && draft.mode === "seat" && draft.fromAddressId && draft.toAddressId) {
+    if (draft.serviceType === "passenger" && draft.fromAddressId && draft.toAddressId) {
       api
         .getSeatMap({ fromAddressId: draft.fromAddressId, toAddressId: draft.toAddressId })
         .then(setSeats)
         .catch(() => setSeats([]));
     }
-  }, [draft.serviceType, draft.mode, draft.fromAddressId, draft.toAddressId]);
+  }, [draft.serviceType, draft.fromAddressId, draft.toAddressId]);
 
   const quote = useQuery(
     () =>
@@ -173,7 +173,16 @@ export function OrderSheet({
                     setField("seatIds", seatIds);
                   }}
                 />
-                {draft.mode === "seat" && <SeatMap seats={seats} selected={draft.seatIds} onToggle={toggleSeat} />}
+                <SeatMap
+                  seats={seats}
+                  selected={draft.seatIds}
+                  onToggle={toggleSeat}
+                  wholeCar={draft.mode === "car"}
+                  onWholeCarChange={(whole) => {
+                    setField("mode", whole ? "car" : "seat");
+                    setField("seatIds", []);
+                  }}
+                />
               </>
             ) : (
               <CargoPicker value={draft.cargo} onChange={(v) => setField("cargo", v)} />
@@ -215,15 +224,7 @@ export function OrderSheet({
                   {draft.serviceType === "passenger"
                     ? draft.mode === "car"
                       ? t("order.wholeCar")
-                      : t(
-                          (
-                            {
-                              1: "order.passengerCount.one",
-                              2: "order.passengerCount.two",
-                              3: "order.passengerCount.three",
-                            } as Record<number, TranslationKey>
-                          )[draft.seatIds.length] ?? "order.passengerCount.one"
-                        )
+                      : seatCountLabel(t, draft.seatIds.length, intlTag)
                     : t("order.delivery")}
                 </span>
                 <span className="tabular">{timingSummary(draft.timing, t)}</span>

@@ -88,6 +88,12 @@ export const ru: Dictionary = {
   "seat.backMid": "Среднее",
   "seat.backRight": "Правое",
   "seat.frontSurchargeNote": "За переднее сиденье взимается доплата",
+  "seat.selectedCount.one": "Выбрано {{count}} место",
+  "seat.selectedCount.few": "Выбрано {{count}} места",
+  "seat.selectedCount.other": "Выбрано {{count}} мест",
+  "seat.noneSelected": "Выберите место",
+  "seat.taken": "занято",
+  "seat.wholeCarHint": "Все 4 места только для вас",
 
   "cargo.volumeTitle": "Объём груза",
   "cargo.small": "Маленький",

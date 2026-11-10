@@ -88,6 +88,12 @@ export const en: Dictionary = {
   "seat.backMid": "Middle",
   "seat.backRight": "Right",
   "seat.frontSurchargeNote": "The front seat carries an extra charge",
+  "seat.selectedCount.one": "{{count}} seat selected",
+  "seat.selectedCount.few": "{{count}} seats selected",
+  "seat.selectedCount.other": "{{count}} seats selected",
+  "seat.noneSelected": "Choose a seat",
+  "seat.taken": "taken",
+  "seat.wholeCarHint": "All 4 seats are just for you",
 
   "cargo.volumeTitle": "Cargo size",
   "cargo.small": "Small",
