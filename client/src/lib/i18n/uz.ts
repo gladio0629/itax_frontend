@@ -88,6 +88,42 @@ export const uz = {
   "quote.cargoBase": "Xizmat narxi",
   "quote.cargoVolume": "Hajm uchun ({{m3}} m³)",
   "quote.cargoWeight": "Og'irlik uchun ({{kg}} kg)",
+
+  "bonus.balanceCaption": "Bonus balansi",
+  "bonus.rules": "Bonus qoidalari",
+  "bonus.rulesText":
+    "Bonuslar har bir yakunlangan safar, do'stlarni taklif qilish va safarlarni baholash uchun beriladi. " +
+    "Minimal yechish summasiga yetgach, bonusni hamyoningizga yechib olishingiz mumkin. Oylik yechish miqdori cheklangan.",
+  "bonus.withdraw": "Bonusni yechib olish",
+  "bonus.minWithdraw": "Yechish uchun minimum",
+  "bonus.monthlyMax": "Oylik maksimum",
+  "bonus.amountLabel": "Summa",
+  "bonus.sourcesTitle": "Bonus olish yo'llari",
+  "bonus.thisMonth": "shu oy",
+  "bonus.historyTitle": "Bonuslar tarixi",
+  "bonus.filter.all": "Barchasi",
+  "bonus.filter.earn": "Kirim",
+  "bonus.filter.withdraw": "Chiqim",
+  "bonus.historyEmptyTitle": "Tarix bo'sh",
+  "bonus.historyEmptyDesc": "Bonus to'play boshlasangiz, tarix shu yerda ko'rinadi.",
+  "bonus.loadMore": "Yana yuklash",
+  "bonus.inviteShareText": "IZGO orqali sayohat qiling va bonus oling!",
+
+  "bonus.source.trip.title": "Safarlar uchun",
+  "bonus.source.trip.desc": "Har bir yakunlangan safar uchun narxning bir qismi bonus sifatida qaytariladi.",
+  "bonus.source.invite.title": "Do'stni taklif qilish",
+  "bonus.source.invite.desc": "Do'stingiz kodingiz bilan ro'yxatdan o'tib, birinchi safarini yakunlasa, bonus olasiz.",
+  "bonus.source.rate.title": "Safarni baholash",
+  "bonus.source.rate.desc": "Yakunlangan safarlaringizni baholab, kichik bonus to'plang.",
+
+  "bonus.action.gotoOrder": "Buyurtma berish",
+  "bonus.action.invite": "Do'stni taklif qilish",
+  "bonus.action.rateTrip": "Safarni baholash",
+
+  "bonus.history.trip": "Safar uchun bonus",
+  "bonus.history.invite": "Do'st taklifi uchun bonus",
+  "bonus.history.rate": "Baholash uchun bonus",
+  "bonus.history.withdraw": "Bonus yechib olindi",
 };
 
 export type Dictionary = typeof uz;

@@ -7,6 +7,7 @@ export type DemoScenarios = {
   forceErrors: boolean;
   walletLimit: boolean;
   fastForward: boolean;
+  bonusBelowMin: boolean;
 };
 
 const SCENARIOS_KEY = "izgo_client_demo_scenarios";
@@ -17,6 +18,7 @@ const defaultScenarios: DemoScenarios = {
   forceErrors: false,
   walletLimit: false,
   fastForward: false,
+  bonusBelowMin: false,
 };
 
 function loadScenarios(): DemoScenarios {

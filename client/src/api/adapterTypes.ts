@@ -1,5 +1,8 @@
 import type {
   Address,
+  BonusHistoryPage,
+  BonusSource,
+  BonusSummary,
   City,
   CreateOrderInput,
   NotificationItem,
@@ -53,7 +56,11 @@ export interface ApiAdapter {
   getWallet(): Promise<WalletSummary>;
 
   applyPromoCode(code: string): Promise<{ valid: boolean; discountPct: number; message: string }>;
-  getReferralCode(): Promise<{ code: string; invitedCount: number; bonusSom: number }>;
+
+  getBonusSummary(): Promise<BonusSummary>;
+  getBonusSources(): Promise<BonusSource[]>;
+  getBonusHistory(params?: { type?: "earn" | "withdraw"; cursor?: number }): Promise<BonusHistoryPage>;
+  requestBonusWithdraw(amount: number): Promise<ReviewRequest>;
 
   submitSupportTicket(message: string): Promise<ReviewRequest>;
 }

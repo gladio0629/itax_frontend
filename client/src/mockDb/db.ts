@@ -5,7 +5,11 @@ export type ReviewKind =
   | "otp_verify"
   | "card_link"
   | "wallet_topup"
-  | "support_ticket";
+  | "support_ticket"
+  | "bonus_withdraw"
+  | "phone_change"
+  | "account_add"
+  | "account_delete";
 
 export type ReviewRequest = {
   id: string;

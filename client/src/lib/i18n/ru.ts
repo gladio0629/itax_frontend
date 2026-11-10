@@ -88,4 +88,40 @@ export const ru: Dictionary = {
   "quote.cargoBase": "Стоимость услуги",
   "quote.cargoVolume": "За объём ({{m3}} м³)",
   "quote.cargoWeight": "За вес ({{kg}} кг)",
+
+  "bonus.balanceCaption": "Баланс бонусов",
+  "bonus.rules": "Правила бонусов",
+  "bonus.rulesText":
+    "Бонусы начисляются за каждую завершённую поездку, приглашение друзей и оценку поездок. " +
+    "При достижении минимальной суммы вы можете вывести бонусы на баланс. Ежемесячная сумма вывода ограничена.",
+  "bonus.withdraw": "Вывести бонусы",
+  "bonus.minWithdraw": "Минимум для вывода",
+  "bonus.monthlyMax": "Максимум в месяц",
+  "bonus.amountLabel": "Сумма",
+  "bonus.sourcesTitle": "Способы получить бонусы",
+  "bonus.thisMonth": "в этом месяце",
+  "bonus.historyTitle": "История бонусов",
+  "bonus.filter.all": "Все",
+  "bonus.filter.earn": "Начисления",
+  "bonus.filter.withdraw": "Списания",
+  "bonus.historyEmptyTitle": "История пуста",
+  "bonus.historyEmptyDesc": "Начните получать бонусы — история появится здесь.",
+  "bonus.loadMore": "Показать ещё",
+  "bonus.inviteShareText": "Путешествуйте с IZGO и получайте бонусы!",
+
+  "bonus.source.trip.title": "За поездки",
+  "bonus.source.trip.desc": "За каждую завершённую поездку часть стоимости возвращается бонусами.",
+  "bonus.source.invite.title": "Пригласить друга",
+  "bonus.source.invite.desc": "Если друг зарегистрируется по вашему коду и завершит первую поездку, вы получите бонус.",
+  "bonus.source.rate.title": "Оценить поездку",
+  "bonus.source.rate.desc": "Оценивайте завершённые поездки и получайте небольшой бонус.",
+
+  "bonus.action.gotoOrder": "Сделать заказ",
+  "bonus.action.invite": "Пригласить друга",
+  "bonus.action.rateTrip": "Оценить поездку",
+
+  "bonus.history.trip": "Бонус за поездку",
+  "bonus.history.invite": "Бонус за приглашение",
+  "bonus.history.rate": "Бонус за оценку",
+  "bonus.history.withdraw": "Бонусы выведены",
 };

@@ -9,6 +9,7 @@ const SCENARIO_LABELS: Record<keyof DemoScenarios, { label: string; hint: string
   forceErrors: { label: "Xatoliklarni qaytarish", hint: "So'rovlar ko'pincha xato bilan tugaydi" },
   walletLimit: { label: "Hamyon limiti", hint: "Balans -50 000 so'mga yetdi deb hisoblanadi" },
   fastForward: { label: "Vaqtni tezlashtirish", hint: "Kutish vaqtlari qisqartiriladi" },
+  bonusBelowMin: { label: "Bonus minimal darajadan past", hint: "Bonusni yechib bo'lmaydi deb hisoblanadi" },
 };
 
 export function DemoControlPanel() {

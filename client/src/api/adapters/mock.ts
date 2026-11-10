@@ -14,6 +14,9 @@ import {
 import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
+  BonusHistoryPage,
+  BonusSource,
+  BonusSummary,
   CreateOrderInput,
   NotificationItem,
   OrderWithDetails,
@@ -33,6 +36,44 @@ import type {
 const DEMO_OTP_CODE = "0000";
 const CARGO_RATES = { base: 20_000, perKm: 400, perM3: 15_000, perKg: 300 };
 const SEAT_POSITIONS: SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
+const BONUS_MIN_WITHDRAW = 50_000;
+const BONUS_MONTHLY_MAX = 300_000;
+const BONUS_TRIP_RATE = 0.02;
+const BONUS_WITHDRAWALS_KEY = "bonus_withdrawals";
+
+type BonusLedgerEntry = { id: string; sourceId: string; type: "earn" | "withdraw"; amount: number; createdAt: number };
+
+function isSameMonth(ts: number, ref: number) {
+  const a = new Date(ts);
+  const b = new Date(ref);
+  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
+}
+
+function bonusLedger(): BonusLedgerEntry[] {
+  const passengerId = currentPassengerId();
+  const now = Date.now();
+  const earnedFromTrips: BonusLedgerEntry[] = db
+    .orders()
+    .filter((o) => o.passengerId === passengerId && o.status === "completed")
+    .map((o) => ({
+      id: `bns_trip_${o.id}`,
+      sourceId: "trip",
+      type: "earn",
+      amount: Math.round((o.price * BONUS_TRIP_RATE) / 100) * 100,
+      createdAt: o.createdAt,
+    }));
+  const seeded: BonusLedgerEntry[] = [
+    { id: `bns_${passengerId}_invite1`, sourceId: "invite", type: "earn", amount: 15_000, createdAt: now - 9 * 86_400_000 },
+    { id: `bns_${passengerId}_invite2`, sourceId: "invite", type: "earn", amount: 15_000, createdAt: now - 34 * 86_400_000 },
+    { id: `bns_${passengerId}_rate1`, sourceId: "rate", type: "earn", amount: 3_000, createdAt: now - 4 * 86_400_000 },
+  ];
+  const withdrawals = readJSON<BonusLedgerEntry[]>(BONUS_WITHDRAWALS_KEY, []);
+  return [...earnedFromTrips, ...seeded, ...withdrawals].sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function bonusBalance(): number {
+  return Math.max(0, bonusLedger().reduce((sum, e) => sum + (e.type === "earn" ? e.amount : -e.amount), 0));
+}
 
 function cityOf(id: string): City {
   const c = db.cities().find((x) => x.id === id);
@@ -410,7 +451,7 @@ export const mockAdapter: ApiAdapter = {
    *  - a couple of seeded top-ups kick off the balance,
    *  - each completed card order debits a `trip_payment`,
    *  - each cancelled card order is paired with a `refund`,
-   *  - a referral `bonus` mirrors getReferralCode()'s bonusSom.
+   *  - a referral `bonus` entry rounds out the seeded history.
    * The balance never goes negative (passengers top up before it would).
    */
   getWallet: () =>
@@ -485,8 +526,77 @@ export const mockAdapter: ApiAdapter = {
       return { valid: false, discountPct: 0, message: "Promo-kod topilmadi yoki muddati tugagan" };
     }, { minMs: 300, maxMs: 600 }),
 
-  getReferralCode: () =>
-    withLatency(() => ({ code: "IZGO-A3F9", invitedCount: 4, bonusSom: 60_000 })),
+  getBonusSummary: () =>
+    withLatency<BonusSummary>(() => {
+      const scenarios = getDemoScenarios();
+      let balance = bonusBalance();
+      if (scenarios.bonusBelowMin) balance = Math.min(balance, BONUS_MIN_WITHDRAW - 8_000);
+      const monthlyWithdrawn = bonusLedger()
+        .filter((e) => e.type === "withdraw" && isSameMonth(e.createdAt, Date.now()))
+        .reduce((sum, e) => sum + e.amount, 0);
+      return {
+        balance,
+        minWithdraw: BONUS_MIN_WITHDRAW,
+        monthlyMax: BONUS_MONTHLY_MAX,
+        monthlyWithdrawn,
+        canWithdraw: balance >= BONUS_MIN_WITHDRAW && monthlyWithdrawn < BONUS_MONTHLY_MAX,
+        progress: Math.min(1, balance / BONUS_MIN_WITHDRAW),
+      };
+    }),
+
+  getBonusSources: () =>
+    withLatency<BonusSource[]>(() => {
+      const ledger = bonusLedger();
+      const thisMonth = (sourceId: string) =>
+        ledger
+          .filter((e) => e.sourceId === sourceId && e.type === "earn" && isSameMonth(e.createdAt, Date.now()))
+          .reduce((sum, e) => sum + e.amount, 0);
+      return [
+        {
+          id: "trip",
+          icon: "order",
+          titleKey: "bonus.source.trip.title",
+          descriptionKey: "bonus.source.trip.desc",
+          amountThisMonth: thisMonth("trip"),
+          action: "goto_order",
+        },
+        {
+          id: "invite",
+          icon: "invite",
+          titleKey: "bonus.source.invite.title",
+          descriptionKey: "bonus.source.invite.desc",
+          amountThisMonth: thisMonth("invite"),
+          action: "invite",
+        },
+        {
+          id: "rate",
+          icon: "rate",
+          titleKey: "bonus.source.rate.title",
+          descriptionKey: "bonus.source.rate.desc",
+          amountThisMonth: thisMonth("rate"),
+          action: "rate_trip",
+        },
+      ];
+    }),
+
+  getBonusHistory: (params) =>
+    withLatency<BonusHistoryPage>(() => {
+      let ledger = bonusLedger();
+      if (params?.type) ledger = ledger.filter((e) => e.type === params.type);
+      const pageSize = 10;
+      const cursor = params?.cursor ?? 0;
+      const entries = ledger.slice(cursor, cursor + pageSize);
+      const nextCursor = cursor + pageSize < ledger.length ? cursor + pageSize : null;
+      return { entries, nextCursor };
+    }),
+
+  requestBonusWithdraw: (amount: number) =>
+    withLatency(() => {
+      const withdrawals = readJSON<BonusLedgerEntry[]>(BONUS_WITHDRAWALS_KEY, []);
+      withdrawals.push({ id: genId("bwd"), sourceId: "withdraw", type: "withdraw", amount, createdAt: Date.now() });
+      writeJSON(BONUS_WITHDRAWALS_KEY, withdrawals);
+      return submitForReview("bonus_withdraw", { amount });
+    }, { minMs: 300, maxMs: 600 }),
 
   submitSupportTicket: (message: string) =>
     withLatency(() => submitForReview("support_ticket", { message }), { minMs: 300, maxMs: 600 }),

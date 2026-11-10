@@ -138,3 +138,38 @@ export type OtpRequestResult = {
   requestId: string;
   demoCode: string;
 };
+
+export type BonusSummary = {
+  balance: number;
+  minWithdraw: number;
+  monthlyMax: number;
+  monthlyWithdrawn: number;
+  canWithdraw: boolean;
+  /** 0-1 progress toward minWithdraw (capped at 1). */
+  progress: number;
+};
+
+export type BonusAction = "goto_order" | "invite" | "rate_trip";
+export type BonusSourceIcon = "order" | "invite" | "rate";
+
+export type BonusSource = {
+  id: string;
+  icon: BonusSourceIcon;
+  titleKey: string;
+  descriptionKey: string;
+  amountThisMonth: number;
+  action: BonusAction;
+};
+
+export type BonusHistoryEntry = {
+  id: string;
+  sourceId: string;
+  type: "earn" | "withdraw";
+  amount: number;
+  createdAt: number;
+};
+
+export type BonusHistoryPage = {
+  entries: BonusHistoryEntry[];
+  nextCursor: number | null;
+};

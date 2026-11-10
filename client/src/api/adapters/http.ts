@@ -38,6 +38,9 @@ export const httpAdapter: ApiAdapter = {
   getProfile: notImplemented("getProfile"),
   getWallet: notImplemented("getWallet"),
   applyPromoCode: notImplemented("applyPromoCode"),
-  getReferralCode: notImplemented("getReferralCode"),
+  getBonusSummary: notImplemented("getBonusSummary"),
+  getBonusSources: notImplemented("getBonusSources"),
+  getBonusHistory: notImplemented("getBonusHistory"),
+  requestBonusWithdraw: notImplemented("requestBonusWithdraw"),
   submitSupportTicket: notImplemented("submitSupportTicket"),
 };

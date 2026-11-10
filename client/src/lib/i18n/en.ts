@@ -88,4 +88,40 @@ export const en: Dictionary = {
   "quote.cargoBase": "Service fee",
   "quote.cargoVolume": "For volume ({{m3}} m³)",
   "quote.cargoWeight": "For weight ({{kg}} kg)",
+
+  "bonus.balanceCaption": "Bonus balance",
+  "bonus.rules": "Bonus rules",
+  "bonus.rulesText":
+    "Bonuses are earned for every completed trip, inviting friends, and rating trips. " +
+    "Once you reach the minimum amount you can withdraw bonuses to your balance. The monthly withdrawal amount is capped.",
+  "bonus.withdraw": "Withdraw bonus",
+  "bonus.minWithdraw": "Minimum to withdraw",
+  "bonus.monthlyMax": "Monthly maximum",
+  "bonus.amountLabel": "Amount",
+  "bonus.sourcesTitle": "Ways to earn bonuses",
+  "bonus.thisMonth": "this month",
+  "bonus.historyTitle": "Bonus history",
+  "bonus.filter.all": "All",
+  "bonus.filter.earn": "Earned",
+  "bonus.filter.withdraw": "Withdrawn",
+  "bonus.historyEmptyTitle": "No history yet",
+  "bonus.historyEmptyDesc": "Start earning bonuses and your history will show up here.",
+  "bonus.loadMore": "Load more",
+  "bonus.inviteShareText": "Travel with IZGO and earn bonuses!",
+
+  "bonus.source.trip.title": "For trips",
+  "bonus.source.trip.desc": "A share of the price is returned as bonus for every completed trip.",
+  "bonus.source.invite.title": "Invite a friend",
+  "bonus.source.invite.desc": "If a friend signs up with your code and completes their first trip, you both earn a bonus.",
+  "bonus.source.rate.title": "Rate a trip",
+  "bonus.source.rate.desc": "Rate your completed trips to earn a small bonus.",
+
+  "bonus.action.gotoOrder": "Place an order",
+  "bonus.action.invite": "Invite a friend",
+  "bonus.action.rateTrip": "Rate a trip",
+
+  "bonus.history.trip": "Trip bonus",
+  "bonus.history.invite": "Invite bonus",
+  "bonus.history.rate": "Rating bonus",
+  "bonus.history.withdraw": "Bonus withdrawn",
 };
