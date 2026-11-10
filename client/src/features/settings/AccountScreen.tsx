@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Pencil, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Pencil, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { api } from "@/api/client";
 import type { AccountSummary, Profile } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -148,40 +148,42 @@ export function AccountScreen() {
           )}
         </Card>
 
-        <p className="mb-2 px-1 text-xs font-semibold text-ink/60">{t("account.accountsTitle")}</p>
-        <Card className="mb-5 divide-y divide-border" padded={false}>
-          {accounts.map((a) => (
-            <div key={a.id} className="flex items-center gap-3 p-4">
-              <Avatar seed={a.avatarSeed} name={a.name} size={40} />
-              <button onClick={() => !a.active && switchAccount(a.id)} className="min-w-0 flex-1 text-left">
-                <p className="truncate text-sm font-semibold text-ink">{a.name}</p>
-                <p className="text-xs text-ink/60">{a.phoneMasked}</p>
-              </button>
-              {a.active ? (
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-10 text-accent">
-                  <Check className="h-4 w-4" />
-                </span>
-              ) : (
-                <button
-                  onClick={() => setDeleteTarget(a)}
-                  aria-label={t("account.deleteAccount")}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-danger/10 text-danger"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex w-full items-center gap-3 p-4 text-left text-accent"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5">
-              <Plus className="h-4 w-4" />
-            </span>
-            <span className="text-sm font-semibold">{t("account.addAccount")}</span>
-          </button>
-        </Card>
+        {/* The active account is the card above — this list is the other
+            accounts only, so nothing here duplicates it. */}
+        {accounts.some((a) => !a.active) && (
+          <>
+            <p className="mb-2 px-1 text-xs font-semibold text-ink/60">{t("account.accountsTitle")}</p>
+            <Card className="mb-5 divide-y divide-border" padded={false}>
+              {accounts
+                .filter((a) => !a.active)
+                .map((a) => (
+                  <div key={a.id} className="flex items-center gap-3 p-4">
+                    <Avatar seed={a.avatarSeed} name={a.name} size={40} />
+                    <button onClick={() => switchAccount(a.id)} className="min-w-0 flex-1 text-left">
+                      <p className="truncate text-sm font-semibold text-ink">{a.name}</p>
+                      <p className="text-xs text-ink/60">{a.phoneMasked}</p>
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(a)}
+                      aria-label={t("account.deleteAccount")}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-danger/10 text-danger"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+            </Card>
+          </>
+        )}
+        <button
+          onClick={() => setAddOpen(true)}
+          className="mb-5 flex w-full items-center gap-3 rounded-2xl bg-card p-4 text-left text-accent shadow-softer"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5">
+            <Plus className="h-4 w-4" />
+          </span>
+          <span className="text-sm font-semibold">{t("account.addAccount")}</span>
+        </button>
 
         <p className="mb-2 px-1 text-xs font-semibold text-danger">{t("account.dangerZone")}</p>
         <Card className="p-4">

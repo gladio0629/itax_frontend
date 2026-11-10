@@ -82,8 +82,7 @@ export function SettingsScreen() {
           <ChevronRight className="h-4 w-4 shrink-0 text-ink/40" />
         </button>
 
-        <div className="mb-4 divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-softer">
-          <Row icon={User} label={t("settings.account")} onClick={() => navigate("/settings/account")} />
+        <div className="mb-4 overflow-hidden rounded-2xl bg-card shadow-softer">
           <Row icon={Bell} label={t("settings.notifications")} onClick={() => navigate("/settings/notifications")} />
         </div>
 
