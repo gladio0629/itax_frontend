@@ -71,7 +71,7 @@ export function NotificationsScreen() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-ink">{n.title}</p>
                     <p className="mt-0.5 text-xs text-ink/60">{n.body}</p>
-                    <p className="mt-1 text-[11px] text-ink/60">{formatRelativeDay(n.createdAt, intlTag)}</p>
+                    <p className="mt-1 text-xs text-ink/60">{formatRelativeDay(n.createdAt, intlTag)}</p>
                   </div>
                 </button>
               );

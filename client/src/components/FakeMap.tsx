@@ -92,7 +92,7 @@ export function FakeMap({
 
       {typeof etaMinutes === "number" && (
         <div
-          className="pointer-events-none absolute flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-[11px] font-semibold text-ink shadow-softer"
+          className="pointer-events-none absolute flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-ink shadow-softer"
           style={{ left: "62%", top: "28%", transform: "translate(-50%,-130%)" }}
         >
           <Navigation className="h-3 w-3 text-accent" />

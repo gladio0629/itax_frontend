@@ -23,6 +23,7 @@ export const en: Dictionary = {
   "common.comingSoon": "Coming soon",
   "common.errorTitle": "Something went wrong",
   "common.errorMessage": "A connection error occurred",
+  "common.loadFailedRetry": "Couldn't load — try again",
   "map.routeLabel": "Route map",
 
   "theme.toggleToDark": "Switch to dark mode",
@@ -97,6 +98,7 @@ export const en: Dictionary = {
   "seat.selectedCount.few": "{{count}} seats selected",
   "seat.selectedCount.other": "{{count}} seats selected",
   "seat.noneSelected": "Choose a seat",
+  "seat.loadError": "Couldn't load which seats are free.",
   "seat.taken": "taken",
   "seat.wholeCarHint": "All 4 seats are just for you",
 

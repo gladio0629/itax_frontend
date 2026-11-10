@@ -16,7 +16,7 @@ export function DriverCard({ driver }: { driver: Driver }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-ink">{driver.name}</p>
         <p className="text-xs text-ink/60">
-          {driver.carModel} <span className="whitespace-nowrap">&middot; {driver.carColor}</span>
+          {driver.carModel.replace(/ (?=\S+$)/, "\u00a0")} <span className="whitespace-nowrap">&middot; {driver.carColor}</span>
         </p>
         <p className="mt-0.5 whitespace-nowrap text-xs font-semibold tabular text-ink/80">{driver.plate}</p>
         <p className="mt-0.5 flex items-center gap-1 text-xs font-normal text-ink/80">

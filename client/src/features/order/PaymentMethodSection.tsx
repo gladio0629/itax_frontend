@@ -15,10 +15,14 @@ export function PaymentMethodSection({
 }) {
   const { t } = useT();
   const [cards, setCards] = useState<SavedCard[]>([]);
+  const [cardsError, setCardsError] = useState(false);
+  const [cardsReload, setCardsReload] = useState(0);
 
   useEffect(() => {
-    if (value === "card") api.getSavedCards().then(setCards).catch(() => {});
-  }, [value]);
+    if (value !== "card") return;
+    setCardsError(false);
+    api.getSavedCards().then(setCards).catch(() => setCardsError(true));
+  }, [value, cardsReload]);
 
   return (
     <div className="space-y-3">
@@ -48,6 +52,11 @@ export function PaymentMethodSection({
 
       {value === "card" && (
         <div className="ml-4 space-y-2">
+          {cardsError && (
+            <button onClick={() => setCardsReload((n) => n + 1)} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
+              {t("common.loadFailedRetry")}
+            </button>
+          )}
           {cards.map((c) => (
             <div key={c.id} className="flex items-center justify-between rounded-xl bg-card px-3 py-2.5 shadow-softer">
               <span className="text-xs font-normal text-ink/80">{`${c.label} •••• ${c.last4}`}</span>

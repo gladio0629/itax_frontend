@@ -94,7 +94,7 @@ function TabPane({
         </div>
       )}
       {data.cursor !== null && data.orders.length > 0 && (
-        <button onClick={onLoadMore} className="mt-3 w-full rounded-xl border border-border py-3 text-xs font-semibold text-ink/70">
+        <button onClick={onLoadMore} className="mt-3 min-h-[44px] w-full rounded-xl border border-border py-3 text-xs font-semibold text-ink/70 hover:bg-ink/5">
           {t("history.loadMore")}
         </button>
       )}

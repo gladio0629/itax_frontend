@@ -100,7 +100,7 @@ export function HomeScreen() {
 
       <div className="relative flex items-center justify-between pl-16 pr-5" style={{ paddingTop: "calc(var(--safe-top) + 16px)" }}>
         <div className="rounded-2xl bg-card/90 px-3 py-2 shadow-softer backdrop-blur-sm">
-          <p className="text-[11px] text-ink/60">{t("home.greeting")}{profileName ? "," : ""}</p>
+          <p className="text-xs text-ink/60">{t("home.greeting")}{profileName ? "," : ""}</p>
           <p className="text-sm font-semibold text-ink">{profileName || t("home.guest")} 👋</p>
         </div>
         <Link

@@ -79,6 +79,8 @@ export function OrderSheet({
   const [step, setStep] = useState(0);
   const [picker, setPicker] = useState<"from" | "to" | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
+  const [seatsError, setSeatsError] = useState(false);
+  const [seatsReload, setSeatsReload] = useState(0);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const autoOpenedPicker = useRef(false);
 
@@ -97,10 +99,16 @@ export function OrderSheet({
     if (draft.serviceType === "passenger" && draft.fromAddressId && draft.toAddressId) {
       api
         .getSeatMap({ fromAddressId: draft.fromAddressId, toAddressId: draft.toAddressId })
-        .then(setSeats)
-        .catch(() => setSeats([]));
+        .then((s) => {
+          setSeats(s);
+          setSeatsError(false);
+        })
+        .catch(() => {
+          setSeats([]);
+          setSeatsError(true);
+        });
     }
-  }, [draft.serviceType, draft.fromAddressId, draft.toAddressId]);
+  }, [draft.serviceType, draft.fromAddressId, draft.toAddressId, seatsReload]);
 
   const quote = useQuery(
     () =>
@@ -178,6 +186,8 @@ export function OrderSheet({
                   selected={draft.seatIds}
                   onToggle={toggleSeat}
                   wholeCar={draft.mode === "car"}
+                  loadError={seatsError}
+                  onRetry={() => setSeatsReload((n) => n + 1)}
                   onWholeCarChange={(whole) => {
                     setField("mode", whole ? "car" : "seat");
                     setField("seatIds", []);

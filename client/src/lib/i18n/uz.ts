@@ -23,6 +23,7 @@ export const uz = {
   "common.comingSoon": "Tez kunda",
   "common.errorTitle": "Nimadir xato ketdi",
   "common.errorMessage": "Ulanishda xatolik yuz berdi",
+  "common.loadFailedRetry": "Yuklab bo'lmadi — qayta urinish",
   "map.routeLabel": "Yo'nalish xaritasi",
 
   "theme.toggleToDark": "Tungi rejimga o'tish",
@@ -97,6 +98,7 @@ export const uz = {
   "seat.selectedCount.few": "{{count}} ta joy tanlandi",
   "seat.selectedCount.other": "{{count}} ta joy tanlandi",
   "seat.noneSelected": "Joyni tanlang",
+  "seat.loadError": "Joylar holatini yuklab bo'lmadi.",
   "seat.taken": "band",
   "seat.wholeCarHint": "Barcha 4 o'rindiq faqat siz uchun",
 

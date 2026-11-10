@@ -23,6 +23,7 @@ export const ru: Dictionary = {
   "common.comingSoon": "Скоро",
   "common.errorTitle": "Что-то пошло не так",
   "common.errorMessage": "Произошла ошибка соединения",
+  "common.loadFailedRetry": "Не удалось загрузить — повторить",
   "map.routeLabel": "Карта маршрута",
 
   "theme.toggleToDark": "Включить тёмный режим",
@@ -97,6 +98,7 @@ export const ru: Dictionary = {
   "seat.selectedCount.few": "Выбрано {{count}} места",
   "seat.selectedCount.other": "Выбрано {{count}} мест",
   "seat.noneSelected": "Выберите место",
+  "seat.loadError": "Не удалось загрузить занятость мест.",
   "seat.taken": "занято",
   "seat.wholeCarHint": "Все 4 места только для вас",
 

@@ -21,6 +21,8 @@ export function AddressPickerSheet({
   const { t } = useT();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Address[]>([]);
+  const [searchError, setSearchError] = useState(false);
+  const [searchReload, setSearchReload] = useState(0);
   const [pickingOnMap, setPickingOnMap] = useState(false);
   const [pin, setPin] = useState({ x: 50, y: 50 });
   const [confirming, setConfirming] = useState(false);
@@ -33,10 +35,17 @@ export function AddressPickerSheet({
       return;
     }
     const id = setTimeout(() => {
-      api.getAddressSuggestions(query, excludeCityId).then(setResults).catch(() => {});
+      setSearchError(false);
+      api
+        .getAddressSuggestions(query, excludeCityId)
+        .then(setResults)
+        .catch(() => {
+          setResults([]);
+          setSearchError(true);
+        });
     }, 200);
     return () => clearTimeout(id);
-  }, [query, excludeCityId]);
+  }, [query, excludeCityId, searchReload]);
 
   async function confirmMapPin() {
     setConfirming(true);
@@ -140,7 +149,14 @@ export function AddressPickerSheet({
             <p className="min-w-0 truncate text-sm font-semibold text-ink">{addr.label}</p>
           </button>
         ))}
-        {query.trim() && results.length === 0 && (
+        {searchError && (
+          <div className="py-4 text-center">
+            <button onClick={() => setSearchReload((n) => n + 1)} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
+              {t("common.loadFailedRetry")}
+            </button>
+          </div>
+        )}
+        {query.trim() && !searchError && results.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-ink/60">{t("address.notFound")}</p>
         )}
       </div>

@@ -147,6 +147,10 @@ export function BonusScreen() {
         <div className="mt-1 flex items-end gap-1.5">
           {summary.status === "loading" ? (
             <Skeleton className="h-10 w-40 bg-white/10" />
+          ) : summary.status === "error" ? (
+            <button onClick={summary.refetch} className="inline-flex min-h-[44px] items-center text-sm font-semibold text-white underline">
+              {t("common.loadFailedRetry")}
+            </button>
           ) : (
             <>
               <span className="text-4xl font-semibold tabular text-brand-yellow">{formatSomParts(animated, intlTag).whole}</span>
@@ -182,7 +186,7 @@ export function BonusScreen() {
           )}
         </button>
         {s && (
-          <div className="mt-3 flex items-center justify-between text-[11px] text-white/60">
+          <div className="mt-3 flex items-start justify-between gap-4 text-xs text-white/70">
             <span>
               {t("bonus.minWithdraw")}: {formatSom(s.minWithdraw, intlTag)}
             </span>
@@ -200,6 +204,11 @@ export function BonusScreen() {
             <Skeleton className="h-16 w-full rounded-2xl" />
             <Skeleton className="h-16 w-full rounded-2xl" />
           </div>
+        )}
+        {sources.status === "error" && (
+          <button onClick={sources.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
+            {t("common.loadFailedRetry")}
+          </button>
         )}
         {sources.status === "success" && (
           <div className="space-y-2">
@@ -275,7 +284,7 @@ export function BonusScreen() {
         {cursor !== null && entries.length > 0 && (
           <button
             onClick={() => loadHistory(false)}
-            className="mt-3 w-full rounded-xl border border-border py-3 text-xs font-semibold text-ink/70"
+            className="mt-3 min-h-[44px] w-full rounded-xl border border-border py-3 text-xs font-semibold text-ink/70 hover:bg-ink/5"
           >
             {t("bonus.loadMore")}
           </button>

@@ -5,6 +5,7 @@ import { api } from "@/api/client";
 import type { OrderWithDetails, RouteSuggestion } from "@/api/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { SkeletonList } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { formatSom, formatKm } from "@/lib/format";
@@ -66,8 +67,10 @@ export function OrderFinishedScreen() {
   }
 
   return (
-    <div className="relative h-full bg-bg">
-      <div className="scroll-pb h-full overflow-y-auto overscroll-contain px-4" style={{ paddingTop: "calc(var(--safe-top) + 32px)" }}>
+    <div className="relative flex h-full flex-col bg-bg">
+      {/* Empty header row: keeps the scroll area below AppShell's floating back arrow. */}
+      <ScreenHeader />
+      <div className="scroll-pb min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">
       <div className="flex flex-col items-center gap-3 pb-6 text-center animate-scale-in">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-bg animate-check-pop">
           <PartyPopper className="h-9 w-9" />
@@ -101,18 +104,18 @@ export function OrderFinishedScreen() {
       {suggestion && (
         <button
           onClick={() => navigate("/home")}
-          className="mb-6 flex w-full items-center justify-between gap-3 rounded-2xl bg-accent-5 px-4 py-4 text-left"
+          className="mb-6 flex w-full items-center gap-3 rounded-2xl bg-accent-5 px-4 py-4 text-left"
         >
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-accent">
               <MapPin className="h-4 w-4" />
             </div>
             <div>
               <p className="text-xs text-ink/60">{t("finished.suggestionLabel")}</p>
               <p className="text-sm font-semibold text-ink">{suggestion.label}</p>
+              <p className="mt-0.5 whitespace-nowrap text-xs font-semibold tabular text-accent">{t("finished.suggestionFrom", { price: formatSom(suggestion.fromPrice, intlTag) })}</p>
             </div>
           </div>
-          <span className="shrink-0 whitespace-nowrap text-xs font-semibold tabular text-accent">{t("finished.suggestionFrom", { price: formatSom(suggestion.fromPrice, intlTag) })}</span>
         </button>
       )}
 

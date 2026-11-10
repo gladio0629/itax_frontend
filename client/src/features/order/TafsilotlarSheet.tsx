@@ -39,14 +39,25 @@ export function TafsilotlarSheet({
   const [picker, setPicker] = useState<"from" | "to" | null>(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [seats, setSeats] = useState<Seat[]>([]);
+  const [seatsError, setSeatsError] = useState(false);
+  const [seatsReload, setSeatsReload] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     if (fromAddressId && toAddressId) {
-      api.getSeatMap({ fromAddressId, toAddressId }).then(setSeats).catch(() => setSeats([]));
+      api
+        .getSeatMap({ fromAddressId, toAddressId })
+        .then((s) => {
+          setSeats(s);
+          setSeatsError(false);
+        })
+        .catch(() => {
+          setSeats([]);
+          setSeatsError(true);
+        });
     }
-  }, [fromAddressId, toAddressId]);
+  }, [fromAddressId, toAddressId, seatsReload]);
 
   const fromAddress = addressById(fromAddressId) ?? null;
   const toAddress = addressById(toAddressId) ?? null;
@@ -113,6 +124,8 @@ export function TafsilotlarSheet({
               selected={seatIds}
               onToggle={(id) => setSeatIds(seatIds.includes(id) ? seatIds.filter((s) => s !== id) : [...seatIds, id])}
               wholeCar={mode === "car"}
+              loadError={seatsError}
+              onRetry={() => setSeatsReload((n) => n + 1)}
               onWholeCarChange={(whole) => {
                 setMode(whole ? "car" : "seat");
                 setSeatIds([]);

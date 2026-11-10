@@ -174,24 +174,37 @@ export function SeatMap({
   onToggle,
   wholeCar,
   onWholeCarChange,
+  loadError,
+  onRetry,
 }: {
   seats: Seat[];
   selected: string[];
   onToggle: (seatId: string) => void;
   wholeCar: boolean;
   onWholeCarChange: (wholeCar: boolean) => void;
+  /** Seat availability failed to load: taken seats can't be shown, so say so. */
+  loadError?: boolean;
+  onRetry?: () => void;
 }) {
   const { t, intlTag } = useT();
   const byId = Object.fromEntries(seats.map((s) => [s.id, s]));
 
   const summary = wholeCar
-    ? seatCountLabel(t, ORDER.length, intlTag)
+    ? t("order.wholeCar")
     : selected.length === 0
     ? t("seat.noneSelected")
     : seatCountLabel(t, selected.length, intlTag);
 
   return (
     <div className="rounded-xl border border-border bg-bg px-3 pb-3 pt-2">
+      {loadError && (
+        <p role="alert" className="flex flex-wrap items-center gap-x-2 px-1 pt-1 text-xs text-danger">
+          {t("seat.loadError")}
+          <button onClick={onRetry} className="inline-flex min-h-[44px] items-center font-semibold underline">
+            {t("common.retry")}
+          </button>
+        </p>
+      )}
       <div className="seat3d-stage">
         <div className="seat3d-ground" aria-hidden="true" />
         <div className="seat3d-float">
