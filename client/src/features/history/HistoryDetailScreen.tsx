@@ -137,7 +137,7 @@ export function HistoryDetailScreen() {
                 >
                   <Star
                     className={`h-8 w-8 transition-colors ${
-                      order.rating && v <= order.rating ? "fill-warning text-warning" : "text-ink/20"
+                      order.rating && v <= order.rating ? "fill-brand-yellow text-brand-yellow" : "text-ink/20"
                     }`}
                   />
                 </button>

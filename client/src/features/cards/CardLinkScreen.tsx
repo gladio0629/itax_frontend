@@ -38,7 +38,7 @@ export function CardLinkScreen() {
   if (reviewId) {
     return (
       <div className="flex h-full flex-col bg-bg">
-        <ScreenHeader title={t("cardLink.title")} showBack={false} />
+        <ScreenHeader title={t("cardLink.title")} />
         <div className="flex flex-1 items-center justify-center">
           <ReviewStatus reviewId={reviewId} onApproved={() => navigate("/cards", { replace: true })} />
         </div>

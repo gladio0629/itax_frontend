@@ -44,7 +44,7 @@ function StepHeader({
           {labelKeys.map((_, i) => (
             <span
               key={i}
-              className={cn("h-1.5 flex-1 rounded-full transition-colors", i <= step ? "bg-accent" : "bg-border")}
+              className={cn("h-1.5 flex-1 rounded-full transition-colors", i <= step ? "bg-brand-yellow" : "bg-border")}
             />
           ))}
         </div>

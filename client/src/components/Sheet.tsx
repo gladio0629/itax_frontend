@@ -77,16 +77,18 @@ export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
       <div className="absolute inset-0 animate-fade-in bg-black/40" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
-        className="absolute inset-x-0 bottom-0 max-h-[88%] animate-slide-up overflow-y-auto overscroll-contain rounded-t-sheet bg-card shadow-soft will-change-transform"
+        className="absolute inset-x-0 bottom-0 flex max-h-[88%] animate-slide-up flex-col rounded-t-sheet bg-card shadow-soft will-change-transform"
         style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
       >
-        <div className="sticky top-0 flex justify-center bg-card pt-2">
+        <div
+          className="flex shrink-0 cursor-grab touch-none justify-center bg-card pt-2"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        >
           <div className="h-1.5 w-10 rounded-full bg-ink/15" />
         </div>
-        {children}
+        <div className="overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );

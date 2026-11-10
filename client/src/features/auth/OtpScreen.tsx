@@ -75,7 +75,7 @@ export function OtpScreen() {
   if (phase === "review" && reviewId) {
     return (
       <div className="flex h-full flex-col bg-bg">
-        <ScreenHeader title={t("auth.confirmTitle")} showBack={false} />
+        <ScreenHeader title={t("auth.confirmTitle")} />
         <div className="flex flex-1 items-center justify-center">
           <ReviewStatus
             reviewId={reviewId}

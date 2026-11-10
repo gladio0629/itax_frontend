@@ -18,8 +18,8 @@ export function DriverCard({ driver }: { driver: Driver }) {
         <p className="text-xs text-ink/60">
           {driver.carModel} &middot; {driver.carColor} &middot; {driver.plate}
         </p>
-        <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-warning">
-          <Star className="h-3 w-3 fill-warning" /> {driver.rating.toFixed(1)}
+        <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-ink/80">
+          <Star className="h-3 w-3 fill-brand-yellow text-brand-yellow" /> {driver.rating.toFixed(1)}
         </p>
       </div>
       <div className="flex gap-2">

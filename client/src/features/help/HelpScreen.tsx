@@ -106,7 +106,7 @@ export function HelpScreen() {
                     key={tp}
                     onClick={() => setTopic(tp)}
                     className={cn(
-                      "rounded-full border-2 px-4 py-2 text-xs font-semibold transition-colors",
+                      "rounded-xl border-2 px-4 py-2 text-xs font-semibold transition-colors",
                       topic === tp ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
                     )}
                   >

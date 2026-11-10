@@ -81,7 +81,7 @@ export function OrderFinishedScreen() {
         <div className="flex justify-center gap-2">
           {[1, 2, 3, 4, 5].map((v) => (
             <button key={v} onClick={() => onStarClick(v)} aria-label={`${v} \u2605`} className="p-1">
-              <Star className={`h-8 w-8 transition-colors ${v <= rating ? "fill-warning text-warning" : "text-ink/20"}`} />
+              <Star className={`h-8 w-8 transition-colors ${v <= rating ? "fill-brand-yellow text-brand-yellow" : "text-ink/20"}`} />
             </button>
           ))}
         </div>

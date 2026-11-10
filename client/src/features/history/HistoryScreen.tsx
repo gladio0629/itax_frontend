@@ -113,8 +113,8 @@ export function HistoryScreen() {
                     <span>{formatRelativeDay(o.createdAt, intlTag)}</span>
                     <span className="flex items-center gap-2">
                       {o.rating && (
-                        <span className="flex items-center gap-0.5 font-medium text-warning">
-                          <Star className="h-3 w-3 fill-warning" /> {o.rating}
+                        <span className="flex items-center gap-0.5 font-medium text-ink">
+                          <Star className="h-3 w-3 fill-brand-yellow text-brand-yellow" /> {o.rating}
                         </span>
                       )}
                       <span className="font-semibold tabular text-ink/80">{formatSom(o.price, intlTag)}</span>

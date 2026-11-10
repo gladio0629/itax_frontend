@@ -32,9 +32,14 @@ export default {
         inner5: "inset 0 1px 0 0 rgba(255,255,255,0.18)",
       },
       borderRadius: {
+        // Tightened scale: buttons/inputs 8px, cards 12px, sheets 16px.
+        // `xl`/`2xl` are overridden because the app's existing markup
+        // already uses them as the de facto button/card sizes everywhere.
+        xl: "var(--radius-button)",
         button: "var(--radius-button)",
-        "2xl": "16px",
-        "3xl": "24px",
+        "2xl": "var(--radius-card)",
+        card: "var(--radius-card)",
+        "3xl": "var(--radius-card)",
         sheet: "var(--radius-sheet)",
       },
       keyframes: {

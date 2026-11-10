@@ -34,7 +34,7 @@ export function BonusDetailSheet({
     <Sheet open onClose={onClose} ariaLabel={t(source.titleKey as TranslationKey)}>
       <div className="px-5 pb-6 pt-3">
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-10 text-accent">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
             <Icon className="h-5 w-5" />
           </div>
           <div>

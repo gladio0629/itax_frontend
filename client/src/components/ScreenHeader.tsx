@@ -1,38 +1,20 @@
-import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
-import { useT } from "@/lib/i18n/provider";
 
 type Props = {
   title?: string;
-  onBack?: () => void;
-  showBack?: boolean;
   right?: ReactNode;
-  transparent?: boolean;
 };
 
-export function ScreenHeader({ title, onBack, showBack = true, right, transparent }: Props) {
-  const { t } = useT();
-  const navigate = useNavigate();
+// The back arrow itself is owned by AppShell (same floating, no-backdrop
+// control that shows the hamburger on top-level screens) — this header
+// only reserves the matching space so the title stays centered and never
+// sits under it.
+export function ScreenHeader({ title, right }: Props) {
   return (
     <div
-      className="flex items-center justify-between px-4 pb-2"
+      className="flex items-center justify-between pl-16 pr-4 pb-2"
       style={{ paddingTop: "calc(var(--safe-top) + 16px)" }}
     >
-      <div className="flex min-w-[44px] items-center">
-        {showBack && (
-          <button
-            onClick={onBack ?? (() => navigate(-1))}
-            aria-label={t("common.back")}
-            className={
-              "flex h-11 w-11 items-center justify-center rounded-full transition-colors " +
-              (transparent ? "bg-card/80 backdrop-blur-sm shadow-softer" : "bg-ink/5")
-            }
-          >
-            <ChevronLeft className="h-5 w-5 text-ink" />
-          </button>
-        )}
-      </div>
       {title && <h1 className="flex-1 text-center text-sm font-semibold text-ink">{title}</h1>}
       <div className="flex min-w-[44px] justify-end">{right}</div>
     </div>

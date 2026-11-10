@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Menu, Home, Gift, Clock, Settings } from "lucide-react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Menu, ArrowLeft, Home, Gift, Clock, Settings } from "lucide-react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { Profile } from "@/api/types";
 import { Avatar } from "@/components/Avatar";
@@ -18,9 +18,12 @@ const NAV_ITEMS = [
   { to: "/settings", labelKey: "drawer.sozlamalar" as const, icon: Settings },
 ];
 
+const TOP_LEVEL_PATHS = new Set(["/home", "/bonus", "/history", "/settings"]);
+
 export function AppShell() {
   const { t } = useT();
   const location = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
 
@@ -33,16 +36,38 @@ export function AppShell() {
     if (open) setTransitionKind("fade");
   }, [open]);
 
+  // Nested pages (history detail, settings sub-pages, order track/finished,
+  // cards, help, notifications…) already render their own ScreenHeader with
+  // an inline back arrow — showing this floating control there too would
+  // duplicate it. Top-level drawer destinations have no such header, so the
+  // floating hamburger belongs only to them.
+  const isTopLevel = TOP_LEVEL_PATHS.has(location.pathname);
+
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <button
-        onClick={() => setOpen(true)}
-        aria-label={t("drawer.open")}
-        className="absolute left-4 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-card shadow-soft active:scale-95"
-        style={{ top: "calc(var(--safe-top) + 16px)" }}
-      >
-        <Menu className="h-5 w-5 text-ink" />
-      </button>
+      {isTopLevel ? (
+        <button
+          onClick={() => setOpen(true)}
+          aria-label={t("drawer.open")}
+          className="absolute left-4 z-30 flex h-11 w-11 items-center justify-center active:scale-95"
+          style={{ top: "calc(var(--safe-top) + 16px)" }}
+        >
+          <Menu className="h-6 w-6 text-ink drop-shadow-sm" />
+        </button>
+      ) : (
+        <button
+          onClick={() => {
+            setTransitionKind("pop");
+            if (window.history.state?.idx > 0) navigate(-1);
+            else navigate("/home", { replace: true });
+          }}
+          aria-label={t("common.back")}
+          className="absolute left-4 z-30 flex h-11 w-11 items-center justify-center active:scale-95"
+          style={{ top: "calc(var(--safe-top) + 16px)" }}
+        >
+          <ArrowLeft className="h-6 w-6 text-ink drop-shadow-sm" />
+        </button>
+      )}
 
       <Drawer open={open} onClose={() => setOpen(false)} ariaLabel={t("drawer.open")}>
         <div className="flex items-center gap-3 border-b border-border px-5 pb-4 pt-5">
