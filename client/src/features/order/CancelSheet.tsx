@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X } from "@/lib/icons";
 import { Button } from "@/components/Button";
 import { Sheet } from "@/components/Sheet";
 import { useT } from "@/lib/i18n/provider";
@@ -46,7 +46,7 @@ export function CancelSheet({
               aria-checked={reason === key}
               onClick={() => setReason(key)}
               className={cn(
-                "flex min-h-[48px] w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition-colors",
+                "flex min-h-[48px] w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-normal transition-colors",
                 reason === key ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/80"
               )}
             >

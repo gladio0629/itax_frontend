@@ -1,13 +1,15 @@
-import { WifiOff } from "lucide-react";
+import { WifiOff } from "@/lib/icons";
 import { useDemoStore } from "@/stores/demoStore";
+import { useT } from "@/lib/i18n/provider";
 
 export function LowConnectionBanner() {
+  const { t } = useT();
   const slow = useDemoStore((s) => s.scenarios.slowInternet);
   if (!slow) return null;
   return (
-    <div className="mx-4 mb-3 flex items-center gap-2 rounded-2xl bg-warning/10 px-3 py-2.5 text-xs font-medium text-warning animate-slide-up">
+    <div role="status" className="mx-4 mb-3 flex items-center gap-2 rounded-2xl bg-card px-3 py-2.5 text-xs font-normal text-warning shadow-softer animate-slide-up">
       <WifiOff className="h-4 w-4 shrink-0" />
-      Internet aloqasi sekin. Ma'lumotlar yuklanishi biroz vaqt olishi mumkin.
+      {t("banner.slowInternet")}
     </div>
   );
 }

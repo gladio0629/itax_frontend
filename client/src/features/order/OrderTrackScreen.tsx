@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Search, SearchX, Check, Clock3, Navigation } from "lucide-react";
+import { Search, SearchX, Check, Clock3, Navigation } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderWithDetails } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";

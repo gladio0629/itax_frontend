@@ -35,7 +35,7 @@ export function OnboardingScreen() {
       <div className="flex items-center justify-between">
         <Logo size={32} />
         {!isLast && (
-          <button onClick={finish} className="text-sm font-medium text-ink/60 h-11 px-2">
+          <button onClick={finish} className="text-sm font-normal text-ink/60 h-11 px-2">
             {t("onboarding.skip")}
           </button>
         )}

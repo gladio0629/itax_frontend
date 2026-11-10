@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, MessageCircle, Star } from "lucide-react";
+import { Phone, MessageCircle, Star } from "@/lib/icons";
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
 import { Toast } from "@/components/Toast";
@@ -19,7 +19,7 @@ export function DriverCard({ driver }: { driver: Driver }) {
           {driver.carModel} <span className="whitespace-nowrap">&middot; {driver.carColor}</span>
         </p>
         <p className="mt-0.5 whitespace-nowrap text-xs font-semibold tabular text-ink/80">{driver.plate}</p>
-        <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-ink/80">
+        <p className="mt-0.5 flex items-center gap-1 text-xs font-normal text-ink/80">
           <Star className="h-3 w-3 fill-brand-yellow text-brand-yellow" /> {driver.rating.toFixed(1)}
         </p>
       </div>

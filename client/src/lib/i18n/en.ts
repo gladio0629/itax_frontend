@@ -11,6 +11,9 @@ export const en: Dictionary = {
 
   "common.back": "Back",
   "common.close": "Close",
+  "auth.codeDigit": "Code digit {{n}}",
+  "banner.slowInternet": "Slow connection. Loading may take a little longer.",
+  "help.messageLabel": "Message",
   "calendar.prevMonth": "Previous month",
   "calendar.nextMonth": "Next month",
   "common.cancel": "Cancel",
@@ -37,7 +40,9 @@ export const en: Dictionary = {
   "home.noSavedAddresses": "No saved addresses yet.",
 
   "address.pickOnMap": "Pick on map",
-  "address.searchPlaceholder": "Search for an address",
+  "address.mapHint": "Tap the map or use the arrow keys to place the pin",
+  "history.tabsLabel": "Order filter",
+  "address.searchPlaceholder": "Search for an address…",
   "address.recent": "Recent",
   "address.notFound": "Address not found",
 
@@ -102,7 +107,7 @@ export const en: Dictionary = {
   "cargo.customVolume": "Volume",
   "cargo.weight": "Weight",
   "cargo.noteLabel": "Note",
-  "cargo.notePlaceholder": "Additional details (optional)",
+  "cargo.notePlaceholder": "Additional details (optional)…",
 
   "quote.carFare": "Ride fare",
   "quote.seatFare": "Seat fare ({{count}})",
@@ -176,7 +181,7 @@ export const en: Dictionary = {
   "history.reason.comfort": "Comfort",
   "history.reason.simple": "Just because",
   "history.reason.other": "Other",
-  "history.reasonNotePlaceholder": "Tell us more (optional)",
+  "history.reasonNotePlaceholder": "Tell us more (optional)…",
   "history.submit": "Submit",
 
   "settings.account": "Account",
@@ -188,6 +193,8 @@ export const en: Dictionary = {
   "settings.languageName.en": "English",
   "settings.about": "About us",
   "settings.logout": "Log out",
+  "settings.logoutConfirmTitle": "Log out?",
+  "settings.logoutConfirmDesc": "You'll need your phone number and an SMS code to log back in.",
 
   "account.edit": "Edit",
   "account.firstName": "First name",
@@ -239,7 +246,7 @@ export const en: Dictionary = {
   "help.topic.payment": "Payment",
   "help.topic.app": "App",
   "help.topic.other": "Other",
-  "help.messagePlaceholder": "Describe the issue (optional)...",
+  "help.messagePlaceholder": "Describe the issue (optional)…",
   "help.phoneHint": "An operator will call {{phone}}",
   "help.submit": "Send request",
   "help.sentTitle": "Request received",
@@ -329,7 +336,7 @@ export const en: Dictionary = {
   "cardLink.providerTitle": "IZGO Pay — a secure payment provider",
   "cardLink.providerDesc": "You'll choose your card on the provider's own page. IZGO never sees or stores card details.",
   "cardLink.labelField": "Card name",
-  "cardLink.labelPlaceholder": "E.g. Work card",
+  "cardLink.labelPlaceholder": "E.g. Work card…",
   "cardLink.privacyNote": "The provider only returns the card type and last 4 digits.",
   "cardLink.error": "The card wasn't linked. Please try again.",
   "cardLink.submit": "Go to provider",

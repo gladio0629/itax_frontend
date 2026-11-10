@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Menu, ArrowLeft, Home, Gift, Clock, Settings } from "lucide-react";
+import { Menu, ArrowLeft, Home, Gift, Clock, Settings } from "@/lib/icons";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { Profile } from "@/api/types";
@@ -101,7 +101,7 @@ export function AppShell() {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  "flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors",
+                  "flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-3 text-sm font-normal transition-colors",
                   isActive ? "bg-accent-10 text-accent" : "text-ink/80 hover:bg-ink/5"
                 )
               }

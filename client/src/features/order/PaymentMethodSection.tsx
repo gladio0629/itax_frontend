@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Banknote, CreditCard, Plus } from "lucide-react";
+import { Banknote, CreditCard, Plus } from "@/lib/icons";
 import { Link } from "react-router-dom";
 import { api } from "@/api/client";
 import type { PaymentMethod, SavedCard } from "@/api/types";
@@ -50,7 +50,7 @@ export function PaymentMethodSection({
         <div className="ml-4 space-y-2">
           {cards.map((c) => (
             <div key={c.id} className="flex items-center justify-between rounded-xl bg-card px-3 py-2.5 shadow-softer">
-              <span className="text-xs font-medium text-ink/80">{`${c.label} •••• ${c.last4}`}</span>
+              <span className="text-xs font-normal text-ink/80">{`${c.label} •••• ${c.last4}`}</span>
             </div>
           ))}
           <Link
@@ -65,7 +65,7 @@ export function PaymentMethodSection({
       <p className="pt-2 text-xs font-semibold text-ink/60">{t("order.paymentSystems")}</p>
       <div className="flex gap-2">
         {["Payme", "Click"].map((label) => (
-          <div key={label} className="flex-1 rounded-xl border border-border px-4 py-3 text-center text-xs font-semibold text-ink/50">
+          <div key={label} translate="no" className="flex-1 rounded-xl border border-border px-4 py-3 text-center text-xs font-semibold text-ink/60">
             {label}
           </div>
         ))}

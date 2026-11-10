@@ -94,7 +94,7 @@ export function WheelPicker({
             aria-selected={opt === value}
             className={cn(
               "flex items-center justify-center text-base tabular transition-colors",
-              opt === value ? "font-semibold text-ink" : "text-ink/35"
+              opt === value ? "font-semibold text-ink" : "text-ink/60"
             )}
             style={{ height: ITEM_HEIGHT, scrollSnapAlign: "center" }}
           >

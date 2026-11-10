@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone } from "lucide-react";
+import { Phone } from "@/lib/icons";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Logo } from "@/components/Logo";
@@ -54,12 +54,15 @@ export function PhoneScreen() {
         <p className="mb-8 text-sm text-ink/60">{t("auth.phoneDesc")}</p>
         <Input
           label={t("auth.phoneLabel")}
+          type="tel"
+          name="phone"
+          autoComplete="tel-national"
           inputMode="numeric"
           autoFocus
           placeholder="90 123 45 67"
           value={value}
           onChange={(e) => setValue(formatPhoneInput(e.target.value))}
-          leftIcon={<span className="text-sm font-medium text-ink/80">+998</span>}
+          leftIcon={<span className="text-sm font-normal text-ink/80">+998</span>}
           error={error ?? undefined}
         />
       </div>

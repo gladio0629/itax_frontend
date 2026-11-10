@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Info, Gift, UserPlus, Star, Car, ChevronRight } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Info, Gift, UserPlus, Star, Car, ChevronRight } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { BonusHistoryEntry, BonusSource, BonusSourceIcon } from "@/api/types";
 import { Sheet } from "@/components/Sheet";
@@ -50,7 +50,19 @@ export function BonusScreen() {
   const summary = useQuery(() => api.getBonusSummary(), []);
   const sources = useQuery(() => api.getBonusSources(), []);
 
-  const [filter, setFilter] = useState<HistoryFilter>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterParam = searchParams.get("filter");
+  const filter: HistoryFilter = HISTORY_FILTERS.includes(filterParam as HistoryFilter) ? (filterParam as HistoryFilter) : "all";
+  const setFilter = (f: HistoryFilter) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (f === "all") next.delete("filter");
+        else next.set("filter", f);
+        return next;
+      },
+      { replace: true }
+    );
   const [entries, setEntries] = useState<BonusHistoryEntry[]>([]);
   const [cursor, setCursor] = useState<number | null>(0);
   const [historyState, setHistoryState] = useState<"loading" | "error" | "ready">("loading");
@@ -131,14 +143,14 @@ export function BonusScreen() {
     <div className="relative flex h-full flex-col bg-bg">
       <div className="relative overflow-hidden bg-on-yellow px-4 pb-6 text-white" style={{ paddingTop: "calc(var(--safe-top) + 68px)" }}>
         {celebrateKey > 0 && <ConfettiBurst key={celebrateKey} />}
-        <p className="text-xs font-medium text-white/60">{t("bonus.balanceCaption")}</p>
+        <p className="text-xs font-normal text-white/60">{t("bonus.balanceCaption")}</p>
         <div className="mt-1 flex items-end gap-1.5">
           {summary.status === "loading" ? (
             <Skeleton className="h-10 w-40 bg-white/10" />
           ) : (
             <>
               <span className="text-4xl font-semibold tabular text-brand-yellow">{formatSomParts(animated, intlTag).whole}</span>
-              <span className="pb-1 text-sm font-medium text-white/70">.00 so'm</span>
+              <span className="pb-1 text-sm font-normal text-white/70">.00 so'm</span>
             </>
           )}
           <button
@@ -218,6 +230,7 @@ export function BonusScreen() {
           {HISTORY_FILTERS.map((f) => (
             <button
               key={f}
+              aria-pressed={filter === f}
               onClick={() => setFilter(f)}
               className={cn(
                 "h-11 shrink-0 rounded-xl border-2 px-4 text-xs font-semibold transition-colors",
@@ -248,7 +261,7 @@ export function BonusScreen() {
                 style={{ animationDelay: `${Math.min(i, 8) * 40}ms`, animationFillMode: "backwards" }}
               >
                 <div>
-                  <p className="text-sm font-medium text-ink">{t(`bonus.history.${e.sourceId}` as TranslationKey)}</p>
+                  <p className="text-sm font-normal text-ink">{t(`bonus.history.${e.sourceId}` as TranslationKey)}</p>
                   <p className="text-xs text-ink/60">{formatRelativeDay(e.createdAt)}</p>
                 </div>
                 <span className={cn("text-sm font-semibold tabular", e.type === "earn" ? "text-accent" : "text-ink")}>
@@ -284,10 +297,12 @@ export function BonusScreen() {
             <h2 className="mb-4 text-sm font-semibold text-ink">{t("bonus.withdraw")}</h2>
             <Input
               label={t("bonus.amountLabel")}
+              name="amount"
+              autoComplete="off"
               inputMode="numeric"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
-              placeholder="50000"
+              placeholder="50 000…"
             />
             <div className="mt-5">
               <Button fullWidth variant="brand" onClick={submitWithdraw} disabled={!amount}>

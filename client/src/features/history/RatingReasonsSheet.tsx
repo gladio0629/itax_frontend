@@ -69,7 +69,9 @@ export function RatingReasonsSheet({
             maxLength={200}
             rows={3}
             placeholder={t("history.reasonNotePlaceholder")}
-            className="mt-2 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink outline-none transition-colors focus:border-accent"
+            aria-label={t("history.reason.other")}
+            name="note"
+            className="mt-2 block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink transition-colors focus:border-accent"
           />
         )}
         <div className="mt-5">

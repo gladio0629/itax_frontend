@@ -1,4 +1,4 @@
-import { Car, Star, UserPlus, type LucideIcon } from "lucide-react";
+import { Car, Star, UserPlus, type LucideIcon } from "@/lib/icons";
 import type { BonusSource, BonusSourceIcon } from "@/api/types";
 import { Sheet } from "@/components/Sheet";
 import { Button } from "@/components/Button";

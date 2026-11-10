@@ -1,4 +1,4 @@
-import { WifiOff, RotateCw } from "lucide-react";
+import { WifiOff, RotateCw } from "@/lib/icons";
 import { Button } from "./Button";
 import { useT } from "@/lib/i18n/provider";
 

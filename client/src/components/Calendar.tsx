@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "@/lib/icons";
 import { monthNames, weekdayNames } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/cn";
@@ -72,7 +72,7 @@ export function Calendar({
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-      <div className="grid grid-cols-7 text-center text-xs font-medium text-ink/60">
+      <div className="grid grid-cols-7 text-center text-xs font-normal text-ink/60">
         {weekdayNames(intlTag).map((w) => (
           <div key={w}>{w}</div>
         ))}

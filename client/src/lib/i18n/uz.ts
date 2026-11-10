@@ -11,6 +11,9 @@ export const uz = {
 
   "common.back": "Orqaga",
   "common.close": "Yopish",
+  "auth.codeDigit": "Kodning {{n}}-raqami",
+  "banner.slowInternet": "Internet aloqasi sekin. Ma'lumotlar yuklanishi biroz vaqt olishi mumkin.",
+  "help.messageLabel": "Xabar",
   "calendar.prevMonth": "Oldingi oy",
   "calendar.nextMonth": "Keyingi oy",
   "common.cancel": "Bekor qilish",
@@ -37,7 +40,9 @@ export const uz = {
   "home.noSavedAddresses": "Hali saqlangan manzil yo'q.",
 
   "address.pickOnMap": "Xaritadan tanlash",
-  "address.searchPlaceholder": "Manzilni qidirish",
+  "address.mapHint": "Pinni joylash uchun xaritaga bosing yoki strelka tugmalaridan foydalaning",
+  "history.tabsLabel": "Buyurtmalar filtri",
+  "address.searchPlaceholder": "Manzilni qidirish…",
   "address.recent": "So'nggi",
   "address.notFound": "Manzil topilmadi",
 
@@ -102,7 +107,7 @@ export const uz = {
   "cargo.customVolume": "Hajm",
   "cargo.weight": "Og'irlik",
   "cargo.noteLabel": "Izoh",
-  "cargo.notePlaceholder": "Qo'shimcha ma'lumot (ixtiyoriy)",
+  "cargo.notePlaceholder": "Qo'shimcha ma'lumot (ixtiyoriy)…",
 
   "quote.carFare": "Yo'l narxi",
   "quote.seatFare": "O'rindiq narxi ({{count}})",
@@ -176,7 +181,7 @@ export const uz = {
   "history.reason.comfort": "Komfort",
   "history.reason.simple": "Shunchaki",
   "history.reason.other": "Boshqa",
-  "history.reasonNotePlaceholder": "Batafsil yozing (ixtiyoriy)",
+  "history.reasonNotePlaceholder": "Batafsil yozing (ixtiyoriy)…",
   "history.submit": "Yuborish",
 
   "settings.account": "Akkaunt",
@@ -188,6 +193,8 @@ export const uz = {
   "settings.languageName.en": "English",
   "settings.about": "Biz haqimizda",
   "settings.logout": "Chiqish",
+  "settings.logoutConfirmTitle": "Akkauntdan chiqasizmi?",
+  "settings.logoutConfirmDesc": "Qayta kirish uchun telefon raqamingiz va SMS kod kerak bo'ladi.",
 
   "account.edit": "Tahrirlash",
   "account.firstName": "Ism",
@@ -239,7 +246,7 @@ export const uz = {
   "help.topic.payment": "To'lov",
   "help.topic.app": "Ilova",
   "help.topic.other": "Boshqa",
-  "help.messagePlaceholder": "Muammoni tasvirlab bering (ixtiyoriy)...",
+  "help.messagePlaceholder": "Muammoni tasvirlab bering (ixtiyoriy)…",
   "help.phoneHint": "Operator {{phone}} raqamiga qo'ng'iroq qiladi",
   "help.submit": "Zayavka qoldirish",
   "help.sentTitle": "Zayavka tushdi",
@@ -329,7 +336,7 @@ export const uz = {
   "cardLink.providerTitle": "IZGO Pay — xavfsiz to'lov provayderi",
   "cardLink.providerDesc": "Davom etsangiz, provayderning o'z sahifasida kartangizni tanlaysiz. IZGO karta ma'lumotlarini hech qachon ko'rmaydi yoki saqlamaydi.",
   "cardLink.labelField": "Karta nomi",
-  "cardLink.labelPlaceholder": "Masalan: Ish kartam",
+  "cardLink.labelPlaceholder": "Masalan: Ish kartam…",
   "cardLink.privacyNote": "Provayder faqat karta turi va oxirgi 4 raqamni qaytaradi.",
   "cardLink.error": "Karta bog'lanmadi. Qaytadan urining.",
   "cardLink.submit": "Provayderga o'tish",

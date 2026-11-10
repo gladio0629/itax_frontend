@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check } from "@/lib/icons";
 import { Sheet } from "@/components/Sheet";
 import { useT } from "@/lib/i18n/provider";
 import type { Locale } from "@/lib/i18n/provider";
@@ -22,7 +22,7 @@ export function LanguageSheet({ onClose }: { onClose: () => void }) {
               }}
               className="flex min-h-[48px] w-full items-center justify-between rounded-xl px-3 py-3 text-left hover:bg-ink/5"
             >
-              <span className="text-sm font-medium text-ink">{LOCALE_LABEL[l]}</span>
+              <span className="text-sm font-normal text-ink">{LOCALE_LABEL[l]}</span>
               {locale === l && <Check className="h-4 w-4 text-accent" />}
             </button>
           ))}

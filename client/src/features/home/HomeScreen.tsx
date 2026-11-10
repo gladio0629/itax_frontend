@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Bell, Heart, LocateFixed, MapPin } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Bell, Heart, LocateFixed, MapPin } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, SavedAddressInfo } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
@@ -22,6 +22,8 @@ export function HomeScreen() {
   const [eta, setEta] = useState<number | null>(null);
   const [saved, setSaved] = useState<SavedAddressInfo[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
+  const [savedError, setSavedError] = useState(false);
+  const [savedReload, setSavedReload] = useState(0);
   const [snap, setSnap] = useState<SnapPoint>("collapsed");
   const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -42,12 +44,16 @@ export function HomeScreen() {
   useEffect(() => {
     if (!draft.fromAddressId) return;
     setSavedLoading(true);
+    setSavedError(false);
     api
       .getSavedAddresses(draft.fromAddressId)
       .then(setSaved)
-      .catch(() => setSaved([]))
+      .catch(() => {
+        setSaved([]);
+        setSavedError(true);
+      })
       .finally(() => setSavedLoading(false));
-  }, [draft.fromAddressId]);
+  }, [draft.fromAddressId, savedReload]);
 
   const fromAddress = addressById(draft.fromAddressId) ?? null;
   const toAddress = addressById(draft.toAddressId) ?? null;
@@ -97,13 +103,13 @@ export function HomeScreen() {
           <p className="text-[11px] text-ink/60">{t("home.greeting")}{profileName ? "," : ""}</p>
           <p className="text-sm font-semibold text-ink">{profileName || t("home.guest")} 👋</p>
         </div>
-        <button
-          onClick={() => navigate("/notifications")}
+        <Link
+          to="/notifications"
           aria-label={t("home.notifications")}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-card/90 shadow-softer backdrop-blur-sm"
         >
           <Bell className="h-5 w-5 text-ink/80" />
-        </button>
+        </Link>
       </div>
 
       <button
@@ -145,14 +151,14 @@ export function HomeScreen() {
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
                 <MapPin className="h-3.5 w-3.5" />
               </span>
-              <p className="text-sm font-semibold text-ink">IZGO Taksi</p>
+              <p className="text-sm font-semibold text-ink" translate="no">IZGO Taksi</p>
             </div>
 
             <button
               onClick={() => openFlow()}
               className="flex w-full items-center justify-between rounded-2xl bg-ink/5 px-5 py-4 text-left"
             >
-              <span className="text-sm font-medium text-ink/60">{t("home.whereTo")}</span>
+              <span className="text-sm font-normal text-ink/60">{t("home.whereTo")}</span>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-bg">
                 <MapPin className="h-4 w-4" />
               </span>
@@ -166,6 +172,13 @@ export function HomeScreen() {
                 <Skeleton className="h-14 w-full rounded-xl" />
                 <Skeleton className="h-14 w-full rounded-xl" />
               </div>
+            ) : savedError ? (
+              <button
+                onClick={() => setSavedReload((n) => n + 1)}
+                className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline"
+              >
+                {t("common.errorMessage")} — {t("common.retry")}
+              </button>
             ) : saved.length === 0 ? (
               <p className="text-xs text-ink/60">{t("home.noSavedAddresses")}</p>
             ) : (

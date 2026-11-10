@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Pencil, Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Pencil, Plus, Trash2, AlertTriangle } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { AccountSummary, Profile } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -11,6 +11,7 @@ import { Input } from "@/components/Input";
 import { Sheet } from "@/components/Sheet";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { SkeletonCard } from "@/components/Skeleton";
+import { ErrorState } from "@/components/ErrorState";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
 import { PhoneChangeSheet } from "./PhoneChangeSheet";
@@ -42,14 +43,17 @@ export function AccountScreen() {
   const [selfDeleteOpen, setSelfDeleteOpen] = useState(false);
   const [selfDeleteReviewId, setSelfDeleteReviewId] = useState<string | null>(null);
 
+  const [loadError, setLoadError] = useState(false);
+
   function load() {
+    setLoadError(false);
     api.getProfile().then((p) => {
       setProfile(p);
       const [f, ...rest] = p.name.split(" ");
       setFirstName(f ?? "");
       setLastName(rest.join(" "));
-    });
-    api.getAccounts().then(setAccounts);
+    }).catch(() => setLoadError(true));
+    api.getAccounts().then(setAccounts).catch(() => setLoadError(true));
   }
 
   useEffect(load, []);
@@ -97,9 +101,7 @@ export function AccountScreen() {
     return (
       <div className="flex h-full flex-col bg-bg">
         <ScreenHeader title={t("settings.account")} />
-        <div className="px-4 pt-4">
-          <SkeletonCard />
-        </div>
+        {loadError ? <ErrorState onRetry={load} /> : <div className="px-4 pt-4"><SkeletonCard /></div>}
       </div>
     );
   }
@@ -128,8 +130,8 @@ export function AccountScreen() {
 
           {editing && (
             <div className="space-y-3 border-t border-border pt-4">
-              <Input label={t("account.firstName")} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              <Input label={t("account.lastName")} value={lastName} onChange={(e) => setLastName(e.target.value)} />
+              <Input label={t("account.firstName")} name="given-name" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+              <Input label={t("account.lastName")} name="family-name" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
               <button
                 onClick={() => setPhoneSheetOpen(true)}
                 className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-dashed border-accent/40 px-4 py-3 text-xs font-semibold text-accent"
@@ -222,14 +224,17 @@ export function AccountScreen() {
               <>
                 <h2 className="mb-4 text-sm font-semibold text-ink">{t("account.addAccount")}</h2>
                 <div className="space-y-3">
-                  <Input label={t("account.firstName")} value={addName} onChange={(e) => setAddName(e.target.value)} />
+                  <Input label={t("account.firstName")} name="name" autoComplete="name" value={addName} onChange={(e) => setAddName(e.target.value)} />
                   <Input
                     label={t("account.newPhone")}
+                    type="tel"
+                    name="phone"
+                    autoComplete="tel-national"
                     inputMode="numeric"
                     placeholder="90 123 45 67"
                     value={addPhone}
                     onChange={(e) => setAddPhone(formatPhoneInput(e.target.value))}
-                    leftIcon={<span className="text-sm font-medium text-ink/80">+998</span>}
+                    leftIcon={<span className="text-sm font-normal text-ink/80">+998</span>}
                   />
                 </div>
                 <div className="mt-5">

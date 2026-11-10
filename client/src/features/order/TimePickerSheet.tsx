@@ -157,7 +157,7 @@ export function TimePickerSheet({
               ariaLabel={rangeField === "from" ? t("order.timeFrom") : t("order.timeTo")}
             />
             {rangeFrom === rangeTo && (
-              <p role="alert" aria-live="polite" className="mt-2 text-xs font-medium text-danger">
+              <p role="alert" aria-live="polite" className="mt-2 text-xs font-normal text-danger">
                 {t("order.timing.invalidRange")}
               </p>
             )}

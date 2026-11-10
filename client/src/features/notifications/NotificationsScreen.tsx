@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, Wallet, Tag, Info } from "lucide-react";
+import { Bell, Wallet, Tag, Info } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { NotificationItem } from "@/api/types";
 import { EmptyState } from "@/components/EmptyState";

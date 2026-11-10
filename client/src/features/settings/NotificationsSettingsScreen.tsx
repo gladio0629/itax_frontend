@@ -1,42 +1,51 @@
 import { useEffect, useState } from "react";
-import { Car, Megaphone, Gift } from "lucide-react";
+import { Car, Megaphone, Gift } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { NotificationPrefs } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Card } from "@/components/Card";
 import { SkeletonList } from "@/components/Skeleton";
+import { ErrorState } from "@/components/ErrorState";
+import { Toast } from "@/components/Toast";
 import { useT } from "@/lib/i18n/provider";
 import { Switch } from "@/components/Switch";
 
 export function NotificationsSettingsScreen() {
   const { t } = useT();
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
-  useEffect(() => {
-    api.getNotificationPrefs().then(setPrefs);
-  }, []);
+  function load() {
+    setLoadError(false);
+    api.getNotificationPrefs().then(setPrefs).catch(() => setLoadError(true));
+  }
+  useEffect(load, []);
 
   async function patch(key: keyof NotificationPrefs) {
     if (!prefs) return;
+    const prev = prefs;
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
-    const saved = await api.setNotificationPrefs({ [key]: next[key] });
-    setPrefs(saved);
+    try {
+      setPrefs(await api.setNotificationPrefs({ [key]: next[key] }));
+    } catch {
+      setPrefs(prev);
+      setSaveError(true);
+    }
   }
 
   if (!prefs) {
     return (
       <div className="flex h-full flex-col bg-bg">
         <ScreenHeader title={t("notifPrefs.title")} />
-        <div className="px-4 pt-4">
-          <SkeletonList count={2} />
-        </div>
+        {loadError ? <ErrorState onRetry={load} /> : <div className="px-4 pt-4"><SkeletonList count={2} /></div>}
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-bg">
+    <div className="relative flex h-full flex-col bg-bg">
       <ScreenHeader title={t("notifPrefs.title")} />
       <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <Card className="mb-4 p-4">
@@ -55,7 +64,7 @@ export function NotificationsSettingsScreen() {
               <Car className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink">{t("notifPrefs.orderStatus")}</p>
+              <p className="text-sm font-normal text-ink">{t("notifPrefs.orderStatus")}</p>
               <p className="text-xs text-ink/60">{t("notifPrefs.orderStatusDesc")}</p>
             </div>
             <Switch checked={prefs.master && prefs.orderStatus} disabled={!prefs.master}
@@ -66,7 +75,7 @@ export function NotificationsSettingsScreen() {
               <Megaphone className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink">{t("notifPrefs.news")}</p>
+              <p className="text-sm font-normal text-ink">{t("notifPrefs.news")}</p>
               <p className="text-xs text-ink/60">{t("notifPrefs.newsDesc")}</p>
             </div>
             <Switch checked={prefs.master && prefs.news} disabled={!prefs.master}
@@ -77,7 +86,7 @@ export function NotificationsSettingsScreen() {
               <Gift className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink">{t("notifPrefs.bonus")}</p>
+              <p className="text-sm font-normal text-ink">{t("notifPrefs.bonus")}</p>
               <p className="text-xs text-ink/60">{t("notifPrefs.bonusDesc")}</p>
             </div>
             <Switch checked={prefs.master && prefs.bonus} disabled={!prefs.master}
@@ -85,6 +94,7 @@ export function NotificationsSettingsScreen() {
           </div>
         </Card>
       </div>
+      {saveError && <Toast message={t("order.submitError")} onDone={() => setSaveError(false)} />}
     </div>
   );
 }

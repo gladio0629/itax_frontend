@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { Check, Lock } from "lucide-react";
+import { Check, Lock } from "@/lib/icons";
 import type { Seat, SeatPosition } from "@/api/types";
 import { Switch } from "@/components/Switch";
 import { formatSom } from "@/lib/format";

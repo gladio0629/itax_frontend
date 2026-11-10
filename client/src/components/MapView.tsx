@@ -1,4 +1,4 @@
-import { Car } from "lucide-react";
+import { Car } from "@/lib/icons";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n/provider";
 

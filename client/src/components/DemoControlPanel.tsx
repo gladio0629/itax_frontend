@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FlaskConical, RotateCcw, X } from "lucide-react";
+import { FlaskConical, RotateCcw, X } from "@/lib/icons";
 import { useDemoStore, type DemoScenarios } from "@/stores/demoStore";
 import { Switch } from "@/components/Switch";
 import { useModalOpen } from "@/lib/useModalOpen";

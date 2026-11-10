@@ -1,4 +1,4 @@
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown } from "@/lib/icons";
 import type { Address } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 

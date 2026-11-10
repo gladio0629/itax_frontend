@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { PartyPopper, Star, MapPin } from "lucide-react";
+import { PartyPopper, Star, MapPin } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderWithDetails, RouteSuggestion } from "@/api/types";
 import { Button } from "@/components/Button";
@@ -85,8 +85,8 @@ export function OrderFinishedScreen() {
             </button>
           ))}
         </div>
-        {submitted && <p className="mt-3 text-center text-xs font-medium text-accent">{t("finished.ratingThanks")}</p>}
-        {ratingError && <p className="mt-3 text-center text-xs font-medium text-danger">{t("order.submitError")}</p>}
+        {submitted && <p className="mt-3 text-center text-xs font-normal text-accent">{t("finished.ratingThanks")}</p>}
+        {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t("order.submitError")}</p>}
       </Card>
 
       <Card className="mb-4 space-y-3 p-5">

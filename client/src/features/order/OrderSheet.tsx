@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Armchair, Car as CarIcon, ChevronRight, Pencil, X } from "lucide-react";
+import { Armchair, Car as CarIcon, ChevronRight, Pencil, X } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, Seat } from "@/api/types";
 import type { OrderDraft } from "@/stores/orderStore";
@@ -131,7 +131,7 @@ export function OrderSheet({
     <div className="flex h-full flex-col">
       <StepHeader step={step} onClose={onClose} />
 
-      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-3">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-3">
         {step === 0 && (
           <RouteFields
             from={addresses.from}
@@ -190,7 +190,7 @@ export function OrderSheet({
 
             <div className="rounded-xl border border-border p-4">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-ink">{t("order.now")}</span>
+                <span className="text-sm font-normal text-ink">{t("order.now")}</span>
                 <Switch
                   checked={draft.timing.timeMode === "now"}
                   onChange={() =>
@@ -247,7 +247,7 @@ export function OrderSheet({
                 {quote.data.lines.map((line, i) => (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <span className="text-ink/60">{t(line.key as TranslationKey, line.params)}</span>
-                    <span className="tabular font-medium text-ink">{formatSom(line.amount, intlTag)}</span>
+                    <span className="tabular font-normal text-ink">{formatSom(line.amount, intlTag)}</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between border-t border-border pt-2 text-base font-semibold">
@@ -265,7 +265,7 @@ export function OrderSheet({
 
       <div className="border-t border-border px-5 py-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
         {submitError && (
-          <p role="alert" aria-live="polite" className="mb-2 text-xs font-medium text-danger">
+          <p role="alert" aria-live="polite" className="mb-2 text-xs font-normal text-danger">
             {t("order.submitError")}
           </p>
         )}

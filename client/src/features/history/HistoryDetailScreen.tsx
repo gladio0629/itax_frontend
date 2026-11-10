@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Star, Lock, HelpCircle } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { Star, Lock, HelpCircle } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderWithDetails } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/Badge";
 import { Avatar } from "@/components/Avatar";
 import { MapView } from "@/components/MapView";
 import { SkeletonList } from "@/components/Skeleton";
+import { ErrorState } from "@/components/ErrorState";
 import { formatSom, formatKm, formatRelativeDay, formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
@@ -25,14 +26,16 @@ const STATUS_LABEL_KEY: Record<string, TranslationKey> = {
 
 export function HistoryDetailScreen() {
   const { orderId = "" } = useParams();
-  const navigate = useNavigate();
   const { t, intlTag } = useT();
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
   const [pendingFive, setPendingFive] = useState(false);
   const [ratingError, setRatingError] = useState(false);
 
+  const [loadError, setLoadError] = useState(false);
+
   function load() {
-    api.getOrder(orderId).then(setOrder);
+    setLoadError(false);
+    api.getOrder(orderId).then(setOrder).catch(() => setLoadError(true));
   }
 
   useEffect(load, [orderId]);
@@ -58,9 +61,7 @@ export function HistoryDetailScreen() {
     return (
       <div className="flex h-full flex-col bg-bg">
         <ScreenHeader title={t("history.detailTitle")} />
-        <div className="px-4 pt-4">
-          <SkeletonList count={2} />
-        </div>
+        {loadError ? <ErrorState onRetry={load} /> : <div className="px-4 pt-4"><SkeletonList count={2} /></div>}
       </div>
     );
   }
@@ -132,20 +133,20 @@ export function HistoryDetailScreen() {
               ))}
             </div>
             {!order.ratingEditable && (
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-medium text-ink/60">
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-normal text-ink/60">
                 <Lock className="h-3.5 w-3.5" /> {t("history.rating.lockedReason")}
               </p>
             )}
-            {ratingError && <p className="mt-3 text-center text-xs font-medium text-danger">{t("order.submitError")}</p>}
+            {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t("order.submitError")}</p>}
           </Card>
         )}
 
-        <button
-          onClick={() => navigate("/help")}
+        <Link
+          to="/help"
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-ink/5 py-3.5 text-sm font-semibold text-ink/80"
         >
           <HelpCircle className="h-4 w-4" /> {t("history.help")}
-        </button>
+        </Link>
       </div>
 
       {pendingFive && (

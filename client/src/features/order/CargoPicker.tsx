@@ -1,4 +1,4 @@
-import { Minus, Plus, Package, PackageOpen, Boxes } from "lucide-react";
+import { Minus, Plus, Package, PackageOpen, Boxes } from "@/lib/icons";
 import type { CargoInput, CargoPreset } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
@@ -35,7 +35,7 @@ function Stepper({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl bg-accent-5 py-2 pl-4 pr-2">
-      <span className="text-sm font-medium text-ink">{label}</span>
+      <span className="text-sm font-normal text-ink">{label}</span>
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -112,6 +112,8 @@ export function CargoPicker({ value, onChange }: { value: CargoInput; onChange: 
           value={value.note ?? ""}
           onChange={(e) => onChange({ ...value, note: e.target.value.slice(0, 200) })}
           placeholder={t("cargo.notePlaceholder")}
+          aria-label={t("cargo.noteLabel")}
+          name="cargo-note"
           rows={3}
           className="block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink transition-colors focus:border-accent"
         />

@@ -34,6 +34,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+    // Browser chrome (status bar / address bar) matches the page background.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0a1020" : "#f5f7fb");
   }, [theme]);
 
   const applyTheme = useCallback((next: Theme) => {

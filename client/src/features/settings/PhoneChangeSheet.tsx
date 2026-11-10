@@ -76,29 +76,36 @@ export function PhoneChangeSheet({ onClose, onDone }: { onClose: () => void; onD
                   key={i}
                   value={d}
                   onChange={(e) => onDigitChange(i, e.target.value)}
+                  name={`code-${i}`}
+                  aria-label={t("auth.codeDigit", { n: i + 1 })}
+                  autoComplete={i === 0 ? "one-time-code" : "off"}
+                  spellCheck={false}
                   inputMode="numeric"
                   maxLength={1}
                   className={cn(
-                    "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
+                    "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40",
                     error ? "border-danger" : "border-border focus:border-accent"
                   )}
                 />
               ))}
             </div>
-            {error && <p className="mt-3 text-xs font-medium text-danger">{error}</p>}
-            <p className="mt-3 text-xs text-ink/40">{t("account.demoCodeHint", { code: demoCode })}</p>
+            {error && <p className="mt-3 text-xs font-normal text-danger">{error}</p>}
+            <p className="mt-3 text-xs text-ink/60">{t("account.demoCodeHint", { code: demoCode })}</p>
           </>
         ) : (
           <>
             <h2 className="mb-4 text-sm font-semibold text-ink">{t("account.changePhone")}</h2>
             <Input
               label={t("account.newPhone")}
+              type="tel"
+              name="phone"
+              autoComplete="tel-national"
               inputMode="numeric"
               autoFocus
               placeholder="90 123 45 67"
               value={value}
               onChange={(e) => setValue(formatPhoneInput(e.target.value))}
-              leftIcon={<span className="text-sm font-medium text-ink/80">+998</span>}
+              leftIcon={<span className="text-sm font-normal text-ink/80">+998</span>}
             />
             <div className="mt-5">
               <Button fullWidth disabled={!isValid} loading={loading} onClick={requestCode}>

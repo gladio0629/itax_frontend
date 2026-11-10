@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "@/lib/icons";
 import { Button } from "@/components/Button";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -110,16 +110,20 @@ export function OtpScreen() {
               }}
               value={d}
               onChange={(e) => onDigitChange(i, e.target.value)}
+              name={`code-${i}`}
+              aria-label={t("auth.codeDigit", { n: i + 1 })}
+              autoComplete={i === 0 ? "one-time-code" : "off"}
+              spellCheck={false}
               inputMode="numeric"
               maxLength={1}
               className={cn(
-                "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors",
+                "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40",
                 error ? "border-danger" : "border-border focus:border-accent"
               )}
             />
           ))}
         </div>
-        {error && <p className="mt-3 text-xs font-medium text-danger">{error}</p>}
+        {error && <p className="mt-3 text-xs font-normal text-danger">{error}</p>}
 
         <button
           disabled={seconds > 0}

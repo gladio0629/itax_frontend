@@ -3,7 +3,7 @@
 // but this file is kept in place (unreferenced) in case Wallet returns.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, CreditCard, Gift, Wallet as WalletIcon } from "lucide-react";
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, CreditCard, Gift, Wallet as WalletIcon } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { PassengerWalletEntry, WalletSummary } from "@/api/types";
 import { Card } from "@/components/Card";
@@ -75,7 +75,7 @@ export function WalletScreen() {
               {wallet.lowBalance && (
                 <div className="flex items-start gap-2 rounded-xl bg-warning/10 p-3">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                  <p className="text-xs font-medium text-warning">
+                  <p className="text-xs font-normal text-warning">
                     Balans past. Karta orqali to'lashdan oldin hamyonni to'ldirishni unutmang.
                   </p>
                 </div>
@@ -111,7 +111,7 @@ export function WalletScreen() {
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-ink">{TYPE_LABEL[e.type]}</p>
+                        <p className="text-sm font-normal text-ink">{TYPE_LABEL[e.type]}</p>
                         <p className="text-xs text-ink/60">{formatRelativeDay(e.createdAt)}</p>
                       </div>
                       <span className={cn("text-sm font-semibold tabular", positive ? "text-accent" : "text-ink")}>

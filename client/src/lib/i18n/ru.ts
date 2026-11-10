@@ -11,6 +11,9 @@ export const ru: Dictionary = {
 
   "common.back": "Назад",
   "common.close": "Закрыть",
+  "auth.codeDigit": "Цифра кода {{n}}",
+  "banner.slowInternet": "Медленное соединение. Загрузка может занять больше времени.",
+  "help.messageLabel": "Сообщение",
   "calendar.prevMonth": "Предыдущий месяц",
   "calendar.nextMonth": "Следующий месяц",
   "common.cancel": "Отмена",
@@ -37,7 +40,9 @@ export const ru: Dictionary = {
   "home.noSavedAddresses": "Сохранённых адресов пока нет.",
 
   "address.pickOnMap": "Выбрать на карте",
-  "address.searchPlaceholder": "Поиск адреса",
+  "address.mapHint": "Нажмите на карту или используйте стрелки, чтобы поставить метку",
+  "history.tabsLabel": "Фильтр заказов",
+  "address.searchPlaceholder": "Поиск адреса…",
   "address.recent": "Недавние",
   "address.notFound": "Адрес не найден",
 
@@ -102,7 +107,7 @@ export const ru: Dictionary = {
   "cargo.customVolume": "Объём",
   "cargo.weight": "Вес",
   "cargo.noteLabel": "Комментарий",
-  "cargo.notePlaceholder": "Дополнительная информация (необязательно)",
+  "cargo.notePlaceholder": "Дополнительная информация (необязательно)…",
 
   "quote.carFare": "Стоимость поездки",
   "quote.seatFare": "Стоимость места ({{count}})",
@@ -176,7 +181,7 @@ export const ru: Dictionary = {
   "history.reason.comfort": "Комфорт",
   "history.reason.simple": "Просто так",
   "history.reason.other": "Другое",
-  "history.reasonNotePlaceholder": "Напишите подробнее (необязательно)",
+  "history.reasonNotePlaceholder": "Напишите подробнее (необязательно)…",
   "history.submit": "Отправить",
 
   "settings.account": "Аккаунт",
@@ -188,6 +193,8 @@ export const ru: Dictionary = {
   "settings.languageName.en": "English",
   "settings.about": "О нас",
   "settings.logout": "Выйти",
+  "settings.logoutConfirmTitle": "Выйти из аккаунта?",
+  "settings.logoutConfirmDesc": "Чтобы войти снова, понадобятся номер телефона и код из SMS.",
 
   "account.edit": "Редактировать",
   "account.firstName": "Имя",
@@ -239,7 +246,7 @@ export const ru: Dictionary = {
   "help.topic.payment": "Оплата",
   "help.topic.app": "Приложение",
   "help.topic.other": "Другое",
-  "help.messagePlaceholder": "Опишите проблему (необязательно)...",
+  "help.messagePlaceholder": "Опишите проблему (необязательно)…",
   "help.phoneHint": "Оператор позвонит на номер {{phone}}",
   "help.submit": "Отправить заявку",
   "help.sentTitle": "Заявка принята",
@@ -329,7 +336,7 @@ export const ru: Dictionary = {
   "cardLink.providerTitle": "IZGO Pay — безопасный платёжный провайдер",
   "cardLink.providerDesc": "После перехода вы выберете карту на странице провайдера. IZGO никогда не видит и не хранит данные карты.",
   "cardLink.labelField": "Название карты",
-  "cardLink.labelPlaceholder": "Например: Рабочая карта",
+  "cardLink.labelPlaceholder": "Например: Рабочая карта…",
   "cardLink.privacyNote": "Провайдер возвращает только тип карты и последние 4 цифры.",
   "cardLink.error": "Карта не привязана. Попробуйте снова.",
   "cardLink.submit": "Перейти к провайдеру",

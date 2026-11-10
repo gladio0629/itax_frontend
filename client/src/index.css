@@ -30,6 +30,17 @@
     font-feature-settings: "cv11", "tnum" 0;
     -webkit-font-smoothing: antialiased;
   }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p,
+  li,
+  label,
+  blockquote {
+    text-wrap: pretty;
+  }
   .tabular {
     font-feature-settings: "tnum" 1;
     font-variant-numeric: tabular-nums;

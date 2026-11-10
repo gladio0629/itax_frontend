@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, LifeBuoy, Phone } from "lucide-react";
+import { ChevronDown, LifeBuoy, Phone } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { HelpRequest, HelpTopic, Profile } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -70,7 +70,7 @@ export function HelpScreen() {
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
                 className="flex min-h-[52px] w-full items-center justify-between gap-3 p-4 text-left"
               >
-                <span className="text-sm font-medium text-ink">{t(`${key}.q` as TranslationKey)}</span>
+                <span className="text-pretty text-sm font-normal text-ink">{t(`${key}.q` as TranslationKey)}</span>
                 <ChevronDown className={cn("h-4 w-4 shrink-0 text-ink/60 transition-transform", openIndex === i && "rotate-180")} />
               </button>
               {openIndex === i && <p className="px-4 pb-4 text-sm text-ink/60">{t(`${key}.a` as TranslationKey)}</p>}
@@ -118,9 +118,11 @@ export function HelpScreen() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value.slice(0, 500))}
                 placeholder={t("help.messagePlaceholder")}
+                aria-label={t("help.messageLabel")}
+                name="message"
                 rows={4}
                 maxLength={500}
-                className="mb-3 w-full resize-none rounded-xl border border-border bg-bg p-3 text-sm text-ink outline-none focus:border-accent"
+                className="mb-3 block w-full resize-none rounded-xl border border-border bg-bg p-3 text-sm text-ink focus:border-accent"
               />
               {profile && (
                 <div className="mb-3 flex items-center gap-2 rounded-xl bg-ink/5 px-3 py-2.5">
@@ -128,7 +130,7 @@ export function HelpScreen() {
                   <span className="text-xs text-ink/70">{t("help.phoneHint", { phone: profile.phoneMasked })}</span>
                 </div>
               )}
-              {submitError && <p className="mb-3 text-xs font-medium text-danger">{t("order.submitError")}</p>}
+              {submitError && <p role="alert" className="mb-3 text-xs font-normal text-danger">{t("order.submitError")}</p>}
               <Button fullWidth loading={submitting} onClick={submit}>
                 {t("help.submit")}
               </Button>
@@ -143,7 +145,7 @@ export function HelpScreen() {
               {previous.map((r) => (
                 <div key={r.id} className="flex items-center justify-between rounded-2xl bg-card p-4 shadow-softer">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink">{t(r.topicKey as TranslationKey)}</p>
+                    <p className="truncate text-sm font-normal text-ink">{t(r.topicKey as TranslationKey)}</p>
                     <p className="text-xs text-ink/60">{formatRelativeDay(r.createdAt, intlTag)}</p>
                   </div>
                   <Badge tone={STATUS_TONE[r.status]}>{t(`help.status.${r.status}` as TranslationKey)}</Badge>

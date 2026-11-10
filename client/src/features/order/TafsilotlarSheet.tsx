@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderMode, OrderTiming, OrderWithDetails, PaymentMethod, Seat } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
@@ -132,7 +132,7 @@ export function TafsilotlarSheet({
         <PaymentMethodSection value={paymentMethod} onChange={setPaymentMethod} />
 
         {error && (
-          <p role="alert" aria-live="polite" className="mt-3 text-xs font-medium text-danger">
+          <p role="alert" aria-live="polite" className="mt-3 text-xs font-normal text-danger">
             {t("order.submitError")}
           </p>
         )}

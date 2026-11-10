@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, CreditCard } from "lucide-react";
+import { ShieldCheck, CreditCard } from "@/lib/icons";
 import { api } from "@/api/client";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
@@ -53,18 +53,20 @@ export function CardLinkScreen() {
     <div className="flex h-full flex-col bg-bg">
       <ScreenHeader title={t("cardLink.title")} />
       <div className="scroll-pb-bar flex-1 overflow-y-auto overscroll-contain px-4">
-        <div className="mb-6 flex flex-col items-center gap-3 rounded-2xl bg-accent p-6 text-center text-white shadow-soft">
+        <div className="mb-6 flex flex-col items-center gap-3 rounded-2xl bg-on-yellow p-6 text-center text-white shadow-soft">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15">
             <CreditCard className="h-6 w-6" />
           </div>
           <p className="text-sm font-semibold">{t("cardLink.providerTitle")}</p>
-          <p className="text-xs opacity-80">{t("cardLink.providerDesc")}</p>
+          <p className="text-xs text-white/80">{t("cardLink.providerDesc")}</p>
         </div>
 
         <div className="space-y-4 rounded-2xl bg-card p-5 shadow-softer">
           <Input
             label={t("cardLink.labelField")}
             placeholder={t("cardLink.labelPlaceholder")}
+            name="card-label"
+            autoComplete="off"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
           />
@@ -75,7 +77,7 @@ export function CardLinkScreen() {
         </p>
       </div>
       <div ref={footerRef} className="px-4 pt-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}>
-        {submitError && <p className="mb-3 text-xs font-medium text-danger">{t("cardLink.error")}</p>}
+        {submitError && <p className="mb-3 text-xs font-normal text-danger">{t("cardLink.error")}</p>}
         <Button fullWidth loading={submitting} onClick={submit}>
           {t("cardLink.submit")}
         </Button>

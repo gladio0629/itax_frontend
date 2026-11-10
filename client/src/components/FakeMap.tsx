@@ -1,4 +1,4 @@
-import { Car, Navigation } from "lucide-react";
+import { Car, Navigation } from "@/lib/icons";
 
 // Full-screen stylized SVG "map" for the home screen background — city
 // blocks + roads in brand-soft colors, a pulsing user dot, a couple of
@@ -86,7 +86,7 @@ export function FakeMap({
           className="pointer-events-none absolute left-1/2 max-w-[56%] -translate-x-1/2 rounded-full bg-card/90 px-3 py-1.5 text-center shadow-softer backdrop-blur-sm"
           style={{ top: "calc(var(--safe-top) + 84px)" }}
         >
-          <p className="truncate text-xs font-medium text-ink/70">{pickupLabel}</p>
+          <p className="truncate text-xs font-normal text-ink/70">{pickupLabel}</p>
         </div>
       )}
 

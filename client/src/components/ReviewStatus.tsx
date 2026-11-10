@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Clock3, Send, X } from "lucide-react";
+import { Check, Clock3, Send, X } from "@/lib/icons";
 import { cn } from "@/lib/cn";
 import { api } from "@/api/client";
 import { useT } from "@/lib/i18n/provider";
@@ -107,7 +107,7 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1.5" role="status" aria-live="polite">
         <p className="text-lg font-semibold text-ink">
           {settled
             ? status === "approved"

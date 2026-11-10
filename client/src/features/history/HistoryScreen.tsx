@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { History as HistoryIcon, Star } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { History as HistoryIcon, Star } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderStatus, OrderWithDetails } from "@/api/types";
 import { Badge } from "@/components/Badge";
@@ -34,11 +34,11 @@ type LoadState = "loading" | "error" | "ready";
 type TabData = { orders: OrderWithDetails[]; cursor: number | null; state: LoadState };
 const EMPTY_TAB: TabData = { orders: [], cursor: 0, state: "loading" };
 
-function OrderRow({ o, intlTag, onClick }: { o: OrderWithDetails; intlTag: string; onClick: () => void }) {
+function OrderRow({ o, intlTag }: { o: OrderWithDetails; intlTag: string }) {
   const { t } = useT();
   const status = STATUS_TONE[o.status] ?? STATUS_TONE.searching;
   return (
-    <button onClick={onClick} className="flex w-full flex-col gap-2 rounded-xl bg-card p-4 text-left shadow-softer">
+    <Link to={`/history/${o.id}`} className="flex w-full flex-col gap-2 rounded-xl bg-card p-4 text-left shadow-softer hover:bg-ink/[0.02]">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-ink">
           {o.fromCity.name} &rarr; {o.toCity.name}
@@ -49,14 +49,14 @@ function OrderRow({ o, intlTag, onClick }: { o: OrderWithDetails; intlTag: strin
         <span>{formatRelativeDay(o.createdAt, intlTag)}</span>
         <span className="flex items-center gap-2">
           {o.rating && (
-            <span className="flex items-center gap-0.5 font-medium text-ink">
+            <span className="flex items-center gap-0.5 font-normal text-ink">
               <Star className="h-3 w-3 fill-brand-yellow text-brand-yellow" /> {o.rating}
             </span>
           )}
           <span className="font-semibold tabular text-ink/80">{formatSom(o.price, intlTag)}</span>
         </span>
       </div>
-    </button>
+    </Link>
   );
 }
 
@@ -103,9 +103,8 @@ function TabPane({
 }
 
 function OrderRowConnected({ order }: { order: OrderWithDetails }) {
-  const navigate = useNavigate();
   const { intlTag } = useT();
-  return <OrderRow o={order} intlTag={intlTag} onClick={() => navigate(`/history/${order.id}`)} />;
+  return <OrderRow o={order} intlTag={intlTag} />;
 }
 
 export function HistoryScreen() {
@@ -183,20 +182,36 @@ export function HistoryScreen() {
     <div className="flex h-full flex-col bg-bg">
       <PageTitle>{t("history.title")}</PageTitle>
 
-      <div role="tablist" className="flex border-b border-border px-4">
+      <div
+        role="tablist"
+        aria-label={t("history.tabsLabel")}
+        className="flex border-b border-border px-4"
+        onKeyDown={(e) => {
+          const delta = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+          if (e.key === "Home" || e.key === "End" || delta) {
+            e.preventDefault();
+            const next = e.key === "Home" ? 0 : e.key === "End" ? FILTERS.length - 1 : (activeIndex + delta + FILTERS.length) % FILTERS.length;
+            setActiveIndex(next);
+            (e.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+          }
+        }}
+      >
         {FILTERS.map((f, i) => (
           <button
             key={f}
+            id={`history-tab-${f}`}
             role="tab"
             aria-selected={activeIndex === i}
+            aria-controls={`history-panel-${f}`}
+            tabIndex={activeIndex === i ? 0 : -1}
             onClick={() => setActiveIndex(i)}
             className={cn(
               "relative min-h-[44px] flex-1 py-3 text-center text-sm font-semibold transition-colors",
-              activeIndex === i ? "text-ink" : "text-ink/50"
+              activeIndex === i ? "text-ink" : "text-ink/60"
             )}
           >
             {t(FILTER_KEY[f])}
-            {activeIndex === i && <span className="absolute inset-x-3 -bottom-px h-[3px] rounded-full bg-brand-yellow" />}
+            {activeIndex === i && <span aria-hidden="true" className="absolute inset-x-3 -bottom-px h-[3px] rounded-full bg-brand-yellow" />}
           </button>
         ))}
       </div>
@@ -218,8 +233,17 @@ export function HistoryScreen() {
             transition: drag.current ? "none" : "transform 280ms cubic-bezier(0.2,0.8,0.2,1)",
           }}
         >
-          {FILTERS.map((f) => (
-            <div key={f} style={{ width: `${100 / FILTERS.length}%` }} className="h-full shrink-0">
+          {FILTERS.map((f, i) => (
+            <div
+              key={f}
+              id={`history-panel-${f}`}
+              role="tabpanel"
+              aria-labelledby={`history-tab-${f}`}
+              // Off-screen panes stay out of the tab order (React 18 types lack `inert`).
+              {...((i !== activeIndex ? { inert: "" } : {}) as Record<string, string>)}
+              style={{ width: `${100 / FILTERS.length}%` }}
+              className="h-full shrink-0"
+            >
               <TabPane data={tabs[f]} onRetry={() => loadTab(f, true)} onLoadMore={() => loadTab(f, false)} />
             </div>
           ))}

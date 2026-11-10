@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MapPin, Search, Map as MapIcon } from "lucide-react";
+import { MapPin, Search, Map as MapIcon } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address } from "@/api/types";
 import { Sheet } from "@/components/Sheet";
@@ -56,6 +56,21 @@ export function AddressPickerSheet({
         </div>
         <div
           className="relative mx-4 mt-3 h-64 overflow-hidden rounded-2xl"
+          role="application"
+          tabIndex={0}
+          aria-label={t("address.mapHint")}
+          onKeyDown={(e) => {
+            const step = 4;
+            const d: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+            const move = d[e.key];
+            if (move) {
+              e.preventDefault();
+              setPin((p) => ({ x: Math.min(100, Math.max(0, p.x + move[0])), y: Math.min(100, Math.max(0, p.y + move[1])) }));
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              confirmMapPin();
+            }
+          }}
           onPointerDown={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             setPin({
@@ -92,6 +107,11 @@ export function AddressPickerSheet({
           <Search className="h-4 w-4 text-ink/60" />
           <input
             autoFocus
+            type="search"
+            name="address"
+            autoComplete="off"
+            enterKeyHint="search"
+            aria-label={title}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("address.searchPlaceholder")}

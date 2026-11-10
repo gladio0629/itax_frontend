@@ -1,4 +1,4 @@
-import { ChevronRight, Mail } from "lucide-react";
+import { ChevronRight, Mail } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Logo } from "@/components/Logo";
 import { Card } from "@/components/Card";
@@ -14,18 +14,18 @@ export function AboutScreen() {
       <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <div className="mb-5 flex flex-col items-center gap-3 py-4 text-center">
           <Logo size={64} />
-          <p className="text-sm font-semibold text-ink">IZGO</p>
+          <p className="text-sm font-semibold text-ink" translate="no">IZGO</p>
           <p className="max-w-[280px] text-xs text-ink/60">{t("about.description")}</p>
-          <p className="text-xs text-ink/40 tabular">{t("about.version", { version: APP_VERSION })}</p>
+          <p className="text-xs text-ink/60 tabular">{t("about.version", { version: APP_VERSION })}</p>
         </div>
 
         <Card className="mb-3 divide-y divide-border" padded={false}>
           <button className="flex w-full items-center justify-between p-4 text-left">
-            <span className="text-sm font-medium text-ink">{t("about.terms")}</span>
+            <span className="text-sm font-normal text-ink">{t("about.terms")}</span>
             <ChevronRight className="h-4 w-4 text-ink/40" />
           </button>
           <button className="flex w-full items-center justify-between p-4 text-left">
-            <span className="text-sm font-medium text-ink">{t("about.privacy")}</span>
+            <span className="text-sm font-normal text-ink">{t("about.privacy")}</span>
             <ChevronRight className="h-4 w-4 text-ink/40" />
           </button>
         </Card>
@@ -37,7 +37,7 @@ export function AboutScreen() {
           <p className="text-sm text-ink/80">{t("about.contactPlaceholder")}</p>
         </Card>
 
-        <p className="mt-4 text-center text-[11px] text-ink/40">{t("about.placeholderNote")}</p>
+        <p className="mt-4 text-center text-xs text-ink/60">{t("about.placeholderNote")}</p>
       </div>
     </div>
   );
