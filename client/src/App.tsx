@@ -1,12 +1,12 @@
+import { Outlet } from "react-router-dom";
 import { PhoneFrame } from "@/components/PhoneFrame";
 import { DemoControlPanel } from "@/components/DemoControlPanel";
-import { AppRoutes } from "./routes";
 
-export default function App() {
+export function RootLayout() {
   return (
     <>
       <PhoneFrame>
-        <AppRoutes />
+        <Outlet />
       </PhoneFrame>
       <DemoControlPanel />
     </>

@@ -1,3 +1,6 @@
+// TODO(wallet): decision pending. Removed from routes/nav in Step 1 per
+// spec — the passenger Wallet concept is superseded by Bonuslar (Step 3),
+// but this file is kept in place (unreferenced) in case Wallet returns.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowDownLeft, ArrowUpRight, CreditCard, Gift, Wallet as WalletIcon } from "lucide-react";
@@ -7,7 +10,6 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
-import { BottomNav } from "@/components/BottomNav";
 import { SkeletonList } from "@/components/Skeleton";
 import { formatSom, formatRelativeDay } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -124,7 +126,6 @@ export function WalletScreen() {
           </>
         )}
       </div>
-      <BottomNav />
     </div>
   );
 }

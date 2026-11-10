@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Bell, Wallet, Tag, Info } from "lucide-react";
 import { api } from "@/api/client";
 import type { NotificationItem } from "@/api/types";
-import { BottomNav } from "@/components/BottomNav";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonList } from "@/components/Skeleton";
@@ -41,10 +40,13 @@ export function NotificationsScreen() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <div className="px-5" style={{ paddingTop: "calc(var(--safe-top) + 24px)" }}>
+      <div className="pl-16 pr-5" style={{ paddingTop: "calc(var(--safe-top) + 24px)" }}>
         <h1 className="text-lg font-semibold text-ink">Bildirishnomalar</h1>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
+      <div
+        className="flex-1 overflow-y-auto px-4 pt-4"
+        style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
+      >
         {state === "loading" && <SkeletonList count={4} />}
         {state === "error" && <ErrorState onRetry={load} />}
         {state === "ready" && items.length === 0 && (
@@ -79,7 +81,6 @@ export function NotificationsScreen() {
           </div>
         )}
       </div>
-      <BottomNav />
     </div>
   );
 }

@@ -64,6 +64,10 @@ export default {
           "60%": { transform: "scale(1.15)" },
           "100%": { transform: "scale(1)" },
         },
+        "drawer-in": {
+          from: { transform: "translateX(-100%)" },
+          to: { transform: "translateX(0)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.3s ease-out",
@@ -73,6 +77,7 @@ export default {
         shimmer: "shimmer 1.6s linear infinite",
         "drive-bob": "drive-bob 1.2s ease-in-out infinite",
         "check-pop": "check-pop 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+        "drawer-in": "drawer-in 0.26s cubic-bezier(0.2,0.8,0.2,1)",
       },
     },
   },

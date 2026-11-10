@@ -6,7 +6,6 @@ import type { City, RouteSuggestion } from "@/api/types";
 import { MapView } from "@/components/MapView";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
-import { BottomNav } from "@/components/BottomNav";
 import { LowConnectionBanner } from "@/components/LowConnectionBanner";
 import { Skeleton } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
@@ -65,7 +64,10 @@ export function HomeScreen() {
 
   return (
     <div className="relative flex h-full flex-col bg-bg">
-      <div className="flex items-center justify-between px-5" style={{ paddingTop: "calc(var(--safe-top) + 20px)" }}>
+      <div
+        className="flex items-center justify-between pl-16 pr-5"
+        style={{ paddingTop: "calc(var(--safe-top) + 20px)" }}
+      >
         <div>
           <p className="text-xs text-ink/60">Xayrli kun{profileName ? "," : ""}</p>
           <p className="text-lg font-semibold text-ink">{profileName || "Mehmon"} 👋</p>
@@ -188,12 +190,11 @@ export function HomeScreen() {
         )}
       </div>
 
-      <div className="px-5 pb-3">
+      <div className="px-5" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
         <Button fullWidth disabled={!canSearch} onClick={() => navigate("/order/configure")}>
           Buyurtma berish
         </Button>
       </div>
-      <BottomNav />
 
       {picker && (
         <CityPickerSheet

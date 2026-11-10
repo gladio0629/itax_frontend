@@ -68,3 +68,71 @@
     background-size: 400% 100%;
   }
 }
+
+/* Page/drawer/theme transitions — confined to the `.vt-root` element (the
+   screen content below the phone-frame chrome) via a named view-transition
+   group, so the phone mockup border never gets swept into the animation.
+   `data-transition` on <html> is set just before each navigation by
+   lib/navigation.ts (push/pop/fade) or lib/theme.tsx (theme). */
+.vt-root {
+  view-transition-name: app-content;
+}
+
+@supports (view-transition-name: none) {
+  ::view-transition-group(app-content) {
+    animation-duration: 320ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  html[data-transition="push"] ::view-transition-old(app-content) {
+    animation-name: izgo-push-out;
+  }
+  html[data-transition="push"] ::view-transition-new(app-content) {
+    animation-name: izgo-push-in;
+  }
+  html[data-transition="pop"] ::view-transition-old(app-content) {
+    animation-name: izgo-pop-out;
+  }
+  html[data-transition="pop"] ::view-transition-new(app-content) {
+    animation-name: izgo-pop-in;
+  }
+  html[data-transition="fade"] ::view-transition-old(app-content) {
+    animation-name: izgo-fade-out;
+  }
+  html[data-transition="fade"] ::view-transition-new(app-content) {
+    animation-name: izgo-fade-in;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(app-content),
+  ::view-transition-old(app-content),
+  ::view-transition-new(app-content) {
+    animation: none !important;
+  }
+}
+
+@keyframes izgo-push-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes izgo-push-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(-25%); opacity: 0.4; }
+}
+@keyframes izgo-pop-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes izgo-pop-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(25%); opacity: 0.4; }
+}
+@keyframes izgo-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes izgo-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
