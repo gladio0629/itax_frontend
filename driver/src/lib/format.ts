@@ -1,21 +1,18 @@
 // Display formatting only — no business rules. Every amount arrives from the
 // adapter already computed; these helpers just print it.
+import type { TranslationKey } from "./i18n/uz";
 
 const NBSP = " ";
+type T = (k: TranslationKey, p?: Record<string, string | number>) => string;
 
 export function groupDigits(value: number): string {
-  const abs = Math.abs(Math.round(value));
-  return abs.toString().replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+  return Math.abs(Math.round(value)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
 }
 
 /** "125 000" with a real minus sign for negatives. */
 export function formatAmount(value: number, opts?: { signed?: boolean }): string {
   const sign = value < 0 ? "−" : opts?.signed && value > 0 ? "+" : "";
   return `${sign}${groupDigits(value)}`;
-}
-
-export function formatSom(value: number, currency: string, opts?: { signed?: boolean }): string {
-  return `${formatAmount(value, opts)}${NBSP}${currency}`;
 }
 
 /** Short form for chips: 10K, 25K, 1.2M */
@@ -25,12 +22,21 @@ export function formatShort(value: number): string {
   return String(value);
 }
 
-export function formatTime(ts: number, intlTag: string): string {
-  return new Date(ts).toLocaleTimeString(intlTag, { hour: "2-digit", minute: "2-digit", hour12: false });
+/** 24h clock, independent of ICU locale data. */
+export function formatTime(ts: number, _intlTag?: string): string {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export function formatDate(ts: number, intlTag: string): string {
-  return new Date(ts).toLocaleDateString(intlTag, { day: "numeric", month: "long" });
+/** "11 noyabr" — month names come from our dictionaries, not ICU (which may lack uz). */
+export function formatDate(ts: number, t: T): string {
+  const d = new Date(ts);
+  return `${d.getDate()} ${t(`month.${d.getMonth() + 1}` as TranslationKey)}`;
+}
+
+export function formatDuration(min: number, t: T): string {
+  if (min < 60) return `${min} ${t("common.min")}`;
+  return t("common.durationHm", { h: Math.floor(min / 60), m: min % 60 });
 }
 
 export function dayDiff(ts: number, now = Date.now()): number {
@@ -39,8 +45,4 @@ export function dayDiff(ts: number, now = Date.now()): number {
   const b = new Date(ts);
   b.setHours(0, 0, 0, 0);
   return Math.round((a.getTime() - b.getTime()) / 86_400_000);
-}
-
-export function formatRating(r: number): string {
-  return r.toFixed(1);
 }

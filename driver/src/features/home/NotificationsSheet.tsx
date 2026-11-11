@@ -20,7 +20,7 @@ const ICON: Record<NotificationKind, { icon: typeof Gift; tile: keyof typeof TIL
 };
 
 export function NotificationsSheet({ open, onClose, onRead }: { open: boolean; onClose: () => void; onRead: () => void }) {
-  const { t, intlTag } = useT();
+  const { t } = useT();
   const list = useQuery(() => api.getNotifications(), [open]);
   const unread = list.data?.some((n) => !n.read);
 
@@ -55,7 +55,7 @@ export function NotificationsSheet({ open, onClose, onRead }: { open: boolean; o
                       {!n.read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-yellow" aria-label="•" />}
                     </div>
                     <p className="text-sm text-muted">{isKey(n.bodyKey) ? t(n.bodyKey, n.params) : n.bodyKey}</p>
-                    <p className="tabular mt-1 text-xs text-muted">{relativeTime(n.createdAt, t, intlTag)}</p>
+                    <p className="tabular mt-1 text-xs text-muted">{relativeTime(n.createdAt, t)}</p>
                   </div>
                 </li>
               );

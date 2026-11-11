@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "@/lib/i18n/provider";
 import { X } from "@/lib/icons";
 
@@ -32,7 +33,7 @@ export function Sheet({
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
-    (panel?.querySelector<HTMLElement>("[data-autofocus]") ?? panel?.querySelector<HTMLElement>(FOCUSABLE))?.focus();
+    (panel?.querySelector<HTMLElement>("[data-autofocus]") ?? panel?.querySelector<HTMLElement>(FOCUSABLE))?.focus({ preventScroll: true });
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") return onCloseRef.current();
       if (e.key !== "Tab" || !panel) return;
@@ -51,13 +52,13 @@ export function Sheet({
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      prev?.focus?.();
+      prev?.focus?.({ preventScroll: true });
     };
   }, [open]);
 
   if (!open) return null;
 
-  return (
+  const node = (
     <div className="absolute inset-0 z-50" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 animate-fade-in bg-black/50" onClick={onClose} aria-hidden="true" />
       <div
@@ -101,4 +102,7 @@ export function Sheet({
       </div>
     </div>
   );
+  // Portal to the app-level overlay root so the sheet covers the tab bar.
+  const root = document.getElementById("overlay-root");
+  return root ? createPortal(node, root) : node;
 }

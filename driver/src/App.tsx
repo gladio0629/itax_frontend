@@ -25,6 +25,7 @@ export default function App() {
           ) : (
             <RouteFallback />
           )}
+          <div id="overlay-root" />
           <Toaster />
         </div>
       </div>
