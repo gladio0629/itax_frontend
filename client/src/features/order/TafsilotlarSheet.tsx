@@ -33,6 +33,8 @@ export function TafsilotlarSheet({
   const [seatIds, setSeatIds] = useState<string[]>(order.seatIds);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(order.paymentMethod);
   const [timing, setTiming] = useState<OrderTiming>(order.extras?.timing ?? { timeMode: "now" });
+  // A save that only changes, say, payment mustn't re-book the time.
+  const [timingTouched, setTimingTouched] = useState(false);
   const [picker, setPicker] = useState<"from" | "to" | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [seatsError, setSeatsError] = useState(false);
@@ -62,7 +64,14 @@ export function TafsilotlarSheet({
     setSaving(true);
     setError(false);
     try {
-      const updated = await api.updateOrder(order.id, { fromAddressId, toAddressId, mode, seatIds, paymentMethod, timing });
+      const updated = await api.updateOrder(order.id, {
+        fromAddressId,
+        toAddressId,
+        mode,
+        seatIds,
+        paymentMethod,
+        ...(timingTouched ? { timing } : {}),
+      });
       onUpdated(updated);
       onClose();
     } catch {
@@ -119,7 +128,13 @@ export function TafsilotlarSheet({
         </div>
 
         <div className="mb-5">
-          <TimeSelector value={timing} onChange={setTiming} />
+          <TimeSelector
+            value={timing}
+            onChange={(next, source) => {
+              setTiming(next);
+              if (source === "user") setTimingTouched(true);
+            }}
+          />
         </div>
 
         <PaymentMethodSection value={paymentMethod} onChange={setPaymentMethod} />

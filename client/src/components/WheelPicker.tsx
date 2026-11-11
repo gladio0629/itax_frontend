@@ -41,6 +41,8 @@ export function WheelPicker({
   const valueRef = useRef(value);
   valueRef.current = value;
   const mounted = useRef(false);
+  /** True from the first scroll event until the wheel settles. */
+  const scrolling = useRef(false);
 
   const reducedMotion = () =>
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -86,6 +88,8 @@ export function WheelPicker({
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    // A parent re-render mid-fling must not yank the wheel; settle() resyncs.
+    if (scrolling.current) return;
     const want = Math.max(0, options.indexOf(value));
     if (Math.round(el.scrollTop / ITEM_HEIGHT) !== want) scrollToIndex(want, mounted.current);
     else schedulePaint();
@@ -103,6 +107,7 @@ export function WheelPicker({
   );
 
   function settle() {
+    scrolling.current = false;
     const el = containerRef.current;
     if (!el) return;
     const idx = Math.max(0, Math.min(options.length - 1, Math.round(el.scrollTop / ITEM_HEIGHT)));
@@ -118,6 +123,7 @@ export function WheelPicker({
   }
 
   function handleScroll() {
+    scrolling.current = true;
     schedulePaint();
     clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(settle, 140);

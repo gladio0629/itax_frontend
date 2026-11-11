@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import { Check, Lock } from "@/lib/icons";
 import type { OrderMode, Seat, SeatPosition } from "@/api/types";
 import { formatSom } from "@/lib/format";
@@ -202,6 +202,13 @@ export function SeatMap({
   const isAvailable = (id: string) => !byId[id]?.taken || seatIds.includes(id);
   const available = SEAT_PRIORITY.filter(isAvailable);
   const anyTaken = available.length < SEAT_PRIORITY.length;
+
+  // Whole car is the default, but someone already holds a seat on this
+  // route: drop back to per-seat booking so the passenger picks a count.
+  useEffect(() => {
+    if (wholeCar && anyTaken) onChange("seat", []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wholeCar, anyTaken]);
 
   function pickCount(n: 1 | 2 | 3) {
     // Keep seats the passenger already chose by hand, then fill by priority.

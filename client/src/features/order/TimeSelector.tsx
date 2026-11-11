@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import type { OrderTiming, SchedulingRules } from "@/api/types";
 import { Button } from "@/components/Button";
@@ -29,11 +29,12 @@ type Notice = { key: "jumped" | "gapFixed" | "rangeTooLong"; time?: string } | n
 
 /** Re-render once a minute so "past" rows grey out as the clock moves. */
 function useMinuteTick() {
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 30_000);
     return () => clearInterval(id);
   }, []);
+  return tick;
 }
 
 function Segmented<T extends string>({
@@ -99,44 +100,69 @@ function Expand({ open, children }: { open: boolean; children: React.ReactNode }
  * adapter's rules, so the value is always bookable: a past time today moves
  * to tomorrow, "gacha" is kept ≥ "dan" + minRangeMinutes.
  */
-export function TimeSelector({ value, onChange }: { value: OrderTiming; onChange: (timing: OrderTiming) => void }) {
+export function TimeSelector({
+  value,
+  onChange,
+}: {
+  value: OrderTiming;
+  /** `source` is "auto" when the selector itself pulled a stale value back
+   * into the window (on load, or as the clock moved) — not a user edit. */
+  onChange: (timing: OrderTiming, source: "user" | "auto") => void;
+}) {
   const { t, intlTag } = useT();
   const rulesQuery = useQuery(() => api.getSchedulingRules(), []);
-  useMinuteTick();
+  const tick = useMinuteTick();
+  // "Siz istagan" tapped before the rules arrived: open now, fill in once
+  // they load (or show the error + retry inside the panel).
+  const [pendingCustom, setPendingCustom] = useState(false);
   const lastScheduled = useRef<ScheduledTiming | null>(value.timeMode === "scheduled" ? value : null);
   const [notice, setNotice] = useState<Notice>(null);
   // The date a second tap would close a range on. Null until the passenger
   // actively taps a date, so the default "today" never anchors a range.
   const [anchor, setAnchor] = useState<string | null>(null);
   const custom = value.timeMode === "scheduled";
+  const open = custom || pendingCustom;
 
-  // Bring a stored timing (legacy "today", or one that has since gone stale)
-  // back inside the rules once they arrive.
-  useEffect(() => {
-    if (rulesQuery.status !== "success" || value.timeMode !== "scheduled") return;
-    const { timing } = normalizeTiming(value, rulesQuery.data, new Date());
-    if (JSON.stringify(timing) !== JSON.stringify(value)) onChange(timing);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rulesQuery.status]);
-
-  function commit(next: ScheduledTiming, rules: SchedulingRules, why?: Notice) {
+  function commit(next: ScheduledTiming, rules: SchedulingRules, why?: Notice, source: "user" | "auto" = "user") {
     const { timing, jumpedToTomorrow } = normalizeTiming(next, rules, new Date());
     lastScheduled.current = timing;
     if (jumpedToTomorrow) {
       setNotice({ key: "jumped", time: timing.timeKind === "range" ? timing.timeRange!.from : timing.time });
       setAnchor(null);
-    } else setNotice(why ?? null);
-    onChange(timing);
+    } else if (source === "user") setNotice(why ?? null);
+    if (source === "user" || JSON.stringify(timing) !== JSON.stringify(value)) onChange(timing, source);
   }
+
+  // Rules arrived after an early "Siz istagan" tap: apply the default.
+  useEffect(() => {
+    if (!pendingCustom || rulesQuery.status !== "success") return;
+    setPendingCustom(false);
+    if (value.timeMode !== "scheduled") commit(lastScheduled.current ?? defaultScheduled(rulesQuery.data, new Date()), rulesQuery.data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingCustom, rulesQuery.status]);
+
+  // Keep a stored or open selection bookable as the clock moves (legacy
+  // "today", or a time that has passed while the panel sat open) — with the
+  // same "moved to tomorrow" notice a scroll would show.
+  useEffect(() => {
+    if (rulesQuery.status !== "success" || value.timeMode !== "scheduled") return;
+    commit(value, rulesQuery.data, undefined, "auto");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rulesQuery.status, tick]);
 
   function chooseMode(mode: "driver" | "custom") {
     setNotice(null);
     if (mode === "driver") {
+      setPendingCustom(false);
       if (value.timeMode === "scheduled") lastScheduled.current = value;
-      onChange({ timeMode: "now" });
+      onChange({ timeMode: "now" }, "user");
       return;
     }
-    if (rulesQuery.status !== "success") return;
+    if (rulesQuery.status !== "success") {
+      setPendingCustom(true);
+      if (rulesQuery.status === "error") rulesQuery.refetch();
+      return;
+    }
     const rules = rulesQuery.data;
     commit(lastScheduled.current ?? defaultScheduled(rules, new Date()), rules);
   }
@@ -148,16 +174,16 @@ export function TimeSelector({ value, onChange }: { value: OrderTiming; onChange
       </p>
       <Segmented
         label={t("when.title")}
-        value={custom ? "custom" : "driver"}
+        value={open ? "custom" : "driver"}
         onChange={chooseMode}
         options={[
           { id: "driver", label: t("when.driver") },
           { id: "custom", label: t("when.custom") },
         ]}
       />
-      {!custom && <p className="text-xs text-ink/60">{t("when.driverHint")}</p>}
+      {!open && <p className="text-xs text-ink/60">{t("when.driverHint")}</p>}
 
-      <Expand open={custom}>
+      <Expand open={open}>
         {rulesQuery.status === "error" ? (
           <div role="alert" className="mt-1 flex items-center gap-3 rounded-card border border-border p-4">
             <p className="min-w-0 flex-1 text-sm text-ink/70">{t("when.loadError")}</p>
@@ -209,7 +235,8 @@ function ScheduledFields({
   const now = new Date();
   const today = isoDay(now);
   const days = bookableDays(rules, now);
-  const slots = timeSlots(rules);
+  // Stable identity: a fresh array each render would re-trigger the wheels.
+  const slots = useMemo(() => timeSlots(rules), [rules]);
   const start = resolveDay(timing.date, now);
   const end = timing.dateEnd ? resolveDay(timing.dateEnd, now) : undefined;
   const earliest = earliestToday(rules, now);
@@ -342,7 +369,7 @@ function ScheduledFields({
         ]}
       />
 
-      <div key={timing.timeKind} className="animate-fade-in">
+      <div key={timing.timeKind} className="animate-[fade-in_240ms_ease-out]">
         {timing.timeKind === "exact" ? (
           <div className="mx-auto max-w-[200px]">
             <WheelPicker
