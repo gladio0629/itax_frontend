@@ -13,6 +13,11 @@ function groupedNumber(value: number, intlTag: string): string {
   return new Intl.NumberFormat(NUMBER_LOCALE_MAP[intlTag] ?? intlTag).format(value);
 }
 
+/** Plain grouped number ("1 000") in the current locale's style. */
+export function formatNumber(value: number, intlTag = "uz-Latn"): string {
+  return groupedNumber(value, intlTag);
+}
+
 // Currency label always comes from the adapter as the literal word "so'm"
 // (not translated) — Quote.currency is "som" everywhere, uz/ru/en alike.
 export function formatSom(value: number, intlTag = "uz-Latn"): string {

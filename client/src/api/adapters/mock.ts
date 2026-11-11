@@ -17,6 +17,7 @@ import type { ApiAdapter } from "../adapterTypes";
 import type {
   CargoInput,
   DeliveryVehicle,
+  DeliveryVehicleSpec,
   AccountSummary,
   BonusHistoryPage,
   BonusSource,
@@ -43,18 +44,21 @@ import type {
   UpdateOrderInput,
   WalletSummary,
 } from "../types";
+import { DELIVERY_VEHICLES } from "../types";
 
 const DEMO_OTP_CODE = "0000";
-// Delivery tariff per vehicle: each one has its own band (base + per km), strictly
-// rising from Spark to a semi truck on any route. Price lives here only.
-const VEHICLE_RATES: Record<DeliveryVehicle, { base: number; perKm: number }> = {
-  spark: { base: 20_000, perKm: 400 },
-  damas: { base: 35_000, perKm: 600 },
-  labo: { base: 50_000, perKm: 800 },
-  isuzu: { base: 120_000, perKm: 1_400 },
-  isuzu2: { base: 180_000, perKm: 2_000 },
-  fura: { base: 350_000, perKm: 3_500 },
+// Delivery vehicles: what the picker shows and what each one costs, in one record
+// so the two can't drift. Price bands (base + per km) rise strictly from Spark to
+// Fura on any route. Price lives here only — the client never computes it.
+const VEHICLES: Record<DeliveryVehicle, Omit<DeliveryVehicleSpec, "id"> & { base: number; perKm: number }> = {
+  spark: { descKey: "cargo.desc.spark", dimensionsCm: { width: 170, depth: 100, height: 90 }, maxWeightKg: 300, base: 20_000, perKm: 400 },
+  damas: { descKey: "cargo.desc.damas", dimensionsCm: { width: 220, depth: 130, height: 130 }, maxWeightKg: 700, base: 35_000, perKm: 600 },
+  labo: { descKey: "cargo.desc.labo", dimensionsCm: { width: 280, depth: 160, height: 50 }, maxWeightKg: 1_000, base: 50_000, perKm: 800 },
+  isuzu: { descKey: "cargo.desc.isuzu", dimensionsCm: { width: 420, depth: 200, height: 200 }, maxWeightKg: 3_000, base: 120_000, perKm: 1_400 },
+  isuzu2: { descKey: "cargo.desc.isuzu2", dimensionsCm: { width: 600, depth: 240, height: 240 }, maxWeightKg: 5_000, base: 180_000, perKm: 2_000 },
+  fura: { descKey: "cargo.desc.fura", dimensionsCm: { width: 840, depth: 260, height: 240 }, maxWeightKg: 8_000, base: 350_000, perKm: 3_500 },
 };
+const VEHICLE_RATES = VEHICLES;
 const DEFAULT_CARGO: CargoInput = { vehicle: "spark" };
 
 /** One source for both the quote and the charged price, so they can't drift. */
@@ -317,6 +321,16 @@ export const mockAdapter: ApiAdapter = {
         price: computePrice(distanceKm, "seat", position === "front" ? ["front"] : [], DEFAULT_TARIFF),
       }));
     }, { minMs: 200, maxMs: 450 }),
+
+  getDeliveryVehicles: () =>
+    withLatency<DeliveryVehicleSpec[]>(
+      () =>
+        DELIVERY_VEHICLES.map((id) => {
+          const { descKey, dimensionsCm, maxWeightKg } = VEHICLES[id];
+          return { id, descKey, dimensionsCm: { ...dimensionsCm }, maxWeightKg };
+        }),
+      { minMs: 200, maxMs: 450 }
+    ),
 
   getQuote: (input: QuoteInput) =>
     withLatency<Quote>(() => {

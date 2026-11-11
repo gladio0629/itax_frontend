@@ -15,6 +15,14 @@ export type ServiceType = "passenger" | "delivery";
 /** Delivery is priced by the vehicle the client picks — no weight or volume. */
 export type DeliveryVehicle = "spark" | "damas" | "labo" | "isuzu" | "isuzu2" | "fura";
 export const DELIVERY_VEHICLES: DeliveryVehicle[] = ["spark", "damas", "labo", "isuzu", "isuzu2", "fura"];
+/** What the delivery picker shows for one vehicle. Dimensions are the cargo
+ * space in cm: width (along the vehicle) × depth × height. */
+export type DeliveryVehicleSpec = {
+  id: DeliveryVehicle;
+  descKey: string;
+  dimensionsCm: { width: number; depth: number; height: number };
+  maxWeightKg: number;
+};
 export type CargoInput = {
   vehicle: DeliveryVehicle;
   note?: string;
