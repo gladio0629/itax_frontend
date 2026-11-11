@@ -5,6 +5,7 @@ import { Avatar } from "@/components/Avatar";
 import { Stars } from "@/components/Stars";
 import { Money } from "@/components/Money";
 import { toast } from "@/lib/toast";
+import { formatDuration } from "@/lib/format";
 import { TripSteps } from "./TripSteps";
 import { cn } from "@/lib/cn";
 
@@ -61,9 +62,7 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
           <p className="tabular text-lg font-bold text-ink">
             {trip.remainingKm} <span className="text-xs font-medium text-muted">{t("common.km")}</span>
           </p>
-          <p className="tabular text-xs text-muted">
-            {trip.remainingMin} {t("common.min")}
-          </p>
+          <p className="tabular text-xs text-muted">{formatDuration(trip.remainingMin, t)}</p>
         </div>
       </div>
 
