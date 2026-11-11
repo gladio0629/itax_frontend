@@ -60,7 +60,7 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
                 {offer.payment === "cash" ? t("pay.cash") : t("pay.card")}
               </span>
             </div>
-            <p className="tabular whitespace-nowrap text-xl font-bold text-gold">
+            <p className="tabular whitespace-nowrap text-xl font-bold text-gold max-[370px]:text-lg">
               {formatAmount(offer.priceMin)}–{formatAmount(offer.priceMax)}
               <span className="ml-1 text-sm font-medium text-muted">{t("common.som")}</span>
             </p>
