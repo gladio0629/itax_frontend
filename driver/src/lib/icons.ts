@@ -73,6 +73,7 @@ export const Timer = wrap(L.Timer);
 export const Trophy = wrap(L.Trophy);
 export const Upload = wrap(L.Upload);
 export const User = wrap(L.User);
+export const UserPlus = wrap(L.UserPlus);
 export const Users = wrap(L.Users);
 export const Wallet = wrap(L.Wallet);
 export const WifiOff = wrap(L.WifiOff);

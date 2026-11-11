@@ -309,6 +309,12 @@ export function seedState(opts: SeedOpts = {}): DriverState {
   ];
 
   const registered = opts.registered ?? true;
+  if (!registered) {
+    // A brand-new driver has no history, money or cards yet.
+    trips.length = 0;
+    ledger.length = 0;
+    notifications.length = 0;
+  }
   return {
     version: 3,
     seededAt: now,
@@ -331,13 +337,13 @@ export function seedState(opts: SeedOpts = {}): DriverState {
       memberSinceYear: 2023,
     },
     online: opts.online ?? false,
-    balance: target,
+    balance: registered ? target : 0,
     ledger,
     trips,
-    cards: [{ id: "card_1", brand: "uzcard", last4: "4417", provider: "payme" }],
+    cards: registered ? [{ id: "card_1", brand: "uzcard", last4: "4417", provider: "payme" }] : [],
     notifications,
     prefs: { master: true, newOrders: true, payments: true, news: false, bonus: true },
-    help: [{ id: "help_1", topic: "payment", createdAt: now - day * 6, status: "resolved" }],
+    help: registered ? [{ id: "help_1", topic: "payment", createdAt: now - day * 6, status: "resolved" }] : [],
     offer: null,
     nextOfferAt: null,
     trip: null,
