@@ -108,7 +108,7 @@ export function StatsScreen() {
                     tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
                   />
                   <Tooltip formatter={(v: number) => formatSom(v)} contentStyle={TOOLTIP_STYLE} cursor={CURSOR} />
-                  <Area type="monotone" dataKey="income" name="Daromad" stroke={NAVY} strokeWidth={2} fill="url(#incomeFill)" dot={false} activeDot={{ r: 4, fill: YELLOW, stroke: NAVY, strokeWidth: 2 }} />
+                  <Area type="monotone" animationDuration={400} dataKey="income" name="Daromad" stroke={NAVY} strokeWidth={2} fill="url(#incomeFill)" dot={false} activeDot={{ r: 4, fill: YELLOW, stroke: NAVY, strokeWidth: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -125,8 +125,8 @@ export function StatsScreen() {
                     <YAxis tick={{ fontSize: 12, fill: AXIS }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} cursor={CURSOR} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                    <Line type="monotone" dataKey="passengers" name="Yo'lovchilar" stroke={NAVY} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="drivers" name="Haydovchilar" stroke={YELLOW} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                    <Line type="monotone" animationDuration={400} dataKey="passengers" name="Yo'lovchilar" stroke={NAVY} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                    <Line type="monotone" animationDuration={400} dataKey="drivers" name="Haydovchilar" stroke={YELLOW} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -141,7 +141,7 @@ export function StatsScreen() {
                     <XAxis dataKey="label" tick={{ fontSize: 12, fill: AXIS }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 12, fill: AXIS }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} cursor={CURSOR} />
-                    <Bar dataKey="count" name="Buyurtmalar" radius={[4, 4, 0, 0]} maxBarSize={56}>
+                    <Bar dataKey="count" animationDuration={400} name="Buyurtmalar" radius={[4, 4, 0, 0]} maxBarSize={56}>
                       {stats.ordersByStatus.map((s) => (
                         <Cell key={s.status} fill={s.status === "completed" ? YELLOW : s.status === "no_driver" || s.status === "cancelled" ? "#9AA8C7" : NAVY} />
                       ))}

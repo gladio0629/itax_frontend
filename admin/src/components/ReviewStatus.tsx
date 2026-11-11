@@ -83,8 +83,8 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
       <div className="relative flex h-24 w-24 items-center justify-center">
         {!settled && (
           <>
-            <span className="absolute inset-0 rounded-full bg-accent-10 animate-pulse-ring" />
-            <span className="absolute inset-0 rounded-full bg-accent-10 animate-pulse-ring [animation-delay:0.6s]" />
+            <span className="absolute inset-0 rounded-full bg-warning/10 animate-pulse-ring" />
+            <span className="absolute inset-0 rounded-full bg-warning/10 animate-pulse-ring [animation-delay:0.6s]" />
           </>
         )}
         <div
@@ -92,9 +92,9 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
             "flex h-20 w-20 items-center justify-center rounded-full",
             settled
               ? status === "approved"
-                ? "bg-accent text-white animate-check-pop"
+                ? "bg-success text-white animate-check-pop"
                 : "bg-danger text-white animate-check-pop"
-              : "bg-accent-10 text-accent"
+              : "bg-warning/10 text-warning"
           )}
         >
           {settled ? (
@@ -127,12 +127,12 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
             <div key={step.key} className="flex flex-1 flex-col items-center gap-2">
               <div className="flex w-full items-center">
                 {i > 0 && (
-                  <span className={cn("h-0.5 flex-1", isDone || isActive ? "bg-accent" : "bg-border")} />
+                  <span className={cn("h-0.5 flex-1", isDone ? "bg-success" : isActive ? "bg-brand-yellow" : "bg-border")} />
                 )}
                 <div
                   className={cn(
                     "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-                    isDone ? "bg-accent text-white" : isActive ? "bg-accent-10 text-accent" : "bg-ink/5 text-ink/60"
+                    isDone ? "bg-success text-white" : isActive ? "bg-brand-yellow text-on-yellow" : "bg-ink/5 text-ink/60"
                   )}
                 >
                   <Icon className="h-4 w-4" />

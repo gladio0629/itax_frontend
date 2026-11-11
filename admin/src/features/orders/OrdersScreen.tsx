@@ -345,6 +345,8 @@ export function OrdersScreen() {
                 <div className="grid grid-cols-2 gap-2">
                   {SEATS.map((s) => (
                     <button
+            type="button"
+            aria-pressed={editForm.seatIds.includes(s.id)}
                       key={s.id}
                       onClick={() =>
                         setEditForm((f) => ({
@@ -354,7 +356,7 @@ export function OrdersScreen() {
                       }
                       className={cn(
                         "rounded-button border-2 py-2 text-xs font-semibold",
-                        editForm.seatIds.includes(s.id) ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
+                        editForm.seatIds.includes(s.id) ? "border-brand-yellow bg-brand-yellow/15 text-on-yellow" : "border-border text-ink/70 hover:bg-ink/[0.03]"
                       )}
                     >
                       {s.label}
@@ -471,14 +473,18 @@ export function OrdersScreen() {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button
+            type="button"
+            aria-pressed={form.mode === "car"}
             onClick={() => setForm((f) => ({ ...f, mode: "car", seatIds: [] }))}
-            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.mode === "car" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.mode === "car" ? "border-brand-yellow bg-brand-yellow/15 text-on-yellow" : "border-border text-ink/70 hover:bg-ink/[0.03]")}
           >
             Butun mashina
           </button>
           <button
+            type="button"
+            aria-pressed={form.mode === "seat"}
             onClick={() => setForm((f) => ({ ...f, mode: "seat" }))}
-            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.mode === "seat" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.mode === "seat" ? "border-brand-yellow bg-brand-yellow/15 text-on-yellow" : "border-border text-ink/70 hover:bg-ink/[0.03]")}
           >
             Bir joy
           </button>
@@ -487,6 +493,8 @@ export function OrdersScreen() {
           <div className="grid grid-cols-2 gap-2">
             {SEATS.map((s) => (
               <button
+            type="button"
+            aria-pressed={form.seatIds.includes(s.id)}
                 key={s.id}
                 onClick={() =>
                   setForm((f) => ({
@@ -496,7 +504,7 @@ export function OrdersScreen() {
                 }
                 className={cn(
                   "rounded-button border-2 py-2 text-xs font-semibold",
-                  form.seatIds.includes(s.id) ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
+                  form.seatIds.includes(s.id) ? "border-brand-yellow bg-brand-yellow/15 text-on-yellow" : "border-border text-ink/70 hover:bg-ink/[0.03]"
                 )}
               >
                 {s.label}
@@ -506,14 +514,18 @@ export function OrdersScreen() {
         )}
         <div className="grid grid-cols-2 gap-2">
           <button
+            type="button"
+            aria-pressed={form.paymentMethod === "cash"}
             onClick={() => setForm((f) => ({ ...f, paymentMethod: "cash" }))}
-            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.paymentMethod === "cash" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.paymentMethod === "cash" ? "border-brand-yellow bg-brand-yellow/15 text-on-yellow" : "border-border text-ink/70 hover:bg-ink/[0.03]")}
           >
             Naqd
           </button>
           <button
+            type="button"
+            aria-pressed={form.paymentMethod === "card"}
             onClick={() => setForm((f) => ({ ...f, paymentMethod: "card" }))}
-            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.paymentMethod === "card" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.paymentMethod === "card" ? "border-brand-yellow bg-brand-yellow/15 text-on-yellow" : "border-border text-ink/70 hover:bg-ink/[0.03]")}
           >
             Karta
           </button>

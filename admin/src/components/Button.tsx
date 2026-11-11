@@ -15,7 +15,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 // Colour changes are instant; only the press scale animates (transform-only motion).
 const base =
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-button font-semibold transition-transform active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 select-none";
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-button font-semibold transition-transform active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 select-none";
 
 const variants: Record<Variant, string> = {
   // Brand yellow is the signature accent: every primary action, always with on-yellow text.

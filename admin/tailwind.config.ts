@@ -66,9 +66,8 @@ export default {
           "100%": { backgroundPosition: "200% 0" },
         },
         "check-pop": {
-          "0%": { transform: "scale(0)" },
-          "60%": { transform: "scale(1.15)" },
-          "100%": { transform: "scale(1)" },
+          "0%": { opacity: "0", transform: "scale(0.9)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
         },
       },
       animation: {
@@ -78,7 +77,7 @@ export default {
         "scale-in": "scale-in 0.2s cubic-bezier(0.2,0,0,1)",
         "pulse-ring": "pulse-ring 1.8s cubic-bezier(0.2,0.6,0.4,1) infinite",
         shimmer: "shimmer 1.6s linear infinite",
-        "check-pop": "check-pop 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+        "check-pop": "check-pop 0.2s cubic-bezier(0.2,0,0,1)",
       },
     },
   },
