@@ -8,7 +8,8 @@ import { useCountUp } from "@/lib/useCountUp";
 import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { formatAmount } from "@/lib/format";
-import { AlertTriangle, Bell, Power } from "@/lib/icons";
+import { Bell, Power } from "@/lib/icons";
+import { DebtBanner } from "@/features/wallet/DebtBanner";
 import { Avatar } from "@/components/Avatar";
 import { DemoBadge } from "@/components/DemoBadge";
 import { Skeleton } from "@/components/Skeleton";
@@ -185,7 +186,7 @@ export default function HomeScreen() {
           <OfferCard key={offer.id} offer={offer} accepting={accepting} blocked={blocked} onAccept={accept} onSkip={skip} onExpire={expire} />
         ) : (
           <>
-            {s && s.debt.level !== "ok" && <DebtBanner level={s.debt.level} onTopup={() => navigate("/wallet/topup")} />}
+            {s && <DebtBanner level={s.debt.level} onTopup={() => navigate("/wallet/topup")} className="shadow-2" />}
             <OnlineToggle online={online} loading={toggling || !s} onToggle={toggleOnline} hint={!s ? "" : !online ? t("home.offlineHint") : blocked ? t("home.blockedHint") : t("home.waiting")} />
           </>
         )}
@@ -200,20 +201,6 @@ export default function HomeScreen() {
           if (await tc.cancel(reason)) setCancelOpen(false);
         }}
       />
-    </div>
-  );
-}
-
-function DebtBanner({ level, onTopup }: { level: "near" | "blocked"; onTopup: () => void }) {
-  const { t } = useT();
-  const blocked = level === "blocked";
-  return (
-    <div role="alert" className={cn("flex animate-fade-up items-center gap-3 rounded-card p-3 pl-4 shadow-2", blocked ? "bg-danger text-white" : "bg-warning text-[#1a1203]")}>
-      <AlertTriangle className="h-5 w-5 shrink-0" />
-      <p className="min-w-0 flex-1 text-sm font-medium">{blocked ? t("wallet.blockedBanner") : t("wallet.nearBanner")}</p>
-      <button type="button" onClick={onTopup} className="press h-12 shrink-0 rounded-button bg-black/20 px-4 text-sm font-bold">
-        {t("wallet.topup")}
-      </button>
     </div>
   );
 }

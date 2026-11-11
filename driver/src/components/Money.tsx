@@ -8,7 +8,7 @@ export function Money({ value, signed, className, unitClassName }: { value: numb
   return (
     <span className={cn("tabular whitespace-nowrap", className)}>
       {formatAmount(value, { signed })}
-      <span className={cn("ml-1 text-[0.6em] font-medium", unitClassName)}>{t("common.som")}</span>
+      <span className={cn("ml-1 text-[0.5em] font-medium text-muted", unitClassName)}>{t("common.som")}</span>
     </span>
   );
 }
