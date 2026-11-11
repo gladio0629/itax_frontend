@@ -1,331 +1,414 @@
-import { useId } from "react";
-import type { ReactNode } from "react";
+import { memo, useId, useMemo } from "react";
 import type { DeliveryVehicle } from "@/api/types";
 
 /**
- * Delivery vehicle illustrations: side view, cargo space opened up to show
- * what fits, with technical-drawing dimension arrows.
+ * Delivery vehicles as small 3D "toy models", seen from a high front-quarter
+ * angle (camera 22° round from the side, 30° above), cargo space opened up.
  *
- * - Vehicles are drawn in real centimetres (ground at y=0, up is negative), so
- *   a 50 cm box is the same physical size in every vehicle and reads smaller in
- *   the bigger trucks — that's the sense of scale.
- * - Each vehicle is fitted into the card; dimension arrows and labels are drawn
- *   afterwards in the card's own coordinates, so they're the same size on all six.
- * - Colours are fixed (not theme tokens): the card stays light in dark mode.
+ * Rather than CSS 3D transforms (which don't apply reliably to elements
+ * inside an <svg>), each vehicle is built from real 3D solids in centimetres
+ * and projected with a fixed parallel (isometric-style) camera:
+ *  - x runs rear → front, y far side → near side, z up; ground is z = 0.
+ *  - Solids are extruded side profiles; faces turned away from the camera
+ *    are culled, and every visible face is shaded from one light, so tops are
+ *    lighter, fronts mid, near sides darker — on sloped windscreens too.
+ *  - Draw order: structure in a fixed order (far wheels, chassis, floor,
+ *    far/rear walls), then the load sorted by distance, then front wall,
+ *    near rail, cab and near wheels. Each multi-part item sorts as one unit.
+ *  - Dimension arrows and labels are drawn afterwards in card space, so
+ *    they're the same size on all six; colours are fixed (light card).
  */
 
+type V3 = [number, number, number];
+type Pt = [number, number];
+
+const TH = (22 * Math.PI) / 180;
+const PH = (30 * Math.PI) / 180;
+const [sT, cT, sP, cP] = [Math.sin(TH), Math.cos(TH), Math.sin(PH), Math.cos(PH)];
+const VIEW: V3 = [sT * cP, cT * cP, sP];
+const LIGHT: V3 = norm([0.45, 0.2, 0.87]);
+
+function norm(v: V3): V3 {
+  const l = Math.hypot(v[0], v[1], v[2]);
+  return [v[0] / l, v[1] / l, v[2] / l];
+}
+const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const proj = ([x, y, z]: V3): Pt => [x * cT - y * sT, (x * sT + y * cT) * sP - z * cP];
+const nearness = ([x, y, z]: V3) => (x * sT + y * cT) * cP + z * sP;
+
+// ── colour ────────────────────────────────────────────────────────────────
+function mix(hex: string, to: string, t: number): string {
+  const a = parseInt(hex.slice(1), 16);
+  const b = parseInt(to.slice(1), 16);
+  const ch = (s: number) => Math.round(((a >> s) & 255) + (((b >> s) & 255) - ((a >> s) & 255)) * t);
+  return `#${((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1)}`;
+}
+/** Lambert-ish: faces toward the light lighten, away darken. */
+function shade(hex: string, n: V3): string {
+  const f = dot(n, LIGHT) - 0.45;
+  return f > 0 ? mix(hex, "#ffffff", f * 0.55) : mix(hex, "#000000", -f * 0.5);
+}
+
 const C = {
-  yellow: "#F6BF0E",
-  yellowShade: "#D9A20A",
-  yellowLight: "#FFD95C",
-  navy: "#16264D",
-  glass: "#2B4A8C",
-  glassShine: "#9DB7EC",
-  tire: "#1B2233",
-  hub: "#C9D2E3",
-  chassis: "#2A3550",
-  backWall: "#F4EBD8",
-  sideWall: "#E5D6B8",
-  floor: "#D6C29C",
-  box: "#D9A066",
-  boxTop: "#EBBE86",
-  boxEdge: "#9A6A3A",
-  tape: "#F2D6A6",
-  shadow: "rgba(120, 80, 20, 0.16)",
+  body: "#F6BF0E",
+  navy: "#264A9F",
+  glassHi: "#7E9BDA",
+  chassis: "#2C3550",
+  inner: "#F1E6CF",
+  floor: "#D9C49C",
+  box: "#D7A266",
+  tape: "#F0D3A2",
+  fridge: "#F3F5F9",
+  sofa: "#E4572E",
+  wood: "#B98552",
+  tire: "#1E2433",
+  hub: "#CDD5E4",
+  white: "#FFFFFF",
   dim: "#16264D",
 };
 
-type Cargo = { x: number; floor: number; w: number; h: number; d: number };
-type Spec = {
-  len: number;
-  top: number; // highest point (negative)
-  cargo: Cargo;
-  /** Open-top bed (pickup): no cutaway, items rise above a low wall. */
-  openBed?: boolean;
-  wheels: { cx: number; r: number }[];
-  shell: (clip: string) => ReactNode;
-};
+// ── geometry ──────────────────────────────────────────────────────────────
+type Face = { pts: V3[]; fill: string; grad?: boolean };
+type Part = { faces: Face[]; key: number };
 
-const outline = { stroke: C.navy, strokeWidth: 1.2, vectorEffect: "non-scaling-stroke" as const, strokeLinejoin: "round" as const };
-
-function Body({ d, clip, shadeFrom }: { d: string; clip: string; shadeFrom: number }) {
-  return (
-    <>
-      <clipPath id={clip}>
-        <path d={d} />
-      </clipPath>
-      <path d={d} fill={C.yellow} />
-      <g clipPath={`url(#${clip})`}>
-        <rect x="-50" y="-600" width="1400" height="520" fill={C.yellowLight} opacity="0.35" />
-        <rect x="-50" y={shadeFrom} width="1400" height="200" fill={C.yellowShade} opacity="0.55" />
-      </g>
-      <path d={d} fill="none" {...outline} />
-    </>
-  );
-}
-
-function Glass({ d }: { d: string }) {
-  return (
-    <>
-      <path d={d} fill={C.glass} {...outline} />
-      <path d={d} fill={C.glassShine} opacity="0.28" clipPath="inset(0 55% 0 0)" />
-    </>
-  );
-}
-
-const BODY_PATHS: Partial<Record<DeliveryVehicle, string>> = {
-  spark: "M0 -26 L0 -108 Q1 -120 14 -126 L50 -146 Q60 -153 74 -153 L212 -153 Q226 -153 234 -143 L266 -108 L328 -100 Q356 -96 360 -80 L360 -26 Q360 -18 352 -18 L8 -18 Q0 -18 0 -26 Z",
-  damas: "M0 -24 L0 -178 Q0 -190 12 -190 L268 -190 Q284 -190 291 -176 L322 -112 L334 -105 Q340 -100 340 -88 L340 -24 Q340 -16 332 -16 L8 -16 Q0 -16 0 -24 Z",
-};
-
-const SPECS: Record<DeliveryVehicle, Spec> = {
-  spark: {
-    len: 360,
-    top: -153,
-    cargo: { x: 10, floor: -56, w: 170, h: 90, d: 100 },
-    wheels: [{ cx: 72, r: 28 }, { cx: 292, r: 28 }],
-    shell: (clip) => {
-      const d = "M0 -26 L0 -108 Q1 -120 14 -126 L50 -146 Q60 -153 74 -153 L212 -153 Q226 -153 234 -143 L266 -108 L328 -100 Q356 -96 360 -80 L360 -26 Q360 -18 352 -18 L8 -18 Q0 -18 0 -26 Z";
-      return (
-        <>
-          <Body d={d} clip={clip} shadeFrom={-58} />
-          <Glass d="M190 -143 L229 -143 L257 -110 L190 -110 Z" />
-          <path d="M188 -108 V-30" fill="none" {...outline} opacity="0.5" />
-          <rect x="198" y="-96" width="16" height="4" rx="2" fill={C.navy} opacity="0.6" />
-          <rect x="348" y="-92" width="11" height="8" rx="2" fill="#fff" {...outline} />
-        </>
-      );
-    },
-  },
-  damas: {
-    len: 340,
-    top: -190,
-    cargo: { x: 10, floor: -48, w: 220, h: 130, d: 130 },
-    wheels: [{ cx: 58, r: 25 }, { cx: 292, r: 25 }],
-    shell: (clip) => {
-      const d = "M0 -24 L0 -178 Q0 -190 12 -190 L268 -190 Q284 -190 291 -176 L322 -112 L334 -105 Q340 -100 340 -88 L340 -24 Q340 -16 332 -16 L8 -16 Q0 -16 0 -24 Z";
-      return (
-        <>
-          <Body d={d} clip={clip} shadeFrom={-50} />
-          <Glass d="M242 -178 L282 -178 L304 -126 L242 -126 Z" />
-          <rect x="252" y="-112" width="16" height="4" rx="2" fill={C.navy} opacity="0.6" />
-          <rect x="329" y="-98" width="10" height="8" rx="2" fill="#fff" {...outline} />
-        </>
-      );
-    },
-  },
-  labo: {
-    len: 372,
-    top: -178,
-    cargo: { x: 0, floor: -56, w: 282, h: 50, d: 160 },
-    openBed: true,
-    wheels: [{ cx: 64, r: 25 }, { cx: 326, r: 25 }],
-    shell: (clip) => {
-      const d = "M286 -36 L286 -170 Q286 -178 294 -178 L330 -178 Q340 -178 345 -168 L366 -118 Q372 -110 372 -100 L372 -36 Q372 -30 366 -30 L292 -30 Q286 -30 286 -36 Z";
-      return (
-        <>
-          <rect x="0" y="-56" width="372" height="26" rx="4" fill={C.chassis} />
-          <Body d={d} clip={clip} shadeFrom={-60} />
-          <Glass d="M293 -170 L329 -170 L350 -122 L293 -122 Z" />
-          <rect x="361" y="-104" width="10" height="8" rx="2" fill="#fff" {...outline} />
-        </>
-      );
-    },
-  },
-  isuzu: {
-    len: 600,
-    top: -304,
-    cargo: { x: 8, floor: -96, w: 420, h: 200, d: 200 },
-    wheels: [{ cx: 92, r: 40 }, { cx: 520, r: 40 }],
-    shell: (clip) => {
-      const d = "M446 -50 L446 -262 Q446 -276 460 -276 L540 -276 Q556 -276 563 -262 L594 -160 Q600 -150 600 -136 L600 -50 Z";
-      return (
-        <>
-          <rect x="0" y="-96" width="600" height="46" rx="5" fill={C.chassis} />
-          <Body d={d} clip={clip} shadeFrom={-100} />
-          <Glass d="M456 -266 L540 -266 L566 -180 L456 -180 Z" />
-          <rect x="588" y="-128" width="12" height="12" rx="2" fill="#fff" {...outline} />
-        </>
-      );
-    },
-  },
-  isuzu2: {
-    len: 800,
-    top: -357,
-    cargo: { x: 9, floor: -108, w: 600, h: 240, d: 240 },
-    wheels: [{ cx: 100, r: 44 }, { cx: 200, r: 44 }, { cx: 712, r: 44 }],
-    shell: (clip) => {
-      const d = "M628 -54 L628 -284 Q628 -300 644 -300 L730 -300 Q748 -300 755 -284 L792 -176 Q800 -164 800 -148 L800 -54 Z";
-      return (
-        <>
-          <rect x="0" y="-108" width="800" height="54" rx="6" fill={C.chassis} />
-          <Body d={d} clip={clip} shadeFrom={-110} />
-          <Glass d="M640 -288 L730 -288 L760 -196 L640 -196 Z" />
-          <rect x="786" y="-140" width="14" height="14" rx="3" fill="#fff" {...outline} />
-        </>
-      );
-    },
-  },
-  fura: {
-    len: 1130,
-    top: -378,
-    cargo: { x: 10, floor: -128, w: 840, h: 240, d: 260 },
-    wheels: [{ cx: 86, r: 46 }, { cx: 190, r: 46 }, { cx: 294, r: 46 }, { cx: 930, r: 46 }, { cx: 1080, r: 46 }],
-    shell: (clip) => {
-      const d = "M900 -60 L900 -340 Q900 -356 916 -356 L1040 -356 Q1060 -356 1068 -338 L1122 -210 Q1130 -196 1130 -176 L1130 -60 Z";
-      return (
-        <>
-          <rect x="0" y="-128" width="860" height="28" rx="5" fill={C.chassis} />
-          <rect x="840" y="-100" width="290" height="40" rx="5" fill={C.chassis} />
-          <rect x="612" y="-100" width="14" height="70" fill={C.chassis} />
-          <Body d={d} clip={clip} shadeFrom={-104} />
-          <Glass d="M914 -344 L1040 -344 L1074 -232 L914 -232 Z" />
-          <rect x="1114" y="-168" width="16" height="16" rx="3" fill="#fff" {...outline} />
-        </>
-      );
-    },
-  },
-};
-
-/** Depth recedes up-right at a shallow oblique: dx = 0.22·d, dy = −0.13·d. */
-const OB_X = 0.22;
-const OB_Y = 0.13;
-
-type Item = { x: number; w: number; h: number; base: number; kind: "box" | "fridge" | "sofa" | "wardrobe" };
-
-/** Items laid out on the floor from the rear (left) of the cargo space. */
-function layoutItems({ x, floor, w, h }: Cargo, openBed: boolean): Item[] {
-  const items: Item[] = [];
-  const maxH = openBed ? h + 100 : h - 8; // a pickup's load rises above the wall
-  let cx = x + 8;
-  const end = x + w - 6;
-  const put = (iw: number, ih: number, kind: Item["kind"], base = floor) => {
-    items.push({ x: cx, w: iw, h: ih, base, kind });
+/**
+ * Extrude an (x, z) profile (counter-clockwise) between y0 and y1.
+ * `base` may pick a colour per face normal (e.g. inner walls) before shading;
+ * `edge` overrides the colour of one extruded edge face (a glazed windscreen).
+ */
+function extrude(profile: Pt[], y0: number, y1: number, base: string | ((n: V3) => string), opts: { grad?: boolean; edge?: Record<number, string> } = {}): Face[] {
+  const col = (n: V3, i?: number) => {
+    const b = i !== undefined && opts.edge?.[i] ? opts.edge[i] : typeof base === "string" ? base : base(n);
+    return shade(b, n);
   };
-  if (w >= 600) {
-    put(110, Math.min(210, maxH), "wardrobe");
+  const faces: Face[] = [];
+  const near: V3 = [0, 1, 0];
+  if (dot(near, VIEW) > 0) faces.push({ pts: profile.map(([x, z]) => [x, y1, z] as V3), fill: col(near), grad: opts.grad });
+  for (let i = 0; i < profile.length; i++) {
+    const a = profile[i];
+    const b = profile[(i + 1) % profile.length];
+    const n = norm([b[1] - a[1], 0, -(b[0] - a[0])]);
+    if (dot(n, VIEW) <= 1e-6) continue;
+    faces.push({ pts: [[a[0], y0, a[1]], [b[0], y0, b[1]], [b[0], y1, b[1]], [a[0], y1, a[1]]], fill: col(n, i) });
+  }
+  return faces;
+}
+const cuboid = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, base: string | ((n: V3) => string), grad = false) =>
+  extrude([[x0, z0], [x1, z0], [x1, z1], [x0, z1]], y0, y1, base, { grad });
+
+const centroid = (faces: Face[]): V3 => {
+  const all = faces.flatMap((f) => f.pts);
+  return [0, 1, 2].map((k) => all.reduce((s, p) => s + p[k], 0) / all.length) as V3;
+};
+const part = (faces: Face[], key?: number): Part => ({ faces, key: key ?? nearness(centroid(faces)) });
+/** A flat decal slightly off a surface (windows, lights, tape). */
+const decal = (pts: V3[], fill: string): Face => ({ pts, fill });
+
+function ellipse(cx: number, cz: number, y: number, r: number, n = 28): V3[] {
+  return Array.from({ length: n }, (_, i) => {
+    const t = (i / n) * Math.PI * 2;
+    return [cx + r * Math.cos(t), y, cz + r * Math.sin(t)] as V3;
+  });
+}
+
+// ── items ─────────────────────────────────────────────────────────────────
+type Inner = { x0: number; x1: number; y0: number; y1: number; z: number; h: number };
+
+function box(x: number, y: number, z: number, l: number, w: number, h: number): Part {
+  const faces = cuboid(x, x + l, y, y + w, z, z + h, C.box);
+  const tz = z + h + 0.4;
+  faces.push(decal([[x, y + w / 2 - 5, tz], [x + l, y + w / 2 - 5, tz], [x + l, y + w / 2 + 5, tz], [x, y + w / 2 + 5, tz]], shade(C.tape, [0, 0, 1])));
+  const fx = x + l + 0.4;
+  faces.push(decal([[fx, y + w / 2 - 5, z + h], [fx, y + w / 2 + 5, z + h], [fx, y + w / 2 + 5, z + h * 0.55], [fx, y + w / 2 - 5, z + h * 0.55]], shade(C.tape, [1, 0, 0])));
+  return part(faces);
+}
+function fridge(x: number, y: number, z: number, h: number): Part {
+  const [l, w] = [70, 68];
+  const faces = cuboid(x, x + l, y, y + w, z, z + h, C.fridge);
+  const yf = y + w + 0.5;
+  faces.push(decal([[x + 3, yf, z + h * 0.62], [x + l - 3, yf, z + h * 0.62], [x + l - 3, yf, z + h * 0.6], [x + 3, yf, z + h * 0.6]], "#9AA6BF"));
+  faces.push(decal([[x + l - 12, yf, z + h * 0.9], [x + l - 8, yf, z + h * 0.9], [x + l - 8, yf, z + h * 0.68], [x + l - 12, yf, z + h * 0.68]], "#8592AE"));
+  faces.push(decal([[x + l - 12, yf, z + h * 0.56], [x + l - 8, yf, z + h * 0.56], [x + l - 8, yf, z + h * 0.3], [x + l - 12, yf, z + h * 0.3]], "#8592AE"));
+  return part(faces);
+}
+function sofa(x: number, y: number, z: number): Part {
+  const [l, w] = [190, 85];
+  // one unit: back, near-rear arm, seat, cushions, front arm — far → near inside the part
+  const faces = [
+    ...cuboid(x, x + l, y, y + 22, z, z + 80, C.sofa),
+    ...cuboid(x, x + 18, y, y + w, z, z + 58, C.sofa),
+    ...cuboid(x + 18, x + l - 18, y + 22, y + w, z, z + 40, C.sofa),
+    ...cuboid(x + 20, x + l / 2 - 1, y + 24, y + w - 2, z + 40, z + 48, mix(C.sofa, "#ffffff", 0.12)),
+    ...cuboid(x + l / 2 + 1, x + l - 20, y + 24, y + w - 2, z + 40, z + 48, mix(C.sofa, "#ffffff", 0.12)),
+    ...cuboid(x + l - 18, x + l, y, y + w, z, z + 58, C.sofa),
+  ];
+  return part(faces, nearness([x + l / 2, y + w / 2, z + 40]));
+}
+function wardrobe(x: number, y: number, z: number, h: number): Part {
+  const [l, w] = [110, 60];
+  const faces = cuboid(x, x + l, y, y + w, z, z + h, C.wood);
+  const yf = y + w + 0.5;
+  faces.push(decal([[x + l / 2 - 0.8, yf, z + h - 4], [x + l / 2 + 0.8, yf, z + h - 4], [x + l / 2 + 0.8, yf, z + 6], [x + l / 2 - 0.8, yf, z + 6]], "#6E4825"));
+  for (const dx of [-8, 5]) faces.push(decal(ellipse(x + l / 2 + dx + 1.5, z + h / 2, yf, 2.6, 10), "#6E4825"));
+  return part(faces);
+}
+
+function layoutLoad(inn: Inner, opts: { maxStack?: number; fill?: number } = {}): Part[] {
+  const parts: Part[] = [];
+  const len = inn.x1 - inn.x0;
+  const maxStack = opts.maxStack ?? Math.max(1, Math.floor((inn.h - 6) / 46));
+  let cx = inn.x0 + 4;
+  const fy = inn.y0 + 2;
+  let frontEnd = cx; // floor in front of tall furniture gets low boxes; the sofa stays clear
+  if (len >= 600) {
+    parts.push(wardrobe(cx, fy, inn.z, Math.min(210, inn.h - 12)));
     cx += 118;
   }
-  if (w >= 400) {
-    put(70, Math.min(180, maxH), "fridge");
+  if (len >= 400) {
+    parts.push(fridge(cx, fy, inn.z, Math.min(180, inn.h - 12)));
     cx += 78;
-    put(190, 80, "sofa");
-    // two boxes riding on the sofa
-    items.push({ x: cx + 30, w: 52, h: 46, base: floor - 80, kind: "box" });
-    items.push({ x: cx + 100, w: 48, h: 40, base: floor - 80, kind: "box" });
+    frontEnd = cx;
+    parts.push(sofa(cx, fy, inn.z));
     cx += 198;
   }
-  // fill the rest with box stacks of alternating height
-  let col = 0;
-  while (cx + 48 <= end) {
-    const bw = col % 2 ? 48 : 54;
-    if (cx + bw > end) break;
-    const fit = Math.max(1, Math.floor(maxH / 46));
-    const n = Math.max(1, fit - (col % 3 === 1 ? 1 : 0));
-    let base = floor;
-    for (let i = 0; i < n; i++) {
-      const bh = i === n - 1 && maxH - 46 * i < 46 ? Math.max(28, maxH - 46 * i - 4) : 44;
-      if (floor - base + bh > maxH) break;
-      items.push({ x: cx, w: bw - (i % 2) * 6, h: bh, base, kind: "box" });
-      base -= bh + 2;
+  const grid = (ax: number, bx: number, ay: number, by: number, stack: number) => {
+    const cols = Math.floor((bx - ax) / 54);
+    const rows = Math.floor((by - ay) / 54);
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const n = Math.max(1, stack - ((c * 7 + r * 3) % 4 === 0 ? 1 : 0) - (r === rows - 1 && c % 2 ? 1 : 0));
+        for (let k = 0; k < n; k++) parts.push(box(ax + c * 54, ay + r * 54, inn.z + k * 46, 50, 50, 44));
+      }
     }
-    cx += bw + 6;
-    col++;
-  }
-  return items;
+  };
+  // low boxes in front of the furniture, then the full-depth grid
+  if (frontEnd > inn.x0 + 4) grid(inn.x0 + 4, frontEnd, inn.y0 + 92, inn.y1 - 2, Math.min(2, maxStack));
+  const gridEnd = cx + (inn.x1 - cx) * (opts.fill ?? 1);
+  grid(cx, gridEnd, inn.y0 + 2, inn.y1 - 2, maxStack);
+  // a smaller parcel on top where a single row leaves headroom (Spark)
+  if (maxStack === 1 && inn.h - 44 >= 34 && len < 300) parts.push(box(inn.x0 + 60, inn.y0 + 14, inn.z + 44, 36, 30, 30));
+  return parts.sort((a, b) => a.key - b.key);
 }
 
-function ItemShape({ it, ox, oy }: { it: Item; ox: number; oy: number }) {
-  const { x, w, h, base } = it;
-  const y = base - h;
-  const topFace = `M${x} ${y} L${x + ox} ${y - oy} L${x + w + ox} ${y - oy} L${x + w} ${y} Z`;
-  const sideFace = `M${x + w} ${y} L${x + w + ox} ${y - oy} L${x + w + ox} ${base - oy} L${x + w} ${base} Z`;
-  const thin = { stroke: C.boxEdge, strokeWidth: 0.8, vectorEffect: "non-scaling-stroke" as const, strokeLinejoin: "round" as const };
-  if (it.kind === "fridge") {
-    return (
-      <g>
-        <path d={sideFace} fill="#D5DBE6" {...thin} stroke="#8592AE" />
-        <path d={topFace} fill="#FFFFFF" {...thin} stroke="#8592AE" />
-        <rect x={x} y={y} width={w} height={h} rx="6" fill="#F2F4F8" {...thin} stroke="#8592AE" />
-        <path d={`M${x} ${y + h * 0.36} H${x + w}`} {...thin} stroke="#8592AE" />
-        <rect x={x + w - 12} y={y + h * 0.12} width="4" height={h * 0.16} rx="2" fill="#8592AE" />
-        <rect x={x + w - 12} y={y + h * 0.44} width="4" height={h * 0.22} rx="2" fill="#8592AE" />
-      </g>
-    );
-  }
-  if (it.kind === "wardrobe") {
-    return (
-      <g>
-        <path d={sideFace} fill="#9C6B3E" {...thin} stroke="#6E4825" />
-        <path d={topFace} fill="#CF9A64" {...thin} stroke="#6E4825" />
-        <rect x={x} y={y} width={w} height={h} rx="3" fill="#B98552" {...thin} stroke="#6E4825" />
-        <path d={`M${x + w / 2} ${y + 4} V${base - 4}`} {...thin} stroke="#6E4825" />
-        <circle cx={x + w / 2 - 7} cy={y + h / 2} r="3" fill="#6E4825" />
-        <circle cx={x + w / 2 + 7} cy={y + h / 2} r="3" fill="#6E4825" />
-      </g>
-    );
-  }
-  if (it.kind === "sofa") {
-    const seat = h * 0.45;
-    return (
-      <g>
-        <path d={sideFace} fill="#1E2F5E" {...thin} stroke="#101A36" />
-        <path d={`M${x + 12} ${y} H${x + w - 12} Q${x + w} ${y} ${x + w} ${y + 12} V${base} H${x} V${y + 12} Q${x} ${y} ${x + 12} ${y} Z`} fill="#2A3F78" {...thin} stroke="#101A36" />
-        <rect x={x + 10} y={base - seat} width={w - 20} height={seat - 10} rx="8" fill="#3A5294" {...thin} stroke="#101A36" />
-        <path d={`M${x + w / 2} ${base - seat} V${base - 10}`} {...thin} stroke="#101A36" />
-        <rect x={x + 12} y={base - 10} width="10" height="10" fill="#101A36" />
-        <rect x={x + w - 22} y={base - 10} width="10" height="10" fill="#101A36" />
-      </g>
-    );
-  }
-  return (
-    <g>
-      <path d={sideFace} fill="#C28A50" {...thin} />
-      <path d={topFace} fill={C.boxTop} {...thin} />
-      <rect x={x} y={y} width={w} height={h} rx="2" fill={C.box} {...thin} />
-      <rect x={x + w / 2 - 5} y={y} width="10" height={h * 0.45} fill={C.tape} opacity="0.9" />
-    </g>
-  );
+// ── vehicles ──────────────────────────────────────────────────────────────
+type Built = { parts: Part[]; farWheels: V3[][]; wheels: { cx: number; cz: number; r: number; y: number }[]; inner: Inner; wallTop: number; loadTop: number };
+
+const wheelSet = (xs: number[], r: number, W: number) => xs.map((cx) => ({ cx, cz: r, r, y: W }));
+
+/** Cab: lower block + glazed upper, extruded across the full width. */
+function cab(x0: number, x1: number, W: number, base: number, belt: number, roofEnd: number, roof: number, hood: number, wsX = x1 - 12): Part[] {
+  // lower: nose up to the hood, hood rising to the windscreen base (wsX, belt)
+  const lower = extrude([[x0, base], [x1, base], [x1, hood], [wsX, belt], [x0, belt]], 0, W, C.body, { grad: true });
+  // upper: edge index 1 is the windscreen → glazed navy
+  const upper = extrude([[x0, belt], [wsX, belt], [roofEnd, roof], [x0, roof]], 0, W, C.body, { edge: { 1: C.navy }, grad: true });
+  const yn = W + 0.5;
+  const side = decal([[x0 + 10, yn, belt + 8], [wsX - 10, yn, belt + 8], [roofEnd - 6, yn, roof - 10], [x0 + 10, yn, roof - 10]], shade(C.navy, [0, 1, 0]));
+  const shine = decal([[x0 + 14, yn + 0.2, belt + 10], [x0 + 30, yn + 0.2, belt + 10], [x0 + 46, yn + 0.2, roof - 12], [x0 + 30, yn + 0.2, roof - 12]], C.glassHi);
+  const xf = x1 + 0.6;
+  const lightH = Math.min(14, (hood - base) * 0.25);
+  const lights = [
+    decal([[xf, W - 26, hood - 6], [xf, W - 8, hood - 6], [xf, W - 8, hood - 6 - lightH], [xf, W - 26, hood - 6 - lightH]], C.white),
+    decal([[xf, 8, hood - 6], [xf, 26, hood - 6], [xf, 26, hood - 6 - lightH], [xf, 8, hood - 6 - lightH]], C.white),
+  ];
+  const bumper = cuboid(x1 - 4, x1 + 6, 4, W - 4, base, base + Math.max(10, (hood - base) * 0.22), C.navy);
+  return [part([...lower, ...lights], 9e5), part([...upper, side, shine], 9e5 + 1), part(bumper, 9e5 + 2)];
 }
 
-// Card coordinate space (≈ CSS px at 343 wide).
+/** Cargo space with the near wall cut down and the roof off. */
+function openBox(o: { x0: number; x1: number; W: number; floorZ: number; floorBase: number; t: number; wallH: number; nearH: number; frontH?: number }) {
+  const { x0, x1, W, floorZ, floorBase, t, wallH, nearH } = o;
+  const top = floorZ + wallH;
+  const innerCol = (n: V3) => (n[1] > 0.5 || n[0] > 0.5 ? C.inner : C.body);
+  return {
+    floor: part(cuboid(x0, x1, 0, W, floorBase, floorZ, (n) => (n[2] > 0.5 ? C.floor : C.body)), -8e5),
+    far: part(cuboid(x0, x1, 0, t, floorZ, top, innerCol, true), -7e5),
+    rear: part(cuboid(x0, x0 + t, t, W, floorZ, floorZ + Math.min(wallH, Math.max(nearH, wallH * 0.85)), innerCol), -6e5),
+    front: part(cuboid(x1 - t, x1, t, W, floorZ, floorZ + (o.frontH ?? wallH), C.body, true), 8e5),
+    near: part(cuboid(x0, x1, W - t, W, floorZ, floorZ + nearH, C.body, true), 8e5 + 1),
+    top,
+  };
+}
+
+function build(v: DeliveryVehicle): Built {
+  switch (v) {
+    case "spark": {
+      const W = 160;
+      const ob = openBox({ x0: 0, x1: 196, W, floorZ: 48, floorBase: 22, t: 6, wallH: 92, nearH: 46 });
+      const inner: Inner = { x0: 10, x1: 180, y0: 30, y1: 130, z: 48, h: 90 };
+      return {
+        parts: [ob.floor, ob.far, ob.rear, ...layoutLoad(inner), ob.near, ...cab(196, 360, W, 22, 106, 236, 150, 86, 284)],
+        farWheels: [ellipse(72, 28, 0, 28), ellipse(292, 28, 0, 28)],
+        wheels: wheelSet([72, 292], 28, W),
+        inner,
+        wallTop: ob.top,
+        loadTop: inner.z + 90,
+      };
+    }
+    case "damas": {
+      const W = 150;
+      const ob = openBox({ x0: 0, x1: 244, W, floorZ: 46, floorBase: 20, t: 6, wallH: 136, nearH: 44 });
+      const inner: Inner = { x0: 10, x1: 230, y0: 10, y1: 140, z: 46, h: 130 };
+      return {
+        parts: [ob.floor, ob.far, ob.rear, ...layoutLoad(inner), ob.near, ...cab(244, 340, W, 20, 104, 300, 186, 96, 332)],
+        farWheels: [ellipse(58, 25, 0, 25), ellipse(292, 25, 0, 25)],
+        wheels: wheelSet([58, 292], 25, W),
+        inner,
+        wallTop: ob.top,
+        loadTop: inner.z + 130,
+      };
+    }
+    case "labo": {
+      const W = 170;
+      const ob = openBox({ x0: 0, x1: 282, W, floorZ: 56, floorBase: 50, t: 5, wallH: 50, nearH: 50 });
+      const inner: Inner = { x0: 5, x1: 277, y0: 5, y1: 165, z: 56, h: 50 };
+      const chassis = part(cuboid(0, 372, 20, W - 20, 30, 50, C.chassis), -9e5);
+      return {
+        parts: [chassis, ob.floor, ob.far, ob.rear, ...layoutLoad(inner, { maxStack: 2 }), ob.front, ob.near, ...cab(286, 372, W, 30, 112, 344, 178, 100)],
+        farWheels: [ellipse(64, 25, 0, 25), ellipse(326, 25, 0, 25)],
+        wheels: wheelSet([64, 326], 25, W),
+        inner,
+        wallTop: ob.top,
+        loadTop: inner.z + 92,
+      };
+    }
+    case "isuzu":
+    case "isuzu2":
+    case "fura": {
+      const cfg = {
+        isuzu: { W: 216, t: 8, len: 436, floor: 96, h: 200, chassis: [0, 600, 50, 96], cabX: [446, 600], cab: [50, 156, 552, 276, 140], wheels: [92, 520], r: 40 },
+        isuzu2: { W: 258, t: 9, len: 618, floor: 108, h: 240, chassis: [0, 800, 54, 108], cabX: [628, 800], cab: [54, 168, 746, 300, 150], wheels: [100, 200, 712], r: 44 },
+        fura: { W: 280, t: 10, len: 860, floor: 128, h: 240, chassis: [0, 860, 100, 128], cabX: [900, 1130], cab: [60, 190, 1050, 356, 170], wheels: [86, 190, 294, 930, 1080], r: 46 },
+      }[v];
+      const { W, t, len, floor, h, r } = cfg;
+      const ob = openBox({ x0: 0, x1: len, W, floorZ: floor, floorBase: floor - 8, t, wallH: h + t, nearH: 22 });
+      const inner: Inner = { x0: t, x1: len - t, y0: t, y1: W - t, z: floor, h };
+      const [c0, c1, cz0, cz1] = cfg.chassis;
+      const extra: Part[] = [part(cuboid(c0, c1, 24, W - 24, cz0, cz1, C.chassis), -9e5)];
+      if (v === "fura") {
+        extra.push(part(cuboid(840, 1130, 30, W - 30, 60, 100, C.chassis), -9e5 + 1));
+        extra.push(part(cuboid(612, 626, W / 2 - 40, W / 2 + 40, 20, 100, C.chassis), -9e5 + 2));
+      }
+      const [cb, belt, roofEnd, roof, hood] = cfg.cab;
+      const load = layoutLoad(inner, { fill: v === "fura" ? 0.55 : 1 });
+      const loadTop = Math.max(...load.flatMap((p) => p.faces.flatMap((f) => f.pts.map((q) => q[2]))));
+      return {
+        parts: [...extra, ob.floor, ob.far, ob.rear, ...load, ob.front, ob.near, ...cab(cfg.cabX[0], cfg.cabX[1], W, cb, belt, roofEnd, roof, hood)],
+        farWheels: cfg.wheels.map((x) => ellipse(x, r, 0, r)),
+        wheels: wheelSet(cfg.wheels, r, W),
+        inner,
+        wallTop: ob.top,
+        loadTop,
+      };
+    }
+  }
+}
+
+// ── card space ────────────────────────────────────────────────────────────
 const VB_W = 320;
-const VB_H = 180;
-const GROUND = 150;
-const LEFT = 56; // room for the height arrow + label
-const RIGHT = 8;
-const TOP = 28; // room for the width arrow + label
+const VB_H = 200;
+const MX = 22;
+const TOPM = 30;
+const BOTM = 14;
 
-function Arrow({ x1, y1, x2, y2 }: { x1: number; y1: number; x2: number; y2: number }) {
+type Drawn = {
+  polys: { d: string; fill: string; grad?: boolean }[];
+  shadow: string;
+  dims: { w: [Pt, Pt]; h: [Pt, Pt]; d: [Pt, Pt] };
+};
+
+function render(v: DeliveryVehicle): Drawn {
+  const b = build(v);
+  const W = b.wheels[0].y;
+  const L = Math.max(...b.parts.flatMap((p) => p.faces.flatMap((f) => f.pts.map((q) => q[0]))));
+  const foot: V3[] = [[-14, -14, 0], [L + 14, -14, 0], [L + 14, W + 14, 0], [-14, W + 14, 0]];
+  const all = [...b.parts.flatMap((p) => p.faces.flatMap((f) => f.pts)), ...foot].map(proj);
+  const [minX, maxX] = [Math.min(...all.map((p) => p[0])), Math.max(...all.map((p) => p[0]))];
+  const [minY, maxY] = [Math.min(...all.map((p) => p[1])), Math.max(...all.map((p) => p[1]))];
+  const s = Math.min((VB_W - 2 * MX) / (maxX - minX), (VB_H - TOPM - BOTM) / (maxY - minY));
+  const tx = (VB_W - (maxX - minX) * s) / 2 - minX * s;
+  const ty = VB_H - BOTM - maxY * s;
+  const S = (p: V3): Pt => {
+    const [x, y] = proj(p);
+    return [tx + x * s, ty + y * s];
+  };
+  const path = (pts: V3[]) => "M" + pts.map((p) => S(p).map((n) => n.toFixed(1)).join(" ")).join("L") + "Z";
+
+  const polys: Drawn["polys"] = [];
+  // far-side wheels peek under the body
+  for (const e of b.farWheels) polys.push({ d: path(e), fill: "#151A26" });
+  for (const p of [...b.parts].sort((a, c) => a.key - c.key)) for (const f of p.faces) polys.push({ d: path(f.pts), fill: f.fill, grad: f.grad });
+  // near wheels: arch, tyre thickness, tyre, hub
+  for (const w of b.wheels) {
+    polys.push({ d: path(ellipse(w.cx, w.cz, w.y + 0.3, w.r + 5)), fill: C.navy });
+    polys.push({ d: path(ellipse(w.cx, w.cz, w.y - 14, w.r)), fill: "#11151F" });
+    polys.push({ d: path(ellipse(w.cx, w.cz, w.y + 2, w.r)), fill: C.tire });
+    polys.push({ d: path(ellipse(w.cx, w.cz, w.y + 2.4, w.r * 0.52)), fill: C.hub });
+    polys.push({ d: path(ellipse(w.cx, w.cz, w.y + 2.6, w.r * 0.2)), fill: C.navy });
+  }
+  const { inner } = b;
+  const topZ = inner.z + inner.h;
+  return {
+    polys,
+    shadow: path(foot),
+    dims: {
+      // width along the far top edge, depth along the rear top edge, height up the rear-near corner
+      w: [S([inner.x0, inner.y0, Math.max(b.wallTop, b.loadTop)]), S([inner.x1, inner.y0, Math.max(b.wallTop, b.loadTop)])],
+      d: [S([inner.x0, inner.y0, topZ]), S([inner.x0, inner.y1, topZ])],
+      h: [S([inner.x0, inner.y1, inner.z]), S([inner.x0, inner.y1, topZ])],
+    },
+  };
+}
+
+// ── dimension graphics (card space) ───────────────────────────────────────
+function offset([a, b]: [Pt, Pt], px: number, side: 1 | -1): [Pt, Pt] {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const l = Math.hypot(dx, dy) || 1;
+  const [nx, ny] = [(-dy / l) * side, (dx / l) * side];
+  return [
+    [a[0] + nx * px, a[1] + ny * px],
+    [b[0] + nx * px, b[1] + ny * px],
+  ];
+}
+function Arrow({ seg }: { seg: [Pt, Pt] }) {
+  const [[x1, y1], [x2, y2]] = seg;
   const ang = Math.atan2(y2 - y1, x2 - x1);
   const head = (x: number, y: number, a: number) => {
     const s = 4.5;
-    return `M${x} ${y} L${x - s * Math.cos(a - 0.45)} ${y - s * Math.sin(a - 0.45)} L${x - s * Math.cos(a + 0.45)} ${y - s * Math.sin(a + 0.45)} Z`;
+    return `M${x} ${y}L${x - s * Math.cos(a - 0.45)} ${y - s * Math.sin(a - 0.45)}L${x - s * Math.cos(a + 0.45)} ${y - s * Math.sin(a + 0.45)}Z`;
   };
   return (
-    <g>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.dim} strokeWidth="1" opacity="0.8" />
-      <path d={head(x2, y2, ang)} fill={C.dim} opacity="0.8" />
-      <path d={head(x1, y1, ang + Math.PI)} fill={C.dim} opacity="0.8" />
+    <g opacity="0.85">
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.dim} strokeWidth="1" />
+      <path d={head(x2, y2, ang)} fill={C.dim} />
+      <path d={head(x1, y1, ang + Math.PI)} fill={C.dim} />
     </g>
   );
 }
-
-function Label({ x, y, text, anchor = "middle" }: { x: number; y: number; text: string; anchor?: "middle" | "end" | "start" }) {
+function Label({ at, text }: { at: Pt; text: string }) {
   const w = text.length * 5.6 + 10;
-  // Keep every label inside the card, whatever the vehicle or screen width.
-  const rx = Math.min(VB_W - w - 4, Math.max(4, anchor === "middle" ? x - w / 2 : anchor === "end" ? x - w : x));
+  const rx = Math.min(VB_W - w - 4, Math.max(4, at[0] - w / 2));
+  const ry = Math.min(VB_H - 20, Math.max(4, at[1] - 8));
   return (
     <g>
-      <rect x={rx} y={y - 8} width={w} height="16" rx="8" fill="#FFFFFF" opacity="0.92" />
-      <text x={rx + w / 2} y={y + 3.5} textAnchor="middle" fontSize="10" fontWeight="600" fill={C.dim} fontFamily="inherit" style={{ fontVariantNumeric: "tabular-nums" }}>
+      <rect x={rx} y={ry} width={w} height="16" rx="8" fill="#FFFFFF" opacity="0.94" />
+      <text x={rx + w / 2} y={ry + 11.5} textAnchor="middle" fontSize="10" fontWeight="600" fill={C.dim} fontFamily="inherit" style={{ fontVariantNumeric: "tabular-nums" }}>
         {text}
       </text>
     </g>
   );
 }
+const mid = ([a, b]: [Pt, Pt], push: Pt = [0, 0]): Pt => [(a[0] + b[0]) / 2 + push[0], (a[1] + b[1]) / 2 + push[1]];
 
-export function VehicleIllustration({
+// Geometry is pure per vehicle: build once, reuse across renders and instances.
+const CACHE = new Map<DeliveryVehicle, Drawn>();
+const drawnFor = (v: DeliveryVehicle) => {
+  let d = CACHE.get(v);
+  if (!d) CACHE.set(v, (d = render(v)));
+  return d;
+};
+
+export const VehicleIllustration = memo(function VehicleIllustration({
   vehicle,
   dims,
   unit,
@@ -337,136 +420,38 @@ export function VehicleIllustration({
   className?: string;
 }) {
   const id = useId().replace(/:/g, "");
-  const s = SPECS[vehicle];
-  const { cargo } = s;
-  const ox = cargo.d * OB_X;
-  const oy = cargo.d * OB_Y;
-
-  // Fit the vehicle (plus the oblique back edge) into the card.
-  const vehH = -Math.min(s.top, cargo.floor - cargo.h - oy - (s.openBed ? 110 : 0));
-  const scale = Math.min((VB_W - LEFT - RIGHT) / s.len, (GROUND - TOP) / vehH);
-  const tx = LEFT + (VB_W - LEFT - RIGHT - s.len * scale) / 2;
-  const P = (x: number, y: number) => [tx + x * scale, GROUND + y * scale] as const;
-
-  // Cargo corners in card space.
-  const [fx0, fFloor] = P(cargo.x, cargo.floor);
-  const [fx1, fTop] = P(cargo.x + cargo.w, cargo.floor - cargo.h);
-  const [bx0, bFloor] = P(cargo.x + ox, cargo.floor - oy);
-  const items = layoutItems(cargo, !!s.openBed);
-  const t = 8; // box wall thickness (cm)
-  const itemsTop = Math.min(...items.map((it) => it.base - it.h - oy * 0.74));
-  const [, loadTop] = P(0, Math.min(itemsTop, cargo.floor - cargo.h - (s.openBed ? 0 : t)));
-  const wy = Math.min(fTop, loadTop) - 12;
-  // depth: oblique arrow out of the rear-bottom corner, toward the viewer
-  const dLen = Math.hypot(bx0 - fx0, bFloor - fFloor);
-  const dx = (-OB_X / Math.hypot(OB_X, OB_Y)) * dLen;
-  const dy = (OB_Y / Math.hypot(OB_X, OB_Y)) * dLen;
-
-  const interior = (
-    <>
-      {/* back wall, left wall, floor — the opened cargo space in shallow oblique */}
-      <rect x={cargo.x + ox} y={cargo.floor - cargo.h - oy} width={cargo.w} height={cargo.h} fill={C.backWall} />
-      <path
-        d={`M${cargo.x} ${cargo.floor} L${cargo.x + ox} ${cargo.floor - oy} L${cargo.x + ox} ${cargo.floor - cargo.h - oy} L${cargo.x} ${cargo.floor - cargo.h} Z`}
-        fill={C.sideWall}
-      />
-      <path
-        d={`M${cargo.x} ${cargo.floor} L${cargo.x + ox} ${cargo.floor - oy} L${cargo.x + cargo.w + ox} ${cargo.floor - oy} L${cargo.x + cargo.w} ${cargo.floor} Z`}
-        fill={C.floor}
-      />
-      {/* items stand a little way back from the open side */}
-      <g transform={`translate(${ox * 0.42} ${-oy * 0.42})`}>
-        {items.map((it, i) => (
-          <ItemShape key={i} it={it} ox={ox * 0.32} oy={oy * 0.32} />
-        ))}
-      </g>
-    </>
-  );
-
+  const g = useMemo(() => drawnFor(vehicle), [vehicle]);
+  const wSeg = offset(g.dims.w, 12, -1);
+  const dSeg = offset(g.dims.d, 12, 1);
+  const hSeg = offset(g.dims.h, 12, -1);
   return (
     <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className={className} aria-hidden="true" focusable="false">
-      {/* warm ground shadow */}
-      <ellipse cx={tx + (s.len * scale) / 2} cy={GROUND + 2} rx={(s.len * scale) / 2 + 6} ry="5" fill={C.shadow} />
+      <defs>
+        <filter id={`sh-${id}`} x="-30%" y="-60%" width="160%" height="220%">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
+        {/* soft top-to-bottom sheen on large body faces */}
+        <linearGradient id={`gr-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
+          <stop offset="55%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="100%" stopColor="#5a3c00" stopOpacity="0.12" />
+        </linearGradient>
+      </defs>
+      <path d={g.shadow} fill="rgba(70, 45, 10, 0.32)" filter={`url(#sh-${id})`} />
+      {g.polys.map((p, i) => (
+        <g key={i}>
+          <path d={p.d} fill={p.fill} stroke={p.fill} strokeWidth="0.6" strokeLinejoin="round" />
+          {p.grad && <path d={p.d} fill={`url(#gr-${id})`} />}
+        </g>
+      ))}
 
-      <g transform={`translate(${tx} ${GROUND}) scale(${scale})`}>
-        {s.openBed ? (
-          <>
-            {s.shell(`body-${id}`)}
-            {/* far bed wall, load, then the near wall in front */}
-            <rect x={cargo.x + ox} y={cargo.floor - cargo.h - oy} width={cargo.w} height={cargo.h} fill={C.yellowShade} {...outline} />
-            <path
-              d={`M${cargo.x} ${cargo.floor} L${cargo.x + ox} ${cargo.floor - oy} L${cargo.x + cargo.w + ox} ${cargo.floor - oy} L${cargo.x + cargo.w} ${cargo.floor} Z`}
-              fill={C.floor}
-            />
-            <g transform={`translate(${ox * 0.42} ${-oy * 0.42})`}>
-              {items.map((it, i) => (
-                <ItemShape key={i} it={it} ox={ox * 0.32} oy={oy * 0.32} />
-              ))}
-            </g>
-            <rect x={cargo.x} y={cargo.floor - cargo.h} width={cargo.w} height={cargo.h} fill={C.yellow} {...outline} />
-            <rect x={cargo.x} y={cargo.floor - 14} width={cargo.w} height="14" fill={C.yellowShade} opacity="0.55" />
-            <path d={`M${cargo.x + cargo.w / 3} ${cargo.floor - cargo.h} V${cargo.floor} M${cargo.x + (2 * cargo.w) / 3} ${cargo.floor - cargo.h} V${cargo.floor}`} {...outline} opacity="0.35" fill="none" />
-          </>
-        ) : vehicle === "spark" || vehicle === "damas" ? (
-          <>
-            {s.shell(`body-${id}`)}
-            {/* cut-away rear of the body, clipped to the body outline */}
-            <g clipPath={`url(#body-${id})`}>
-              <svg x={cargo.x} y={cargo.floor - cargo.h} width={cargo.w} height={cargo.h} overflow="hidden">
-                <g transform={`translate(${-cargo.x} ${-(cargo.floor - cargo.h)})`}>{interior}</g>
-              </svg>
-            </g>
-            {/* the opening follows the body: frame clipped by the outline, which is redrawn on top */}
-            <g clipPath={`url(#body-${id})`}>
-              <rect x={cargo.x} y={cargo.floor - cargo.h} width={cargo.w} height={cargo.h + 40} rx="6" fill="none" {...outline} />
-            </g>
-            <path d={BODY_PATHS[vehicle]} fill="none" {...outline} />
-          </>
-        ) : (
-          <>
-            {s.shell(`body-${id}`)}
-            {/* box body: wall frame around the opened side */}
-            <rect
-              x={cargo.x - t}
-              y={cargo.floor - cargo.h - t}
-              width={cargo.w + 2 * t + ox * 0.4}
-              height={cargo.h + t}
-              rx="6"
-              fill={C.yellow}
-              {...outline}
-            />
-            <svg x={cargo.x} y={cargo.floor - cargo.h} width={cargo.w} height={cargo.h} overflow="hidden">
-              <g transform={`translate(${-cargo.x} ${-(cargo.floor - cargo.h)})`}>{interior}</g>
-            </svg>
-            <rect x={cargo.x} y={cargo.floor - cargo.h} width={cargo.w} height={cargo.h} fill="none" {...outline} />
-            <rect x={cargo.x - t} y={cargo.floor - 18} width={cargo.w + 2 * t + ox * 0.4} height="18" fill={C.yellowShade} opacity="0.6" />
-          </>
-        )}
-
-        {s.wheels.map(({ cx, r }) => (
-          <g key={cx}>
-            <circle cx={cx} cy={-r} r={r + 3} fill={C.navy} opacity="0.25" />
-            <circle cx={cx} cy={-r} r={r} fill={C.tire} />
-            <circle cx={cx} cy={-r} r={r * 0.5} fill={C.hub} />
-            <circle cx={cx} cy={-r} r={r * 0.18} fill={C.navy} />
-          </g>
-        ))}
-      </g>
-
-      {/* ── dimension arrows (card space, constant size) ── */}
-      {/* width: above the cargo (and above a pickup's load) */}
-      <Arrow x1={fx0} y1={wy} x2={fx1} y2={wy} />
-      <line x1={fx0} y1={fTop - 2} x2={fx0} y2={wy - 5} stroke={C.dim} strokeWidth="0.75" opacity="0.35" />
-      <line x1={fx1} y1={fTop - 2} x2={fx1} y2={wy - 5} stroke={C.dim} strokeWidth="0.75" opacity="0.35" />
-      <Label x={(fx0 + fx1) / 2} y={wy} text={`${dims.width} ${unit}`} />
-      {/* height: left of the cargo */}
-      <Arrow x1={fx0 - 10} y1={fFloor} x2={fx0 - 10} y2={fTop} />
-      <line x1={fx0 - 14} y1={fFloor} x2={fx0 - 2} y2={fFloor} stroke={C.dim} strokeWidth="0.75" opacity="0.4" />
-      <line x1={fx0 - 14} y1={fTop} x2={fx0 - 2} y2={fTop} stroke={C.dim} strokeWidth="0.75" opacity="0.4" />
-      <Label x={fx0 - 15} y={(fFloor + fTop) / 2} text={`${dims.height} ${unit}`} anchor="end" />
-      {/* depth: same oblique as the drawn interior, out of the rear-bottom corner */}
-      <Arrow x1={fx0 - 4} y1={fFloor + 3} x2={fx0 - 4 + dx} y2={fFloor + 3 + dy} />
-      <Label x={fx0 - 6 + dx} y={fFloor + 12 + dy} text={`${dims.depth} ${unit}`} anchor="end" />
+      {/* dimension arrows, angled with the model */}
+      <Arrow seg={wSeg} />
+      <Label at={mid(wSeg, [0, -9])} text={`${dims.width} ${unit}`} />
+      <Arrow seg={dSeg} />
+      <Label at={mid(dSeg, [-26, -4])} text={`${dims.depth} ${unit}`} />
+      <Arrow seg={hSeg} />
+      <Label at={mid(hSeg, [-24, 0])} text={`${dims.height} ${unit}`} />
     </svg>
   );
-}
+});

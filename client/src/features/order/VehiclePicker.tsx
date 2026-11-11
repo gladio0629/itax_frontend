@@ -70,7 +70,7 @@ export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange
         </div>
       ) : specs.status === "loading" ? (
         <div className="space-y-3" aria-busy="true" aria-label={t("cargo.vehicleTitle")}>
-          <Skeleton className="h-[180px] w-full rounded-card" />
+          <Skeleton className="h-[200px] w-full rounded-card" />
           <div className="flex gap-2">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-11 w-20 rounded-full" />
@@ -85,7 +85,7 @@ export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange
           return (
             <div className="space-y-3">
               {/* Illustration card: stays light in both themes so the drawing reads. */}
-              <div className="relative h-[180px] overflow-hidden rounded-card bg-[#F8F5EF] shadow-soft ring-1 ring-black/5">
+              <div className="relative h-[200px] overflow-hidden rounded-card bg-[#F8F5EF] shadow-soft ring-1 ring-black/5">
                 {specs.data.map((s) => (
                   <VehicleIllustration
                     key={s.id}
