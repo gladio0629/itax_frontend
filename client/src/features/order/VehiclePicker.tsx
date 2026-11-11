@@ -154,6 +154,7 @@ export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange
           placeholder={t("cargo.notePlaceholder")}
           aria-label={t("cargo.noteLabel")}
           name="cargo-note"
+          autoComplete="off"
           rows={3}
           className="block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink transition-colors focus:border-accent"
         />

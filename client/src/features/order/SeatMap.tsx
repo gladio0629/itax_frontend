@@ -257,7 +257,7 @@ export function SeatMap({
               onClick={() => choose(c)}
               className={cn(
                 "min-h-[48px] rounded-xl border-2 px-1 py-1.5 text-[13px] font-semibold leading-tight text-balance transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-[0.97] disabled:opacity-40",
-                selected ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer" : "border-border bg-card text-ink/70"
+                selected ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer" : "border-border bg-card text-ink/70 hover:border-ink/25 hover:text-ink"
               )}
             >
               {c === "car" ? t("order.wholeCar") : t(COUNT_KEY[c])}

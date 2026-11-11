@@ -24,10 +24,11 @@
   --asphalt-b: #cdd2da;
   --lane: rgb(255 255 255 / 0.95);
   --edge: rgb(255 255 255 / 0.75);
+  --grain: rgb(255 255 255 / 0.18);
   background:
     linear-gradient(90deg, transparent 4%, var(--edge) 4% 5%, transparent 5% 95%, var(--edge) 95% 96%, transparent 96%),
     radial-gradient(circle at 20% 30%, rgb(0 0 0 / 0.025) 0 0.8px, transparent 1.2px) 0 0 / 5px 6px,
-    radial-gradient(circle at 70% 60%, rgb(255 255 255 / 0.18) 0 0.8px, transparent 1.2px) 0 0 / 9px 7px,
+    radial-gradient(circle at 70% 60%, var(--grain) 0 0.8px, transparent 1.2px) 0 0 / 9px 7px,
     linear-gradient(90deg, rgb(0 0 0 / 0.05), transparent 18%, transparent 82%, rgb(0 0 0 / 0.05)),
     linear-gradient(180deg, var(--asphalt-a) 0%, var(--asphalt-b) 100%);
 }
@@ -36,6 +37,7 @@
   --asphalt-b: #1b2130;
   --lane: rgb(237 241 248 / 0.55);
   --edge: rgb(237 241 248 / 0.35);
+  --grain: rgb(255 255 255 / 0.04);
 }
 .seat3d-lane {
   position: absolute;

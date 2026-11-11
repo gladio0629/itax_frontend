@@ -60,7 +60,7 @@ function Segmented<T extends string>({
             onClick={() => onChange(o.id)}
             className={cn(
               "min-h-[48px] rounded-xl border-2 px-2 text-sm font-semibold transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-[0.98]",
-              selected ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer" : "border-border bg-card text-ink/70"
+              selected ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer" : "border-border bg-card text-ink/70 hover:border-ink/25 hover:text-ink"
             )}
           >
             {o.label}
@@ -300,7 +300,7 @@ function ScheduledFields({
                     ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer"
                     : inRange
                     ? "border-brand-yellow/40 bg-brand-yellow/20 text-ink"
-                    : "border-border bg-card text-ink/70"
+                    : "border-border bg-card text-ink/70 hover:border-ink/25 hover:text-ink"
                 )}
               >
                 <span className="text-xs leading-4">{named ? dayLabel(d, t, intlTag, now) : weekdayShort(d, intlTag)}</span>

@@ -184,7 +184,15 @@ export function WheelPicker({
                 "flex cursor-pointer items-center justify-center text-lg tabular will-change-transform",
                 selected ? "font-semibold text-ink" : dimmed ? "text-ink/25 line-through decoration-ink/20" : "text-ink/70"
               )}
-              style={{ height: ITEM_HEIGHT, scrollSnapAlign: "center", transformOrigin: "50% 50%" }}
+              // 288 rows: let the browser skip off-screen ones (fixed height, so
+              // scroll maths is unaffected).
+              style={{
+                height: ITEM_HEIGHT,
+                scrollSnapAlign: "center",
+                transformOrigin: "50% 50%",
+                contentVisibility: "auto",
+                containIntrinsicSize: `auto ${ITEM_HEIGHT}px`,
+              }}
             >
               {opt}
             </div>
