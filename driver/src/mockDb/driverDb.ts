@@ -245,6 +245,56 @@ export function ledgerFor(trip: TripRecord): Omit<LedgerEntry, "balanceAfter">[]
   return out;
 }
 
+const PAYOUT_ABOVE = 250_000;
+const PAYOUT_LEAVES = 50_000;
+
+/**
+ * Replays wallet rows oldest-first. Card earnings are paid out to the
+ * driver's card whenever the balance gets large (as real wallets do), and
+ * one final top-up/payout lands the balance exactly on `target`. For a
+ * negative target the adjustment happens before today's (commission-only)
+ * rows, so the debt comes from real commission entries.
+ */
+function runLedger(rows: Omit<LedgerEntry, "balanceAfter">[], target: number, todayStart: number, now: number): LedgerEntry[] {
+  const out: LedgerEntry[] = [];
+  let bal = 60_000;
+  let n = 0;
+  let last = 0;
+  const push = (r: Omit<LedgerEntry, "balanceAfter">) => {
+    bal += r.amount;
+    // Rows stay in replay order; timestamps are nudged to stay monotonic.
+    last = Math.max(last + 1000, r.createdAt);
+    out.push({ ...r, createdAt: last, balanceAfter: bal });
+  };
+  const adjust = (to: number, at: number) => {
+    const diff = to - bal;
+    if (diff > 0) push({ id: `led_adj_top_${n++}`, type: "topup", amount: diff, createdAt: at, descKey: "ledger.desc.topup", descParams: { provider: "Payme" } });
+    if (diff < 0) push({ id: `led_adj_pay_${n++}`, type: "payout", amount: diff, createdAt: at, descKey: "ledger.desc.payout", descParams: { last4: "4417" } });
+  };
+  const history = rows.filter((r) => r.createdAt < todayStart);
+  const today = rows.filter((r) => r.createdAt >= todayStart);
+  // Keep the balance where a real driver would: pay out large card earnings,
+  // top up before drifting deep into debt.
+  const step = (r: Omit<LedgerEntry, "balanceAfter">, allowTopup = true) => {
+    // A driver tops up before a commission would push them past the limit.
+    if (allowTopup && bal + r.amount < -40_000)
+      push({ id: `led_top_pre_${n++}`, type: "topup", amount: Math.ceil((60_000 - bal - r.amount) / 10_000) * 10_000, createdAt: r.createdAt - 3_600_000, descKey: "ledger.desc.topup", descParams: { provider: n % 2 ? "Click" : "Payme" } });
+    push(r);
+    if (bal > PAYOUT_ABOVE) push({ id: `led_pay_${n++}`, type: "payout", amount: PAYOUT_LEAVES - bal, createdAt: r.createdAt + 60_000, descKey: "ledger.desc.payout", descParams: { last4: "4417" } });
+    if (allowTopup && bal < -30_000) push({ id: `led_top_auto_${n++}`, type: "topup", amount: Math.ceil((80_000 - bal) / 10_000) * 10_000, createdAt: r.createdAt + 60_000, descKey: "ledger.desc.topup", descParams: { provider: n % 2 ? "Click" : "Payme" } });
+  };
+  history.forEach((r) => step(r));
+  if (target < 0) {
+    const todaySum = today.reduce((s, r) => s + r.amount, 0);
+    adjust(Math.max(0, target - todaySum), Math.max((history[history.length - 1]?.createdAt ?? 0) + 60_000, todayStart - 2 * 3_600_000));
+    today.forEach(push);
+  } else {
+    today.forEach((r) => step(r));
+    adjust(target, Math.min(now - 60_000, last + 120_000));
+  }
+  return out.reverse();
+}
+
 type SeedOpts = { balance?: number; weekTrips?: number; online?: boolean; registered?: boolean };
 
 export function seedState(opts: SeedOpts = {}): DriverState {
@@ -265,6 +315,8 @@ export function seedState(opts: SeedOpts = {}): DriverState {
     // Completions spread evenly through today so far; start = end − duration.
     const endAt = todayStart.getTime() + sinceMidnight * ((i + 1) / (todayCount + 0.5));
     const t = buildTrip(rng, { createdAt: endAt, fromCityId: rng.pick(["tsh", "tsh", "smq"]), commissionPct: todayPct });
+    // In-debt presets: today's trips were cash, so only commission moved the wallet.
+    if ((opts.balance ?? 0) < 0) t.payment = "cash";
     const shift = t.timeline[t.timeline.length - 1].at - endAt;
     t.createdAt -= shift;
     t.timeline = t.timeline.map((e) => ({ ...e, at: e.at - shift }));
@@ -293,13 +345,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
   rows.push({ id: "led_bonus_2", type: "bonus", amount: 15_000, createdAt: now - 20 * day, descKey: "ledger.desc.referralBonus" });
   rows.sort((a, b) => a.createdAt - b.createdAt);
   const target = opts.balance ?? 85_000;
-  const sum = rows.reduce((s, r) => s + r.amount, 0);
-  let running = target - sum;
-  const ledger: LedgerEntry[] = rows.map((r) => {
-    running += r.amount;
-    return { ...r, balanceAfter: running };
-  });
-  ledger.reverse();
+  const ledger = runLedger(rows, target, todayStart.getTime(), now);
 
   const notifications: NotificationItem[] = [
     { id: "ntf_1", kind: "bonus", titleKey: "notif.bonusProgress.title", bodyKey: "notif.bonusProgress.body", params: { n: Math.max(0, 20 - wantWeek) }, createdAt: now - 40 * 60_000, read: false },
@@ -337,7 +383,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
       memberSinceYear: 2023,
     },
     online: opts.online ?? false,
-    balance: registered ? target : 0,
+    balance: registered ? ledger[0]?.balanceAfter ?? target : 0,
     ledger,
     trips,
     cards: registered ? [{ id: "card_1", brand: "uzcard", last4: "4417", provider: "payme" }] : [],

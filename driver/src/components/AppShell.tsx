@@ -26,7 +26,7 @@ export function AppShell() {
     <div className="flex h-full flex-col">
       <a
         href="#app-main"
-        className="sr-only z-[70] rounded-button bg-yellow px-4 py-3 text-sm font-bold text-on-yellow focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+        className="sr-only z-[70] rounded-button bg-yellow px-4 text-sm font-bold text-on-yellow focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:flex focus:h-12 focus:items-center"
       >
         {t("common.skip")}
       </a>

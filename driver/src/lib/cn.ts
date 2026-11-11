@@ -3,7 +3,8 @@
 // background, shadow, ring colour). No tailwind-merge dependency.
 type Falsy = false | null | undefined | 0 | "";
 
-const SIZE = /^text-(xs|sm|base|lg|xl|[234]xl|\[[^\]]+\])$/;
+// Arbitrary text-[…] counts as a size only when it carries a length unit.
+const SIZE = /^text-(xs|sm|base|lg|xl|[234]xl|\[[\d.]+(px|em|rem|%)\])$/;
 const ALIGN = /^text-(left|center|right|justify)$/;
 
 function group(cls: string): string | null {

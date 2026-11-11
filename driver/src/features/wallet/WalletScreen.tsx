@@ -6,7 +6,7 @@ import { useQuery } from "@/lib/useQuery";
 import { useCountUp } from "@/lib/useCountUp";
 import { formatAmount } from "@/lib/format";
 import { relativeTime } from "@/lib/relative";
-import { ArrowDownLeft, ArrowUpRight, Car, ChevronRight, CreditCard, Gift, Percent, Plus, Receipt, Wallet } from "@/lib/icons";
+import { ArrowDownLeft, ArrowUpRight, Banknote, Car, ChevronRight, CreditCard, Gift, Percent, Plus, Receipt, Wallet } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { Card, SectionLabel } from "@/components/Card";
 import { Skeleton, SkeletonList } from "@/components/Skeleton";
@@ -20,7 +20,7 @@ import { TILE } from "@/components/SettingsRow";
 import { DebtBanner } from "./DebtBanner";
 import { cn } from "@/lib/cn";
 
-const TYPES: Array<LedgerType | "all"> = ["all", "trip", "commission", "topup", "bonus"];
+const TYPES: Array<LedgerType | "all"> = ["all", "trip", "commission", "topup", "bonus", "payout"];
 const RANGES: HistoryRange[] = ["all", "today", "week", "month"];
 
 export default function WalletScreen() {
@@ -140,6 +140,7 @@ const TYPE_ICON: Record<LedgerType, { icon: typeof Car; tile: keyof typeof TILE 
   commission: { icon: Receipt, tile: "slate" },
   topup: { icon: Wallet, tile: "blue" },
   bonus: { icon: Gift, tile: "yellow" },
+  payout: { icon: Banknote, tile: "teal" },
 };
 
 function Ledger() {
@@ -228,7 +229,7 @@ function LedgerRow({ entry: e }: { entry: LedgerEntry }) {
         </span>
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-base text-ink">{isKey(e.descKey) ? t(e.descKey, e.descParams) : e.descKey}</p>
+        <p className="line-clamp-2 text-base leading-tight text-ink">{isKey(e.descKey) ? t(e.descKey, e.descParams) : e.descKey}</p>
         <p className="tabular truncate text-sm text-muted">{relativeTime(e.createdAt, t)}</p>
       </div>
       <div className="shrink-0 text-right">
