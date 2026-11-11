@@ -189,8 +189,8 @@ function HistoryPanel() {
         ) : history.data.items.length === 0 ? (
           <EmptyState
             icon={SearchX}
-            title={t("orders.emptyHistoryTitle")}
-            description={t("orders.emptyHistoryDesc")}
+            title={dirty ? t("orders.emptyHistoryTitle") : t("orders.noTripsTitle")}
+            description={dirty ? t("orders.emptyHistoryDesc") : t("orders.noTripsDesc")}
             action={
               dirty ? (
                 <Button

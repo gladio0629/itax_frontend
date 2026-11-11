@@ -65,7 +65,7 @@ export default function BonusScreen() {
               <div className="relative mt-2 h-10" aria-hidden="true">
                 {b.levels.map((l) => {
                   const x = l.position * 100;
-                  const reached = b.weekTrips >= l.tripsRequired;
+                  const reached = l.reached;
                   return (
                     <span
                       key={l.key}
@@ -100,7 +100,7 @@ export default function BonusScreen() {
               <ol className="divide-y divide-line overflow-hidden rounded-card bg-surface shadow-1">
                 {b.levels.map((l) => {
                   const current = l.key === b.currentLevel.key;
-                  const reached = b.weekTrips >= l.tripsRequired;
+                  const reached = l.reached;
                   return (
                     <li key={l.key} aria-current={current ? "true" : undefined} className={cn("flex min-h-[64px] items-center gap-3 px-4 py-3", current && "bg-yellow/10")}>
                       <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", LEVEL_TONE[l.key])}>
@@ -124,7 +124,7 @@ export default function BonusScreen() {
                   <li key={r.key}>
                     <Card className="p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-base text-ink">{t(r.key as never)}</p>
+                        <p className="text-base text-ink">{t(r.key as never, { n: r.target })}</p>
                         {r.done ? (
                           <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-button bg-success/15 px-2.5 text-sm font-medium text-success">
                             <Check className="h-4 w-4" />
@@ -134,7 +134,7 @@ export default function BonusScreen() {
                           <span className="tabular shrink-0 text-sm text-muted">{t("bonus.ruleProgress", { progress: r.progress, target: r.target })}</span>
                         )}
                       </div>
-                      {r.key === "bonus.rule.trips" && <ProgressBar className="mt-3" value={r.ratio} label={t(r.key as never)} />}
+                      {r.key === "bonus.rule.trips" && <ProgressBar className="mt-3" value={r.ratio} label={t(r.key as never, { n: r.target })} />}
                     </Card>
                   </li>
                 ))}

@@ -23,7 +23,6 @@ export function TripSummaryCard({ summary, onDismiss }: { summary: TripSummary; 
     <button
       type="button"
       onClick={onDismiss}
-      aria-label={`${t("summary.title")}. ${t("summary.dismiss")}`}
       className="press relative block w-full animate-sheet-up overflow-hidden rounded-sheet bg-surface p-5 text-left shadow-2"
     >
       <div className="flex items-center gap-3">
@@ -61,6 +60,7 @@ export function TripSummaryCard({ summary, onDismiss }: { summary: TripSummary; 
       </dl>
       {summary.payment === "cash" && <p className="mt-3 text-sm text-ink">{t("summary.cashNote")}</p>}
 
+      <span className="sr-only">{t("summary.dismiss")}</span>
       <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1 bg-ink/10">
         <span className="absolute inset-0 origin-left animate-[deplete_3s_linear_both] bg-yellow" />
       </span>

@@ -1,6 +1,6 @@
 import type { ActiveTrip } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
-import { Banknote, CreditCard, Navigation, Phone } from "@/lib/icons";
+import { Banknote, CreditCard, Navigation, Phone, Route } from "@/lib/icons";
 import { Avatar } from "@/components/Avatar";
 import { Stars } from "@/components/Stars";
 import { Money } from "@/components/Money";
@@ -44,6 +44,16 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
           <Phone className="h-5 w-5" />
         </a>
       </div>
+
+      <p className="mt-3 flex items-center gap-2 text-sm text-muted">
+        <Route className="h-4 w-4 shrink-0" />
+        <span className="truncate">
+          <span className="font-bold text-ink">{trip.pickup.city.name}</span>
+          <span aria-hidden="true"> → </span>
+          <span className="sr-only"> – </span>
+          <span className="font-bold text-ink">{trip.dropoff.city.name}</span>
+        </span>
+      </p>
 
       <div className="mt-4">
         <TripSteps steps={trip.steps} />

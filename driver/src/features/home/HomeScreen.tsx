@@ -39,7 +39,7 @@ export default function HomeScreen() {
 
   const s = summary.data;
   const online = !!s?.online;
-  const blocked = s?.debt.level === "blocked";
+  const blocked = s ? !s.canAcceptOrders : false;
   const busyWithTrip = !!tc.trip || !!tc.summary;
   const earnings = useCountUp(s?.todayEarnings);
 
@@ -237,7 +237,7 @@ function OnlineToggle({ online, loading, onToggle, hint }: { online: boolean; lo
         className="press relative flex h-16 w-full items-center justify-center gap-3 overflow-hidden rounded-full shadow-2 disabled:cursor-wait"
       >
         {/* Two colour layers cross-fade so the morph is opacity-only. */}
-        <span className={cn("absolute inset-0 bg-raised transition-opacity duration-[280ms]", online ? "opacity-0" : "opacity-100")} />
+        <span className={cn("absolute inset-0 bg-surface ring-1 ring-inset ring-line transition-opacity duration-[280ms]", online ? "opacity-0" : "opacity-100")} />
         <span className={cn("absolute inset-0 bg-yellow transition-opacity duration-[280ms]", online ? "opacity-100" : "opacity-0")} />
         <span className={cn("relative flex h-10 w-10 items-center justify-center rounded-full", online ? "bg-on-yellow text-yellow" : "bg-ink/10 text-ink")}>
           {loading ? <Spinner className="h-5 w-5" /> : <Power className="h-5 w-5" />}

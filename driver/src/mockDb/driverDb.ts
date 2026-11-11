@@ -125,6 +125,8 @@ export type DriverState = {
     car: { model: string; colorKey: string; plate: string; year: number };
     documents: { kind: "license" | "registration"; status: DocumentStatus; fileName?: string }[];
     memberSinceYear: number;
+    /** Trips completed before the seeded 30-day window. */
+    pastTrips?: number;
   };
   online: boolean;
   balance: number;
@@ -381,6 +383,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
         { kind: "registration", status: registered ? "approved" : "none" },
       ],
       memberSinceYear: 2023,
+      pastTrips: registered ? 280 : 0,
     },
     online: opts.online ?? false,
     balance: registered ? ledger[0]?.balanceAfter ?? target : 0,

@@ -194,7 +194,11 @@ function Ledger() {
         ) : !data ? (
           <SkeletonList rows={4} label={t("common.loading")} />
         ) : data.items.length === 0 ? (
-          <EmptyState icon={Receipt} title={t("wallet.ledgerEmpty")} />
+          type === "all" && range === "all" ? (
+            <EmptyState icon={Receipt} title={t("wallet.ledgerNone")} description={t("wallet.ledgerNoneDesc")} />
+          ) : (
+            <EmptyState icon={Receipt} title={t("wallet.ledgerEmpty")} />
+          )
         ) : (
           <>
             <ul className="divide-y divide-line overflow-hidden rounded-card bg-surface shadow-1">

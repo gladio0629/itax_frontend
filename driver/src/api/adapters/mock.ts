@@ -55,7 +55,7 @@ function startOfToday() {
 function todayTrips(s: DriverState) {
   const t0 = startOfToday();
   // Earnings land when a trip finishes, so "today" is by completion time.
-  return s.trips.filter((t) => t.status === "completed" && t.timeline[t.timeline.length - 1].at >= t0);
+  return s.trips.filter((t) => t.status === "completed" && endedAt(t) >= t0);
 }
 
 function homeSummary(s: DriverState): HomeSummary {
@@ -137,6 +137,11 @@ function toActiveTrip(t: LiveTrip): ActiveTrip {
     cargo: t.cargo,
     acceptedAt: t.acceptedAt,
   };
+}
+
+/** A trip belongs to the day it finished (when its earnings landed). */
+function endedAt(t: TripRecord) {
+  return t.timeline[t.timeline.length - 1].at;
 }
 
 function toHistoryItem(t: TripRecord): HistoryItem {
@@ -329,6 +334,23 @@ function applyReview(s: DriverState, r: ReviewRequest) {
   }
 }
 
+/** Approve and apply every review that is due, even if no screen is polling it. */
+function settleReviews(s: DriverState) {
+  const now = Date.now();
+  let changed = false;
+  for (const r of s.reviews) {
+    if (r.status === "pending" && now >= r.resolvesAt) {
+      r.status = "approved";
+      changed = true;
+    }
+    if (r.status === "approved" && !r.applied) {
+      applyReview(s, r);
+      changed = true;
+    }
+  }
+  if (changed) persist();
+}
+
 function maskPhone(phone: string) {
   const digits = phone.replace(/\D/g, "").slice(-9);
   return `+998 ${digits.slice(0, 2)} *** ** ${digits.slice(-2)}`;
@@ -341,7 +363,11 @@ function requireActive(s: DriverState) {
 // ---------- adapter ----------
 
 export const mockAdapter: ApiAdapter = {
-  getSession: () => withLatency(() => ({ ...state().session }), { noFail: true }),
+  getSession: () => withLatency(() => {
+    const s0 = state();
+    settleReviews(s0);
+    return ({ ...s0.session });
+  }, { noFail: true }),
 
   getRegistrationOptions: () =>
     withLatency(() => ({
@@ -417,6 +443,7 @@ export const mockAdapter: ApiAdapter = {
   getProfile: () =>
     withLatency<DriverProfile>(() => {
       const s = state();
+      settleReviews(s);
       const p = s.profile;
       const color = CAR_COLORS.find((c) => c.key === p.car.colorKey) ?? CAR_COLORS[0];
       return {
@@ -426,7 +453,7 @@ export const mockAdapter: ApiAdapter = {
         avatarSeed: p.avatarSeed,
         rating: p.rating,
         ratingCount: p.ratingCount,
-        totalTrips: s.trips.filter((t) => t.status === "completed").length + 280,
+        totalTrips: s.trips.filter((t) => t.status === "completed").length + (s.profile.pastTrips ?? 0),
         city: cityRef(p.cityId),
         car: { model: p.car.model, color: color.key, colorHex: color.hex, plate: p.car.plate, year: p.car.year },
         online: s.online,
@@ -435,7 +462,11 @@ export const mockAdapter: ApiAdapter = {
       };
     }),
 
-  getHomeSummary: () => withLatency(() => homeSummary(state())),
+  getHomeSummary: () => withLatency(() => {
+    const s0 = state();
+    settleReviews(s0);
+    return homeSummary(s0);
+  }),
 
   setOnline: (online) =>
     withLatency(() => {
@@ -554,7 +585,7 @@ export const mockAdapter: ApiAdapter = {
       const s = state();
       const q = filter.city.trim().toLocaleLowerCase();
       const items = s.trips
-        .filter((t) => inRange(t.createdAt, filter.range))
+        .filter((t) => inRange(endedAt(t), filter.range))
         .filter((t) => t.net >= filter.minEarnings)
         .filter((t) => !q || cityName(t.fromCityId).toLocaleLowerCase().includes(q) || cityName(t.toCityId).toLocaleLowerCase().includes(q))
         .sort((a, b) => b.createdAt - a.createdAt)
@@ -584,6 +615,7 @@ export const mockAdapter: ApiAdapter = {
   getWallet: () =>
     withLatency<WalletSummary>(() => {
       const s = state();
+      settleReviews(s);
       const today = todayTrips(s);
       const earnings = today.reduce((sum, t) => sum + t.net, 0);
       const pct = commissionPctNow(s);
@@ -598,6 +630,7 @@ export const mockAdapter: ApiAdapter = {
 
   getLedger: ({ type, range, page }) =>
     withLatency<LedgerPage>(() => {
+      settleReviews(state());
       const rows = state().ledger.filter((e) => (type === "all" || e.type === type) && inRange(e.createdAt, range));
       const pageCount = Math.max(1, Math.ceil(rows.length / LEDGER_PAGE_SIZE));
       const p = Math.min(Math.max(1, page), pageCount);
@@ -629,9 +662,9 @@ export const mockAdapter: ApiAdapter = {
       const cancels = s.trips.filter((t) => t.createdAt >= weekStart && t.status === "cancelled").length;
       return {
         active: current.commissionPct < BASE_COMMISSION_PCT,
-        currentLevel: { ...current, position: current.tripsRequired / top.tripsRequired },
-        nextLevel: next ? { ...next, position: next.tripsRequired / top.tripsRequired } : null,
-        levels: BONUS_LEVELS.map((l) => ({ ...l, position: l.tripsRequired / top.tripsRequired })),
+        currentLevel: { ...current, position: current.tripsRequired / top.tripsRequired, reached: true },
+        nextLevel: next ? { ...next, position: next.tripsRequired / top.tripsRequired, reached: false } : null,
+        levels: BONUS_LEVELS.map((l) => ({ ...l, position: l.tripsRequired / top.tripsRequired, reached: wt >= l.tripsRequired })),
         weekTrips: wt,
         progressRatio: Math.min(1, wt / top.tripsRequired),
         tripsToNext: next ? next.tripsRequired - wt : 0,
@@ -670,7 +703,11 @@ export const mockAdapter: ApiAdapter = {
       return { ...prefs };
     }, { minMs: 120, maxMs: 260 }),
 
-  getHelpRequests: () => withLatency(() => state().help.map((h) => ({ ...h }))),
+  getHelpRequests: () => withLatency(() => {
+    const s0 = state();
+    settleReviews(s0);
+    return s0.help.map((h) => ({ ...h }));
+  }),
 
   submitHelpRequest: (topic, message) =>
     withLatency(() => {

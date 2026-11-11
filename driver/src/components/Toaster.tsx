@@ -2,14 +2,14 @@ import { useToast } from "@/lib/toast";
 import { cn } from "@/lib/cn";
 import { AlertTriangle, Check, Info } from "@/lib/icons";
 
-/** Toasts sit at the top of the content area, clear of thumb-zone controls. */
+/** Toasts sit at the very top (over the header, never over the earnings card or thumb-zone controls); tap to dismiss. */
 export function Toaster() {
   const items = useToast((s) => s.items);
   const dismiss = useToast((s) => s.dismiss);
   return (
     <div
       className="pointer-events-none absolute inset-x-4 z-[60] flex flex-col gap-2"
-      style={{ top: "calc(var(--safe-top) + 72px)" }}
+      style={{ top: "calc(var(--safe-top) + 8px)" }}
       role="status"
       aria-live="polite"
     >

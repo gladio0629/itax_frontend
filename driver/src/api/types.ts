@@ -195,6 +195,7 @@ export type BonusLevel = {
   commissionPct: number;
   /** 0..1 position of this milestone on the weekly progress bar. */
   position: number;
+  reached: boolean;
 };
 export type BonusRule = { key: string; progress: number; target: number; done: boolean; ratio: number };
 export type BonusInfo = {
