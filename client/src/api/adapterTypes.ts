@@ -1,4 +1,5 @@
 import type { DeliveryVehicleSpec,
+  SchedulingRules,
   AccountSummary,
   Address,
   BonusHistoryPage,
@@ -44,6 +45,7 @@ export interface ApiAdapter {
   getSeatMap(input: { fromAddressId: string; toAddressId: string }): Promise<Seat[]>;
   getQuote(input: QuoteInput): Promise<Quote>;
   getDeliveryVehicles(): Promise<DeliveryVehicleSpec[]>;
+  getSchedulingRules(): Promise<SchedulingRules>;
 
   requestOtp(phone: string): Promise<OtpRequestResult>;
   verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;

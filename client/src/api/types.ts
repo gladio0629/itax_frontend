@@ -52,15 +52,33 @@ export type RouteSuggestion = {
   label: string;
 };
 
+/** "now" is "Haydovchi istagan" — the driver picks the moment, no input.
+ * "scheduled" is "Siz istagan". `date` is an ISO date (YYYY-MM-DD); orders
+ * saved before ISO dates may still carry "today"/"tomorrow". `dateEnd` is set
+ * only for a date range (the passenger can travel any day in date…dateEnd). */
 export type OrderTiming =
   | { timeMode: "now" }
   | {
       timeMode: "scheduled";
-      date: "today" | "tomorrow" | string; // string = ISO date for "boshqa sana"
+      date: "today" | "tomorrow" | string;
+      dateEnd?: string;
       timeKind: "exact" | "range";
       time?: string;
       timeRange?: { from: string; to: string };
     };
+
+/** Booking-window rules the time picker clamps to. The adapter owns them
+ * (and re-validates on create/update); the UI never hardcodes the numbers. */
+export type SchedulingRules = {
+  /** Days that can be booked, counting today (21 = today … today+20). */
+  bookableDays: number;
+  /** Longest date range, in days between the first and last day. */
+  maxRangeDays: number;
+  /** Shortest "dan"→"gacha" window, in minutes. */
+  minRangeMinutes: number;
+  /** Wheel granularity, in minutes. */
+  stepMinutes: number;
+};
 
 export type QuoteInput = {
   serviceType: ServiceType;

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Armchair, Car as CarIcon, ChevronRight, Pencil, X } from "@/lib/icons";
+import { Armchair, Car as CarIcon, ChevronRight, X } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, Seat } from "@/api/types";
 import type { OrderDraft } from "@/stores/orderStore";
 import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/Skeleton";
-import { Switch } from "@/components/Switch";
 import { formatSom } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
@@ -14,7 +13,7 @@ import { cn } from "@/lib/cn";
 import { SeatMap, seatCountLabel } from "./SeatMap";
 import { VehiclePicker } from "./VehiclePicker";
 import { AddressPickerSheet } from "./AddressPickerSheet";
-import { TimePickerSheet } from "./TimePickerSheet";
+import { TimeSelector } from "./TimeSelector";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
 import { RouteFields } from "./RouteFields";
@@ -80,7 +79,6 @@ export function OrderSheet({
   const [seats, setSeats] = useState<Seat[]>([]);
   const [seatsError, setSeatsError] = useState(false);
   const [seatsReload, setSeatsReload] = useState(0);
-  const [timePickerOpen, setTimePickerOpen] = useState(false);
   const autoOpenedPicker = useRef(false);
 
   // Spec: expanding into the route step without a "to" address yet should
@@ -182,27 +180,7 @@ export function OrderSheet({
               <VehiclePicker value={draft.cargo} onChange={(v) => setField("cargo", v)} />
             )}
 
-            <div className="rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-normal text-ink">{t("order.now")}</span>
-                <Switch
-                  checked={draft.timing.timeMode === "now"}
-                  onChange={() =>
-                    draft.timing.timeMode === "now" ? setTimePickerOpen(true) : setField("timing", { timeMode: "now" })
-                  }
-                  label={t("order.now")}
-                />
-              </div>
-              {draft.timing.timeMode === "scheduled" && (
-                <button
-                  onClick={() => setTimePickerOpen(true)}
-                  className="mt-3 flex w-full items-center justify-between rounded-xl bg-accent-5 px-4 py-3 text-left text-sm font-semibold text-accent"
-                >
-                  <span className="tabular">{timingSummary(draft.timing, t)}</span>
-                  <Pencil className="h-4 w-4 shrink-0" />
-                </button>
-              )}
-            </div>
+            <TimeSelector value={draft.timing} onChange={(timing) => setField("timing", timing)} />
           </div>
         )}
 
@@ -221,7 +199,7 @@ export function OrderSheet({
                       : seatCountLabel(t, draft.seatIds.length, intlTag)
                     : t("order.delivery")}
                 </span>
-                <span className="tabular">{timingSummary(draft.timing, t)}</span>
+                <span className="tabular">{timingSummary(draft.timing, t, intlTag)}</span>
               </div>
             </div>
 
@@ -293,16 +271,6 @@ export function OrderSheet({
         />
       )}
 
-      {timePickerOpen && (
-        <TimePickerSheet
-          initial={draft.timing}
-          onClose={() => setTimePickerOpen(false)}
-          onApply={(timing) => {
-            setField("timing", timing);
-            setTimePickerOpen(false);
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ export default {
         accent: "rgb(var(--color-accent-rgb) / <alpha-value>)",
         "accent-5": "var(--color-accent-5)",
         "accent-10": "var(--color-accent-10)",
-        "brand-yellow": "var(--color-brand-yellow)",
+        "brand-yellow": "rgb(var(--color-brand-yellow-rgb) / <alpha-value>)",
         "on-yellow": "var(--color-on-yellow)",
         warning: "rgb(var(--color-warning-rgb) / <alpha-value>)",
         danger: "rgb(var(--color-danger-rgb) / <alpha-value>)",

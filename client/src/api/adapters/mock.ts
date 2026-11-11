@@ -29,6 +29,7 @@ import type {
   OrderExtras,
   OrderHistoryPage,
   OrderTiming,
+  SchedulingRules,
   OrderWithDetails,
   OtpRequestResult,
   PassengerWalletEntry,
@@ -89,20 +90,53 @@ function saveOrderExtra(orderId: string, extras: OrderExtras) {
   writeJSON(ORDER_EXTRAS_KEY, all);
 }
 
-/** Validation lives here, not in the UI — scheduled timing must name a
- * real range and can't be in the past. */
+const SCHEDULING_RULES: SchedulingRules = { bookableDays: 21, maxRangeDays: 3, minRangeMinutes: 30, stepMinutes: 5 };
+
+function isoDay(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+/** Days from today (local) to an ISO date or the legacy "today"/"tomorrow". */
+function dayOffset(date: string, now: Date) {
+  if (date === "today") return 0;
+  if (date === "tomorrow") return 1;
+  const today = new Date(`${isoDay(now)}T00:00:00`);
+  const chosen = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(chosen.getTime())) return Number.NaN;
+  return Math.round((chosen.getTime() - today.getTime()) / 86_400_000);
+}
+function toMinutes(hhmm: string | undefined) {
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm ?? "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : Number.NaN;
+}
+
+/** Validation lives here, not in the UI. The picker already steers away
+ * from all of these; this is the authoritative check. */
 function validateTiming(timing: OrderTiming) {
   if (timing.timeMode !== "scheduled") return;
-  if (timing.timeKind === "range" && timing.timeRange && timing.timeRange.from === timing.timeRange.to) {
-    throw new ApiError("INVALID_TIME_RANGE", "order.timing.invalidRange");
+  const rules = SCHEDULING_RULES;
+  const now = new Date();
+  const start = dayOffset(timing.date, now);
+  if (Number.isNaN(start)) throw new ApiError("INVALID_DATE", "order.timing.pastDate");
+  if (start < 0) throw new ApiError("PAST_DATE", "order.timing.pastDate");
+  if (start > rules.bookableDays - 1) throw new ApiError("DATE_TOO_FAR", "order.timing.tooFar");
+  if (timing.dateEnd) {
+    const end = dayOffset(timing.dateEnd, now);
+    if (Number.isNaN(end) || end < start) throw new ApiError("INVALID_DATE_RANGE", "order.timing.invalidRange");
+    if (end - start > rules.maxRangeDays) throw new ApiError("DATE_RANGE_TOO_LONG", "order.timing.rangeTooLong");
+    if (end > rules.bookableDays - 1) throw new ApiError("DATE_TOO_FAR", "order.timing.tooFar");
   }
-  if (timing.date !== "today" && timing.date !== "tomorrow") {
-    const chosen = new Date(`${timing.date}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (!Number.isNaN(chosen.getTime()) && chosen < today) {
-      throw new ApiError("PAST_DATE", "order.timing.pastDate");
+  const first = timing.timeKind === "range" ? toMinutes(timing.timeRange?.from) : toMinutes(timing.time);
+  if (Number.isNaN(first)) throw new ApiError("INVALID_TIME", "order.timing.invalidRange");
+  if (timing.timeKind === "range") {
+    const last = toMinutes(timing.timeRange?.to);
+    if (Number.isNaN(last) || last - first < rules.minRangeMinutes) {
+      throw new ApiError("INVALID_TIME_RANGE", "order.timing.invalidRange");
     }
+  }
+  // Past check on the first day only; one step of grace so a slot that was
+  // valid when picked isn't rejected because the minute ticked over.
+  if (start === 0 && first < now.getHours() * 60 + now.getMinutes() - rules.stepMinutes) {
+    throw new ApiError("PAST_TIME", "order.timing.pastTime");
   }
 }
 
@@ -321,6 +355,8 @@ export const mockAdapter: ApiAdapter = {
         price: computePrice(distanceKm, "seat", position === "front" ? ["front"] : [], DEFAULT_TARIFF),
       }));
     }, { minMs: 200, maxMs: 450 }),
+
+  getSchedulingRules: () => withLatency<SchedulingRules>(() => ({ ...SCHEDULING_RULES }), { minMs: 100, maxMs: 250 }),
 
   getDeliveryVehicles: () =>
     withLatency<DeliveryVehicleSpec[]>(

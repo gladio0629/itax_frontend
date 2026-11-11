@@ -25,6 +25,7 @@ export const httpAdapter: ApiAdapter = {
   getSeatMap: notImplemented("getSeatMap"),
   getQuote: notImplemented("getQuote"),
   getDeliveryVehicles: notImplemented("getDeliveryVehicles"),
+  getSchedulingRules: notImplemented("getSchedulingRules"),
   requestOtp: notImplemented("requestOtp"),
   verifyOtp: notImplemented("verifyOtp"),
   getReviewStatus: notImplemented("getReviewStatus"),

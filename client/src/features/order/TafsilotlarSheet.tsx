@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Pencil } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderMode, OrderTiming, OrderWithDetails, PaymentMethod, Seat } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
@@ -9,8 +8,7 @@ import { useT } from "@/lib/i18n/provider";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { SeatMap } from "./SeatMap";
 import { AddressPickerSheet } from "./AddressPickerSheet";
-import { TimePickerSheet } from "./TimePickerSheet";
-import { timingSummary } from "./timingSummary";
+import { TimeSelector } from "./TimeSelector";
 import { RouteFields } from "./RouteFields";
 
 export function TafsilotlarSheet({
@@ -36,7 +34,6 @@ export function TafsilotlarSheet({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(order.paymentMethod);
   const [timing, setTiming] = useState<OrderTiming>(order.extras?.timing ?? { timeMode: "now" });
   const [picker, setPicker] = useState<"from" | "to" | null>(null);
-  const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [seatsError, setSeatsError] = useState(false);
   const [seatsReload, setSeatsReload] = useState(0);
@@ -121,13 +118,9 @@ export function TafsilotlarSheet({
           />
         </div>
 
-        <button
-          onClick={() => setTimePickerOpen(true)}
-          className="mb-4 flex min-h-[48px] w-full items-center justify-between gap-3 rounded-xl bg-accent-5 px-4 py-3 text-left text-sm font-semibold text-accent"
-        >
-          <span className="tabular">{timingSummary(timing, t)}</span>
-          <Pencil className="h-4 w-4 shrink-0" aria-hidden="true" />
-        </button>
+        <div className="mb-5">
+          <TimeSelector value={timing} onChange={setTiming} />
+        </div>
 
         <PaymentMethodSection value={paymentMethod} onChange={setPaymentMethod} />
 
@@ -160,9 +153,6 @@ export function TafsilotlarSheet({
         />
       )}
 
-      {timePickerOpen && (
-        <TimePickerSheet initial={timing} onClose={() => setTimePickerOpen(false)} onApply={(t) => { setTiming(t); setTimePickerOpen(false); }} />
-      )}
     </Sheet>
   );
 }

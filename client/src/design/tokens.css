@@ -10,6 +10,7 @@
 
   /* Brand yellow is a fill color only — always paired with --color-on-yellow text/icons. */
   --color-brand-yellow: #f6bf0e;
+  --color-brand-yellow-rgb: 246 191 14;
   --color-on-yellow: #16264d;
 
   /* Warning is orange, distinct from brand yellow. rgb triplet so bg-warning/NN opacity works. */
@@ -34,6 +35,7 @@
   --color-accent-10: rgba(110, 150, 230, 0.16);
 
   --color-brand-yellow: #f6bf0e;
+  --color-brand-yellow-rgb: 246 191 14;
   --color-on-yellow: #16264d;
 
   --color-warning-rgb: 253 186 116;
