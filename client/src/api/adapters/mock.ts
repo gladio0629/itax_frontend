@@ -15,6 +15,8 @@ import {
 import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
+  CargoInput,
+  DeliveryVehicle,
   AccountSummary,
   BonusHistoryPage,
   BonusSource,
@@ -43,7 +45,24 @@ import type {
 } from "../types";
 
 const DEMO_OTP_CODE = "0000";
-const CARGO_RATES = { base: 20_000, perKm: 400, perM3: 15_000, perKg: 300 };
+// Delivery tariff per vehicle: each one has its own band (base + per km), strictly
+// rising from Spark to a semi truck on any route. Price lives here only.
+const VEHICLE_RATES: Record<DeliveryVehicle, { base: number; perKm: number }> = {
+  spark: { base: 20_000, perKm: 400 },
+  damas: { base: 35_000, perKm: 600 },
+  labo: { base: 50_000, perKm: 800 },
+  isuzu: { base: 120_000, perKm: 1_400 },
+  isuzu2: { base: 180_000, perKm: 2_000 },
+  fura: { base: 350_000, perKm: 3_500 },
+};
+const DEFAULT_CARGO: CargoInput = { vehicle: "spark" };
+
+/** One source for both the quote and the charged price, so they can't drift. */
+function deliveryPrice(cargo: CargoInput | undefined, distanceKm: number) {
+  const rate = VEHICLE_RATES[(cargo ?? DEFAULT_CARGO).vehicle] ?? VEHICLE_RATES.spark;
+  const distanceFee = Math.round((rate.perKm * distanceKm) / 1000) * 1000;
+  return { baseFee: rate.base, distanceFee, total: rate.base + distanceFee };
+}
 const SEAT_POSITIONS: SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
 const BONUS_MIN_WITHDRAW = 50_000;
 const BONUS_MONTHLY_MAX = 300_000;
@@ -309,15 +328,10 @@ export const mockAdapter: ApiAdapter = {
       const durationMinutes = Math.round((distanceKm / 70) * 60);
 
       if (input.serviceType === "delivery") {
-        const cargo = input.cargo ?? { preset: "small", volumeM3: 1, weightKg: 20 };
-        const volumeFee = Math.round(cargo.volumeM3 * CARGO_RATES.perM3);
-        const weightFee = Math.round(cargo.weightKg * CARGO_RATES.perKg);
-        const total = Math.round((CARGO_RATES.base + CARGO_RATES.perKm * distanceKm + volumeFee + weightFee) / 1000) * 1000;
-        const baseFee = total - volumeFee - weightFee;
+        const { baseFee, distanceFee, total } = deliveryPrice(input.cargo, distanceKm);
         const cargoLines: QuoteLine[] = [
           { key: "quote.cargoBase", amount: baseFee },
-          { key: "quote.cargoVolume", params: { m3: cargo.volumeM3 }, amount: volumeFee },
-          { key: "quote.cargoWeight", params: { kg: cargo.weightKg }, amount: weightFee },
+          { key: "quote.cargoDistance", params: { km: distanceKm }, amount: distanceFee },
         ];
         return {
           distanceKm,
@@ -374,18 +388,7 @@ export const mockAdapter: ApiAdapter = {
       const distanceKm = roadDistanceKm(fromCityId, toCityId);
       const price =
         input.serviceType === "delivery"
-          ? (() => {
-              const cargo = input.cargo ?? { preset: "small" as const, volumeM3: 1, weightKg: 20 };
-              return (
-                Math.round(
-                  (CARGO_RATES.base +
-                    CARGO_RATES.perKm * distanceKm +
-                    cargo.volumeM3 * CARGO_RATES.perM3 +
-                    cargo.weightKg * CARGO_RATES.perKg) /
-                    1000
-                ) * 1000
-              );
-            })()
+          ? deliveryPrice(input.cargo, distanceKm).total
           : computePrice(distanceKm, input.mode, input.seatIds, DEFAULT_TARIFF);
       const now = Date.now();
       const searchMs = scenarios.noDriverFound

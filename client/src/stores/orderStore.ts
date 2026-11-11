@@ -31,7 +31,7 @@ const initialDraft: OrderDraft = {
   toAddressId: "",
   mode: "car",
   seatIds: [],
-  cargo: { preset: "small", volumeM3: 1, weightKg: 20 },
+  cargo: { vehicle: "spark" },
   paymentMethod: "cash",
   timing: { timeMode: "now" },
   promoCode: "",

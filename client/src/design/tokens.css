@@ -11,6 +11,8 @@
   /* Brand yellow is a fill color only — always paired with --color-on-yellow text/icons. */
   --color-brand-yellow: #f6bf0e;
   --color-on-yellow: #16264d;
+  /* Soft yellow wash behind a selected option. */
+  --color-yellow-tint: rgba(246, 191, 14, 0.12);
 
   /* Warning is orange, distinct from brand yellow. rgb triplet so bg-warning/NN opacity works. */
   --color-warning-rgb: 154 70 8;
@@ -35,6 +37,7 @@
 
   --color-brand-yellow: #f6bf0e;
   --color-on-yellow: #16264d;
+  --color-yellow-tint: rgba(246, 191, 14, 0.07);
 
   --color-warning-rgb: 253 186 116;
   --color-danger-rgb: 248 113 113;

@@ -12,7 +12,7 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 import { useQuery } from "@/lib/useQuery";
 import { cn } from "@/lib/cn";
 import { SeatMap, seatCountLabel } from "./SeatMap";
-import { CargoPicker } from "./CargoPicker";
+import { VehiclePicker } from "./VehiclePicker";
 import { AddressPickerSheet } from "./AddressPickerSheet";
 import { TimePickerSheet } from "./TimePickerSheet";
 import { PassengerCountButtons } from "./PassengerCountButtons";
@@ -195,7 +195,7 @@ export function OrderSheet({
                 />
               </>
             ) : (
-              <CargoPicker value={draft.cargo} onChange={(v) => setField("cargo", v)} />
+              <VehiclePicker value={draft.cargo} onChange={(v) => setField("cargo", v)} />
             )}
 
             <div className="rounded-xl border border-border p-4">

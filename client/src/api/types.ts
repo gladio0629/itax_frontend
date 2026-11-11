@@ -12,11 +12,11 @@ import type { Address } from "@/clientData/addresses";
 export type { City, Driver, Order, OrderMode, OrderStatus, PaymentMethod, ReviewKind, ReviewRequest, Address };
 
 export type ServiceType = "passenger" | "delivery";
-export type CargoPreset = "small" | "medium" | "large";
+/** Delivery is priced by the vehicle the client picks — no weight or volume. */
+export type DeliveryVehicle = "spark" | "damas" | "labo" | "isuzu" | "isuzu2" | "fura";
+export const DELIVERY_VEHICLES: DeliveryVehicle[] = ["spark", "damas", "labo", "isuzu", "isuzu2", "fura"];
 export type CargoInput = {
-  preset: CargoPreset;
-  volumeM3: number;
-  weightKg: number;
+  vehicle: DeliveryVehicle;
   note?: string;
 };
 
