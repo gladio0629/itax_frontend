@@ -167,14 +167,14 @@ export function LoginScreen() {
             </div>
             {codeError && <p className="text-xs font-semibold text-danger">{codeError}</p>}
             <div className="flex items-center justify-between text-xs">
-              <button
+              <button type="button"
                 onClick={handleResend}
                 disabled={resendSeconds > 0 || resending}
                 className="font-semibold text-accent disabled:text-ink/40"
               >
                 {resendSeconds > 0 ? `Qayta yuborish (${resendSeconds}s)` : "Kodni qayta yuborish"}
               </button>
-              <button onClick={() => setPhase("identifier")} className="text-ink/50">
+              <button type="button" onClick={() => setPhase("identifier")} className="text-ink/50">
                 Orqaga
               </button>
             </div>

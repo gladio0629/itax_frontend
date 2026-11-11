@@ -119,7 +119,7 @@ export function AuditScreen() {
       <ListToolbar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Admin, amal yoki obyekt bo'yicha qidirish..."
+        searchPlaceholder="Admin, amal yoki obyekt bo'yicha qidirish…"
         resultCount={entries.length}
         hasActiveFilters={hasActiveFilters}
         onClear={clearFilters}

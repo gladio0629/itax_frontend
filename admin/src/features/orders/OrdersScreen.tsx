@@ -216,7 +216,7 @@ export function OrdersScreen() {
         <ListToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Buyurtma, ism yoki shahar..."
+          searchPlaceholder="Buyurtma, ism yoki shahar…"
           resultCount={orders.length}
           hasActiveFilters={hasActiveFilters}
           onClear={() => setStatus("all")}
@@ -300,7 +300,7 @@ export function OrdersScreen() {
             <div className="border-t border-border pt-4">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold text-ink/50">Izoh</p>
-                <button onClick={() => startEditOrder(selected)} className="flex items-center gap-1 text-xs font-semibold text-accent">
+                <button type="button" onClick={() => startEditOrder(selected)} className="flex items-center gap-1 text-xs font-semibold text-accent">
                   <Pencil className="h-3 w-3" /> Tahrirlash
                 </button>
               </div>
@@ -314,7 +314,7 @@ export function OrdersScreen() {
                     <textarea
                       value={cancelReason}
                       onChange={(e) => setCancelReason(e.target.value)}
-                      placeholder="Bekor qilish sababi..."
+                      placeholder="Bekor qilish sababi…"
                       rows={2}
                       className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                     />

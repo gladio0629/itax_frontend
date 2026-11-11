@@ -158,24 +158,24 @@ export function StaffScreen() {
         return (
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             {!u.archived && (
-              <button aria-label="Tahrirlash" onClick={() => openEdit(u)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
+              <button type="button" aria-label="Tahrirlash" onClick={() => openEdit(u)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
                 <Pencil className="h-4 w-4" />
               </button>
             )}
             {u.archived ? (
-              <button aria-label="Tiklash" onClick={() => setConfirm({ type: "restore", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-accent">
+              <button type="button" aria-label="Tiklash" onClick={() => setConfirm({ type: "restore", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-accent">
                 <RotateCcw className="h-4 w-4" />
               </button>
             ) : (
               <>
-                <button
+                <button type="button"
                   aria-label={u.status === "active" ? "Bloklash" : "Blokdan chiqarish"}
                   onClick={() => setConfirm({ type: u.status === "active" ? "block" : "unblock", user: u })}
                   className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-warning"
                 >
                   {u.status === "active" ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                 </button>
-                <button aria-label="Arxivlash" onClick={() => setConfirm({ type: "archive", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-danger">
+                <button type="button" aria-label="Arxivlash" onClick={() => setConfirm({ type: "archive", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-danger">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </>
@@ -192,7 +192,7 @@ export function StaffScreen() {
         <ListToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Ism, email yoki telefon..."
+          searchPlaceholder="Ism, email yoki telefon…"
           resultCount={staff.length}
           hasActiveFilters={hasActiveFilters}
           onClear={() => {
@@ -264,7 +264,7 @@ export function StaffScreen() {
             className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
           >
             <option value="" disabled>
-              Tanlang...
+              Tanlang…
             </option>
             {me.creatableRoles.map((r) => (
               <option key={r} value={r}>

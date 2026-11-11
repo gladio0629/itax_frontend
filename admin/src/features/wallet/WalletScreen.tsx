@@ -206,7 +206,7 @@ export function WalletScreen() {
         <ListToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Haydovchi bo'yicha qidirish..."
+          searchPlaceholder="Haydovchi bo'yicha qidirish…"
           resultCount={rows.length}
           hasActiveFilters={hasActiveFilters}
           onClear={() => setType("all")}

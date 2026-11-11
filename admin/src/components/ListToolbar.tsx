@@ -9,7 +9,7 @@ import { Input } from "./Input";
 export function ListToolbar({
   search,
   onSearchChange,
-  searchPlaceholder = "Qidirish...",
+  searchPlaceholder = "Qidirish…",
   children,
   resultCount,
   hasActiveFilters,

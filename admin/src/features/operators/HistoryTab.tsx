@@ -115,7 +115,7 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
         <div className="flex items-center justify-end gap-2" onClick={(ev) => ev.stopPropagation()}>
           {e.edited && <Badge tone="neutral">tahrirlandi</Badge>}
           {canWork && e.operatorId === me?.id && (
-            <button aria-label="Tahrirlash" onClick={() => openEdit(e)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
+            <button type="button" aria-label="Tahrirlash" onClick={() => openEdit(e)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
               <Pencil className="h-4 w-4" />
             </button>
           )}
@@ -140,7 +140,7 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
       <ListToolbar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Telefon, izoh yoki operator..."
+        searchPlaceholder="Telefon, izoh yoki operator…"
         resultCount={items.length}
         hasActiveFilters={hasActiveFilters}
         onClear={clearFilters}

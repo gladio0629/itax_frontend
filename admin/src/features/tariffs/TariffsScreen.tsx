@@ -214,7 +214,7 @@ export function TariffsScreen() {
       )}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Tarif nomi..." resultCount={active.length + archived.length} hasActiveFilters={false} onClear={() => {}} />
+        <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Tarif nomi…" resultCount={active.length + archived.length} hasActiveFilters={false} onClear={() => {}} />
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" /> Yangi tarif
         </Button>

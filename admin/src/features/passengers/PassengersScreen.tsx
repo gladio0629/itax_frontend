@@ -156,7 +156,7 @@ export function PassengersScreen() {
         <ListToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Ism bo'yicha qidirish..."
+          searchPlaceholder="Ism bo'yicha qidirish…"
           resultCount={passengers.length}
           hasActiveFilters={hasActiveFilters}
           onClear={() => setStatus("all")}
@@ -202,7 +202,7 @@ export function PassengersScreen() {
                 </div>
               </div>
               {!selected.archived && (
-                <button aria-label="Tahrirlash" onClick={() => openEdit(selected)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
+                <button type="button" aria-label="Tahrirlash" onClick={() => openEdit(selected)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
                   <Pencil className="h-4 w-4" />
                 </button>
               )}

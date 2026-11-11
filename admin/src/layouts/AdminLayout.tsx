@@ -47,10 +47,16 @@ export function AdminLayout() {
 
   return (
     <div className="flex h-screen bg-bg">
+      <a
+        href="#main"
+        className="sr-only z-50 rounded-button bg-brand-yellow px-4 py-2 text-sm font-semibold text-on-yellow focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Asosiy kontentga o'tish
+      </a>
       <Sidebar sections={me?.sections ?? []} badges={badges} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar title={title} me={me} onLogout={handleLogout} />
-        <main className="flex-1 overflow-y-auto overscroll-contain px-6 py-6 xl:px-8 xl:py-8">
+        <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto outline-none overscroll-contain px-6 py-6 xl:px-8 xl:py-8">
           {/* Content never stretches past 1280px on wide screens. */}
           <div className="mx-auto w-full max-w-[1280px]">
             <Outlet />

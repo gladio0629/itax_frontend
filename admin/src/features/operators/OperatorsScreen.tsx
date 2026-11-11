@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Tabs } from "@/components/Tabs";
@@ -17,7 +18,11 @@ export function OperatorsScreen() {
   const { me } = usePermissions();
   const canWork = !!me?.actions.includes("operatorWork");
   const canSupervise = !!me?.actions.includes("operatorSupervise");
-  const [tab, setTab] = useState<TabKey>("queue");
+  // Active window lives in the URL (?tab=) so it survives reloads and can be linked.
+  const [params, setParams] = useSearchParams();
+  const tabParam = params.get("tab");
+  const tab: TabKey = tabParam === "inProgress" || tabParam === "history" ? tabParam : "queue";
+  const setTab = (t: TabKey) => setParams(t === "queue" ? {} : { tab: t }, { replace: true });
   const [counts, setCounts] = useState<OperatorCounts | null>(null);
 
   async function loadCounts() {
@@ -32,6 +37,7 @@ export function OperatorsScreen() {
   }, [tab]);
 
   if (!me) return null;
+  if (tab === "inProgress" && !canSupervise) return <OperatorsRedirect onReset={() => setTab("queue")} />;
 
   const tabs: { key: TabKey; label: string; count?: number }[] = canSupervise
     ? [
@@ -53,4 +59,9 @@ export function OperatorsScreen() {
       {tab === "history" && <HistoryTab canSupervise={canSupervise} onChanged={loadCounts} />}
     </div>
   );
+}
+
+function OperatorsRedirect({ onReset }: { onReset: () => void }) {
+  useEffect(onReset, [onReset]);
+  return null;
 }

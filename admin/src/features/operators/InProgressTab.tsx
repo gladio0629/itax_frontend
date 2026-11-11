@@ -55,7 +55,7 @@ export function InProgressTab() {
 
   return (
     <div className="space-y-4">
-      <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Operator yoki telefon..." resultCount={items.length} hasActiveFilters={false} onClear={() => {}} />
+      <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Operator yoki telefon…" resultCount={items.length} hasActiveFilters={false} onClear={() => {}} />
 
       {items.length === 0 ? (
         <EmptyState icon={<Loader2 className="h-6 w-6" />} title="Hozircha hech kim band emas" description="Hech bir operator vazifa bilan shug'ullanmayapti." />

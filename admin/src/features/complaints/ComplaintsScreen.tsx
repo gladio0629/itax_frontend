@@ -114,7 +114,7 @@ export function ComplaintsScreen() {
         <ListToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Tavsif bo'yicha qidirish..."
+          searchPlaceholder="Tavsif bo'yicha qidirish…"
           resultCount={items.length}
           hasActiveFilters={hasActiveFilters}
           onClear={clearFilters}
@@ -166,7 +166,7 @@ export function ComplaintsScreen() {
                     <input
                       value={noteDrafts[c.id] ?? ""}
                       onChange={(e) => setNoteDrafts((d) => ({ ...d, [c.id]: e.target.value }))}
-                      placeholder="Izoh qo'shish..."
+                      placeholder="Izoh qo'shish…"
                       className="h-8 flex-1 rounded-button border border-border bg-card px-3 text-xs text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                     />
                     <Button size="sm" variant="secondary" disabled={!noteDrafts[c.id]?.trim()} loading={busyId === c.id} onClick={() => addNote(c.id)}>

@@ -44,7 +44,7 @@ export function DemoControlPanel() {
         <div className="w-80 rounded-sheet bg-sidebar-bg p-5 text-white shadow-2xl animate-slide-up">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">Demo boshqaruv paneli</p>
-            <button onClick={() => setOpen(false)} aria-label="Yopish" className="rounded-full p-1 hover:bg-white/10">
+            <button type="button" onClick={() => setOpen(false)} aria-label="Yopish" className="rounded-full p-1 hover:bg-white/10">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -53,7 +53,7 @@ export function DemoControlPanel() {
               const meta = SCENARIO_LABELS[key];
               const active = scenarios[key];
               return (
-                <button
+                <button type="button"
                   key={key}
                   onClick={() => toggle(key)}
                   className="flex w-full items-center justify-between gap-3 rounded-button bg-white/5 px-3 py-3 text-left hover:bg-white/10"
@@ -74,19 +74,19 @@ export function DemoControlPanel() {
             <p className="mb-2 text-xs font-semibold">Rol sifatida kirish</p>
             <div className="grid grid-cols-2 gap-2">
               {ALL_ROLES.map((role) => (
-                <button
+                <button type="button"
                   key={role}
                   onClick={() => loginAsRole(role)}
                   disabled={switching !== null}
                   className="rounded-button bg-white/5 px-2 py-2 text-left text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
                 >
-                  {switching === role ? "..." : ROLE_LABEL[role]}
+                  {switching === role ? "…" : ROLE_LABEL[role]}
                 </button>
               ))}
             </div>
           </div>
 
-          <button
+          <button type="button"
             onClick={resetDb}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-button border border-white/15 py-3 text-xs font-semibold hover:bg-white/5"
           >
@@ -95,7 +95,7 @@ export function DemoControlPanel() {
           </button>
         </div>
       )}
-      <button
+      <button type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Demo boshqaruv paneli"
         className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-sidebar-bg text-brand-yellow shadow-soft transition-transform active:scale-95"

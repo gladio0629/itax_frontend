@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Car, TrendingUp, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StatCard } from "@/components/StatCard";
@@ -37,7 +38,11 @@ const PERIODS: { key: StatsPeriod; label: string }[] = [
  * the permissions matrix, and marketolog's statistics are no longer
  * money-free, so there is no reason left for two different screens. */
 export function StatsScreen() {
-  const [period, setPeriod] = useState<StatsPeriod>("7d");
+  // Period lives in the URL (?period=) so a view can be shared or reloaded.
+  const [params, setParams] = useSearchParams();
+  const periodParam = params.get("period") as StatsPeriod | null;
+  const period: StatsPeriod = periodParam && PERIODS.some((p) => p.key === periodParam) ? periodParam : "7d";
+  const setPeriod = (p: StatsPeriod) => setParams(p === "7d" ? {} : { period: p }, { replace: true });
   const [stats, setStats] = useState<MarketingStats | null>(null);
   const [error, setError] = useState(false);
 

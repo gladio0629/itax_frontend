@@ -173,7 +173,7 @@ export function DriversScreen() {
         <ListToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Ism, davlat raqami yoki model..."
+          searchPlaceholder="Ism, davlat raqami yoki model…"
           resultCount={drivers.length}
           hasActiveFilters={hasActiveFilters}
           onClear={() => setStatus("all")}
@@ -213,7 +213,7 @@ export function DriversScreen() {
                 </div>
               </div>
               {!selected.archived && (
-                <button aria-label="Tahrirlash" onClick={() => startEdit(selected)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
+                <button type="button" aria-label="Tahrirlash" onClick={() => startEdit(selected)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
                   <Pencil className="h-4 w-4" />
                 </button>
               )}

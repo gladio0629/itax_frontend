@@ -128,7 +128,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Izoh..."
+            placeholder="Izoh…"
             aria-label="Izoh"
             rows={2}
             className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
@@ -137,7 +137,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
             <input
               value={activeRejectReason}
               onChange={(e) => setActiveRejectReason(e.target.value)}
-              placeholder="Rad etish sababi (shart)..."
+              placeholder="Rad etish sababi (shart)…"
               aria-label="Rad etish sababi"
               className="h-10 w-full rounded-button border border-danger bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
               autoFocus
@@ -160,7 +160,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
       <ListToolbar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Telefon bo'yicha qidirish..."
+        searchPlaceholder="Telefon bo'yicha qidirish…"
         resultCount={queue.length}
         hasActiveFilters={hasActiveFilters}
         onClear={() => setReason("all")}
@@ -205,7 +205,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
                   <input
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Sabab..."
+                    placeholder="Sabab…"
                     aria-label="Rad etish sababi"
                     className="h-8 w-48 rounded-button border border-border bg-card px-3 text-xs text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                     autoFocus

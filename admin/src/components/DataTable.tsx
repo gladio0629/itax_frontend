@@ -39,7 +39,7 @@ export function DataTable<T>({
   rows,
   rowKey,
   searchFields,
-  searchPlaceholder = "Qidirish...",
+  searchPlaceholder = "Qidirish…",
   pageSize = 10,
   onRowClick,
   emptyIcon,
