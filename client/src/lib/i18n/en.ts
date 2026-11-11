@@ -97,6 +97,7 @@ export const en: Dictionary = {
   "seat.selectedCount.one": "{{count}} seat selected",
   "seat.selectedCount.few": "{{count}} seats selected",
   "seat.selectedCount.other": "{{count}} seats selected",
+  "seat.countLabel": "How many people",
   "seat.noneSelected": "Choose a seat",
   "seat.loadError": "Couldn't load which seats are free.",
   "seat.taken": "taken",

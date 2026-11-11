@@ -6,7 +6,6 @@ import { addressById } from "@/clientData/addresses";
 import { Sheet } from "@/components/Sheet";
 import { Button } from "@/components/Button";
 import { useT } from "@/lib/i18n/provider";
-import { PassengerCountButtons } from "./PassengerCountButtons";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { SeatMap } from "./SeatMap";
 import { AddressPickerSheet } from "./AddressPickerSheet";
@@ -109,29 +108,17 @@ export function TafsilotlarSheet({
         </div>
 
         <div className="mb-4">
-          <PassengerCountButtons
+          <SeatMap
             seats={seats}
             mode={mode}
             seatIds={seatIds}
-            onChange={(m, s) => {
+            onChange={(m, ids) => {
               setMode(m);
-              setSeatIds(s);
+              setSeatIds(ids);
             }}
+            loadError={seatsError}
+            onRetry={() => setSeatsReload((n) => n + 1)}
           />
-          <div className="mt-3">
-            <SeatMap
-              seats={seats}
-              selected={seatIds}
-              onToggle={(id) => setSeatIds(seatIds.includes(id) ? seatIds.filter((s) => s !== id) : [...seatIds, id])}
-              wholeCar={mode === "car"}
-              loadError={seatsError}
-              onRetry={() => setSeatsReload((n) => n + 1)}
-              onWholeCarChange={(whole) => {
-                setMode(whole ? "car" : "seat");
-                setSeatIds([]);
-              }}
-            />
-          </div>
         </div>
 
         <button

@@ -6,27 +6,78 @@
 .seat3d-stage {
   container-type: inline-size;
   position: relative;
+  overflow: hidden;
   /* Plane is 240×400 at most; at 48° it projects to roughly 1.15× its width tall. */
-  --plane-w: min(240px, 74cqw);
-  height: calc(min(240px, 74cqw) * 1.2);
+  /* Narrow enough that the road's lane lines stay visible either side. */
+  --plane-w: min(220px, 60cqw);
+  height: calc(min(220px, 60cqw) * 1.34);
   user-select: none;
 }
 
+/* The road the car sits on: soft gray asphalt (layered gradients, no
+   images), solid edge lines and dashed lane lines either side of the car.
+   The dashes drift slowly toward the viewer so the car reads as driving. */
+.seat3d-road {
+  position: absolute;
+  inset: 0;
+  --asphalt-a: #d9dde4;
+  --asphalt-b: #cdd2da;
+  --lane: rgb(255 255 255 / 0.95);
+  --edge: rgb(255 255 255 / 0.75);
+  background:
+    linear-gradient(90deg, transparent 4%, var(--edge) 4% 5%, transparent 5% 95%, var(--edge) 95% 96%, transparent 96%),
+    radial-gradient(circle at 20% 30%, rgb(0 0 0 / 0.025) 0 0.8px, transparent 1.2px) 0 0 / 5px 6px,
+    radial-gradient(circle at 70% 60%, rgb(255 255 255 / 0.18) 0 0.8px, transparent 1.2px) 0 0 / 9px 7px,
+    linear-gradient(90deg, rgb(0 0 0 / 0.05), transparent 18%, transparent 82%, rgb(0 0 0 / 0.05)),
+    linear-gradient(180deg, var(--asphalt-a) 0%, var(--asphalt-b) 100%);
+}
+[data-theme="dark"] .seat3d-road {
+  --asphalt-a: #232a3a;
+  --asphalt-b: #1b2130;
+  --lane: rgb(237 241 248 / 0.55);
+  --edge: rgb(237 241 248 / 0.35);
+}
+.seat3d-lane {
+  position: absolute;
+  top: -40px;
+  bottom: -40px;
+  width: 4px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(180deg, var(--lane) 0 22px, transparent 22px 40px);
+  animation: seat3d-lane 2.4s linear infinite;
+  will-change: transform;
+}
+.seat3d-lane--left {
+  left: 12%;
+}
+.seat3d-lane--right {
+  right: 12%;
+}
+@keyframes seat3d-lane {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(40px);
+  }
+}
+
+/* Contact shadow: the car sits on the road, so the shadow hugs the body. */
 .seat3d-ground {
   position: absolute;
   left: 50%;
-  bottom: 2%;
-  width: 92%;
-  max-width: 300px;
-  height: 22%;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgb(8 14 30 / 0.32) 0%, rgb(8 14 30 / 0.14) 45%, transparent 72%);
+  top: 48%;
+  width: calc(var(--plane-w) * 0.98);
+  height: calc(var(--plane-w) * 1.12);
+  transform: translate(-50%, -50%);
+  border-radius: 38% / 30%;
+  background: radial-gradient(ellipse at 50% 55%, rgb(8 14 30 / 0.42) 0%, rgb(8 14 30 / 0.22) 55%, transparent 75%);
+  filter: blur(6px);
   animation: seat3d-shadow 3.6s ease-in-out infinite;
   will-change: transform, opacity;
 }
 [data-theme="dark"] .seat3d-ground {
-  background: radial-gradient(ellipse at center, rgb(0 0 0 / 0.6) 0%, rgb(0 0 0 / 0.3) 45%, transparent 72%);
+  background: radial-gradient(ellipse at 50% 55%, rgb(0 0 0 / 0.7) 0%, rgb(0 0 0 / 0.35) 55%, transparent 75%);
 }
 
 .seat3d-float {
@@ -41,7 +92,7 @@
 .seat3d-plane {
   position: absolute;
   left: 50%;
-  top: 45%;
+  top: 47%;
   width: var(--plane-w);
   aspect-ratio: 240 / 400;
   transform: translate(-50%, -50%) rotateX(48deg);
@@ -189,24 +240,25 @@
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
   }
 }
 @keyframes seat3d-shadow {
   0%,
   100% {
-    transform: translateX(-50%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
     opacity: 1;
   }
   50% {
-    transform: translateX(-50%) scale(0.96);
-    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(0.985);
+    opacity: 0.9;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .seat3d-float,
-  .seat3d-ground {
+  .seat3d-ground,
+  .seat3d-lane {
     animation: none;
   }
 }

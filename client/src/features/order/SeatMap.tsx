@@ -1,8 +1,8 @@
 import { useId } from "react";
 import { Check, Lock } from "@/lib/icons";
-import type { Seat, SeatPosition } from "@/api/types";
-import { Switch } from "@/components/Switch";
+import type { OrderMode, Seat, SeatPosition } from "@/api/types";
 import { formatSom } from "@/lib/format";
+import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import "./seat3d.css";
@@ -29,6 +29,15 @@ const SEAT_BOX: Record<SeatPosition, Box> = {
 };
 const DRIVER_BOX: Box = { x: 40, y: 150, w: 66, h: 90 };
 const ORDER: SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
+// Rear seats fill first (no surcharge); the front seat (paid surcharge) only
+// joins once all three rear seats are in the selection.
+const SEAT_PRIORITY: SeatPosition[] = ["back-left", "back-mid", "back-right", "front"];
+const COUNT_KEY: Record<1 | 2 | 3, TranslationKey> = {
+  1: "order.passengerCount.one",
+  2: "order.passengerCount.two",
+  3: "order.passengerCount.three",
+};
+type Choice = 1 | 2 | 3 | "car";
 
 function boxStyle({ x, y, w, h }: Box) {
   return {
@@ -163,104 +172,160 @@ export function seatCountLabel(t: (key: TranslationKey, params?: Record<string, 
 }
 
 /**
- * Premium high-angle 3D sedan seat selector. Taken seats (from the adapter)
- * are dimmed and locked; a seat this order already holds is never shown as
- * taken. In whole-car mode every passenger seat is lit and the toggle below
- * is the way back to picking individual seats.
+ * Premium top-down 3D sedan on a road, roof open so the salon shows: the
+ * driver's seat (steering wheel, never selectable), the front passenger seat
+ * and the three rear seats. Four chips above the car — 1, 2, 3 kishi and
+ * Butun mashina — and the seats themselves are two views of one selection:
+ * picking a count lights that many seats (rear first), tapping seats moves
+ * the count. Taken seats (from the adapter) are dimmed and locked; a seat
+ * this order already holds is never shown as taken.
  */
 export function SeatMap({
   seats,
-  selected,
-  onToggle,
-  wholeCar,
-  onWholeCarChange,
+  mode,
+  seatIds,
+  onChange,
   loadError,
   onRetry,
 }: {
   seats: Seat[];
-  selected: string[];
-  onToggle: (seatId: string) => void;
-  wholeCar: boolean;
-  onWholeCarChange: (wholeCar: boolean) => void;
+  mode: OrderMode;
+  seatIds: string[];
+  onChange: (mode: OrderMode, seatIds: string[]) => void;
   /** Seat availability failed to load: taken seats can't be shown, so say so. */
   loadError?: boolean;
   onRetry?: () => void;
 }) {
   const { t, intlTag } = useT();
   const byId = Object.fromEntries(seats.map((s) => [s.id, s]));
+  const wholeCar = mode === "car";
+  const isAvailable = (id: string) => !byId[id]?.taken || seatIds.includes(id);
+  const available = SEAT_PRIORITY.filter(isAvailable);
+  const anyTaken = available.length < SEAT_PRIORITY.length;
+
+  function pickCount(n: 1 | 2 | 3) {
+    // Keep seats the passenger already chose by hand, then fill by priority.
+    let next = wholeCar ? [] : seatIds.filter(isAvailable);
+    if (next.length > n) next = next.slice(0, n);
+    for (const pos of available) {
+      if (next.length >= n) break;
+      if (!next.includes(pos)) next.push(pos);
+    }
+    onChange("seat", next);
+  }
+
+  function choose(c: Choice) {
+    if (c === "car") onChange("car", []);
+    else pickCount(c);
+  }
+
+  function toggleSeat(position: SeatPosition) {
+    if (wholeCar) {
+      // Tapping a lit seat in whole-car mode gives that seat up: back to
+      // per-seat booking with every other free seat still held.
+      onChange("seat", available.filter((p) => p !== position));
+      return;
+    }
+    const next = seatIds.includes(position) ? seatIds.filter((s) => s !== position) : [...seatIds, position];
+    // All four seats by hand is the whole car — same thing, one name for it.
+    if (!anyTaken && next.length === SEAT_PRIORITY.length) onChange("car", []);
+    else onChange("seat", next);
+  }
+
+  const active: Choice | null = wholeCar ? "car" : seatIds.length >= 1 && seatIds.length <= 3 ? (seatIds.length as 1 | 2 | 3) : null;
+  const choices: Choice[] = [1, 2, 3, "car"];
 
   const summary = wholeCar
-    ? t("order.wholeCar")
-    : selected.length === 0
+    ? t("seat.wholeCarHint")
+    : seatIds.length === 0
     ? t("seat.noneSelected")
-    : seatCountLabel(t, selected.length, intlTag);
+    : seatCountLabel(t, seatIds.length, intlTag);
 
   return (
-    <div className="rounded-xl border border-border bg-bg px-3 pb-3 pt-2">
-      {loadError && (
-        <p role="alert" className="flex flex-wrap items-center gap-x-2 px-1 pt-1 text-xs text-danger">
-          {t("seat.loadError")}
-          <button onClick={onRetry} className="inline-flex min-h-[44px] items-center font-semibold underline">
-            {t("common.retry")}
-          </button>
-        </p>
-      )}
-      <div className="seat3d-stage">
-        <div className="seat3d-ground" aria-hidden="true" />
-        <div className="seat3d-float">
-          <div className="seat3d-plane">
-            <CarBody />
-            <span className="seat3d" data-state="driver" style={boxStyle(DRIVER_BOX)} aria-hidden="true">
-              <SeatShape state="driver">
-                <SteeringWheel />
-              </SeatShape>
-            </span>
-            {ORDER.map((position) => {
-              const seat = byId[position];
-              const isSelected = selected.includes(position);
-              const taken = !!seat?.taken && !isSelected;
-              const state: SeatState = wholeCar ? "whole" : taken ? "taken" : isSelected ? "selected" : "free";
-              const label = [
-                t(SEAT_LABEL_KEY[position]),
-                seat?.price != null ? formatSom(seat.price, intlTag) : null,
-                taken ? t("seat.taken") : null,
-              ]
-                .filter(Boolean)
-                .join(", ");
-              return (
-                <button
-                  key={position}
-                  type="button"
-                  className="seat3d"
-                  data-state={state}
-                  style={boxStyle(SEAT_BOX[position])}
-                  disabled={taken}
-                  aria-disabled={wholeCar || undefined}
-                  aria-pressed={wholeCar || isSelected}
-                  aria-label={label}
-                  onClick={() => {
-                    if (!wholeCar) onToggle(position);
-                  }}
-                >
-                  <SeatShape state={state} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
+    <div className="space-y-3">
+      <div role="radiogroup" aria-label={t("seat.countLabel")} className="grid grid-cols-4 gap-2">
+        {choices.map((c) => {
+          const disabled = c === "car" ? anyTaken : available.length < c;
+          const selected = active === c;
+          return (
+            <button
+              key={c}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              disabled={disabled}
+              onClick={() => choose(c)}
+              className={cn(
+                "min-h-[48px] rounded-xl border-2 px-1 py-1.5 text-[13px] font-semibold leading-tight text-balance transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-[0.97] disabled:opacity-40",
+                selected ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer" : "border-border bg-card text-ink/70"
+              )}
+            >
+              {c === "car" ? t("order.wholeCar") : t(COUNT_KEY[c])}
+            </button>
+          );
+        })}
       </div>
 
-      <p className="mt-1 text-center text-sm font-semibold text-ink" aria-live="polite">
-        {summary}
-      </p>
-      {!wholeCar && <p className="mt-1 text-center text-xs text-ink/60 text-pretty">{t("seat.frontSurchargeNote")}</p>}
-
-      <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-card px-4 py-3 shadow-softer">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">{t("order.wholeCar")}</p>
-          <p className="text-xs text-ink/60">{t("seat.wholeCarHint")}</p>
+      <div className="overflow-hidden rounded-card border border-border">
+        {loadError && (
+          <p role="alert" className="flex flex-wrap items-center gap-x-2 bg-card px-4 pt-1 text-xs text-danger">
+            {t("seat.loadError")}
+            <button onClick={onRetry} className="inline-flex min-h-[44px] items-center font-semibold underline">
+              {t("common.retry")}
+            </button>
+          </p>
+        )}
+        <div className="seat3d-stage">
+          <div className="seat3d-road" aria-hidden="true">
+            <span className="seat3d-lane seat3d-lane--left" />
+            <span className="seat3d-lane seat3d-lane--right" />
+          </div>
+          <div className="seat3d-ground" aria-hidden="true" />
+          <div className="seat3d-float">
+            <div className="seat3d-plane">
+              <CarBody />
+              <span className="seat3d" data-state="driver" style={boxStyle(DRIVER_BOX)} aria-hidden="true">
+                <SeatShape state="driver">
+                  <SteeringWheel />
+                </SeatShape>
+              </span>
+              {ORDER.map((position) => {
+                const seat = byId[position];
+                const isSelected = seatIds.includes(position);
+                const taken = !!seat?.taken && !isSelected;
+                const state: SeatState = taken ? "taken" : wholeCar ? "whole" : isSelected ? "selected" : "free";
+                const label = [
+                  t(SEAT_LABEL_KEY[position]),
+                  seat?.price != null ? formatSom(seat.price, intlTag) : null,
+                  taken ? t("seat.taken") : null,
+                ]
+                  .filter(Boolean)
+                  .join(", ");
+                return (
+                  <button
+                    key={position}
+                    type="button"
+                    className="seat3d"
+                    data-state={state}
+                    style={boxStyle(SEAT_BOX[position])}
+                    disabled={taken}
+                    aria-pressed={wholeCar || isSelected}
+                    aria-label={label}
+                    onClick={() => toggleSeat(position)}
+                  >
+                    <SeatShape state={state} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        <Switch checked={wholeCar} onChange={() => onWholeCarChange(!wholeCar)} label={t("order.wholeCar")} />
+        <div className="border-t border-border bg-card px-4 py-2.5 text-center">
+          <p className="text-sm font-semibold text-ink" aria-live="polite">
+            {summary}
+          </p>
+          {!wholeCar && <p className="mt-0.5 text-xs text-ink/60 text-pretty">{t("seat.frontSurchargeNote")}</p>}
+        </div>
       </div>
     </div>
   );

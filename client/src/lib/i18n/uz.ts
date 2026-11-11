@@ -97,6 +97,7 @@ export const uz = {
   "seat.selectedCount.one": "{{count}} ta joy tanlandi",
   "seat.selectedCount.few": "{{count}} ta joy tanlandi",
   "seat.selectedCount.other": "{{count}} ta joy tanlandi",
+  "seat.countLabel": "Necha kishi",
   "seat.noneSelected": "Joyni tanlang",
   "seat.loadError": "Joylar holatini yuklab bo'lmadi.",
   "seat.taken": "band",

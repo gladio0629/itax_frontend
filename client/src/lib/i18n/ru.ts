@@ -97,6 +97,7 @@ export const ru: Dictionary = {
   "seat.selectedCount.one": "Выбрано {{count}} место",
   "seat.selectedCount.few": "Выбрано {{count}} места",
   "seat.selectedCount.other": "Выбрано {{count}} мест",
+  "seat.countLabel": "Сколько человек",
   "seat.noneSelected": "Выберите место",
   "seat.loadError": "Не удалось загрузить занятость мест.",
   "seat.taken": "занято",

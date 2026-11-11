@@ -15,7 +15,6 @@ import { SeatMap, seatCountLabel } from "./SeatMap";
 import { VehiclePicker } from "./VehiclePicker";
 import { AddressPickerSheet } from "./AddressPickerSheet";
 import { TimePickerSheet } from "./TimePickerSheet";
-import { PassengerCountButtons } from "./PassengerCountButtons";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
 import { RouteFields } from "./RouteFields";
@@ -123,11 +122,6 @@ export function OrderSheet({
     [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, draft.mode, draft.seatIds, draft.cargo]
   );
 
-  function toggleSeat(seatId: string) {
-    const has = draft.seatIds.includes(seatId);
-    setField("seatIds", has ? draft.seatIds.filter((s) => s !== seatId) : [...draft.seatIds, seatId]);
-  }
-
   const canNext =
     step === 0
       ? canQuote
@@ -172,26 +166,16 @@ export function OrderSheet({
 
             {draft.serviceType === "passenger" ? (
               <>
-                <PassengerCountButtons
+                <SeatMap
                   seats={seats}
                   mode={draft.mode}
                   seatIds={draft.seatIds}
-                  onChange={(mode, seatIds) => {
-                    setField("mode", mode);
-                    setField("seatIds", seatIds);
+                  onChange={(m, ids) => {
+                    setField("mode", m);
+                    setField("seatIds", ids);
                   }}
-                />
-                <SeatMap
-                  seats={seats}
-                  selected={draft.seatIds}
-                  onToggle={toggleSeat}
-                  wholeCar={draft.mode === "car"}
                   loadError={seatsError}
                   onRetry={() => setSeatsReload((n) => n + 1)}
-                  onWholeCarChange={(whole) => {
-                    setField("mode", whole ? "car" : "seat");
-                    setField("seatIds", []);
-                  }}
                 />
               </>
             ) : (
