@@ -54,6 +54,7 @@ export const Megaphone = wrap(L.Megaphone);
 export const Moon = wrap(L.Moon);
 export const Navigation = wrap(L.Navigation);
 export const Package = wrap(L.Package);
+export const Pencil = wrap(L.Pencil);
 export const Percent = wrap(L.Percent);
 export const Phone = wrap(L.Phone);
 export const Plus = wrap(L.Plus);

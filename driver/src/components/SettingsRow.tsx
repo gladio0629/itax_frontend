@@ -36,7 +36,7 @@ export function SettingsRow({ icon: Icon, tile, label, value, to, onClick, trail
       </span>
       <span className="min-w-0 flex-1">
         <span className={cn("block truncate text-base", danger ? "text-danger" : "text-ink")}>{label}</span>
-        {description && <span className="block truncate text-sm text-muted">{description}</span>}
+        {description && <span className="block text-sm text-muted">{description}</span>}
       </span>
       {value != null && <span className="tabular shrink-0 text-sm text-muted">{value}</span>}
       {trailing}
