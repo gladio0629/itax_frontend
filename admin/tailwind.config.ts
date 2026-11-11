@@ -12,6 +12,8 @@ export default {
         "accent-5": "var(--color-accent-5)",
         "accent-10": "var(--color-accent-10)",
         "brand-yellow": "var(--color-brand-yellow)",
+        "brand-yellow-hover": "var(--color-brand-yellow-hover)",
+        success: "rgb(var(--color-success-rgb) / <alpha-value>)",
         "on-yellow": "var(--color-on-yellow)",
         warning: "rgb(var(--color-warning-rgb) / <alpha-value>)",
         danger: "rgb(var(--color-danger-rgb) / <alpha-value>)",
@@ -36,18 +38,23 @@ export default {
       },
       borderRadius: {
         button: "var(--radius-button)",
-        "2xl": "16px",
-        "3xl": "24px",
+        card: "var(--radius-card)",
         sheet: "var(--radius-sheet)",
       },
+      transitionDuration: { DEFAULT: "200ms" },
+      transitionTimingFunction: { DEFAULT: "cubic-bezier(0.2, 0, 0, 1)" },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
         "slide-up": {
-          from: { opacity: "0", transform: "translateY(12px)" },
+          from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "slide-in-right": {
+          from: { opacity: "0", transform: "translateX(16px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
         "scale-in": {
-          from: { opacity: "0", transform: "scale(0.94)" },
+          from: { opacity: "0", transform: "scale(0.98)" },
           to: { opacity: "1", transform: "scale(1)" },
         },
         "pulse-ring": {
@@ -65,9 +72,10 @@ export default {
         },
       },
       animation: {
-        "fade-in": "fade-in 0.3s ease-out",
-        "slide-up": "slide-up 0.35s cubic-bezier(0.16,1,0.3,1)",
-        "scale-in": "scale-in 0.25s cubic-bezier(0.16,1,0.3,1)",
+        "fade-in": "fade-in 0.2s cubic-bezier(0.2,0,0,1)",
+        "slide-up": "slide-up 0.2s cubic-bezier(0.2,0,0,1)",
+        "slide-in-right": "slide-in-right 0.2s cubic-bezier(0.2,0,0,1)",
+        "scale-in": "scale-in 0.2s cubic-bezier(0.2,0,0,1)",
         "pulse-ring": "pulse-ring 1.8s cubic-bezier(0.2,0.6,0.4,1) infinite",
         shimmer: "shimmer 1.6s linear infinite",
         "check-pop": "check-pop 0.5s cubic-bezier(0.34,1.56,0.64,1)",

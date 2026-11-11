@@ -113,24 +113,25 @@ export function WalletScreen() {
 
   const columns: Column<WalletLedgerRow>[] = [
     { key: "driver", header: "Haydovchi", sortValue: (r) => r.driverName, render: (r) => <span className="block max-w-[180px] truncate">{r.driverName}</span> },
-    { key: "type", header: "Turi", render: (r) => <Badge tone={TYPE_TONE[r.type]}>{TYPE_LABEL[r.type]}</Badge> },
+    { key: "type", header: "Turi", render: (r) => <Badge tone={TYPE_TONE[r.type]} dot={false}>{TYPE_LABEL[r.type]}</Badge> },
     {
       key: "amount",
       header: "Summa",
+      align: "right",
       sortValue: (r) => r.amount,
       render: (r) => (
-        <span className={cn("tabular font-medium", r.amount < 0 ? "text-danger" : "text-ink")}>
+        <span className={cn("tabular font-semibold", r.amount < 0 ? "text-danger" : "text-ink")}>
           {r.amount > 0 ? "+" : ""}
           {formatSom(r.amount)}
         </span>
       ),
     },
-    { key: "balance", header: "Qoldiq", sortValue: (r) => r.balanceAfter, render: (r) => <span className="tabular">{formatSom(r.balanceAfter)}</span> },
+    { key: "balance", header: "Qoldiq", align: "right", sortValue: (r) => r.balanceAfter, render: (r) => <span className="tabular">{formatSom(r.balanceAfter)}</span> },
     {
       key: "date",
       header: "Sana",
       sortValue: (r) => r.createdAt,
-      render: (r) => <span className="text-xs text-ink/60">{formatDateTime(r.createdAt)}</span>,
+      render: (r) => <span className="tabular text-ink/60">{formatDateTime(r.createdAt)}</span>,
     },
   ];
 
@@ -174,13 +175,13 @@ export function WalletScreen() {
           {proposals.map((p) => {
             const driver = drivers.find((d) => d.id === p.driverId);
             return (
-              <div key={p.id} className="rounded-2xl bg-ink/5 p-4">
+              <div key={p.id} className="rounded-card bg-ink/5 p-4">
                 <div className="mb-2 flex items-center justify-between">
-                  <Badge tone="warning">Ikkinchi adminga yuborildi</Badge>
+                  <Badge tone="pending">Ikkinchi adminga yuborildi</Badge>
                   <span className="text-xs text-ink/50">{p.proposedByName}</span>
                 </div>
                 <p className="text-sm text-ink">
-                  <span className="font-medium">{driver?.name ?? p.driverId}</span>:{" "}
+                  <span className="font-semibold">{driver?.name ?? p.driverId}</span>:{" "}
                   <span className={cn("tabular font-semibold", p.amount < 0 ? "text-danger" : "text-accent")}>
                     {p.amount > 0 ? "+" : ""}
                     {formatSom(p.amount)}
@@ -189,10 +190,10 @@ export function WalletScreen() {
                 <p className="mt-1 text-xs text-ink/60">{p.reason}</p>
                 <div className="mt-3 flex gap-2">
                   <Button size="sm" loading={actingId === p.id} onClick={() => handleApprove(p.id)}>
-                    <Check className="h-3.5 w-3.5" /> Tasdiqlash
+                    <Check className="h-4 w-4" /> Tasdiqlash
                   </Button>
                   <Button size="sm" variant="secondary" onClick={() => handleReject(p.id)}>
-                    <X className="h-3.5 w-3.5" /> Rad etish
+                    <X className="h-4 w-4" /> Rad etish
                   </Button>
                 </div>
               </div>
@@ -219,7 +220,7 @@ export function WalletScreen() {
             filenamePrefix="hamyon"
             buildRow={(r) => ({ Haydovchi: r.driverName, Turi: r.type, Summa: r.amount, Qoldiq: r.balanceAfter })}
           />
-          <Button size="sm" onClick={openCreate}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4" /> Tuzatish yozuvi qo'shish
           </Button>
         </div>
@@ -247,11 +248,13 @@ export function WalletScreen() {
       >
         <p className="text-xs text-ink/60">Yozuv faqat ikkinchi admin tasdiqlagandan so'ng qo'llaniladi. Hamyon jurnali faqat qo'shish uchun — mavjud yozuvlarni tahrirlash yoki o'chirish mumkin emas.</p>
         <div>
-          <label className="mb-2 block text-sm font-semibold text-ink/80">Haydovchi</label>
-          <select
+          <label htmlFor="fld-haydovchi" className="mb-2 block text-sm font-semibold text-ink/80">Haydovchi<span className="ml-1 text-danger" aria-hidden>
+            *
+          </span></label>
+          <select id="fld-haydovchi"
             value={form.driverId}
             onChange={(e) => setForm((f) => ({ ...f, driverId: e.target.value }))}
-            className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none focus:border-accent"
+            className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
           >
             {drivers.map((d) => (
               <option key={d.id} value={d.id}>
@@ -261,7 +264,7 @@ export function WalletScreen() {
           </select>
         </div>
         {walletInfo && (
-          <div className="flex items-center justify-between rounded-xl bg-ink/5 px-4 py-2.5 text-xs">
+          <div className="flex items-center justify-between rounded-button bg-ink/5 px-4 py-3 text-xs">
             <span className="text-ink/60">
               Joriy balans: <span className={cn("font-semibold", walletInfo.balance < walletInfo.debtLimit ? "text-danger" : "text-ink")}>{formatSom(walletInfo.balance)}</span>
             </span>
@@ -272,11 +275,12 @@ export function WalletScreen() {
         )}
         <Input
           label="Summa (so'm, manfiy bo'lishi mumkin)"
+          required
           type="number"
           value={form.amount}
           onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
         />
-        <Input label="Sabab" value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} />
+        <Input label="Sabab" required value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} />
       </FormDrawer>
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}

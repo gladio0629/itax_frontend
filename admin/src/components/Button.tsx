@@ -13,28 +13,32 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   fullWidth?: boolean;
 };
 
+// Colour changes are instant; only the press scale animates (transform-only motion).
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none select-none";
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-button font-semibold transition-transform active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 select-none";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-white shadow-soft shadow-inner5 hover:brightness-105",
-  secondary: "bg-accent-5 text-accent hover:bg-accent-10",
+  // Brand yellow is the signature accent: every primary action, always with on-yellow text.
+  primary: "bg-brand-yellow text-on-yellow shadow-softer hover:bg-brand-yellow-hover",
+  secondary: "border border-border bg-card text-ink hover:bg-ink/[0.04]",
   ghost: "bg-transparent text-ink/80 hover:bg-ink/5",
-  danger: "bg-danger text-white shadow-soft",
+  danger: "bg-danger text-white shadow-softer hover:bg-danger/90",
 };
 
 const sizes: Record<Size, string> = {
-  md: "h-11 px-5 text-sm",
-  sm: "h-9 px-3.5 text-xs",
+  md: "h-10 px-4 text-sm",
+  sm: "h-8 px-3 text-xs",
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(
-  ({ variant = "primary", size = "md", loading, fullWidth, className, children, disabled, ...rest }, ref) => {
+  ({ variant = "primary", size = "md", loading, fullWidth, className, children, disabled, type = "button", ...rest }, ref) => {
     return (
       <button
         ref={ref}
+        type={type}
         className={cn(base, variants[variant], sizes[size], fullWidth && "w-full", className)}
         disabled={disabled || loading}
+        aria-busy={loading || undefined}
         {...rest}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}

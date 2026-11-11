@@ -105,7 +105,7 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <p className="text-lg font-semibold text-ink">
           {settled ? (status === "approved" ? "Tasdiqlandi!" : "Rad etildi") : title ?? "Tekshiruvga yuborildi"}
         </p>
@@ -127,15 +127,15 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
             <div key={step.key} className="flex flex-1 flex-col items-center gap-2">
               <div className="flex w-full items-center">
                 {i > 0 && (
-                  <span className={cn("h-0.5 flex-1 transition-colors", isDone || isActive ? "bg-accent" : "bg-border")} />
+                  <span className={cn("h-0.5 flex-1", isDone || isActive ? "bg-accent" : "bg-border")} />
                 )}
                 <div
                   className={cn(
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors",
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
                     isDone ? "bg-accent text-white" : isActive ? "bg-accent-10 text-accent" : "bg-ink/5 text-ink/60"
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5" />
+                  <Icon className="h-4 w-4" />
                 </div>
                 {i === 0 && <span className="h-0.5 flex-1" />}
               </div>

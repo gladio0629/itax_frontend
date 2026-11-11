@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Archive, Check, Plus, SlidersHorizontal, X } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
+import { formatSom } from "@/lib/format";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
@@ -24,7 +26,10 @@ const FIELD_LABEL: Record<keyof Omit<Tariff, "id" | "archived">, string> = {
   fuelAdjustmentPct: "Yoqilg'i ustamasi (%)",
   commissionPct: "Komissiya (%)",
 };
-const NUMERIC_FIELDS = (Object.keys(FIELD_LABEL) as (keyof typeof FIELD_LABEL)[]).filter((k) => k !== "name");
+const NUMERIC_FIELDS = (Object.keys(FIELD_LABEL) as (keyof typeof FIELD_LABEL)[]).filter((k) => k !== "name") as Exclude<keyof typeof FIELD_LABEL, "name">[];
+function formatTariffValue(k: (typeof NUMERIC_FIELDS)[number], v: number): string {
+  return k === "fuelAdjustmentPct" || k === "commissionPct" ? `${v}%` : formatSom(v);
+}
 
 type FormState = { name: string; baseFare: string; perKmCar: string; perKmSeat: string; frontSeatSurcharge: string; fuelAdjustmentPct: string; commissionPct: string };
 function tariffToForm(t: Tariff): FormState {
@@ -142,7 +147,7 @@ export function TariffsScreen() {
   if (error) return <ErrorState onRetry={load} />;
   if (!active) {
     return (
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -176,9 +181,9 @@ export function TariffsScreen() {
         <Card className="space-y-3">
           <p className="text-sm font-semibold text-ink">Tasdiqlashni kutayotgan o'zgarishlar</p>
           {proposals.map((p) => (
-            <div key={p.id} className="rounded-2xl bg-ink/5 p-4">
+            <div key={p.id} className="rounded-card border border-warning/20 bg-warning/[0.04] p-4">
               <div className="mb-2 flex items-center justify-between">
-                <Badge tone="warning">
+                <Badge tone="pending">
                   {p.type === "create" ? "Yangi tarif" : p.type === "archive" ? "Arxivlash" : "O'zgarish"}
                 </Badge>
                 <span className="text-xs text-ink/50">{p.proposedByName}</span>
@@ -187,17 +192,20 @@ export function TariffsScreen() {
                 <ul className="mb-3 space-y-1 text-sm text-ink/70">
                   {Object.entries(p.patch).map(([k, v]) => (
                     <li key={k}>
-                      {FIELD_LABEL[k as keyof typeof FIELD_LABEL] ?? k}: <span className="font-medium text-ink">{String(v)}</span>
+                      {FIELD_LABEL[k as keyof typeof FIELD_LABEL] ?? k}:{" "}
+                      <span className="tabular font-semibold text-ink">
+                        {(NUMERIC_FIELDS as string[]).includes(k) ? formatTariffValue(k as (typeof NUMERIC_FIELDS)[number], Number(v)) : String(v)}
+                      </span>
                     </li>
                   ))}
                 </ul>
               )}
               <div className="flex gap-2">
                 <Button size="sm" loading={acting} onClick={() => handleApprove(p.id)}>
-                  <Check className="h-3.5 w-3.5" /> Tasdiqlash
+                  <Check className="h-4 w-4" /> Tasdiqlash
                 </Button>
                 <Button size="sm" variant="secondary" onClick={() => handleReject(p.id)}>
-                  <X className="h-3.5 w-3.5" /> Rad etish
+                  <X className="h-4 w-4" /> Rad etish
                 </Button>
               </div>
             </div>
@@ -207,46 +215,53 @@ export function TariffsScreen() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Tarif nomi..." resultCount={active.length + archived.length} hasActiveFilters={false} onClear={() => {}} />
-        <Button size="sm" onClick={openCreate}>
+        <Button onClick={openCreate}>
           <Plus className="h-4 w-4" /> Yangi tarif
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {active.map((t) => (
-          <Card key={t.id} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-ink">{t.name}</p>
-              <div className="flex gap-1">
+          <Card key={t.id} className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-ink">{t.name}</h2>
+                <Badge tone="success">Faol</Badge>
+              </div>
+              <div className="flex gap-2">
                 <Button size="sm" variant="secondary" onClick={() => openEdit(t)}>
                   Tahrirlash
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setArchiving(t)}>
-                  <Trash2 className="h-3.5 w-3.5" />
+                <Button size="sm" variant="ghost" onClick={() => setArchiving(t)} aria-label={`${t.name} tarifini arxivlash`} title="Arxivlash">
+                  <Archive className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-            <ul className="space-y-1 text-sm text-ink/70">
+            <dl className="divide-y divide-border text-sm">
               {NUMERIC_FIELDS.map((k) => (
-                <li key={k} className="flex justify-between">
-                  <span>{FIELD_LABEL[k]}</span>
-                  <span className="font-medium text-ink tabular">{t[k]}</span>
-                </li>
+                <div key={k} className="flex h-10 items-center justify-between gap-4">
+                  <dt className="text-ink/60">{FIELD_LABEL[k]}</dt>
+                  <dd className="tabular font-semibold text-ink">{formatTariffValue(k, t[k])}</dd>
+                </div>
               ))}
-            </ul>
+            </dl>
           </Card>
         ))}
-        {active.length === 0 && <p className="text-sm text-ink/50">Faol tarif topilmadi.</p>}
+        {active.length === 0 && (
+          <div className="lg:col-span-2">
+            <EmptyState icon={<SlidersHorizontal />} title="Faol tarif topilmadi" description="Qidiruvni o'zgartiring yoki yangi tarif qo'shing." />
+          </div>
+        )}
       </div>
 
       {archived.length > 0 && (
         <div>
           <p className="mb-3 text-sm font-semibold text-ink/60">Arxivlangan tariflar</p>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {archived.map((t) => (
-              <Card key={t.id} className="space-y-2 opacity-60">
+              <Card key={t.id} className="space-y-2 bg-ink/[0.02] shadow-none">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-ink">{t.name}</p>
+                  <p className="text-sm font-semibold text-ink/60">{t.name}</p>
                   <Badge tone="neutral">Arxivlangan</Badge>
                 </div>
               </Card>
@@ -264,7 +279,7 @@ export function TariffsScreen() {
         loading={saving}
         disabled={!form.name.trim()}
       >
-        <Input label="Nomi" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+        <Input label="Nomi" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
         {NUMERIC_FIELDS.map((key) => (
           <Input
             key={key}

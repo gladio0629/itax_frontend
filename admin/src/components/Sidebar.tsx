@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn";
 import { Logo } from "./Logo";
 import type { Section, SectionBadges } from "@/api/types";
 
-const NAV: { to: string; section: Section; label: string; icon: typeof LayoutDashboard }[] = [
+export const NAV: { to: string; section: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { to: "/dashboard", section: "stats", label: "Umumiy statistika", icon: LayoutDashboard },
   { to: "/drivers", section: "drivers", label: "Haydovchilar", icon: Car },
   { to: "/passengers", section: "passengers", label: "Yo'lovchilar", icon: Users },
@@ -28,46 +28,72 @@ const NAV: { to: string; section: Section; label: string; icon: typeof LayoutDas
   { to: "/audit", section: "audit", label: "Audit jurnali", icon: ClipboardList },
 ];
 
+/**
+ * Navy sidebar. ≥1280px: full width with labels. Below that it collapses to an
+ * icon rail (labels become tooltips + accessible names) so tables keep room.
+ */
 export function Sidebar({ sections, badges }: { sections: Section[]; badges: SectionBadges }) {
   const items = NAV.filter((n) => sections.includes(n.section));
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col bg-sidebar-bg text-sidebar-text">
-      <div className="flex items-center gap-2.5 px-6 py-6">
-        <Logo size={36} />
-        <div>
-          <p className="text-sm font-semibold text-sidebar-text">IZGO Admin</p>
-          <p className="text-xs text-sidebar-text/50">Boshqaruv paneli</p>
+    <aside
+      aria-label="Asosiy menyu"
+      className="flex h-screen w-[var(--sidebar-rail-w)] shrink-0 flex-col bg-sidebar-bg text-sidebar-text xl:w-[var(--sidebar-w)]"
+    >
+      <div className="flex h-16 shrink-0 items-center justify-center gap-3 border-b border-sidebar-border px-4 xl:justify-start xl:px-6">
+        <Logo size={32} />
+        <div className="hidden min-w-0 xl:block">
+          <p className="truncate text-sm font-semibold text-white">IZGO Admin</p>
+          <p className="truncate text-xs text-sidebar-text/60">Boshqaruv paneli</p>
         </div>
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-6">
-        {items.map(({ to, section, label, icon: Icon }) => {
-          const badge = badges[section];
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive ? "bg-white/10 text-white" : "text-sidebar-text/70 hover:bg-white/5 hover:text-white"
-                )
-              }
-            >
-              <span className="flex items-center gap-2.5">
-                <Icon className="h-4 w-4" />
-                {label}
-              </span>
-              {!!badge && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold text-bg">
-                  {badge}
-                </span>
-              )}
-            </NavLink>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <ul className="space-y-1">
+          {items.map(({ to, section, label, icon: Icon }) => {
+            const badge = badges[section];
+            return (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  title={label}
+                  aria-label={badge ? `${label}, ${badge}` : label}
+                  className={({ isActive }) =>
+                    cn(
+                      "group relative flex h-10 items-center justify-center gap-3 rounded-button px-3 text-sm xl:justify-start",
+                      "focus-visible:outline-brand-yellow",
+                      isActive ? "bg-white/10 font-semibold text-white" : "text-sidebar-text/70 hover:text-white"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {/* Hover wash fades in (opacity only). */}
+                      {!isActive && (
+                        <span aria-hidden className="absolute inset-0 rounded-button bg-white/[0.06] opacity-0 transition-opacity group-hover:opacity-100" />
+                      )}
+                      {isActive && <span aria-hidden className="absolute -left-3 top-2 bottom-2 w-1 rounded-r-full bg-brand-yellow" />}
+                      <Icon className={cn("relative h-5 w-5 shrink-0", isActive ? "text-brand-yellow" : "text-sidebar-text/60 group-hover:text-white")} aria-hidden />
+                      <span className="relative hidden min-w-0 flex-1 truncate xl:block">{label}</span>
+                      {!!badge && (
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "tabular relative flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-yellow px-1 text-xs font-semibold text-on-yellow",
+                            "absolute right-1 top-0 xl:static"
+                          )}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              </li>
+            );
+          })}
+        </ul>
       </nav>
-      <div className="border-t border-sidebar-border px-6 py-4 text-[11px] text-sidebar-text/40">
-        IZGO Admin · Demo rejimi
+      <div className="h-20 shrink-0 border-t border-sidebar-border xl:flex xl:items-center xl:pl-[72px] xl:pr-6">
+        <p className="hidden text-xs text-sidebar-text/50 xl:block">IZGO Admin · Demo rejimi</p>
       </div>
     </aside>
   );

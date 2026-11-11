@@ -121,7 +121,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
       {active && (
         <Card className="space-y-4 border-2 border-accent">
           <div className="flex items-center justify-between">
-            <Badge tone="accent">Faol vazifa</Badge>
+            <Badge tone="success">Faol vazifa</Badge>
             <span className="tabular text-sm font-semibold text-ink">{active.phoneFull}</span>
           </div>
           <p className="text-sm text-ink/70">Sabab: {REASON_LABEL[active.reason]}</p>
@@ -130,14 +130,14 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
             onChange={(e) => setNote(e.target.value)}
             placeholder="Izoh..."
             rows={2}
-            className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+            className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
           />
           {finishing === "rejected" && (
             <input
               value={activeRejectReason}
               onChange={(e) => setActiveRejectReason(e.target.value)}
               placeholder="Rad etish sababi (shart)..."
-              className="h-10 w-full rounded-xl border border-danger bg-card px-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+              className="h-10 w-full rounded-button border border-danger bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
               autoFocus
             />
           )}
@@ -195,23 +195,23 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     placeholder="Sabab..."
-                    className="h-9 w-48 rounded-xl border border-border bg-card px-3 text-xs text-ink outline-none transition-colors focus:border-accent"
+                    className="h-8 w-48 rounded-button border border-border bg-card px-3 text-xs text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                     autoFocus
                   />
                   <Button size="sm" variant="danger" loading={busyId === q.id} disabled={!rejectReason.trim()} onClick={() => rejectFromQueue(q.id)}>
                     Rad etish
                   </Button>
-                  <button onClick={() => setRejectingId(null)} aria-label="Yopish" className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5">
-                    <X className="h-3.5 w-3.5" />
+                  <button onClick={() => setRejectingId(null)} aria-label="Yopish" className="rounded-full p-2 text-ink/50 hover:bg-ink/5">
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
                 <div className="flex gap-2">
                   <Button size="sm" disabled={!!active} loading={busyId === q.id} onClick={() => start(q.id)}>
-                    <PhoneMissed className="h-3.5 w-3.5" /> Boshlash
+                    <PhoneMissed className="h-4 w-4" /> Boshlash
                   </Button>
                   <Button size="sm" variant="ghost" disabled={!!active} onClick={() => setRejectingId(q.id)}>
-                    <PhoneOff className="h-3.5 w-3.5" /> Rad etish
+                    <PhoneOff className="h-4 w-4" /> Rad etish
                   </Button>
                 </div>
               )}

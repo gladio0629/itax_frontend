@@ -46,8 +46,8 @@ export function ExportButton<T>({
   }
 
   return (
-    <Button variant="secondary" size="sm" loading={busy} onClick={handleExport}>
-      <Download className="h-3.5 w-3.5" /> Eksport
+    <Button variant="secondary" loading={busy} onClick={handleExport}>
+      <Download className="h-4 w-4" aria-hidden /> Eksport
     </Button>
   );
 }

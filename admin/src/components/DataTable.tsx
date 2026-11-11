@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronLeft, ChevronRight, ChevronsUpDown, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Input } from "./Input";
 import { EmptyState } from "./EmptyState";
@@ -11,6 +11,10 @@ export type Column<T> = {
   render: (row: T) => ReactNode;
   sortValue?: (row: T) => string | number;
   width?: string;
+  /** Right-align (amounts, counts). */
+  align?: "left" | "right";
+  /** Cap width and ellipsize; the full text shows as a native tooltip. */
+  truncate?: { maxWidth: number; title: (row: T) => string };
 };
 
 type Props<T> = {
@@ -97,29 +101,39 @@ export function DataTable<T>({
       )}
 
       {sorted.length === 0 ? (
-        <EmptyState icon={emptyIcon ?? <Search className="h-6 w-6" />} title={emptyTitle} description={emptyDescription} />
+        <EmptyState icon={emptyIcon ?? <Search />} title={emptyTitle} description={emptyDescription} />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-2xl bg-card shadow-softer">
+          <div className="overflow-x-auto rounded-card border border-border bg-card shadow-softer">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-border">
-                  {columns.map((col) => (
-                    <th
-                      key={col.key}
-                      style={{ width: col.width }}
-                      className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink/50"
-                    >
-                      {col.sortValue ? (
-                        <button className="flex items-center gap-1 hover:text-ink" onClick={() => toggleSort(col.key)}>
-                          {col.header}
-                          <ChevronsUpDown className="h-3 w-3" />
-                        </button>
-                      ) : (
-                        col.header
-                      )}
-                    </th>
-                  ))}
+                <tr className="border-b border-border bg-ink/[0.02]">
+                  {columns.map((col) => {
+                    const active = sortKey === col.key;
+                    const SortIcon = !active ? ChevronsUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
+                    return (
+                      <th
+                        key={col.key}
+                        scope="col"
+                        style={{ width: col.width }}
+                        aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
+                        className={cn("h-11 whitespace-nowrap px-4 text-xs font-semibold text-ink/60", col.align === "right" && "text-right")}
+                      >
+                        {col.sortValue ? (
+                          <button
+                            type="button"
+                            className={cn("-mx-2 inline-flex h-8 items-center gap-1 rounded-button px-2 hover:bg-ink/5 hover:text-ink", active && "text-ink")}
+                            onClick={() => toggleSort(col.key)}
+                          >
+                            {col.header}
+                            <SortIcon className={cn("h-3 w-3", !active && "text-ink/30")} aria-hidden />
+                          </button>
+                        ) : (
+                          col.header
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -127,12 +141,11 @@ export function DataTable<T>({
                   <tr
                     key={rowKey(row)}
                     onClick={() => onRowClick?.(row)}
-                    role={onRowClick ? "button" : undefined}
                     tabIndex={onRowClick ? 0 : undefined}
                     onKeyDown={
                       onRowClick
                         ? (e) => {
-                            if (e.key === "Enter" || e.key === " ") {
+                            if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
                               e.preventDefault();
                               onRowClick(row);
                             }
@@ -140,12 +153,17 @@ export function DataTable<T>({
                         : undefined
                     }
                     className={cn(
-                      "border-b border-border last:border-0",
-                      onRowClick && "cursor-pointer hover:bg-ink/[0.03] focus-visible:bg-ink/[0.03]"
+                      "border-b border-border last:border-0 even:bg-ink/[0.015] hover:bg-accent-5",
+                      onRowClick && "cursor-pointer focus-visible:bg-accent-5 focus-visible:outline-offset-[-2px]"
                     )}
                   >
                     {columns.map((col) => (
-                      <td key={col.key} className="px-4 py-3 text-ink">
+                      <td
+                        key={col.key}
+                        title={col.truncate?.title(row)}
+                        style={col.truncate ? { maxWidth: col.truncate.maxWidth } : undefined}
+                        className={cn("h-12 whitespace-nowrap px-4 py-2 text-ink", col.align === "right" && "tabular text-right", col.truncate && "truncate")}
+                      >
                         {col.render(row)}
                       </td>
                     ))}
@@ -155,31 +173,35 @@ export function DataTable<T>({
             </table>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-ink/60">
-            <span>
-              {sorted.length} tadan {safePage * pageSize + 1}-{Math.min(sorted.length, safePage * pageSize + pageRows.length)}
+          <div className="flex items-center justify-between gap-4 text-sm text-ink/60">
+            <span className="tabular">
+              {safePage * pageSize + 1}–{Math.min(sorted.length, safePage * pageSize + pageRows.length)} / {sorted.length}
             </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={safePage === 0}
-                aria-label="Oldingi sahifa"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-border disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="tabular">
-                {safePage + 1} / {pageCount}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                disabled={safePage >= pageCount - 1}
-                aria-label="Keyingi sahifa"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-border disabled:opacity-40"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+            {pageCount > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                  aria-label="Oldingi sahifa"
+                  className="flex h-8 w-8 items-center justify-center rounded-button border border-border bg-card text-ink hover:bg-ink/[0.04] disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="tabular min-w-12 text-center text-ink">
+                  {safePage + 1} / {pageCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={safePage >= pageCount - 1}
+                  aria-label="Keyingi sahifa"
+                  className="flex h-8 w-8 items-center justify-center rounded-button border border-border bg-card text-ink hover:bg-ink/[0.04] disabled:opacity-40"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

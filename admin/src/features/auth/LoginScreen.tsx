@@ -105,7 +105,7 @@ export function LoginScreen() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
-      <div className="w-full max-w-[420px] rounded-2xl bg-card p-8 shadow-softer">
+      <div className="w-full max-w-[420px] rounded-card bg-card p-8 shadow-softer">
         <div className="mb-8 flex items-center gap-3">
           <Logo size={44} />
           <div>
@@ -138,7 +138,7 @@ export function LoginScreen() {
 
         {phase === "code" && (
           <div className="space-y-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-10 text-accent">
+            <div className="flex h-12 w-12 items-center justify-center rounded-button bg-accent-10 text-accent">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
@@ -159,13 +159,13 @@ export function LoginScreen() {
                   inputMode="numeric"
                   maxLength={1}
                   className={cn(
-                    "h-12 w-11 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors focus:border-accent",
+                    "h-12 w-11 rounded-button border bg-card text-center text-lg font-semibold tabular text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15",
                     codeError ? "border-danger" : "border-border"
                   )}
                 />
               ))}
             </div>
-            {codeError && <p className="text-xs font-medium text-danger">{codeError}</p>}
+            {codeError && <p className="text-xs font-semibold text-danger">{codeError}</p>}
             <div className="flex items-center justify-between text-xs">
               <button
                 onClick={handleResend}

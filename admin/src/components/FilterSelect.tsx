@@ -14,7 +14,7 @@ export function FilterSelect<T extends string>({
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
       aria-label={ariaLabel}
-      className="h-11 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+      className="h-10 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

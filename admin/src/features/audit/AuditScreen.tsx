@@ -69,7 +69,7 @@ export function AuditScreen() {
       key: "date",
       header: "Sana",
       sortValue: (e) => e.createdAt,
-      render: (e) => <span className="text-xs text-ink/60">{formatDateTime(e.createdAt)}</span>,
+      render: (e) => <span className="tabular text-ink/60">{formatDateTime(e.createdAt)}</span>,
     },
     {
       key: "actor",
@@ -82,7 +82,7 @@ export function AuditScreen() {
       key: "target",
       header: "Obyekt",
       render: (e) => (
-        <span className="block max-w-[160px] truncate text-ink/70">
+        <span className="block max-w-[160px] truncate text-ink/70" title={`${e.targetType}: ${e.targetId}`}>
           {e.targetType}: {e.targetId}
         </span>
       ),
@@ -90,7 +90,9 @@ export function AuditScreen() {
     {
       key: "detail",
       header: "Tafsilot",
-      render: (e) => <span className="block max-w-[260px] truncate text-ink/70">{e.detail}</span>,
+      render: (e) => <span className="block max-w-[260px] truncate text-ink/70" title={e.detail}>
+          {e.detail}
+        </span>,
     },
   ];
 
@@ -128,14 +130,14 @@ export function AuditScreen() {
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           aria-label="Boshlanish sanasi"
-          className="h-11 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="h-10 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           aria-label="Tugash sanasi"
-          className="h-11 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="h-10 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
         />
       </ListToolbar>
 

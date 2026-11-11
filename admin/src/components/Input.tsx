@@ -19,27 +19,38 @@ export const Input = forwardRef<HTMLInputElement, Props>(
         {label && (
           <label htmlFor={inputId} className="mb-2 block text-sm font-semibold text-ink/80">
             {label}
+            {rest.required && (
+              <span className="ml-1 text-danger" aria-hidden>
+                *
+              </span>
+            )}
           </label>
         )}
         <div
           className={cn(
-            "flex h-11 items-center gap-2 rounded-xl border bg-card px-4 transition-colors",
-            error ? "border-danger" : "border-border focus-within:border-accent"
+            "flex h-10 items-center gap-2 rounded-button border bg-card px-3",
+            error ? "border-danger ring-2 ring-danger/10" : "border-border focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15"
           )}
         >
           {leftIcon && <span className="text-ink/60">{leftIcon}</span>}
           <input
             ref={ref}
             id={inputId}
-            className={cn("h-full w-full bg-transparent text-sm text-ink placeholder:text-ink/60 outline-none", className)}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error || hint ? `${inputId}-msg` : undefined}
+            className={cn("h-full w-full bg-transparent text-sm text-ink placeholder:text-ink/50 outline-none", className)}
             {...rest}
           />
           {rightSlot}
         </div>
         {error ? (
-          <p className="mt-1.5 text-xs font-medium text-danger">{error}</p>
+          <p id={`${inputId}-msg`} className="mt-2 text-xs font-semibold text-danger">
+            {error}
+          </p>
         ) : hint ? (
-          <p className="mt-1.5 text-xs text-ink/60">{hint}</p>
+          <p id={`${inputId}-msg`} className="mt-2 text-xs text-ink/60">
+            {hint}
+          </p>
         ) : null}
       </div>
     );

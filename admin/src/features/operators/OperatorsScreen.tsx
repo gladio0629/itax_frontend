@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
-import { cn } from "@/lib/cn";
+import { Tabs } from "@/components/Tabs";
 import type { OperatorCounts } from "@/api/types";
 import { QueueTab } from "./QueueTab";
 import { InProgressTab } from "./InProgressTab";
@@ -46,25 +46,7 @@ export function OperatorsScreen() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cn(
-              "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-              tab === t.key ? "bg-ink text-bg" : "bg-ink/5 text-ink/70 hover:bg-ink/10"
-            )}
-          >
-            {t.label}
-            {!!t.count && (
-              <span className={cn("flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-semibold", tab === t.key ? "bg-bg/20 text-bg" : "bg-ink/10 text-ink/70")}>
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs label="Operator oynalari" items={tabs} value={tab} onChange={setTab} />
 
       {tab === "queue" && <QueueTab canWork={canWork} onChanged={loadCounts} />}
       {tab === "inProgress" && canSupervise && <InProgressTab />}

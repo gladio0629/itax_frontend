@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, MessageSquareWarning, UserPlus, X } from "lucide-react";
 import { Card } from "@/components/Card";
-import { Badge } from "@/components/Badge";
+import { Badge, type BadgeTone } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
@@ -24,10 +24,10 @@ const TYPE_LABEL: Record<ComplaintType, string> = {
   referral_abuse: "Referal suiste'mol",
 };
 const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
-const STATUS_TONE: Record<ComplaintStatus, "neutral" | "warning" | "accent" | "danger"> = {
-  open: "warning",
-  reviewing: "warning",
-  resolved: "accent",
+const STATUS_TONE: Record<ComplaintStatus, BadgeTone> = {
+  open: "pending",
+  reviewing: "accent",
+  resolved: "success",
   dismissed: "neutral",
 };
 const STATUS_LABEL: Record<ComplaintStatus, string> = {
@@ -143,7 +143,7 @@ export function ComplaintsScreen() {
           {items.map((c: Complaint) => (
             <Card key={c.id} className="space-y-3">
               <div className="flex items-center justify-between">
-                <Badge tone={FRAUD_TYPES.includes(c.type) ? "danger" : "info"}>{TYPE_LABEL[c.type]}</Badge>
+                <Badge tone={FRAUD_TYPES.includes(c.type) ? "danger" : "info"} dot={false}>{TYPE_LABEL[c.type]}</Badge>
                 <Badge tone={STATUS_TONE[c.status]}>{STATUS_LABEL[c.status]}</Badge>
               </div>
               <p className="text-sm text-ink">{c.description}</p>
@@ -151,7 +151,7 @@ export function ComplaintsScreen() {
               {c.assignedToName && <p className="text-xs text-ink/60">Biriktirilgan: {c.assignedToName}</p>}
 
               {c.notes.length > 0 && (
-                <div className="space-y-1.5 rounded-xl bg-ink/5 p-3">
+                <div className="space-y-2 rounded-button bg-ink/5 p-3">
                   {c.notes.map((n) => (
                     <p key={n.id} className="text-xs text-ink/70">
                       <span className="font-semibold text-ink">{n.authorName}:</span> {n.text}
@@ -162,12 +162,12 @@ export function ComplaintsScreen() {
 
               {(c.status === "open" || c.status === "reviewing") && (
                 <>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-2">
                     <input
                       value={noteDrafts[c.id] ?? ""}
                       onChange={(e) => setNoteDrafts((d) => ({ ...d, [c.id]: e.target.value }))}
                       placeholder="Izoh qo'shish..."
-                      className="h-9 flex-1 rounded-xl border border-border bg-card px-3 text-xs text-ink outline-none transition-colors focus:border-accent"
+                      className="h-8 flex-1 rounded-button border border-border bg-card px-3 text-xs text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                     />
                     <Button size="sm" variant="secondary" disabled={!noteDrafts[c.id]?.trim()} loading={busyId === c.id} onClick={() => addNote(c.id)}>
                       Qo'shish
@@ -176,14 +176,14 @@ export function ComplaintsScreen() {
                   <div className="flex flex-wrap gap-2">
                     {!c.assignedToId && (
                       <Button size="sm" variant="secondary" loading={busyId === c.id} onClick={() => assignToMe(c.id)}>
-                        <UserPlus className="h-3.5 w-3.5" /> O'zimga biriktirish
+                        <UserPlus className="h-4 w-4" /> O'zimga biriktirish
                       </Button>
                     )}
                     <Button size="sm" loading={busyId === c.id} onClick={() => close(c.id, "resolved")}>
-                      <Check className="h-3.5 w-3.5" /> Hal qilish
+                      <Check className="h-4 w-4" /> Hal qilish
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => close(c.id, "dismissed")}>
-                      <X className="h-3.5 w-3.5" /> Rad etish
+                      <X className="h-4 w-4" /> Rad etish
                     </Button>
                   </div>
                 </>

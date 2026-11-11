@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { History, Pencil } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
-import { Badge } from "@/components/Badge";
+import { Badge, type BadgeTone } from "@/components/Badge";
 import { Drawer } from "@/components/Drawer";
 import { Button } from "@/components/Button";
 import { ErrorState } from "@/components/ErrorState";
@@ -25,9 +25,9 @@ const RESULT_LABEL: Record<HistoryResult, string> = {
   callback: "Qayta qo'ng'iroq",
   rejected: "Rad etildi",
 };
-const RESULT_TONE: Record<HistoryResult, "accent" | "warning" | "danger"> = {
-  resolved: "accent",
-  callback: "warning",
+const RESULT_TONE: Record<HistoryResult, BadgeTone> = {
+  resolved: "success",
+  callback: "pending",
   rejected: "danger",
 };
 const RESULT_OPTIONS: { value: HistoryResult | "all"; label: string }[] = [
@@ -99,12 +99,14 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
     : result !== "all" || !!dateFrom || !!dateTo;
 
   const columns: Column<HistoryEntry>[] = [
-    { key: "date", header: "Sana", sortValue: (e) => e.resolvedAt, render: (e) => <span className="text-xs text-ink/60">{formatDateTime(e.resolvedAt)}</span> },
+    { key: "date", header: "Sana", sortValue: (e) => e.resolvedAt, render: (e) => <span className="tabular text-ink/60">{formatDateTime(e.resolvedAt)}</span> },
     { key: "phone", header: "Telefon", render: (e) => <span className="tabular">{e.phoneMasked}</span> },
     ...(canSupervise ? [{ key: "operator", header: "Operator", render: (e: HistoryEntry) => <span>{e.operatorName}</span> } as Column<HistoryEntry>] : []),
     { key: "reason", header: "Sabab", render: (e) => REASON_LABEL[e.reason] },
     { key: "result", header: "Natija", render: (e) => <Badge tone={RESULT_TONE[e.result]}>{RESULT_LABEL[e.result]}</Badge> },
-    { key: "note", header: "Izoh", render: (e) => <span className="block max-w-[220px] truncate text-ink/70">{e.note}</span> },
+    { key: "note", header: "Izoh", render: (e) => <span className="block max-w-[220px] truncate text-ink/70" title={e.note}>
+          {e.note}
+        </span> },
     {
       key: "actions",
       header: "",
@@ -113,8 +115,8 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
         <div className="flex items-center justify-end gap-2" onClick={(ev) => ev.stopPropagation()}>
           {e.edited && <Badge tone="neutral">tahrirlandi</Badge>}
           {canWork && e.operatorId === me?.id && (
-            <button aria-label="Tahrirlash" onClick={() => openEdit(e)} className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-ink">
-              <Pencil className="h-3.5 w-3.5" />
+            <button aria-label="Tahrirlash" onClick={() => openEdit(e)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
+              <Pencil className="h-4 w-4" />
             </button>
           )}
         </div>
@@ -149,14 +151,14 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
           aria-label="Boshlanish sanasi"
-          className="h-11 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="h-10 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
           aria-label="Tugash sanasi"
-          className="h-11 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+          className="h-10 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
         />
         {canSupervise && operators.length > 1 && (
           <FilterSelect
@@ -183,11 +185,11 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
         {editing && (
           <div className="space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-ink/80">Natija</label>
-              <select
+              <label htmlFor="fld-natija" className="mb-2 block text-sm font-semibold text-ink/80">Natija</label>
+              <select id="fld-natija"
                 value={editResult}
                 onChange={(e) => setEditResult(e.target.value as HistoryResult)}
-                className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none transition-colors focus:border-accent"
+                className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
               >
                 {(Object.keys(RESULT_LABEL) as HistoryResult[]).map((r) => (
                   <option key={r} value={r}>
@@ -197,12 +199,12 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
               </select>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-semibold text-ink/80">Izoh</label>
-              <textarea
+              <label htmlFor="fld-izoh" className="mb-2 block text-sm font-semibold text-ink/80">Izoh</label>
+              <textarea id="fld-izoh"
                 value={editNote}
                 onChange={(e) => setEditNote(e.target.value)}
                 rows={3}
-                className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+                className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
               />
             </div>
             <Button fullWidth loading={saving} onClick={handleSaveEdit}>

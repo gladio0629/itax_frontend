@@ -50,19 +50,22 @@ export function AdminLayout() {
       <Sidebar sections={me?.sections ?? []} badges={badges} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar title={title} me={me} onLogout={handleLogout} />
-        <main className="flex-1 overflow-y-auto p-8">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto overscroll-contain px-6 py-6 xl:px-8 xl:py-8">
+          {/* Content never stretches past 1280px on wide screens. */}
+          <div className="mx-auto w-full max-w-[1280px]">
+            <Outlet />
+          </div>
         </main>
       </div>
 
       {warning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-card p-6 text-center shadow-2xl animate-fade-in">
+          <div className="w-full max-w-sm rounded-sheet bg-card p-6 text-center shadow-2xl animate-fade-in">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-warning/10 text-warning">
               <AlertTriangle className="h-6 w-6" />
             </div>
             <p className="text-sm font-semibold text-ink">Harakatsizlik tufayli chiqasiz</p>
-            <p className="mt-1.5 text-sm text-ink/60">
+            <p className="mt-2 text-sm text-ink/60">
               {secondsLeft} soniyadan so'ng avtomatik tizimdan chiqasiz.
             </p>
             <Button fullWidth className="mt-5" onClick={extend}>

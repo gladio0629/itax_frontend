@@ -116,22 +116,24 @@ export function PassengersScreen() {
       sortValue: (p) => p.name,
       width: "240px",
       render: (p) => (
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <Avatar seed={p.avatarSeed} name={p.name} />
           <div className="min-w-0">
-            <p className="truncate font-medium text-ink">{p.name}</p>
+            <p className="truncate font-semibold text-ink">{p.name}</p>
             <p className="truncate text-xs text-ink/50">{p.phoneMasked}</p>
           </div>
         </div>
       ),
     },
-    { key: "city", header: "Shahar", render: (p) => <span className="block max-w-[140px] truncate">{cityName(p.cityId)}</span> },
-    { key: "rating", header: "Reyting", sortValue: (p) => p.rating, render: (p) => <span className="tabular">{p.rating.toFixed(1)}</span> },
-    { key: "trips", header: "Safarlar", sortValue: (p) => p.totalTrips, render: (p) => <span className="tabular">{p.totalTrips}</span> },
+    { key: "city", header: "Shahar", render: (p) => <span className="block max-w-[140px] truncate" title={cityName(p.cityId)}>
+          {cityName(p.cityId)}
+        </span> },
+    { key: "rating", header: "Reyting", align: "right", sortValue: (p) => p.rating, render: (p) => <span className="tabular">{p.rating.toFixed(1)}</span> },
+    { key: "trips", header: "Safarlar", align: "right", sortValue: (p) => p.totalTrips, render: (p) => <span className="tabular">{p.totalTrips}</span> },
     {
       key: "status",
       header: "Holat",
-      render: (p) => <Badge tone={p.archived ? "neutral" : p.status === "active" ? "accent" : "danger"}>{p.archived ? "Arxivlangan" : p.status === "active" ? "Faol" : "Bloklangan"}</Badge>,
+      render: (p) => <Badge tone={p.archived ? "neutral" : p.status === "active" ? "success" : "danger"}>{p.archived ? "Arxivlangan" : p.status === "active" ? "Faol" : "Bloklangan"}</Badge>,
     },
   ];
 
@@ -168,7 +170,7 @@ export function PassengersScreen() {
             filenamePrefix="yolovchilar"
             buildRow={(p) => ({ Ism: p.name, Shahar: cityName(p.cityId), Reyting: p.rating, Safarlar: p.totalTrips, Holat: p.status })}
           />
-          <Button size="sm" onClick={openCreate}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4" /> Qo'shish
           </Button>
         </div>
@@ -200,18 +202,18 @@ export function PassengersScreen() {
                 </div>
               </div>
               {!selected.archived && (
-                <button aria-label="Tahrirlash" onClick={() => openEdit(selected)} className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-ink">
+                <button aria-label="Tahrirlash" onClick={() => openEdit(selected)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
                   <Pencil className="h-4 w-4" />
                 </button>
               )}
             </div>
-            <div className="rounded-2xl bg-ink/5 p-4">
+            <div className="rounded-card bg-ink/5 p-4">
               <p className="mb-1 text-xs font-semibold text-ink/50">Telefon raqami</p>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-ink tabular">{phone ?? selected.phoneMasked}</span>
+                <span className="text-sm font-semibold text-ink tabular">{phone ?? selected.phoneMasked}</span>
                 {!phone && (
                   <Button size="sm" variant="secondary" loading={revealing} onClick={() => handleReveal(selected.id)}>
-                    <Eye className="h-3.5 w-3.5" /> Ko'rsatish
+                    <Eye className="h-4 w-4" /> Ko'rsatish
                   </Button>
                 )}
               </div>
@@ -229,7 +231,7 @@ export function PassengersScreen() {
             <div className="flex gap-2 border-t border-border pt-4">
               {selected.archived ? (
                 <Button variant="secondary" size="sm" onClick={() => setConfirm({ type: "restore", passenger: selected })}>
-                  <RotateCcw className="h-3.5 w-3.5" /> Tiklash
+                  <RotateCcw className="h-4 w-4" /> Tiklash
                 </Button>
               ) : (
                 <>
@@ -238,11 +240,11 @@ export function PassengersScreen() {
                     size="sm"
                     onClick={() => setConfirm({ type: selected.status === "blocked" ? "unblock" : "block", passenger: selected })}
                   >
-                    {selected.status === "blocked" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                    {selected.status === "blocked" ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                     {selected.status === "blocked" ? "Blokdan chiqarish" : "Bloklash"}
                   </Button>
                   <Button variant="danger" size="sm" onClick={() => setConfirm({ type: "archive", passenger: selected })}>
-                    <Trash2 className="h-3.5 w-3.5" /> Arxivlash
+                    <Trash2 className="h-4 w-4" /> Arxivlash
                   </Button>
                 </>
               )}
@@ -259,10 +261,11 @@ export function PassengersScreen() {
         loading={saving}
         disabled={!form.name.trim() || (drawer === "create" && !form.phone.trim())}
       >
-        <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+        <Input label="To'liq ism" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
         {drawer === "create" && (
           <Input
             label="Telefon"
+            required={drawer === "create"}
             type="tel"
             inputMode="tel"
             autoComplete="tel"
@@ -272,11 +275,11 @@ export function PassengersScreen() {
           />
         )}
         <div>
-          <label className="mb-2 block text-sm font-semibold text-ink/80">Shahar</label>
-          <select
+          <label htmlFor="fld-shahar" className="mb-2 block text-sm font-semibold text-ink/80">Shahar</label>
+          <select id="fld-shahar"
             value={form.cityId}
             onChange={(e) => setForm((f) => ({ ...f, cityId: e.target.value }))}
-            className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none transition-colors focus:border-accent"
+            className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
           >
             {cities.map((c) => (
               <option key={c.id} value={c.id}>

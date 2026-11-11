@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Ban, Car, CheckCircle2, Eye, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
-import { Badge } from "@/components/Badge";
+import { Badge, type BadgeTone } from "@/components/Badge";
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
@@ -19,9 +19,9 @@ import { formatDate, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { ArchivableStatusFilter, Driver, DriverQuery, DriverStatus } from "@/api/types";
 
-const STATUS_TONE: Record<DriverStatus, "accent" | "warning" | "danger"> = {
-  active: "accent",
-  auto_review: "warning",
+const STATUS_TONE: Record<DriverStatus, BadgeTone> = {
+  active: "success",
+  auto_review: "pending",
   blocked: "danger",
 };
 const STATUS_LABEL: Record<DriverStatus, string> = {
@@ -115,10 +115,10 @@ export function DriversScreen() {
       sortValue: (d) => d.name,
       width: "220px",
       render: (d) => (
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <Avatar seed={d.avatarSeed} name={d.name} />
           <div className="min-w-0">
-            <p className="truncate font-medium text-ink">{d.name}</p>
+            <p className="truncate font-semibold text-ink">{d.name}</p>
             <p className="truncate text-xs text-ink/50">{d.phoneMasked}</p>
           </div>
         </div>
@@ -128,16 +128,17 @@ export function DriversScreen() {
       key: "car",
       header: "Avtomobil",
       render: (d) => (
-        <span className="block max-w-[180px] truncate">
+        <span className="block max-w-[180px] truncate" title={`${d.carModel} · ${d.plate}`}>
           {d.carModel} · {d.plate}
         </span>
       ),
     },
-    { key: "rating", header: "Reyting", sortValue: (d) => d.rating, render: (d) => <span className="tabular">{d.rating.toFixed(1)}</span> },
-    { key: "trips", header: "Safarlar", sortValue: (d) => d.totalTrips, render: (d) => <span className="tabular">{d.totalTrips}</span> },
+    { key: "rating", header: "Reyting", align: "right", sortValue: (d) => d.rating, render: (d) => <span className="tabular">{d.rating.toFixed(1)}</span> },
+    { key: "trips", header: "Safarlar", align: "right", sortValue: (d) => d.totalTrips, render: (d) => <span className="tabular">{d.totalTrips}</span> },
     {
       key: "wallet",
       header: "Hamyon",
+      align: "right",
       sortValue: (d) => d.walletBalance,
       render: (d) => <span className={cn("tabular", d.walletBalance < d.debtLimit && "text-danger")}>{formatSom(d.walletBalance)}</span>,
     },
@@ -212,18 +213,18 @@ export function DriversScreen() {
                 </div>
               </div>
               {!selected.archived && (
-                <button aria-label="Tahrirlash" onClick={() => startEdit(selected)} className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-ink">
+                <button aria-label="Tahrirlash" onClick={() => startEdit(selected)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
                   <Pencil className="h-4 w-4" />
                 </button>
               )}
             </div>
-            <div className="rounded-2xl bg-ink/5 p-4">
+            <div className="rounded-card bg-ink/5 p-4">
               <p className="mb-1 text-xs font-semibold text-ink/50">Telefon raqami</p>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-ink tabular">{phone ?? selected.phoneMasked}</span>
+                <span className="text-sm font-semibold text-ink tabular">{phone ?? selected.phoneMasked}</span>
                 {!phone && (
                   <Button size="sm" variant="secondary" loading={revealing} onClick={() => handleReveal(selected.id)}>
-                    <Eye className="h-3.5 w-3.5" /> Ko'rsatish
+                    <Eye className="h-4 w-4" /> Ko'rsatish
                   </Button>
                 )}
               </div>
@@ -257,7 +258,7 @@ export function DriversScreen() {
             <div className="flex gap-2 border-t border-border pt-4">
               {selected.archived ? (
                 <Button variant="secondary" size="sm" onClick={() => setConfirm({ type: "restore", driver: selected })}>
-                  <RotateCcw className="h-3.5 w-3.5" /> Tiklash
+                  <RotateCcw className="h-4 w-4" /> Tiklash
                 </Button>
               ) : (
                 <>
@@ -266,11 +267,11 @@ export function DriversScreen() {
                     size="sm"
                     onClick={() => setConfirm({ type: selected.status === "blocked" ? "unblock" : "block", driver: selected })}
                   >
-                    {selected.status === "blocked" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                    {selected.status === "blocked" ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                     {selected.status === "blocked" ? "Blokdan chiqarish" : "Bloklash"}
                   </Button>
                   <Button variant="danger" size="sm" onClick={() => setConfirm({ type: "archive", driver: selected })}>
-                    <Trash2 className="h-3.5 w-3.5" /> Arxivlash
+                    <Trash2 className="h-4 w-4" /> Arxivlash
                   </Button>
                 </>
               )}

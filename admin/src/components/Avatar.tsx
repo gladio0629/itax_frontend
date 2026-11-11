@@ -4,13 +4,14 @@ function hashSeed(seed: string): number {
   return h;
 }
 
+// Brand-derived avatar fills (navy, blue, teal, slate, gold, indigo) — calm, no rainbow.
 const PALETTES: [string, string][] = [
-  ["#D6409F", "#A52F7C"],
-  ["#2F7FE0", "#1C5AAB"],
-  ["#F5A524", "#D9870E"],
-  ["#8B5CF6", "#6633D1"],
-  ["#E5484D", "#C23337"],
-  ["#14B8B0", "#0E8A84"],
+  ["#264A9F", "#1B3577"],
+  ["#3B6FD4", "#2A55AE"],
+  ["#0F766E", "#0B5953"],
+  ["#475569", "#334155"],
+  ["#B7791F", "#946016"],
+  ["#4F46A5", "#3D3684"],
 ];
 
 function initials(name: string): string {

@@ -33,6 +33,7 @@ import {
   type QueueItem,
   type HistoryEntry,
 } from "@/mockDb/db";
+import { formatDayShort } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   MarketingStats,
@@ -478,7 +479,7 @@ export const mockAdapter: ApiAdapter = {
         const d = new Date(dayStart);
         const dayKey = d.toDateString();
         return {
-          date: d.toLocaleDateString("uz-UZ", { day: "numeric", month: "short" }),
+          date: formatDayShort(d),
           passengers: passengers.filter((p) => new Date(p.joinedAt).toDateString() === dayKey).length,
           drivers: drivers.filter((x) => new Date(x.joinedAt).toDateString() === dayKey).length,
         };
@@ -490,7 +491,7 @@ export const mockAdapter: ApiAdapter = {
         const income = orders
           .filter((o) => o.status === "completed" && new Date(o.createdAt).toDateString() === dayKey)
           .reduce((s, o) => s + o.price, 0);
-        return { date: d.toLocaleDateString("uz-UZ", { day: "numeric", month: "short" }), income };
+        return { date: formatDayShort(d), income };
       });
 
       const totalIncome = completedPeriodOrders.reduce((s, o) => s + o.price, 0);

@@ -123,10 +123,10 @@ export function StaffScreen() {
       sortValue: (u) => u.name,
       width: "220px",
       render: (u) => (
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           <Avatar seed={u.avatarSeed} name={u.name} />
           <div className="min-w-0">
-            <p className="truncate font-medium text-ink">{u.name}</p>
+            <p className="truncate font-semibold text-ink">{u.name}</p>
             <p className="truncate text-xs text-ink/50">{u.email || u.phone}</p>
           </div>
         </div>
@@ -138,7 +138,7 @@ export function StaffScreen() {
       key: "status",
       header: "Holat",
       render: (u) => (
-        <Badge tone={u.archived ? "neutral" : u.status === "active" ? "accent" : "danger"}>
+        <Badge tone={u.archived ? "neutral" : u.status === "active" ? "success" : "danger"}>
           {u.archived ? "Arxivlangan" : u.status === "active" ? "Faol" : "Bloklangan"}
         </Badge>
       ),
@@ -147,7 +147,7 @@ export function StaffScreen() {
       key: "lastLogin",
       header: "Oxirgi kirish",
       sortValue: (u) => u.lastLoginAt ?? 0,
-      render: (u) => <span className="text-xs text-ink/60">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "—"}</span>,
+      render: (u) => <span className="tabular text-ink/60">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "—"}</span>,
     },
     {
       key: "actions",
@@ -158,25 +158,25 @@ export function StaffScreen() {
         return (
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             {!u.archived && (
-              <button aria-label="Tahrirlash" onClick={() => openEdit(u)} className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-ink">
-                <Pencil className="h-3.5 w-3.5" />
+              <button aria-label="Tahrirlash" onClick={() => openEdit(u)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
+                <Pencil className="h-4 w-4" />
               </button>
             )}
             {u.archived ? (
-              <button aria-label="Tiklash" onClick={() => setConfirm({ type: "restore", user: u })} className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-accent">
-                <RotateCcw className="h-3.5 w-3.5" />
+              <button aria-label="Tiklash" onClick={() => setConfirm({ type: "restore", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-accent">
+                <RotateCcw className="h-4 w-4" />
               </button>
             ) : (
               <>
                 <button
                   aria-label={u.status === "active" ? "Bloklash" : "Blokdan chiqarish"}
                   onClick={() => setConfirm({ type: u.status === "active" ? "block" : "unblock", user: u })}
-                  className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-warning"
+                  className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-warning"
                 >
-                  {u.status === "active" ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {u.status === "active" ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                 </button>
-                <button aria-label="Arxivlash" onClick={() => setConfirm({ type: "archive", user: u })} className="rounded-full p-1.5 text-ink/50 hover:bg-ink/5 hover:text-danger">
-                  <Trash2 className="h-3.5 w-3.5" />
+                <button aria-label="Arxivlash" onClick={() => setConfirm({ type: "archive", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-danger">
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </>
             )}
@@ -216,7 +216,7 @@ export function StaffScreen() {
             buildRow={(u) => ({ Ism: u.name, Email: u.email, Telefon: u.phone, Rol: ROLE_LABEL[u.role], Holat: u.status })}
           />
           {canCreate && (
-            <Button size="sm" onClick={openCreate}>
+            <Button onClick={openCreate}>
               <Plus className="h-4 w-4" /> Qo'shish
             </Button>
           )}
@@ -242,9 +242,10 @@ export function StaffScreen() {
         error={formError}
         disabled={!form.name.trim() || !form.phone.trim() || !form.role || (emailRequired && !form.email.trim())}
       >
-        <Input label="To'liq ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+        <Input label="To'liq ism" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
         <Input
           label="Telefon"
+          required
           type="tel"
           inputMode="tel"
           autoComplete="tel"
@@ -254,11 +255,13 @@ export function StaffScreen() {
           hint="Xodim telefon raqamini sizga aytadi — hisob shu raqam bilan yaratiladi."
         />
         <div>
-          <label className="mb-2 block text-sm font-semibold text-ink/80">Rol</label>
-          <select
+          <label htmlFor="fld-rol" className="mb-2 block text-sm font-semibold text-ink/80">Rol<span className="ml-1 text-danger" aria-hidden>
+            *
+          </span></label>
+          <select id="fld-rol"
             value={form.role}
             onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as AdminRole }))}
-            className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none transition-colors focus:border-accent"
+            className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
           >
             <option value="" disabled>
               Tanlang...
@@ -272,6 +275,7 @@ export function StaffScreen() {
         </div>
         <Input
           label={emailRequired ? "Email" : "Email (ixtiyoriy)"}
+          required={emailRequired}
           type="email"
           autoComplete="email"
           value={form.email}

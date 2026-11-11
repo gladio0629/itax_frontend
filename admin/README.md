@@ -1,6 +1,6 @@
 # IZGO Admin
 
-Team-only operations dashboard. Desktop only (≥1280px). Port 5175.
+Team-only operations dashboard. Desktop-first: full sidebar at ≥1280px, icon-rail sidebar from 1024px. Port 5175.
 
 ```bash
 npm install

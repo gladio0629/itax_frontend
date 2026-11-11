@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pencil, Plus, Route as RouteIcon, X } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
-import { Badge } from "@/components/Badge";
+import { Badge, type BadgeTone } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Drawer } from "@/components/Drawer";
 import { FormDrawer } from "@/components/FormDrawer";
@@ -18,12 +18,12 @@ import { formatDateTime, formatKm, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { City, OrderMode, OrderQuery, OrderStatus, OrderWithNames, Passenger, PaymentMethod } from "@/api/types";
 
-const STATUS_TONE: Record<OrderStatus, "accent" | "warning" | "danger" | "neutral" | "info"> = {
-  completed: "accent",
-  cancelled: "danger",
-  in_progress: "warning",
-  accepted: "info",
-  searching: "info",
+const STATUS_TONE: Record<OrderStatus, BadgeTone> = {
+  completed: "success",
+  cancelled: "neutral",
+  in_progress: "accent",
+  accepted: "accent",
+  searching: "pending",
   no_driver: "danger",
 };
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -164,13 +164,13 @@ export function OrdersScreen() {
   }
 
   const columns: Column<OrderWithNames>[] = [
-    { key: "id", header: "Buyurtma", render: (o) => <span className="font-medium text-ink">#{o.id.replace("ord_", "")}</span> },
+    { key: "id", header: "Buyurtma", render: (o) => <span className="font-semibold text-ink">#{o.id.replace("ord_", "")}</span> },
     {
       key: "route",
       header: "Yo'nalish",
       width: "180px",
       render: (o) => (
-        <span className="block max-w-[180px] truncate">
+        <span className="block max-w-[180px] truncate" title={`${o.fromCityName} → ${o.toCityName}`}>
           {o.fromCityName} → {o.toCityName}
         </span>
       ),
@@ -179,21 +179,21 @@ export function OrdersScreen() {
       key: "passenger",
       header: "Yo'lovchi",
       sortValue: (o) => o.passengerName,
-      render: (o) => <span className="block max-w-[140px] truncate">{o.passengerName}</span>,
+      render: (o) => <span className="block max-w-[140px] truncate" title={o.passengerName}>{o.passengerName}</span>,
     },
     {
       key: "driver",
       header: "Haydovchi",
       sortValue: (o) => o.driverName ?? "",
-      render: (o) => <span className="block max-w-[140px] truncate">{o.driverName ?? "—"}</span>,
+      render: (o) => <span className="block max-w-[140px] truncate" title={o.driverName ?? undefined}>{o.driverName ?? "—"}</span>,
     },
-    { key: "price", header: "Narx", sortValue: (o) => o.price, render: (o) => <span className="tabular">{formatSom(o.price)}</span> },
+    { key: "price", header: "Narx", align: "right", sortValue: (o) => o.price, render: (o) => <span className="tabular">{formatSom(o.price)}</span> },
     { key: "status", header: "Holat", render: (o) => <Badge tone={STATUS_TONE[o.status]}>{STATUS_LABEL[o.status]}</Badge> },
     {
       key: "createdAt",
       header: "Sana",
       sortValue: (o) => o.createdAt,
-      render: (o) => <span className="text-xs text-ink/60">{formatDateTime(o.createdAt)}</span>,
+      render: (o) => <span className="tabular text-ink/60">{formatDateTime(o.createdAt)}</span>,
     },
   ];
 
@@ -230,7 +230,7 @@ export function OrdersScreen() {
             filenamePrefix="buyurtmalar"
             buildRow={(o) => ({ ID: o.id, Yolnalish: `${o.fromCityName}-${o.toCityName}`, Yolovchi: o.passengerName, Narx: o.price, Holat: o.status })}
           />
-          <Button size="sm" onClick={openCreate}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4" /> Yangi buyurtma
           </Button>
         </div>
@@ -250,7 +250,7 @@ export function OrdersScreen() {
       <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? `Buyurtma #${selected.id.replace("ord_", "")}` : ""}>
         {selected && !editingOrder && (
           <div className="space-y-5">
-            <div className="h-56 overflow-hidden rounded-2xl">
+            <div className="h-56 overflow-hidden rounded-card">
               <MapView />
             </div>
             <div className="flex items-center justify-between">
@@ -295,7 +295,7 @@ export function OrdersScreen() {
                 </div>
               )}
             </div>
-            {selected.cancelReason && <div className="rounded-2xl bg-danger/10 p-3 text-xs text-danger">Bekor qilish sababi: {selected.cancelReason}</div>}
+            {selected.cancelReason && <div className="rounded-card bg-danger/10 p-3 text-xs text-danger">Bekor qilish sababi: {selected.cancelReason}</div>}
 
             <div className="border-t border-border pt-4">
               <div className="mb-2 flex items-center justify-between">
@@ -316,7 +316,7 @@ export function OrdersScreen() {
                       onChange={(e) => setCancelReason(e.target.value)}
                       placeholder="Bekor qilish sababi..."
                       rows={2}
-                      className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+                      className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                     />
                     <div className="flex gap-2">
                       <Button variant="danger" size="sm" loading={saving} disabled={!cancelReason.trim()} onClick={handleCancel}>
@@ -329,7 +329,7 @@ export function OrdersScreen() {
                   </div>
                 ) : (
                   <Button variant="danger" size="sm" onClick={() => setCancelling(true)}>
-                    <X className="h-3.5 w-3.5" /> Buyurtmani bekor qilish
+                    <X className="h-4 w-4" /> Buyurtmani bekor qilish
                   </Button>
                 )}
               </div>
@@ -353,7 +353,7 @@ export function OrdersScreen() {
                         }))
                       }
                       className={cn(
-                        "rounded-xl border-2 py-2 text-xs font-semibold",
+                        "rounded-button border-2 py-2 text-xs font-semibold",
                         editForm.seatIds.includes(s.id) ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
                       )}
                     >
@@ -364,12 +364,12 @@ export function OrdersScreen() {
               </div>
             )}
             <div>
-              <label className="mb-2 block text-sm font-semibold text-ink/80">Vaqt oralig'i</label>
+              <label htmlFor="fld-vaqt-oralig-i" className="mb-2 block text-sm font-semibold text-ink/80">Vaqt oralig'i</label>
               <div className="flex items-center gap-3">
-                <select
+                <select id="fld-vaqt-oralig-i"
                   value={editForm.timeFrom}
                   onChange={(e) => setEditForm((f) => ({ ...f, timeFrom: e.target.value }))}
-                  className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+                  className="h-10 flex-1 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                 >
                   <option value="">—</option>
                   {TIME_OPTIONS.map((t) => (
@@ -380,7 +380,7 @@ export function OrdersScreen() {
                 <select
                   value={editForm.timeTo}
                   onChange={(e) => setEditForm((f) => ({ ...f, timeTo: e.target.value }))}
-                  className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+                  className="h-10 flex-1 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                 >
                   <option value="">—</option>
                   {TIME_OPTIONS.map((t) => (
@@ -390,12 +390,12 @@ export function OrdersScreen() {
               </div>
             </div>
             <div>
-              <label className="mb-2 block text-sm font-semibold text-ink/80">Izoh</label>
-              <textarea
+              <label htmlFor="fld-izoh" className="mb-2 block text-sm font-semibold text-ink/80">Izoh</label>
+              <textarea id="fld-izoh"
                 value={editForm.note}
                 onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
                 rows={3}
-                className="w-full rounded-xl border border-border bg-card p-3 text-sm text-ink outline-none transition-colors focus:border-accent"
+                className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
               />
             </div>
             <div className="flex gap-2">
@@ -420,11 +420,13 @@ export function OrdersScreen() {
         disabled={!form.passengerId || form.fromCityId === form.toCityId || (form.mode === "seat" && form.seatIds.length === 0)}
       >
         <div>
-          <label className="mb-2 block text-sm font-semibold text-ink/80">Yo'lovchi</label>
-          <select
+          <label htmlFor="fld-yo-lovchi" className="mb-2 block text-sm font-semibold text-ink/80">Yo'lovchi<span className="ml-1 text-danger" aria-hidden>
+            *
+          </span></label>
+          <select id="fld-yo-lovchi"
             value={form.passengerId}
             onChange={(e) => setForm((f) => ({ ...f, passengerId: e.target.value }))}
-            className="h-11 w-full rounded-xl border border-border bg-card px-4 text-sm text-ink outline-none focus:border-accent"
+            className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
           >
             {passengers.map((p) => (
               <option key={p.id} value={p.id}>
@@ -435,11 +437,13 @@ export function OrdersScreen() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-ink/80">Qayerdan</label>
-            <select
+            <label htmlFor="fld-qayerdan" className="mb-2 block text-sm font-semibold text-ink/80">Qayerdan<span className="ml-1 text-danger" aria-hidden>
+            *
+          </span></label>
+            <select id="fld-qayerdan"
               value={form.fromCityId}
               onChange={(e) => setForm((f) => ({ ...f, fromCityId: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+              className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
             >
               {cities.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -449,11 +453,13 @@ export function OrdersScreen() {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-semibold text-ink/80">Qayerga</label>
-            <select
+            <label htmlFor="fld-qayerga" className="mb-2 block text-sm font-semibold text-ink/80">Qayerga<span className="ml-1 text-danger" aria-hidden>
+            *
+          </span></label>
+            <select id="fld-qayerga"
               value={form.toCityId}
               onChange={(e) => setForm((f) => ({ ...f, toCityId: e.target.value }))}
-              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+              className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
             >
               {cities.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -466,13 +472,13 @@ export function OrdersScreen() {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setForm((f) => ({ ...f, mode: "car", seatIds: [] }))}
-            className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.mode === "car" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.mode === "car" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
           >
             Butun mashina
           </button>
           <button
             onClick={() => setForm((f) => ({ ...f, mode: "seat" }))}
-            className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.mode === "seat" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.mode === "seat" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
           >
             Bir joy
           </button>
@@ -489,7 +495,7 @@ export function OrdersScreen() {
                   }))
                 }
                 className={cn(
-                  "rounded-xl border-2 py-2 text-xs font-semibold",
+                  "rounded-button border-2 py-2 text-xs font-semibold",
                   form.seatIds.includes(s.id) ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
                 )}
               >
@@ -501,13 +507,13 @@ export function OrdersScreen() {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setForm((f) => ({ ...f, paymentMethod: "cash" }))}
-            className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.paymentMethod === "cash" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.paymentMethod === "cash" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
           >
             Naqd
           </button>
           <button
             onClick={() => setForm((f) => ({ ...f, paymentMethod: "card" }))}
-            className={cn("rounded-xl border-2 py-2.5 text-sm font-semibold", form.paymentMethod === "card" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
+            className={cn("rounded-button border-2 py-3 text-sm font-semibold", form.paymentMethod === "card" ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70")}
           >
             Karta
           </button>
@@ -521,7 +527,7 @@ export function OrdersScreen() {
             <select
               value={form.timeFrom}
               onChange={(e) => setForm((f) => ({ ...f, timeFrom: e.target.value }))}
-              className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+              className="h-10 flex-1 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
             >
               {TIME_OPTIONS.map((t) => (
                 <option key={t}>{t}</option>
@@ -531,7 +537,7 @@ export function OrdersScreen() {
             <select
               value={form.timeTo}
               onChange={(e) => setForm((f) => ({ ...f, timeTo: e.target.value }))}
-              className="h-11 flex-1 rounded-xl border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent"
+              className="h-10 flex-1 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
             >
               {TIME_OPTIONS.map((t) => (
                 <option key={t}>{t}</option>
