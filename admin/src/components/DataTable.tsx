@@ -117,7 +117,7 @@ export function DataTable<T>({
                         scope="col"
                         style={{ width: col.width }}
                         aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
-                        className={cn("h-11 whitespace-nowrap px-4 text-xs font-semibold text-ink/60", col.align === "right" && "text-right")}
+                        className={cn("h-11 whitespace-nowrap px-3 text-xs font-semibold text-ink/60 xl:px-4", col.align === "right" && "text-right")}
                       >
                         {col.sortValue ? (
                           <button
@@ -162,7 +162,7 @@ export function DataTable<T>({
                         key={col.key}
                         title={col.truncate?.title(row)}
                         style={col.truncate ? { maxWidth: col.truncate.maxWidth } : undefined}
-                        className={cn("h-12 whitespace-nowrap px-4 py-2 text-ink", col.align === "right" && "tabular text-right", col.truncate && "truncate")}
+                        className={cn("h-12 whitespace-nowrap px-3 py-2 text-ink xl:px-4", col.align === "right" && "tabular text-right", col.truncate && "truncate")}
                       >
                         {col.render(row)}
                       </td>
