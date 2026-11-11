@@ -193,7 +193,7 @@ export function OrdersScreen() {
       key: "createdAt",
       header: "Sana",
       sortValue: (o) => o.createdAt,
-      render: (o) => <span className="tabular text-ink/60">{formatDateTime(o.createdAt)}</span>,
+      render: (o) => <span className="text-ink/60">{formatDateTime(o.createdAt)}</span>,
     },
   ];
 

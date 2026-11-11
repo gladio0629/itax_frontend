@@ -147,7 +147,7 @@ export function StaffScreen() {
       key: "lastLogin",
       header: "Oxirgi kirish",
       sortValue: (u) => u.lastLoginAt ?? 0,
-      render: (u) => <span className="tabular text-ink/60">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "—"}</span>,
+      render: (u) => <span className="text-ink/60">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "—"}</span>,
     },
     {
       key: "actions",

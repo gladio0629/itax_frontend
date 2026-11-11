@@ -69,7 +69,7 @@ export function AuditScreen() {
       key: "date",
       header: "Sana",
       sortValue: (e) => e.createdAt,
-      render: (e) => <span className="tabular text-ink/60">{formatDateTime(e.createdAt)}</span>,
+      render: (e) => <span className="text-ink/60">{formatDateTime(e.createdAt)}</span>,
     },
     {
       key: "actor",

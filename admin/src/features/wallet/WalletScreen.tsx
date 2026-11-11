@@ -131,7 +131,7 @@ export function WalletScreen() {
       key: "date",
       header: "Sana",
       sortValue: (r) => r.createdAt,
-      render: (r) => <span className="tabular text-ink/60">{formatDateTime(r.createdAt)}</span>,
+      render: (r) => <span className="text-ink/60">{formatDateTime(r.createdAt)}</span>,
     },
   ];
 

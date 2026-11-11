@@ -35,5 +35,5 @@ permissions matrix · Audit log · Settings.
 - Sidebar badge counts (pending verifications, open tickets, flagged risk items) refresh on every
   route change.
 
-Use the floating Demo Control Panel (bottom-right) to reset the database or simulate
+Use the floating Demo Control Panel (bottom-left) to reset the database or simulate
 "no driver found", slow internet, forced errors, wallet limit, or fast-forwarded time.

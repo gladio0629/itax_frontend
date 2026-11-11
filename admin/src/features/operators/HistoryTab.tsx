@@ -99,7 +99,7 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
     : result !== "all" || !!dateFrom || !!dateTo;
 
   const columns: Column<HistoryEntry>[] = [
-    { key: "date", header: "Sana", sortValue: (e) => e.resolvedAt, render: (e) => <span className="tabular text-ink/60">{formatDateTime(e.resolvedAt)}</span> },
+    { key: "date", header: "Sana", sortValue: (e) => e.resolvedAt, render: (e) => <span className="text-ink/60">{formatDateTime(e.resolvedAt)}</span> },
     { key: "phone", header: "Telefon", render: (e) => <span className="tabular">{e.phoneMasked}</span> },
     ...(canSupervise ? [{ key: "operator", header: "Operator", render: (e: HistoryEntry) => <span>{e.operatorName}</span> } as Column<HistoryEntry>] : []),
     { key: "reason", header: "Sabab", render: (e) => REASON_LABEL[e.reason] },
