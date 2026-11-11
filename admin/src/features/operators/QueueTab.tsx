@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Phone, PhoneMissed, PhoneOff, X } from "lucide-react";
+import { Phone, PhoneCall, PhoneOff, X } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -106,7 +106,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
   if (error) return <ErrorState onRetry={reload} />;
   if (!queue || !activeLoaded) {
     return (
-      <div className="grid grid-cols-2 gap-5">
+      <div className="space-y-3" aria-busy="true">
         {Array.from({ length: 4 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -119,7 +119,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
   return (
     <div className="space-y-6">
       {active && (
-        <Card className="space-y-4 border-2 border-accent">
+        <Card className="space-y-4 border-2 border-brand-yellow">
           <div className="flex items-center justify-between">
             <Badge tone="success">Faol vazifa</Badge>
             <span className="tabular text-sm font-semibold text-ink">{active.phoneFull}</span>
@@ -129,6 +129,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Izoh..."
+            aria-label="Izoh"
             rows={2}
             className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
           />
@@ -137,6 +138,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
               value={activeRejectReason}
               onChange={(e) => setActiveRejectReason(e.target.value)}
               placeholder="Rad etish sababi (shart)..."
+              aria-label="Rad etish sababi"
               className="h-10 w-full rounded-button border border-danger bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
               autoFocus
             />
@@ -166,6 +168,12 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
         <FilterSelect value={reason} onChange={setReason} options={REASON_OPTIONS} aria-label="Sabab bo'yicha filtr" />
       </ListToolbar>
 
+      {active && canWork && queue.length > 0 && (
+        <p className="text-sm text-ink/60" role="note">
+          Yangi qo'ng'iroqni boshlash uchun avval faol vazifani yakunlang.
+        </p>
+      )}
+
       {queue.length === 0 ? (
         <EmptyState
           icon={<Phone className="h-6 w-6" />}
@@ -184,8 +192,11 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ink tabular">{q.phoneMasked}</p>
-                  <p className="text-xs text-ink/50">
-                    {REASON_LABEL[q.reason]} · {waitingFor(q.waitingSinceAt)} kutmoqda
+                  <p className="mt-1 flex items-center gap-2 text-xs text-ink/60">
+                    <Badge tone="info" dot={false}>
+                      {REASON_LABEL[q.reason]}
+                    </Badge>
+                    <span className="tabular">{waitingFor(q.waitingSinceAt)} kutmoqda</span>
                   </p>
                 </div>
               </div>
@@ -195,20 +206,21 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     placeholder="Sabab..."
+                    aria-label="Rad etish sababi"
                     className="h-8 w-48 rounded-button border border-border bg-card px-3 text-xs text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                     autoFocus
                   />
                   <Button size="sm" variant="danger" loading={busyId === q.id} disabled={!rejectReason.trim()} onClick={() => rejectFromQueue(q.id)}>
                     Rad etish
                   </Button>
-                  <button onClick={() => setRejectingId(null)} aria-label="Yopish" className="rounded-full p-2 text-ink/50 hover:bg-ink/5">
+                  <button type="button" onClick={() => setRejectingId(null)} aria-label="Yopish" className="flex h-8 w-8 items-center justify-center rounded-button text-ink/50 hover:bg-ink/5">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
                 <div className="flex gap-2">
                   <Button size="sm" disabled={!!active} loading={busyId === q.id} onClick={() => start(q.id)}>
-                    <PhoneMissed className="h-4 w-4" /> Boshlash
+                    <PhoneCall className="h-4 w-4" aria-hidden /> Boshlash
                   </Button>
                   <Button size="sm" variant="ghost" disabled={!!active} onClick={() => setRejectingId(q.id)}>
                     <PhoneOff className="h-4 w-4" /> Rad etish
