@@ -1,441 +1,724 @@
-import { db } from "@/mockDb/db";
+// Mock adapter: the only place with business rules (commission, debt limit,
+// offer timing, trip stages, bonus levels, filtering, pagination). Screens
+// never compute any of this.
+import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
-import { submitForReview, pollReview } from "@/lib/reviewMechanism";
-import { getDemoScenarios } from "@/stores/demoStore";
-import { readJSON, writeJSON } from "@/mockDb/storage";
 import {
-  computePrice,
-  roadDistanceKm,
-  DEFAULT_TARIFF,
-  CITIES,
-  type City,
-  type Order,
-  type Passenger,
-} from "@/seed/generate";
+  BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_COLORS, CAR_MODELS, DEBT_LIMIT, DEBT_NEAR_RATIO, OFFER_COUNTDOWN_SEC,
+  appendLedger, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
+  replaceState, state, weekTrips, type DriverState, type LiveTrip, type OfferRecord, type TripRecord,
+} from "@/mockDb/driverDb";
+import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
-import {
-  COMMISSION_PCT,
-  DEBT_LIMIT_SOM,
-  type DriverProfile,
-  type EarningsStats,
-  type NotificationItem,
-  type OrderWithDetails,
-  type OtpRequestResult,
-  type RegistrationInput,
-  type WalletSummary,
+import type {
+  ActiveTrip, BonusInfo, DebtState, DriverProfile, HistoryItem, HistoryPage, HomeSummary, LedgerPage, Offer,
+  PassengerInfo, ReviewKind, ReviewRequest, TopupOptions, TripDetail, TripStage, TripStep, TripSummary, WalletSummary,
 } from "../types";
 
-const DEMO_OTP_CODE = "0000";
+const DEMO_OTP = "0000";
+const LEDGER_PAGE_SIZE = 12;
+const STAGES: TripStage[] = ["to_pickup", "waiting", "in_progress", "completed"];
+const CANCEL_REASONS = ["cancel.reason.passengerNoShow", "cancel.reason.wrongAddress", "cancel.reason.carIssue", "cancel.reason.passengerAsked", "cancel.reason.other"];
+const ADDR: Record<string, string[]> = {
+  tsh: ["Amir Temur ko'chasi, 15", "Chilonzor, 9-kvartal", "Yunusobod, 4-mavze", "Shota Rustaveli, 42"],
+  smq: ["Registon ko'chasi, 3", "Universitet xiyoboni, 18", "Temiryo'l vokzali"],
+  bxr: ["Mustaqillik ko'chasi, 21", "Labi Hovuz", "Avtovokzal"],
+  and: ["Navoiy shoh ko'chasi, 12", "Bobur maydoni"],
+  nmn: ["Islom Karimov ko'chasi, 8", "Chorsu bozori"],
+  frg: ["Al-Farg'oniy ko'chasi, 5", "Markaziy bog'"],
+  qrs: ["Nasaf ko'chasi, 11", "Qarshi vokzali"],
+  nks: ["Doslik guzari, 6", "Berdaq ko'chasi, 19"],
+  xva: ["Ichan qal'a darvozasi", "Xiva avtovokzali"],
+};
 
-function genId(prefix: string) {
-  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+const rand = makeRng(Date.now() % 1_000_000);
+
+// ---------- derived values ----------
+
+function commissionPctNow(s: DriverState) {
+  return levelFor(weekTrips(s)).commissionPct;
 }
 
-function cityOf(id: string): City {
-  const c = db.cities().find((x) => x.id === id);
-  if (!c) throw new ApiError("NOT_FOUND", "Shahar topilmadi");
-  return c;
+function debtState(s: DriverState): DebtState {
+  const debtAmount = Math.max(0, -s.balance);
+  const usedRatio = Math.min(1, debtAmount / -DEBT_LIMIT);
+  const level = s.balance <= DEBT_LIMIT ? "blocked" : usedRatio >= DEBT_NEAR_RATIO ? "near" : "ok";
+  return { level, balance: s.balance, limit: DEBT_LIMIT, debtAmount, usedRatio };
 }
 
-function passengerOf(id: string): Passenger | undefined {
-  return db.passengers().find((p) => p.id === id);
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
 }
 
-function toDetails(order: Order): OrderWithDetails {
-  const coRiderOrders = db.orders().filter((o) => o.id.startsWith(`${order.id}_co`));
+function todayTrips(s: DriverState) {
+  const t0 = startOfToday();
+  // Earnings land when a trip finishes, so "today" is by completion time.
+  return s.trips.filter((t) => t.status === "completed" && t.timeline[t.timeline.length - 1].at >= t0);
+}
+
+function homeSummary(s: DriverState): HomeSummary {
+  const today = todayTrips(s);
+  const debt = debtState(s);
   return {
-    ...order,
-    passenger: passengerOf(order.passengerId),
-    fromCity: cityOf(order.fromCityId),
-    toCity: cityOf(order.toCityId),
-    coRiders: coRiderOrders.length
-      ? coRiderOrders.map((o) => ({ order: o, passenger: passengerOf(o.passengerId) }))
-      : undefined,
+    online: s.online,
+    todayEarnings: today.reduce((sum, t) => sum + t.net, 0),
+    todayTrips: today.length,
+    unreadNotifications: s.notifications.filter((n) => !n.read).length,
+    debt,
+    canAcceptOrders: debt.level !== "blocked",
+    bonusActive: commissionPctNow(s) < BASE_COMMISSION_PCT,
   };
 }
 
-function isDebtBlocked(driver: DriverProfile | { walletBalance: number }): boolean {
-  return getDemoScenarios().walletLimit || driver.walletBalance <= DEBT_LIMIT_SOM;
+function passengerInfo(id: string): PassengerInfo {
+  const p = passengers.find((x) => x.id === id) ?? passengers[0];
+  const tail = p.phoneMasked.slice(-2);
+  return { name: p.name, rating: p.rating, phoneMasked: `+998 ** *** ** ${tail}`, avatarSeed: p.avatarSeed };
 }
 
-function toProfile(): DriverProfile {
-  const d = db.currentDriver();
+function toOffer(o: OfferRecord): Offer {
   return {
-    id: d.id,
-    name: d.name,
-    phoneMasked: d.phoneMasked,
-    avatarSeed: d.avatarSeed,
-    rating: d.rating,
-    totalTrips: d.totalTrips,
-    cityId: d.cityId,
-    carModel: d.carModel,
-    carColor: d.carColor,
-    carColorHex: d.carColorHex,
-    plate: d.plate,
-    online: d.online,
-    walletBalance: d.walletBalance,
-    documentsStatus: d.documentsStatus,
-    joinedAt: d.joinedAt,
+    id: o.id,
+    pickup: { city: cityRef(o.fromCityId), address: o.pickupAddr },
+    dropoff: { city: cityRef(o.toCityId), address: o.dropoffAddr },
+    distanceKm: o.distanceKm,
+    durationMin: o.durationMin,
+    pickupEtaMin: o.pickupEtaMin,
+    priceMin: o.price,
+    priceMax: o.priceMax,
+    kind: o.kind,
+    passengers: o.passengers,
+    cargo: o.cargo,
+    payment: o.payment,
+    createdAt: o.createdAt,
+    expiresAt: o.expiresAt,
+    countdownSec: OFFER_COUNTDOWN_SEC,
   };
 }
 
-/** Pure function of time: an unaccepted offer past its expiry becomes missed. */
-function resolveOfferExpiry(order: Order) {
-  if (order.status === "searching" && order.timeline && Date.now() >= order.timeline.searchResolvesAt) {
-    order.status = "no_driver";
-    db.updateOrder(order.id, order);
+function steps(stage: TripStage): TripStep[] {
+  const idx = STAGES.indexOf(stage);
+  return STAGES.map((st, i) => ({ stage: st, state: i < idx ? "done" : i === idx ? "active" : "upcoming" }));
+}
+
+function toActiveTrip(t: LiveTrip): ActiveTrip {
+  const elapsedMin = (Date.now() - t.stageStartedAt) / 60_000;
+  // The demo clock runs ~6x fast so the remaining numbers visibly tick down.
+  let remainingKm: number;
+  let remainingMin: number;
+  if (t.stage === "to_pickup") {
+    remainingMin = Math.max(1, Math.round(t.pickupEtaMin - elapsedMin * 6));
+    remainingKm = Math.max(0.3, Math.round(remainingMin * 0.6 * 10) / 10);
+  } else if (t.stage === "waiting") {
+    remainingKm = t.distanceKm;
+    remainingMin = t.durationMin;
+  } else {
+    const frac = Math.min(0.97, (elapsedMin * 6) / t.durationMin);
+    remainingKm = Math.max(1, Math.round(t.distanceKm * (1 - frac)));
+    remainingMin = Math.max(1, Math.round(t.durationMin * (1 - frac)));
   }
+  return {
+    id: t.id,
+    stage: t.stage,
+    steps: steps(t.stage),
+    nextAction: t.stage === "to_pickup" ? "arrived" : t.stage === "waiting" ? "start" : "finish",
+    pendingReviewId: t.pendingReviewId,
+    passenger: passengerInfo(t.passengerId),
+    pickup: { city: cityRef(t.fromCityId), address: t.pickupAddr },
+    dropoff: { city: cityRef(t.toCityId), address: t.dropoffAddr },
+    remainingKm,
+    remainingMin,
+    price: t.price,
+    payment: t.payment,
+    kind: t.kind,
+    passengers: t.passengers,
+    cargo: t.cargo,
+    acceptedAt: t.acceptedAt,
+  };
 }
 
-function generateOffer(): Order {
-  const driver = db.currentDriver();
-  const passengers = db.passengers();
-  const passenger = passengers[Math.floor(Math.random() * passengers.length)];
-  const otherCities = CITIES.filter((c) => c.id !== driver.cityId);
-  const toCity = otherCities[Math.floor(Math.random() * otherCities.length)];
-  const distanceKm = roadDistanceKm(driver.cityId, toCity.id);
-  const mode = Math.random() < 0.5 ? "car" : "seat";
-  const seatIds =
-    mode === "seat"
-      ? (["front", "back-left", "back-mid", "back-right"] as const)
-          .slice(0, 1 + Math.floor(Math.random() * 2))
-      : [];
-  const scenarios = getDemoScenarios();
-  const expiryMs = scenarios.fastForward ? 8_000 : 25_000 + Math.random() * 15_000;
+function toHistoryItem(t: TripRecord): HistoryItem {
+  return {
+    id: t.id,
+    createdAt: t.createdAt,
+    from: cityRef(t.fromCityId),
+    to: cityRef(t.toCityId),
+    passengerName: passengerInfo(t.passengerId).name,
+    earnings: t.net,
+    payment: t.payment,
+    ratingReceived: t.ratingReceived,
+    status: t.status,
+    kind: t.kind,
+  };
+}
+
+function inRange(ts: number, range: "all" | "today" | "week" | "month") {
+  const now = Date.now();
+  if (range === "today") return ts >= startOfToday();
+  if (range === "week") return ts >= now - 7 * 86_400_000;
+  if (range === "month") return ts >= now - 30 * 86_400_000;
+  return true;
+}
+
+function makeOffer(s: DriverState): OfferRecord {
+  const from = s.profile.cityId;
+  const to = rand.pick(CITIES.filter((c) => c.id !== from && ["smq", "bxr", "and", "nmn", "frg", "qrs"].includes(c.id)));
+  const distanceKm = roadDistanceKm(from, to.id);
+  const kind = rand.bool(0.25) ? "delivery" : "passengers";
+  const n = kind === "passengers" ? rand.int(1, 3) : undefined;
+  const price = computePrice(distanceKm, kind === "delivery" ? "car" : "seat", ["front", "back-left", "back-mid"].slice(0, n ?? 1));
   const now = Date.now();
   return {
-    id: genId("ord"),
-    passengerId: passenger.id,
-    driverId: null,
-    fromCityId: driver.cityId,
-    toCityId: toCity.id,
+    id: genId("ofr"),
+    fromCityId: from,
+    toCityId: to.id,
+    pickupAddr: rand.pick(ADDR[from] ?? ["Markaz"]),
+    dropoffAddr: rand.pick(ADDR[to.id] ?? ["Markaz"]),
     distanceKm,
-    mode,
-    seatIds: [...seatIds],
-    price: computePrice(distanceKm, mode, [...seatIds], DEFAULT_TARIFF),
-    paymentMethod: Math.random() < 0.6 ? "cash" : "card",
-    status: "searching",
+    durationMin: Math.round((distanceKm / 75) * 60),
+    pickupEtaMin: rand.int(3, 9),
+    price,
+    priceMax: Math.round((price * 1.15) / 1000) * 1000,
+    passengerId: rand.pick(passengers).id,
+    kind,
+    passengers: n,
+    cargo: kind === "delivery" ? rand.pick([{ labelKey: "cargo.box", weightKg: 8 }, { labelKey: "cargo.documents", weightKg: 1 }, { labelKey: "cargo.bags", weightKg: 15 }]) : undefined,
+    payment: rand.bool(0.6) ? "cash" : "card",
     createdAt: now,
-    timeline: { searchResolvesAt: now + expiryMs, outcome: "accepted" },
+    expiresAt: now + OFFER_COUNTDOWN_SEC * 1000,
   };
 }
 
-function pendingOffers(): Order[] {
-  return db
-    .orders()
-    .filter((o) => o.status === "searching" && o.driverId === null && !!o.timeline && !o.id.includes("_co"));
+function scheduleNextOffer(s: DriverState, minMs = 6000, maxMs = 11000) {
+  s.nextOfferAt = Date.now() + minMs + Math.random() * (maxMs - minMs);
 }
 
-function creditEarnings(order: Order) {
-  const driver = db.currentDriver();
-  const entries = db.walletEntries().filter((e) => e.driverId === driver.id);
-  let balance = entries.length ? entries[entries.length - 1].balanceAfter : driver.walletBalance;
-  if (order.paymentMethod === "cash") {
-    const commission = Math.round((order.price * COMMISSION_PCT) / 100);
-    balance -= commission;
-    db.addWalletEntry({
-      id: genId("wal"),
-      driverId: driver.id,
-      type: "commission",
-      amount: -commission,
-      orderId: order.id,
-      createdAt: Date.now(),
-      balanceAfter: balance,
-    });
-  } else {
-    const net = Math.round((order.price * (100 - COMMISSION_PCT)) / 100);
-    balance += net;
-    db.addWalletEntry({
-      id: genId("wal"),
-      driverId: driver.id,
-      type: "card",
-      amount: net,
-      orderId: order.id,
-      createdAt: Date.now(),
-      balanceAfter: balance,
-    });
-  }
-  db.updateDriver(driver.id, { walletBalance: balance, totalTrips: driver.totalTrips + 1 });
+// ---------- review mechanism ----------
+
+function submitForReview(kind: ReviewKind, payload?: Record<string, unknown>, delay: [number, number] = [2000, 4000]): ReviewRequest {
+  const s = state();
+  const now = Date.now();
+  const req: ReviewRequest = {
+    id: genId("rev"),
+    kind,
+    status: "pending",
+    createdAt: now,
+    resolvesAt: now + delay[0] + Math.random() * (delay[1] - delay[0]),
+    payload,
+  };
+  s.reviews = [req, ...s.reviews.filter((r) => now - r.createdAt < 3_600_000)].slice(0, 40);
+  persist();
+  return req;
 }
+
+function finishTrip(s: DriverState, t: LiveTrip): TripSummary {
+  const pct = commissionPctNow(s);
+  const commission = Math.round((t.price * pct) / 100);
+  const baseCommission = Math.round((t.price * BASE_COMMISSION_PCT) / 100);
+  const now = Date.now();
+  const rating = rand.bool(0.8) ? 5 : 4;
+  const record: TripRecord = {
+    id: t.id,
+    createdAt: t.acceptedAt,
+    fromCityId: t.fromCityId,
+    toCityId: t.toCityId,
+    pickupAddr: t.pickupAddr,
+    dropoffAddr: t.dropoffAddr,
+    distanceKm: t.distanceKm,
+    durationMin: t.durationMin,
+    passengerId: t.passengerId,
+    kind: t.kind,
+    passengers: t.passengers,
+    cargo: t.cargo,
+    payment: t.payment,
+    gross: t.price,
+    commissionPct: pct,
+    commission,
+    bonusDiscount: baseCommission - commission,
+    net: t.price - commission,
+    ratingReceived: rating,
+    status: "completed",
+    timeline: [...t.timeline, { stage: "completed", at: now }],
+  };
+  s.trips.unshift(record);
+  for (const row of ledgerFor(record)) appendLedger(row.type, row.amount, row.descKey, row.descParams);
+  const summary: TripSummary = {
+    tripId: t.id,
+    gross: t.price,
+    commissionPct: pct,
+    baseCommissionPct: BASE_COMMISSION_PCT,
+    commission,
+    baseCommission,
+    commissionWaived: pct < BASE_COMMISSION_PCT,
+    net: record.net,
+    ratingReceived: rating,
+    payment: t.payment,
+  };
+  s.summaries = { [t.id]: summary };
+  s.trip = null;
+  scheduleNextOffer(s, 9000, 14000);
+  return summary;
+}
+
+/** Apply a review's effect exactly once, on approval. */
+function applyReview(s: DriverState, r: ReviewRequest) {
+  if (r.status !== "approved" || r.applied) return;
+  r.applied = true;
+  const p = r.payload ?? {};
+  switch (r.kind) {
+    case "otp_verify":
+      s.session = { stage: s.registered ? "active" : "personal", phone: String(p.phone ?? "") };
+      if (p.phone) s.profile.phoneMasked = maskPhone(String(p.phone));
+      break;
+    case "driver_registration": {
+      const d = s.draft;
+      if (d.name) s.profile.name = d.name;
+      if (d.cityId) s.profile.cityId = d.cityId;
+      if (d.car) s.profile.car = d.car;
+      s.profile.documents = s.profile.documents.map((doc) => ({ ...doc, status: "approved" }));
+      s.profile.rating = 5;
+      s.profile.ratingCount = 0;
+      s.profile.memberSinceYear = new Date().getFullYear();
+      s.registered = true;
+      s.session = { ...s.session, stage: "active" };
+      pushNotification({ kind: "docs", titleKey: "notif.docs.title", bodyKey: "notif.docs.body" });
+      break;
+    }
+    case "wallet_topup": {
+      const amount = Number(p.amount);
+      appendLedger("topup", amount, "ledger.desc.topup", { provider: p.provider === "click" ? "Click" : "Payme" });
+      pushNotification({ kind: "wallet", titleKey: "notif.topup.title", bodyKey: "notif.topup.body", params: { amount } });
+      break;
+    }
+    case "card_link":
+      s.cards.push({ id: genId("card"), brand: rand.bool() ? "humo" : "uzcard", last4: String(rand.int(1000, 9999)), provider: p.provider === "click" ? "click" : "payme" });
+      break;
+    case "trip_step": {
+      const t = s.trip;
+      if (!t || t.id !== p.tripId) break;
+      t.pendingReviewId = null;
+      const now = Date.now();
+      if (t.stage === "to_pickup") {
+        t.stage = "waiting";
+        t.timeline.push({ stage: "arrived", at: now });
+      } else if (t.stage === "waiting") {
+        t.stage = "in_progress";
+        t.timeline.push({ stage: "started", at: now });
+      } else {
+        finishTrip(s, t);
+        break;
+      }
+      t.stageStartedAt = now;
+      break;
+    }
+    case "profile_change":
+      if (p.field === "name" && typeof p.value === "string" && p.value.trim()) s.profile.name = p.value.trim();
+      break;
+    case "help_request": {
+      const h = s.help.find((x) => x.id === p.helpId);
+      if (h) h.status = "resolved";
+      break;
+    }
+  }
+}
+
+function maskPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "").slice(-9);
+  return `+998 ${digits.slice(0, 2)} *** ** ${digits.slice(-2)}`;
+}
+
+function requireActive(s: DriverState) {
+  if (s.session.stage !== "active") throw new ApiError("NOT_SIGNED_IN");
+}
+
+// ---------- adapter ----------
 
 export const mockAdapter: ApiAdapter = {
-  getProfile: () => withLatency(() => toProfile()),
+  getSession: () => withLatency(() => ({ ...state().session }), { noFail: true }),
 
-  setOnline: (online: boolean) =>
-    withLatency(() => {
-      db.updateDriver(db.currentDriverId(), { online });
-      return toProfile();
-    }, { minMs: 150, maxMs: 350 }),
+  getRegistrationOptions: () =>
+    withLatency(() => ({
+      cities: CITIES.map((c) => ({ id: c.id, name: c.name })),
+      carModels: CAR_MODELS,
+      carColors: CAR_COLORS,
+      years: Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - i),
+      platePattern: "01 A 123 BC",
+    })),
 
-  getOffers: () =>
+  requestOtp: (phone) =>
     withLatency(() => {
-      const driver = db.currentDriver();
-      if (!driver.online) return [];
-      db.orders().forEach(resolveOfferExpiry);
-      let offers = pendingOffers();
-      if (offers.length < 2) {
-        const fresh = generateOffer();
-        db.addOrder(fresh);
-        offers = [fresh, ...offers];
-      }
-      return offers.slice(0, 4).map(toDetails);
+      const digits = phone.replace(/\D/g, "");
+      if (digits.length !== 9) throw new ApiError("PHONE_INVALID");
+      return { requestId: genId("otp") + ":" + digits, demoCode: DEMO_OTP, resendInSec: 30 };
     }),
 
-  acceptOffer: (orderId: string) =>
-    withLatency<OrderWithDetails>(() => {
-      const driver = db.currentDriver();
-      if (isDebtBlocked(driver)) {
-        throw new ApiError("WALLET_LIMIT", "Hamyon balansi past. Avval hamyonni to'ldiring.");
-      }
-      const order = db.getOrder(orderId);
-      resolveOfferExpiry(order ?? ({} as Order));
-      if (!order || order.status !== "searching" || order.driverId !== null) {
-        throw new ApiError("ALREADY_TAKEN", "Bu buyurtmani boshqa haydovchi birinchi bo'lib qabul qildi.");
-      }
-      if (Math.random() < 0.22) {
-        order.status = "no_driver";
-        db.updateOrder(order.id, order);
-        throw new ApiError("ALREADY_TAKEN", "Bu buyurtmani boshqa haydovchi birinchi bo'lib qabul qildi.");
-      }
-      order.driverId = driver.id;
-      order.status = "accepted";
-      order.timeline = { searchResolvesAt: order.timeline!.searchResolvesAt, acceptedAt: Date.now(), outcome: "accepted" };
-      db.updateOrder(order.id, order);
+  verifyOtp: (requestId, code) =>
+    withLatency(() => {
+      if (code !== DEMO_OTP) throw new ApiError("CODE_INVALID");
+      return submitForReview("otp_verify", { phone: requestId.split(":")[1] ?? "" }, [900, 1400]);
+    }),
 
-      if (order.mode === "seat" && order.seatIds.length < 3 && Math.random() < 0.6) {
-        const coCount = 1 + Math.floor(Math.random() * 2);
-        const takenSeats = new Set(order.seatIds);
-        const freeSeats = (["front", "back-left", "back-mid", "back-right"] as const).filter(
-          (s) => !takenSeats.has(s)
-        );
-        const passengers = db.passengers();
-        for (let i = 0; i < Math.min(coCount, freeSeats.length); i++) {
-          const seat = freeSeats[i];
-          const co = passengers[Math.floor(Math.random() * passengers.length)];
-          const coOrder: Order = {
-            id: `${order.id}_co${i + 1}`,
-            passengerId: co.id,
-            driverId: driver.id,
-            fromCityId: order.fromCityId,
-            toCityId: order.toCityId,
-            distanceKm: order.distanceKm,
-            mode: "seat",
-            seatIds: [seat],
-            price: computePrice(order.distanceKm, "seat", [seat], DEFAULT_TARIFF),
-            paymentMethod: Math.random() < 0.6 ? "cash" : "card",
-            status: "accepted",
-            createdAt: Date.now(),
-          };
-          db.addOrder(coOrder);
+  savePersonal: ({ name, cityId }) =>
+    withLatency(() => {
+      const s = state();
+      if (name.trim().split(/\s+/).length < 2 || name.trim().length < 5) throw new ApiError("NAME_INVALID");
+      if (!CITIES.some((c) => c.id === cityId)) throw new ApiError("CITY_REQUIRED");
+      s.draft = { ...s.draft, name: name.trim(), cityId };
+      s.session = { ...s.session, stage: "car" };
+      persist();
+      return { ...s.session };
+    }),
+
+  saveCar: ({ model, colorKey, plate, year }) =>
+    withLatency(() => {
+      const s = state();
+      const normalized = plate.toUpperCase().replace(/\s+/g, " ").trim();
+      // Uzbek plates: "01 A 123 BC" (private) or "01 123 ABC" (company).
+      if (!/^\d{2} ([A-Z] \d{3} [A-Z]{2}|\d{3} [A-Z]{3})$/.test(normalized)) throw new ApiError("PLATE_INVALID");
+      if (!model) throw new ApiError("MODEL_REQUIRED");
+      if (!CAR_COLORS.some((c) => c.key === colorKey)) throw new ApiError("COLOR_REQUIRED");
+      s.draft = { ...s.draft, car: { model, colorKey, plate: normalized, year } };
+      s.session = { ...s.session, stage: "documents" };
+      persist();
+      return { ...s.session };
+    }),
+
+  submitDocuments: ({ licenseFile, registrationFile }) =>
+    withLatency(() => {
+      const s = state();
+      if (!licenseFile || !registrationFile) throw new ApiError("DOCS_REQUIRED");
+      s.profile.documents = [
+        { kind: "license", status: "auto_review", fileName: licenseFile },
+        { kind: "registration", status: "auto_review", fileName: registrationFile },
+      ];
+      const review = submitForReview("driver_registration", {}, [3000, 4000]);
+      s.session = { ...s.session, stage: "review", documentsReviewId: review.id };
+      persist();
+      return review;
+    }, { minMs: 400, maxMs: 700 }),
+
+  logout: () =>
+    withLatency(() => {
+      const s = state();
+      s.online = false;
+      s.offer = null;
+      s.session = { stage: "signed_out" };
+      persist();
+      return { ...s.session };
+    }, { noFail: true }),
+
+  getProfile: () =>
+    withLatency<DriverProfile>(() => {
+      const s = state();
+      const p = s.profile;
+      const color = CAR_COLORS.find((c) => c.key === p.car.colorKey) ?? CAR_COLORS[0];
+      return {
+        id: p.id,
+        name: p.name,
+        phoneMasked: p.phoneMasked,
+        avatarSeed: p.avatarSeed,
+        rating: p.rating,
+        ratingCount: p.ratingCount,
+        totalTrips: s.trips.filter((t) => t.status === "completed").length + 280,
+        city: cityRef(p.cityId),
+        car: { model: p.car.model, color: color.key, colorHex: color.hex, plate: p.car.plate, year: p.car.year },
+        online: s.online,
+        documents: p.documents,
+        memberSinceYear: p.memberSinceYear,
+      };
+    }),
+
+  getHomeSummary: () => withLatency(() => homeSummary(state())),
+
+  setOnline: (online) =>
+    withLatency(() => {
+      const s = state();
+      requireActive(s);
+      s.online = online;
+      if (online) scheduleNextOffer(s, 4000, 7000);
+      else {
+        s.offer = null;
+        s.nextOfferAt = null;
+      }
+      persist();
+      return homeSummary(s);
+    }, { minMs: 250, maxMs: 450 }),
+
+  getCurrentOffer: () =>
+    withLatency(() => {
+      const s = state();
+      const now = Date.now();
+      if (s.session.stage !== "active" || !s.online || s.trip || debtState(s).level === "blocked") return null;
+      if (s.offer && now >= s.offer.expiresAt) {
+        s.offer = null;
+        scheduleNextOffer(s);
+      }
+      if (!s.offer) {
+        if (s.nextOfferAt == null) scheduleNextOffer(s);
+        else if (now >= s.nextOfferAt) {
+          s.offer = makeOffer(s);
+          s.nextOfferAt = null;
         }
       }
-      return toDetails(order);
-    }, { minMs: 250, maxMs: 500 }),
+      persist();
+      return s.offer ? toOffer(s.offer) : null;
+    }, { minMs: 80, maxMs: 160 }),
 
-  declineOffer: (orderId: string) =>
+  acceptOffer: (offerId) =>
     withLatency(() => {
-      db.updateOrder(orderId, { status: "no_driver" });
-    }, { minMs: 100, maxMs: 200 }).then(() => undefined),
+      const s = state();
+      if (debtState(s).level === "blocked") throw new ApiError("WALLET_LIMIT");
+      const o = s.offer;
+      if (!o || o.id !== offerId || Date.now() >= o.expiresAt) throw new ApiError("OFFER_EXPIRED");
+      const now = Date.now();
+      s.trip = { ...o, stage: "to_pickup", stageStartedAt: now, acceptedAt: now, pendingReviewId: null, timeline: [{ stage: "accepted", at: now }] };
+      s.offer = null;
+      s.nextOfferAt = null;
+      persist();
+      return toActiveTrip(s.trip);
+    }, { minMs: 300, maxMs: 500 }),
+
+  declineOffer: (offerId) =>
+    withLatency(() => {
+      const s = state();
+      if (s.offer?.id === offerId) s.offer = null;
+      scheduleNextOffer(s);
+      persist();
+    }, { minMs: 100, maxMs: 200, noFail: true }),
 
   getActiveTrip: () =>
     withLatency(() => {
-      const driver = db.currentDriver();
-      const order = db
-        .orders()
-        .find((o) => o.driverId === driver.id && !o.id.includes("_co") && (o.status === "accepted" || o.status === "in_progress"));
-      return order ? toDetails(order) : null;
-    }),
+      const s = state();
+      if (s.trip?.pendingReviewId) {
+        const r = s.reviews.find((x) => x.id === s.trip!.pendingReviewId);
+        if (r && r.status === "pending" && Date.now() >= r.resolvesAt) {
+          r.status = "approved";
+          applyReview(s, r);
+          persist();
+        }
+      }
+      return s.trip ? toActiveTrip(s.trip) : null;
+    }, { minMs: 100, maxMs: 250 }),
 
-  startTrip: (orderId: string) =>
-    withLatency<OrderWithDetails>(() => {
-      const order = db.getOrder(orderId);
-      if (!order) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");
-      order.status = "in_progress";
-      db.updateOrder(order.id, order);
-      db.orders()
-        .filter((o) => o.id.startsWith(`${order.id}_co`))
-        .forEach((o) => db.updateOrder(o.id, { status: "in_progress" }));
-      return toDetails(order);
-    }, { minMs: 200, maxMs: 400 }),
-
-  completeTrip: (orderId: string) =>
-    withLatency<OrderWithDetails>(() => {
-      const order = db.getOrder(orderId);
-      if (!order) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");
-      order.status = "completed";
-      db.updateOrder(order.id, order);
-      creditEarnings(order);
-      const coRiders = db.orders().filter((o) => o.id.startsWith(`${order.id}_co`));
-      coRiders.forEach((o) => {
-        db.updateOrder(o.id, { status: "completed" });
-        creditEarnings({ ...o, status: "completed" });
-      });
-      return toDetails(order);
-    }, { minMs: 300, maxMs: 600 }),
-
-  cancelTrip: (orderId: string, reason: string) =>
-    withLatency<OrderWithDetails>(() => {
-      db.updateOrder(orderId, { status: "cancelled", cancelReason: reason });
-      db.orders()
-        .filter((o) => o.id.startsWith(`${orderId}_co`))
-        .forEach((o) => db.updateOrder(o.id, { status: "cancelled", cancelReason: reason }));
-      return toDetails(db.getOrder(orderId)!);
-    }),
-
-  getOrderHistory: () =>
+  advanceTrip: (tripId) =>
     withLatency(() => {
-      const driver = db.currentDriver();
-      return db
-        .orders()
-        .filter((o) => o.driverId === driver.id && !o.id.includes("_co") && (o.status === "completed" || o.status === "cancelled"))
+      const s = state();
+      const t = s.trip;
+      if (!t || t.id !== tripId) throw new ApiError("TRIP_NOT_FOUND");
+      if (t.pendingReviewId) {
+        const existing = s.reviews.find((r) => r.id === t.pendingReviewId);
+        if (existing) return existing;
+      }
+      const review = submitForReview("trip_step", { tripId, from: t.stage }, [700, 1100]);
+      t.pendingReviewId = review.id;
+      persist();
+      return review;
+    }, { minMs: 150, maxMs: 300 }),
+
+  getCancelReasons: () => withLatency(() => CANCEL_REASONS.map((key) => ({ key }))),
+
+  cancelTrip: (tripId, reasonKey) =>
+    withLatency(() => {
+      const s = state();
+      const t = s.trip;
+      if (!t || t.id !== tripId) throw new ApiError("TRIP_NOT_FOUND");
+      const now = Date.now();
+      s.trips.unshift({
+        id: t.id, createdAt: t.acceptedAt, fromCityId: t.fromCityId, toCityId: t.toCityId, pickupAddr: t.pickupAddr,
+        dropoffAddr: t.dropoffAddr, distanceKm: t.distanceKm, durationMin: t.durationMin, passengerId: t.passengerId,
+        kind: t.kind, passengers: t.passengers, cargo: t.cargo, payment: t.payment, gross: 0, commissionPct: 0,
+        commission: 0, bonusDiscount: 0, net: 0, ratingReceived: null, status: "cancelled", cancelReasonKey: reasonKey,
+        timeline: [...t.timeline, { stage: "cancelled", at: now }],
+      });
+      s.trip = null;
+      scheduleNextOffer(s);
+      persist();
+    }),
+
+  getTripSummary: (tripId) =>
+    withLatency(() => {
+      const sum = state().summaries[tripId];
+      if (!sum) throw new ApiError("TRIP_NOT_FOUND");
+      return sum;
+    }, { noFail: true }),
+
+  getHistory: (filter) =>
+    withLatency<HistoryPage>(() => {
+      const s = state();
+      const q = filter.city.trim().toLocaleLowerCase();
+      const items = s.trips
+        .filter((t) => inRange(t.createdAt, filter.range))
+        .filter((t) => t.net >= filter.minEarnings)
+        .filter((t) => !q || cityName(t.fromCityId).toLocaleLowerCase().includes(q) || cityName(t.toCityId).toLocaleLowerCase().includes(q))
         .sort((a, b) => b.createdAt - a.createdAt)
-        .map(toDetails);
+        .map(toHistoryItem);
+      return { items, total: items.length, filterOptions: { minEarnings: [0, 100_000, 200_000, 300_000], ranges: ["all", "today", "week", "month"] } };
+    }),
+
+  getTripDetail: (id) =>
+    withLatency<TripDetail>(() => {
+      const t = state().trips.find((x) => x.id === id);
+      if (!t) throw new ApiError("TRIP_NOT_FOUND");
+      return {
+        ...toHistoryItem(t),
+        pickup: { city: cityRef(t.fromCityId), address: t.pickupAddr },
+        dropoff: { city: cityRef(t.toCityId), address: t.dropoffAddr },
+        distanceKm: t.distanceKm,
+        durationMin: t.durationMin,
+        passenger: passengerInfo(t.passengerId),
+        passengers: t.passengers,
+        cargo: t.cargo,
+        timeline: t.timeline,
+        breakdown: { base: t.gross, commission: t.commission + t.bonusDiscount, commissionPct: BASE_COMMISSION_PCT, bonusDiscount: t.bonusDiscount, net: t.net },
+        cancelReasonKey: t.cancelReasonKey,
+      };
     }),
 
   getWallet: () =>
     withLatency<WalletSummary>(() => {
-      const driver = db.currentDriver();
-      const entries = db
-        .walletEntries()
-        .filter((e) => e.driverId === driver.id)
-        .sort((a, b) => b.createdAt - a.createdAt);
+      const s = state();
+      const today = todayTrips(s);
+      const earnings = today.reduce((sum, t) => sum + t.net, 0);
+      const pct = commissionPctNow(s);
       return {
-        balance: driver.walletBalance,
-        commissionPct: COMMISSION_PCT,
-        debtBlocked: isDebtBlocked(driver),
-        entries,
+        balance: s.balance,
+        debt: debtState(s),
+        today: { earnings, trips: today.length, avgPerTrip: today.length ? Math.round(earnings / today.length) : 0 },
+        commission: { pct: BASE_COMMISSION_PCT, bonusPct: pct, bonusActive: pct < BASE_COMMISSION_PCT },
+        cards: [...s.cards],
       };
     }),
 
-  requestWalletTopup: (amount: number) =>
+  getLedger: ({ type, range, page }) =>
+    withLatency<LedgerPage>(() => {
+      const rows = state().ledger.filter((e) => (type === "all" || e.type === type) && inRange(e.createdAt, range));
+      const pageCount = Math.max(1, Math.ceil(rows.length / LEDGER_PAGE_SIZE));
+      const p = Math.min(Math.max(1, page), pageCount);
+      return { items: rows.slice(0, p * LEDGER_PAGE_SIZE), page: p, pageCount, total: rows.length };
+    }),
+
+  getTopupOptions: () =>
+    withLatency<TopupOptions>(() => ({ presets: [10_000, 25_000, 50_000, 100_000], min: 5_000, max: 5_000_000, providers: ["payme", "click"] })),
+
+  requestTopup: (amount, provider) =>
     withLatency(() => {
-      if (amount <= 0) throw new ApiError("INVALID_AMOUNT", "Summani to'g'ri kiriting");
-      const driver = db.currentDriver();
-      const balance = driver.walletBalance + amount;
-      db.addWalletEntry({
-        id: genId("wal"),
-        driverId: driver.id,
-        type: "topup",
-        amount,
-        createdAt: Date.now(),
-        balanceAfter: balance,
-      });
-      db.updateDriver(driver.id, { walletBalance: balance });
-      return submitForReview("wallet_topup", { amount });
+      if (!Number.isFinite(amount) || amount < 5_000) throw new ApiError("AMOUNT_TOO_SMALL");
+      if (amount > 5_000_000) throw new ApiError("AMOUNT_TOO_LARGE");
+      return submitForReview("wallet_topup", { amount, provider });
     }, { minMs: 300, maxMs: 600 }),
 
-  getReviewStatus: (reviewId: string) =>
-    withLatency(() => {
-      const review = pollReview(reviewId);
-      if (review.status === "approved" && review.kind === "driver_registration") {
-        db.updateDriver(db.currentDriverId(), { documentsStatus: "approved" });
-      }
-      return review;
-    }, { minMs: 150, maxMs: 350 }),
+  linkCard: (provider) => withLatency(() => submitForReview("card_link", { provider }), { minMs: 300, maxMs: 600 }),
 
-  getEarningsStats: (range: "week" | "month") =>
-    withLatency<EarningsStats>(() => {
-      const driver = db.currentDriver();
-      const days = range === "week" ? 7 : 30;
+  getBonus: () =>
+    withLatency<BonusInfo>(() => {
+      const s = state();
+      const wt = weekTrips(s);
+      const current = levelFor(wt);
+      const idx = BONUS_LEVELS.findIndex((l) => l.key === current.key);
+      const next = BONUS_LEVELS[idx + 1] ?? null;
+      const top = BONUS_LEVELS[BONUS_LEVELS.length - 1];
+      const weekStart = Date.now() - 7 * 86_400_000;
+      const saved = s.trips.filter((t) => t.createdAt >= weekStart).reduce((sum, t) => sum + t.bonusDiscount, 0);
+      const cancels = s.trips.filter((t) => t.createdAt >= weekStart && t.status === "cancelled").length;
+      return {
+        active: current.commissionPct < BASE_COMMISSION_PCT,
+        currentLevel: { ...current },
+        nextLevel: next ? { ...next } : null,
+        levels: BONUS_LEVELS.map((l) => ({ ...l })),
+        weekTrips: wt,
+        progressRatio: Math.min(1, wt / top.tripsRequired),
+        tripsToNext: next ? next.tripsRequired - wt : 0,
+        commissionPct: current.commissionPct,
+        baseCommissionPct: BASE_COMMISSION_PCT,
+        rules: [
+          { key: "bonus.rule.trips", progress: Math.min(wt, top.tripsRequired), target: top.tripsRequired, done: wt >= top.tripsRequired },
+          { key: "bonus.rule.rating", progress: Math.round(s.profile.rating * 10), target: 48, done: s.profile.rating >= 4.8 },
+          { key: "bonus.rule.cancels", progress: cancels, target: 2, done: cancels < 2 },
+        ],
+        savedThisWeek: saved,
+        resetsInDays: 7 - new Date().getDay() || 7,
+      };
+    }),
+
+  requestProfileChange: (field, value) =>
+    withLatency(() => {
+      if (!value.trim()) throw new ApiError("VALUE_REQUIRED");
+      return submitForReview("profile_change", { field, value });
+    }),
+
+  getNotifications: () => withLatency(() => state().notifications.map((n) => ({ ...n }))),
+
+  markAllNotificationsRead: () =>
+    withLatency(() => {
+      state().notifications.forEach((n) => (n.read = true));
+      persist();
+    }, { noFail: true }),
+
+  getNotificationPrefs: () => withLatency(() => ({ ...state().prefs })),
+
+  setNotificationPrefs: (prefs) =>
+    withLatency(() => {
+      state().prefs = { ...prefs };
+      persist();
+      return { ...prefs };
+    }, { minMs: 120, maxMs: 260 }),
+
+  getHelpRequests: () => withLatency(() => state().help.map((h) => ({ ...h }))),
+
+  submitHelpRequest: (topic, message) =>
+    withLatency(() => {
+      const s = state();
+      const id = genId("help");
+      s.help.unshift({ id, topic, message, createdAt: Date.now(), status: "in_review" });
+      const r = submitForReview("help_request", { helpId: id });
+      persist();
+      return r;
+    }),
+
+  getAppInfo: () => withLatency(() => ({ version: "2.0.0", build: "2026.11" }), { noFail: true }),
+
+  getReviewStatus: (reviewId) =>
+    withLatency(() => {
+      const s = state();
+      const r = s.reviews.find((x) => x.id === reviewId);
+      if (!r) throw new ApiError("REVIEW_NOT_FOUND");
+      if (r.status === "pending" && Date.now() >= r.resolvesAt) r.status = "approved";
+      applyReview(s, r);
+      persist();
+      return { ...r };
+    }, { minMs: 120, maxMs: 260, noFail: true }),
+
+  demoApplyPreset: (preset) =>
+    withLatency(() => {
+      replaceState(presetState(preset));
+    }, { noFail: true, minMs: 100, maxMs: 200 }),
+
+  demoTriggerOffer: () =>
+    withLatency(() => {
+      const s = state();
+      requireActive(s);
+      if (s.trip) throw new ApiError("TRIP_ACTIVE");
+      s.online = true;
+      s.offer = makeOffer(s);
+      s.nextOfferAt = null;
+      persist();
+    }, { noFail: true, minMs: 80, maxMs: 120 }),
+
+  demoTripAtStage: (stage) =>
+    withLatency(() => {
+      const s = state();
+      requireActive(s);
+      const o = makeOffer(s);
       const now = Date.now();
-      const dayMs = 86_400_000;
-      // Revenue is derived straight from completed orders (price), not wallet
-      // entries: wallet entries only ever record the commission/net-card
-      // movement, never the full cash amount a driver collects in person.
-      const allCompleted = db.orders().filter((o) => o.driverId === driver.id && o.status === "completed");
-      const trips = allCompleted.filter((o) => !o.id.includes("_co"));
-
-      const points = Array.from({ length: days }, (_, i) => {
-        const dayStart = now - (days - 1 - i) * dayMs;
-        const d = new Date(dayStart);
-        const dayKey = d.toDateString();
-        const amount = allCompleted
-          .filter((o) => new Date(o.createdAt).toDateString() === dayKey)
-          .reduce((sum, o) => sum + o.price, 0);
-        const tripCount = trips.filter((o) => new Date(o.createdAt).toDateString() === dayKey).length;
-        return {
-          date: d.toLocaleDateString("uz-UZ", { day: "numeric", month: "short" }),
-          amount,
-          trips: tripCount,
-        };
-      });
-
-      const todayKey = new Date(now).toDateString();
-      const weekStart = now - 7 * dayMs;
-      return {
-        points,
-        totalToday: allCompleted
-          .filter((o) => new Date(o.createdAt).toDateString() === todayKey)
-          .reduce((sum, o) => sum + o.price, 0),
-        tripsToday: trips.filter((o) => new Date(o.createdAt).toDateString() === todayKey).length,
-        totalWeek: allCompleted
-          .filter((o) => o.createdAt >= weekStart)
-          .reduce((sum, o) => sum + o.price, 0),
-        tripsWeek: trips.filter((o) => o.createdAt >= weekStart).length,
-        avgRating: driver.rating,
-      };
-    }),
-
-  getNotifications: () =>
-    withLatency(() => {
-      const seeded: NotificationItem[] = [
-        {
-          id: "ntf_1",
-          title: "Yangi buyurtma taklifi",
-          body: "Yaqin atrofda yo'lovchi sizni kutmoqda.",
-          createdAt: Date.now() - 1 * 86_400_000,
-          read: true,
-          kind: "order",
-        },
-        {
-          id: "ntf_2",
-          title: "Komissiya yechib olindi",
-          body: "Yakunlangan safar uchun 10% komissiya hamyondan yechildi.",
-          createdAt: Date.now() - 3 * 86_400_000,
-          read: true,
-          kind: "wallet",
-        },
-        {
-          id: "ntf_3",
-          title: "Hujjatlar tasdiqlandi",
-          body: "Haydovchilik guvohnomangiz muvaffaqiyatli tekshirildi.",
-          createdAt: Date.now() - 12 * 86_400_000,
-          read: false,
-          kind: "docs",
-        },
-      ];
-      return readJSON<NotificationItem[]>("notifications", seeded);
-    }),
-
-  markNotificationRead: (id: string) =>
-    withLatency(() => {
-      const list = readJSON<NotificationItem[]>("notifications", []);
-      const next = list.map((n) => (n.id === id ? { ...n, read: true } : n));
-      writeJSON("notifications", next);
-    }, { minMs: 100, maxMs: 200 }).then(() => undefined),
-
-  getCities: () => withLatency(() => db.cities()),
-
-  getRegistrationStatus: () =>
-    withLatency(() => ({ documentsStatus: db.currentDriver().documentsStatus })),
-
-  requestOtp: (_phone: string) =>
-    withLatency<OtpRequestResult>(() => ({
-      requestId: genId("otp"),
-      demoCode: DEMO_OTP_CODE,
-    }), { minMs: 250, maxMs: 500 }),
-
-  verifyOtp: (_requestId: string, code: string) =>
-    withLatency(() => {
-      if (code !== DEMO_OTP_CODE) {
-        throw new ApiError("INVALID_CODE", "Kod noto'g'ri. Qaytadan urinib ko'ring.");
-      }
-      return submitForReview("otp_verify", { phone: _requestId });
-    }, { minMs: 200, maxMs: 400 }),
-
-  submitRegistration: (input: RegistrationInput) =>
-    withLatency(() => {
-      db.updateDriver(db.currentDriverId(), { documentsStatus: "pending" });
-      return submitForReview("driver_registration", { ...input });
-    }, { minMs: 300, maxMs: 600 }),
+      const timeline: LiveTrip["timeline"] = [{ stage: "accepted", at: now - 9 * 60_000 }];
+      if (stage !== "to_pickup") timeline.push({ stage: "arrived", at: now - 3 * 60_000 });
+      if (stage === "in_progress") timeline.push({ stage: "started", at: now - 60_000 });
+      s.online = true;
+      s.offer = null;
+      s.nextOfferAt = null;
+      s.trip = { ...o, stage, stageStartedAt: now, acceptedAt: now - 9 * 60_000, pendingReviewId: null, timeline };
+      persist();
+    }, { noFail: true, minMs: 80, maxMs: 120 }),
 };

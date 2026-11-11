@@ -1,15 +1,15 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
-type Props = HTMLAttributes<HTMLDivElement> & {
-  padded?: boolean;
-};
+/** Cards float on elevation, not borders. */
+export function Card({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("rounded-card bg-surface shadow-1", className)} {...rest} />;
+}
 
-export function Card({ className, padded = true, ...rest }: Props) {
+export function SectionLabel({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) {
   return (
-    <div
-      className={cn("rounded-2xl bg-card shadow-softer", padded && "p-6", className)}
-      {...rest}
-    />
+    <h2 id={id} className={cn("mb-2 px-1 text-sm font-medium text-muted", className)}>
+      {children}
+    </h2>
   );
 }

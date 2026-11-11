@@ -1,33 +1,26 @@
-import { getDemoScenarios } from "@/stores/demoStore";
+import { getDemoNetwork } from "@/stores/demoStore";
 
 export class ApiError extends Error {
   code: string;
-  constructor(code: string, message: string) {
-    super(message);
+  constructor(code: string, message?: string) {
+    super(message ?? code);
     this.code = code;
   }
 }
 
 /**
- * Simulates a network round-trip to the mock server: 300-900ms latency
- * (1.8-3.2s when the "slow internet" demo scenario is on), with an
- * occasional random failure so retry states have something to show.
- * This NEVER touches the network — it's a local timer only.
+ * Fakes a server round-trip with a local timer — never touches the network.
+ * Normal: 150–450ms. "Sekin internet": 1.8–3.2s. Failures only happen when
+ * the "Xatolik" demo scenario is on, so the regular demo is deterministic.
  */
-export function withLatency<T>(factory: () => T, opts?: { minMs?: number; maxMs?: number }): Promise<T> {
-  const scenarios = getDemoScenarios();
-  const [min, max] = scenarios.slowInternet
-    ? [1800, 3200]
-    : [opts?.minMs ?? 300, opts?.maxMs ?? 900];
+export function withLatency<T>(factory: () => T, opts?: { minMs?: number; maxMs?: number; noFail?: boolean }): Promise<T> {
+  const net = getDemoNetwork();
+  const [min, max] = net.slowInternet ? [1800, 3200] : [opts?.minMs ?? 150, opts?.maxMs ?? 450];
   const delay = min + Math.random() * (max - min);
-  const failRate = scenarios.forceErrors ? 0.65 : 0.04;
-
+  const fail = net.forceErrors && !opts?.noFail && Math.random() < 0.5;
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      if (Math.random() < failRate) {
-        reject(new ApiError("NETWORK_ERROR", "Ulanishda xatolik yuz berdi. Qayta urinib ko'ring."));
-        return;
-      }
+      if (fail) return reject(new ApiError("NETWORK_ERROR"));
       try {
         resolve(factory());
       } catch (err) {

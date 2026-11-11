@@ -1,57 +1,49 @@
 import { create } from "zustand";
 import { clearAppStorage } from "@/mockDb/storage";
 
-export type DemoScenarios = {
-  noDriverFound: boolean;
-  slowInternet: boolean;
-  forceErrors: boolean;
-  walletLimit: boolean;
-  fastForward: boolean;
-};
+// Network-condition demo toggles. Read by the mock latency layer only.
+export type DemoNetwork = { slowInternet: boolean; forceErrors: boolean };
+const KEY = "izgo_driver_demo_network";
+const defaults: DemoNetwork = { slowInternet: false, forceErrors: false };
 
-const SCENARIOS_KEY = "izgo_driver_demo_scenarios";
-
-const defaultScenarios: DemoScenarios = {
-  noDriverFound: false,
-  slowInternet: false,
-  forceErrors: false,
-  walletLimit: false,
-  fastForward: false,
-};
-
-function loadScenarios(): DemoScenarios {
+function load(): DemoNetwork {
   try {
-    const raw = localStorage.getItem(SCENARIOS_KEY);
-    if (raw) return { ...defaultScenarios, ...JSON.parse(raw) };
+    const raw = localStorage.getItem(KEY);
+    if (raw) return { ...defaults, ...JSON.parse(raw) };
   } catch {
     /* ignore */
   }
-  return defaultScenarios;
+  return defaults;
 }
 
 type DemoState = {
-  isDemo: boolean;
-  scenarios: DemoScenarios;
-  toggle: (key: keyof DemoScenarios) => void;
-  resetDb: () => void;
+  network: DemoNetwork;
+  toggle: (key: keyof DemoNetwork) => void;
+  resetAll: () => void;
 };
 
 export const useDemoStore = create<DemoState>((set, get) => ({
-  isDemo: import.meta.env.VITE_DEMO_MODE !== "false",
-  scenarios: loadScenarios(),
+  network: load(),
   toggle: (key) => {
-    const next = { ...get().scenarios, [key]: !get().scenarios[key] };
-    localStorage.setItem(SCENARIOS_KEY, JSON.stringify(next));
-    set({ scenarios: next });
+    const next = { ...get().network, [key]: !get().network[key] };
+    try {
+      localStorage.setItem(KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    set({ network: next });
   },
-  resetDb: () => {
+  resetAll: () => {
     clearAppStorage();
-    localStorage.removeItem(SCENARIOS_KEY);
-    window.location.reload();
+    try {
+      localStorage.removeItem(KEY);
+    } catch {
+      /* ignore */
+    }
+    window.location.assign("/");
   },
 }));
 
-// Non-reactive accessor for use inside the mock adapter (outside React).
-export function getDemoScenarios(): DemoScenarios {
-  return useDemoStore.getState().scenarios;
+export function getDemoNetwork(): DemoNetwork {
+  return useDemoStore.getState().network;
 }

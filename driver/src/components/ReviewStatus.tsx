@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Clock3, Send, X } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { Check, Clock, Send, X } from "@/lib/icons";
 import { api } from "@/api/client";
-
-export type ReviewStatusValue = "pending" | "approved" | "rejected";
+import { useT } from "@/lib/i18n/provider";
+import { cn } from "@/lib/cn";
 
 type Props = {
   reviewId: string;
@@ -11,46 +10,35 @@ type Props = {
   description?: string;
   onApproved?: () => void;
   onRejected?: () => void;
+  compact?: boolean;
 };
 
 const STEPS = [
-  { key: "submitted", label: "Yuborildi", icon: Send },
-  { key: "reviewing", label: "Tekshirilmoqda", icon: Clock3 },
-  { key: "done", label: "Yakunlandi", icon: Check },
+  { key: "review.submitted", icon: Send },
+  { key: "review.reviewing", icon: Clock },
+  { key: "review.done", icon: Check },
 ] as const;
 
 /**
- * Shared "submitted for review" state used everywhere a demo action needs
- * verification (OTP, card linking, wallet top-up, driver documents, admin
- * 2FA, two-person approval, support tickets). Polls api.getReviewStatus()
- * until the mock server auto-resolves it (2-4s), then shows a short
- * celebratory confirmation before calling back.
+ * Shared "sent for review" state. Polls api.getReviewStatus() until the
+ * adapter resolves it, shows the outcome for ~900ms, then calls back once.
  */
-export function ReviewStatus({ reviewId, title, description, onApproved, onRejected }: Props) {
-  const [status, setStatus] = useState<ReviewStatusValue>("pending");
-  const [settled, setSettled] = useState(false);
-  const calledBack = useRef(false);
-  const onApprovedRef = useRef(onApproved);
-  const onRejectedRef = useRef(onRejected);
-  useEffect(() => {
-    onApprovedRef.current = onApproved;
-    onRejectedRef.current = onRejected;
-  });
+export function ReviewStatus({ reviewId, title, description, onApproved, onRejected, compact }: Props) {
+  const { t } = useT();
+  const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending");
+  const cb = useRef({ onApproved, onRejected });
+  cb.current = { onApproved, onRejected };
+  const fired = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
-
     async function poll() {
       try {
-        const res = await api.getReviewStatus(reviewId);
+        const r = await api.getReviewStatus(reviewId);
         if (cancelled) return;
-        if (res.status === "pending") {
-          timer = setTimeout(poll, 600);
-        } else {
-          setStatus(res.status);
-          setSettled(true);
-        }
+        if (r.status === "pending") timer = setTimeout(poll, 500);
+        else setStatus(r.status);
       } catch {
         if (!cancelled) timer = setTimeout(poll, 800);
       }
@@ -63,96 +51,67 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
   }, [reviewId]);
 
   useEffect(() => {
-    if (!settled || calledBack.current) return;
-    calledBack.current = true;
-    const t = setTimeout(() => {
-      if (status === "approved") onApprovedRef.current?.();
-      else onRejectedRef.current?.();
-    }, 900);
-    return () => clearTimeout(t);
-    // onApproved/onRejected intentionally excluded: they're read via refs so
-    // that parent re-renders (e.g. a ticking countdown) with a new inline
-    // callback don't cancel this timer before it fires.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settled, status]);
+    if (status === "pending" || fired.current) return;
+    fired.current = true;
+    const timer = setTimeout(() => (status === "approved" ? cb.current.onApproved?.() : cb.current.onRejected?.()), 900);
+    return () => clearTimeout(timer);
+  }, [status]);
 
-  const activeIndex = !settled ? 1 : 2;
+  const settled = status !== "pending";
+  const active = settled ? 2 : 1;
 
   return (
-    <div className="flex flex-col items-center gap-8 px-6 py-10 text-center animate-fade-in">
+    <div className={cn("flex animate-fade-up flex-col items-center text-center", compact ? "gap-5 py-6" : "gap-8 px-2 py-10")}>
       <div className="relative flex h-24 w-24 items-center justify-center">
         {!settled && (
           <>
-            <span className="absolute inset-0 rounded-full bg-accent-10 animate-pulse-ring" />
-            <span className="absolute inset-0 rounded-full bg-accent-10 animate-pulse-ring [animation-delay:0.6s]" />
+            <span className="absolute inset-2 animate-pulse-ring rounded-full bg-yellow/25" />
+            <span className="absolute inset-2 animate-pulse-ring rounded-full bg-yellow/25 [animation-delay:0.9s]" />
           </>
         )}
-        <div
+        <span
           className={cn(
-            "flex h-20 w-20 items-center justify-center rounded-full",
-            settled
-              ? status === "approved"
-                ? "bg-accent text-bg animate-check-pop"
-                : "bg-danger text-bg animate-check-pop"
-              : "bg-accent-10 text-accent"
+            "relative flex h-20 w-20 items-center justify-center rounded-full",
+            settled ? (status === "approved" ? "animate-check-pop bg-success text-bg" : "animate-check-pop bg-danger text-white") : "bg-raised text-gold"
           )}
         >
-          {settled ? (
-            status === "approved" ? <Check className="h-9 w-9" /> : <X className="h-9 w-9" />
-          ) : (
-            <Clock3 className="h-8 w-8 animate-pulse" />
-          )}
-        </div>
+          {settled ? status === "approved" ? <Check className="h-9 w-9" /> : <X className="h-9 w-9" /> : <Clock className="h-8 w-8" />}
+        </span>
       </div>
 
-      <div className="space-y-1.5">
-        <p className="text-lg font-semibold text-ink">
-          {settled
-            ? status === "approved"
-              ? "Tasdiqlandi!"
-              : "Rad etildi"
-            : title ?? "Tekshiruvga yuborildi"}
+      <div className="space-y-2" role="status" aria-live="polite">
+        <p className="text-lg font-bold text-ink">
+          {settled ? (status === "approved" ? t("review.approvedTitle") : t("review.rejectedTitle")) : title ?? t("review.submittedTitle")}
         </p>
-        <p className="text-sm text-ink/60 max-w-[280px]">
-          {settled
-            ? status === "approved"
-              ? "Hammasi tayyor, davom etishingiz mumkin."
-              : "Ma'lumotlarni qayta tekshirib, qaytadan yuboring."
-            : description ?? "Bir necha soniyada natija chiqadi. Kuting, iltimos."}
+        <p className="mx-auto max-w-[280px] text-sm text-muted">
+          {settled ? (status === "approved" ? t("review.approvedDesc") : t("review.rejectedDesc")) : description ?? t("review.submittedDesc")}
         </p>
       </div>
 
-      <div className="flex w-full max-w-[280px] items-center justify-between">
-        {STEPS.map((step, i) => {
-          const Icon = step.icon;
-          const isDone = i < activeIndex || (i === activeIndex && settled);
-          const isActive = i === activeIndex && !settled;
+      <ol className="flex w-full max-w-[300px] items-start" aria-label={t("review.reviewing")}>
+        {STEPS.map((s, i) => {
+          const Icon = s.icon;
+          const done = i < active || (i === active && settled);
+          const current = i === active && !settled;
           return (
-            <div key={step.key} className="flex flex-1 flex-col items-center gap-2">
+            <li key={s.key} className="flex flex-1 flex-col items-center gap-2" aria-current={current ? "step" : undefined}>
               <div className="flex w-full items-center">
-                {i > 0 && (
-                  <span
-                    className={cn(
-                      "h-0.5 flex-1 transition-colors",
-                      isDone || isActive ? "bg-accent" : "bg-border"
-                    )}
-                  />
-                )}
-                <div
+                <span className={cn("h-0.5 flex-1", i === 0 ? "opacity-0" : done || current ? "bg-yellow" : "bg-ink/10")} />
+                <span
                   className={cn(
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors",
-                    isDone ? "bg-accent text-bg" : isActive ? "bg-accent-10 text-accent" : "bg-ink/5 text-ink/60"
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                    done ? "bg-yellow text-on-yellow" : current ? "bg-raised text-gold ring-2 ring-yellow" : "bg-raised text-muted"
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                </div>
-                {i === 0 && <span className="h-0.5 flex-1" />}
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className={cn("h-0.5 flex-1", i === STEPS.length - 1 ? "opacity-0" : i < active ? "bg-yellow" : "bg-ink/10")} />
               </div>
-              <span className="text-xs text-ink/60">{step.label}</span>
-            </div>
+              <span className="text-xs text-muted">{t(s.key)}</span>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }

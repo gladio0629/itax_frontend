@@ -1,29 +1,30 @@
 import type { ReactNode } from "react";
-import { Button } from "./Button";
+import type { LucideIcon } from "@/lib/icons";
 
-type Props = {
-  icon: ReactNode;
+/** Placeholder illustration: concentric navy rings with the icon in yellow. */
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: LucideIcon;
   title: string;
-  description: string;
-  actionLabel?: string;
-  onAction?: () => void;
-};
-
-export function EmptyState({ icon, title, description, actionLabel, onAction }: Props) {
+  description?: string;
+  action?: ReactNode;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 px-8 py-16 text-center animate-fade-in">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-5 text-accent">
-        {icon}
+    <div className="flex animate-fade-up flex-col items-center px-6 py-12 text-center">
+      <div className="relative mb-6 flex h-28 w-28 items-center justify-center" aria-hidden="true">
+        <span className="absolute inset-0 rounded-full bg-accent/[0.06]" />
+        <span className="absolute inset-4 rounded-full bg-accent/[0.08]" />
+        <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-raised text-gold shadow-1">
+          <Icon className="h-6 w-6" />
+        </span>
       </div>
-      <div className="space-y-1">
-        <p className="text-sm font-semibold text-ink">{title}</p>
-        <p className="text-sm text-ink/60">{description}</p>
-      </div>
-      {actionLabel && onAction && (
-        <Button variant="secondary" size="sm" onClick={onAction}>
-          {actionLabel}
-        </Button>
-      )}
+      <p className="text-lg font-bold text-ink">{title}</p>
+      {description && <p className="mt-2 max-w-[280px] text-sm text-muted">{description}</p>}
+      {action && <div className="mt-6 w-full max-w-[280px]">{action}</div>}
     </div>
   );
 }

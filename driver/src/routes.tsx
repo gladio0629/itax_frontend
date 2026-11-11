@@ -1,27 +1,44 @@
+import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { OffersScreen } from "@/features/offers/OffersScreen";
-import { ActiveTripScreen } from "@/features/trip/ActiveTripScreen";
-import { WalletScreen } from "@/features/wallet/WalletScreen";
-import { WalletTopupScreen } from "@/features/wallet/WalletTopupScreen";
-import { ProfileScreen } from "@/features/profile/ProfileScreen";
-import { RegistrationScreen } from "@/features/registration/RegistrationScreen";
-import { NotificationsScreen } from "@/features/notifications/NotificationsScreen";
-import { HistoryScreen } from "@/features/history/HistoryScreen";
-import { SettingsScreen } from "@/features/settings/SettingsScreen";
+import { AppShell } from "@/components/AppShell";
+
+// Every screen is its own lazy chunk.
+const HomeScreen = lazy(() => import("@/features/home/HomeScreen"));
+const OrdersScreen = lazy(() => import("@/features/orders/OrdersScreen"));
+const TripDetailScreen = lazy(() => import("@/features/orders/TripDetailScreen"));
+const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen"));
+const TopupScreen = lazy(() => import("@/features/wallet/TopupScreen"));
+const CardsScreen = lazy(() => import("@/features/wallet/CardsScreen"));
+const CardLinkScreen = lazy(() => import("@/features/wallet/CardLinkScreen"));
+const ProfileScreen = lazy(() => import("@/features/profile/ProfileScreen"));
+const PersonalScreen = lazy(() => import("@/features/profile/PersonalScreen"));
+const BonusScreen = lazy(() => import("@/features/profile/BonusScreen"));
+const NotificationPrefsScreen = lazy(() => import("@/features/profile/NotificationPrefsScreen"));
+const HelpScreen = lazy(() => import("@/features/profile/HelpScreen"));
+const AboutScreen = lazy(() => import("@/features/profile/AboutScreen"));
+const DemoScreen = lazy(() => import("@/features/demo/DemoScreen"));
+const RegistrationFlow = lazy(() => import("@/features/registration/RegistrationFlow"));
 
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/offers" replace />} />
-      <Route path="/offers" element={<OffersScreen />} />
-      <Route path="/trip/:orderId" element={<ActiveTripScreen />} />
-      <Route path="/wallet" element={<WalletScreen />} />
-      <Route path="/wallet/topup" element={<WalletTopupScreen />} />
-      <Route path="/profile" element={<ProfileScreen />} />
-      <Route path="/settings" element={<SettingsScreen />} />
-      <Route path="/register" element={<RegistrationScreen />} />
-      <Route path="/notifications" element={<NotificationsScreen />} />
-      <Route path="/history" element={<HistoryScreen />} />
+      <Route path="/register" element={<RegistrationFlow />} />
+      <Route element={<AppShell />}>
+        <Route path="/" element={<HomeScreen />} />
+        <Route path="/orders" element={<OrdersScreen />} />
+        <Route path="/orders/:tripId" element={<TripDetailScreen />} />
+        <Route path="/wallet" element={<WalletScreen />} />
+        <Route path="/wallet/topup" element={<TopupScreen />} />
+        <Route path="/wallet/cards" element={<CardsScreen />} />
+        <Route path="/wallet/cards/link" element={<CardLinkScreen />} />
+        <Route path="/profile" element={<ProfileScreen />} />
+        <Route path="/profile/personal" element={<PersonalScreen />} />
+        <Route path="/profile/bonus" element={<BonusScreen />} />
+        <Route path="/profile/notifications" element={<NotificationPrefsScreen />} />
+        <Route path="/profile/help" element={<HelpScreen />} />
+        <Route path="/profile/about" element={<AboutScreen />} />
+        <Route path="/profile/demo" element={<DemoScreen />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

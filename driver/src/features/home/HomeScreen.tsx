@@ -1,0 +1,253 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "@/api/client";
+import type { Offer } from "@/api/types";
+import { useT } from "@/lib/i18n/provider";
+import { useQuery } from "@/lib/useQuery";
+import { useCountUp } from "@/lib/useCountUp";
+import { toast } from "@/lib/toast";
+import { errorMessage } from "@/lib/errors";
+import { formatAmount } from "@/lib/format";
+import { AlertTriangle, Bell, Power } from "@/lib/icons";
+import { Avatar } from "@/components/Avatar";
+import { DemoBadge } from "@/components/DemoBadge";
+import { Skeleton } from "@/components/Skeleton";
+import { Spinner } from "@/components/Spinner";
+import { cn } from "@/lib/cn";
+import { DriverMap } from "./DriverMap";
+import { OfferCard } from "./OfferCard";
+import { ActiveTripCard } from "./ActiveTripCard";
+import { TripSummaryCard } from "./TripSummaryCard";
+import { CancelSheet } from "./CancelSheet";
+import { NotificationsSheet } from "./NotificationsSheet";
+import { useTripController } from "./useTripController";
+
+export default function HomeScreen() {
+  const { t } = useT();
+  const navigate = useNavigate();
+  const profile = useQuery(() => api.getProfile(), []);
+  const summary = useQuery(() => api.getHomeSummary(), [], { pollMs: 10000 });
+  const tc = useTripController({ onFinished: () => summary.reload(true) });
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [accepting, setAccepting] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const seenOffer = useRef<string | null>(null);
+
+  const s = summary.data;
+  const online = !!s?.online;
+  const blocked = s?.debt.level === "blocked";
+  const busyWithTrip = !!tc.trip || !!tc.summary;
+  const earnings = useCountUp(s?.todayEarnings);
+
+  // Poll for an incoming order only while online and free.
+  const pollOffers = online && !busyWithTrip && !offer && !blocked;
+  useEffect(() => {
+    if (!pollOffers) return;
+    let alive = true;
+    const tick = () =>
+      api
+        .getCurrentOffer()
+        .then((o) => {
+          if (alive && o) setOffer(o);
+        })
+        .catch(() => {});
+    tick();
+    const id = setInterval(tick, 2000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [pollOffers]);
+
+  // Haptic nudge when a new order lands (if the device supports it).
+  useEffect(() => {
+    if (offer && seenOffer.current !== offer.id) {
+      seenOffer.current = offer.id;
+      navigator.vibrate?.([60, 40, 60]);
+    }
+  }, [offer]);
+
+  const toggleOnline = useCallback(async () => {
+    if (!s) return;
+    setToggling(true);
+    try {
+      const next = await api.setOnline(!s.online);
+      summary.setData(next);
+      if (!next.online) setOffer(null);
+    } catch (e) {
+      toast(errorMessage(e, t), "danger");
+    } finally {
+      setToggling(false);
+    }
+  }, [s, summary, t]);
+
+  async function accept() {
+    if (!offer) return;
+    setAccepting(true);
+    try {
+      const trip = await api.acceptOffer(offer.id);
+      setOffer(null);
+      tc.setTrip(trip);
+    } catch (e) {
+      toast(errorMessage(e, t), "danger");
+      setOffer(null);
+    } finally {
+      setAccepting(false);
+    }
+  }
+
+  function skip() {
+    if (!offer) return;
+    const id = offer.id;
+    setOffer(null);
+    api.declineOffer(id).catch(() => {});
+  }
+
+  function expire() {
+    setOffer(null);
+    toast(t("offer.expired"));
+  }
+
+  const showEarnings = !offer && !tc.trip && !tc.summary;
+
+  return (
+    <div className="relative h-full overflow-hidden">
+      <DriverMap online={online} label={t("home.mapLabel")} />
+
+      {/* Top bar */}
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-4" style={{ paddingTop: "calc(var(--safe-top) + 12px)" }}>
+        <button
+          type="button"
+          onClick={() => navigate("/profile")}
+          aria-label={t("home.openProfile")}
+          className="press relative flex h-12 w-12 items-center justify-center rounded-full bg-surface shadow-2"
+        >
+          {profile.data ? <Avatar seed={profile.data.avatarSeed} name={profile.data.name} size={44} /> : <Skeleton className="h-11 w-11 rounded-full" />}
+          <span
+            aria-hidden="true"
+            className={cn("absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-2 ring-surface", online ? "bg-yellow" : "bg-ink/40")}
+          />
+        </button>
+        <DemoBadge />
+        <button
+          type="button"
+          onClick={() => setNotifOpen(true)}
+          aria-label={s?.unreadNotifications ? t("home.notificationsUnread", { n: s.unreadNotifications }) : t("home.notifications")}
+          className="press relative flex h-12 w-12 items-center justify-center rounded-full bg-surface text-ink shadow-2"
+        >
+          <Bell className="h-6 w-6" />
+          {!!s?.unreadNotifications && (
+            <span className="tabular absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-bold text-white ring-2 ring-surface">
+              {s.unreadNotifications}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Earnings — the glance number */}
+      <div
+        className={cn(
+          "absolute inset-x-0 z-10 flex justify-center px-4 transition-[opacity,transform] duration-[280ms]",
+          showEarnings ? "opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
+        )}
+        style={{ top: "calc(var(--safe-top) + 76px)" }}
+        aria-hidden={!showEarnings}
+      >
+        <button
+          type="button"
+          tabIndex={showEarnings ? 0 : -1}
+          onClick={() => navigate("/wallet")}
+          aria-label={`${t("home.todayEarnings")}: ${formatAmount(s?.todayEarnings ?? 0)} ${t("common.som")}. ${t("home.openWallet")}`}
+          className="press min-w-[220px] rounded-card bg-surface/95 px-6 py-4 text-center shadow-2 backdrop-blur"
+        >
+          <p className="text-sm text-muted">{t("home.todayEarnings")}</p>
+          {s ? (
+            <p className="tabular mt-1 text-4xl font-bold text-gold">
+              {formatAmount(earnings)}
+              <span className="ml-1.5 text-base font-medium text-muted">{t("common.som")}</span>
+            </p>
+          ) : (
+            <Skeleton className="mx-auto mt-2 h-10 w-40" />
+          )}
+          <p className="tabular mt-1 text-sm text-muted">{t("home.tripsCount", { n: s?.todayTrips ?? 0 })}</p>
+        </button>
+      </div>
+
+      {/* Bottom zone (thumb reach) */}
+      <div className="absolute inset-x-0 bottom-0 z-20 flex max-h-full flex-col justify-end gap-3 overflow-y-auto overscroll-contain p-4 no-scrollbar">
+        {tc.summary ? (
+          <TripSummaryCard summary={tc.summary} onDismiss={tc.dismissSummary} />
+        ) : tc.trip ? (
+          <ActiveTripCard trip={tc.trip} confirming={tc.confirming} onAction={tc.advance} onCancel={() => setCancelOpen(true)} />
+        ) : offer ? (
+          <OfferCard key={offer.id} offer={offer} accepting={accepting} blocked={blocked} onAccept={accept} onSkip={skip} onExpire={expire} />
+        ) : (
+          <>
+            {s && s.debt.level !== "ok" && <DebtBanner level={s.debt.level} onTopup={() => navigate("/wallet/topup")} />}
+            <OnlineToggle online={online} loading={toggling || !s} onToggle={toggleOnline} hint={!s ? "" : !online ? t("home.offlineHint") : blocked ? t("home.blockedHint") : t("home.waiting")} />
+          </>
+        )}
+      </div>
+
+      <NotificationsSheet open={notifOpen} onClose={() => setNotifOpen(false)} onRead={() => summary.reload(true)} />
+      <CancelSheet
+        open={cancelOpen}
+        busy={tc.cancelBusy}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={async (reason) => {
+          if (await tc.cancel(reason)) setCancelOpen(false);
+        }}
+      />
+    </div>
+  );
+}
+
+function DebtBanner({ level, onTopup }: { level: "near" | "blocked"; onTopup: () => void }) {
+  const { t } = useT();
+  const blocked = level === "blocked";
+  return (
+    <div role="alert" className={cn("flex animate-fade-up items-center gap-3 rounded-card p-3 pl-4 shadow-2", blocked ? "bg-danger text-white" : "bg-warning text-[#1a1203]")}>
+      <AlertTriangle className="h-5 w-5 shrink-0" />
+      <p className="min-w-0 flex-1 text-sm font-medium">{blocked ? t("wallet.blockedBanner") : t("wallet.nearBanner")}</p>
+      <button type="button" onClick={onTopup} className="press h-12 shrink-0 rounded-button bg-black/20 px-4 text-sm font-bold">
+        {t("wallet.topup")}
+      </button>
+    </div>
+  );
+}
+
+/** The signature control: grey pill offline, pulsing yellow pill online. */
+function OnlineToggle({ online, loading, onToggle, hint }: { online: boolean; loading: boolean; onToggle: () => void; hint: string }) {
+  const { t } = useT();
+  return (
+    <div className="flex flex-col items-center gap-3">
+      {hint && (
+        <p key={hint} className="animate-fade-in rounded-full bg-surface/90 px-4 py-2 text-sm text-ink shadow-1 backdrop-blur" role="status">
+          {hint}
+        </p>
+      )}
+      <div className="relative w-full">
+      {online && <span className="absolute inset-0 animate-halo rounded-full bg-yellow" aria-hidden="true" />}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={online}
+        aria-label={online ? t("home.goOffline") : t("home.goOnline")}
+        onClick={onToggle}
+        disabled={loading}
+        className="press relative flex h-16 w-full items-center justify-center gap-3 overflow-hidden rounded-full shadow-2 disabled:cursor-wait"
+      >
+        {/* Two colour layers cross-fade so the morph is opacity-only. */}
+        <span className={cn("absolute inset-0 bg-raised transition-opacity duration-[280ms]", online ? "opacity-0" : "opacity-100")} />
+        <span className={cn("absolute inset-0 bg-yellow transition-opacity duration-[280ms]", online ? "opacity-100" : "opacity-0")} />
+        <span className={cn("relative flex h-10 w-10 items-center justify-center rounded-full", online ? "bg-on-yellow text-yellow" : "bg-ink/10 text-ink")}>
+          {loading ? <Spinner className="h-5 w-5" /> : <Power className="h-5 w-5" />}
+        </span>
+        <span className={cn("relative text-xl font-bold", online ? "text-on-yellow" : "text-ink")}>{online ? t("home.online") : t("home.offline")}</span>
+      </button>
+      </div>
+    </div>
+  );
+}

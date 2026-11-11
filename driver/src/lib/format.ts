@@ -1,29 +1,46 @@
-export function formatSom(value: number): string {
-  const sign = value < 0 ? "-" : "";
+// Display formatting only — no business rules. Every amount arrives from the
+// adapter already computed; these helpers just print it.
+
+const NBSP = " ";
+
+export function groupDigits(value: number): string {
   const abs = Math.abs(Math.round(value));
-  return `${sign}${abs.toLocaleString("fr-FR").replace(/,/g, " ")} so'm`;
+  return abs.toString().replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
 }
 
-export function formatKm(value: number): string {
-  return `${Math.round(value).toLocaleString("fr-FR").replace(/,/g, " ")} km`;
+/** "125 000" with a real minus sign for negatives. */
+export function formatAmount(value: number, opts?: { signed?: boolean }): string {
+  const sign = value < 0 ? "−" : opts?.signed && value > 0 ? "+" : "";
+  return `${sign}${groupDigits(value)}`;
 }
 
-export function formatRelativeDay(ts: number): string {
-  const now = new Date();
-  const d = new Date(ts);
-  const diffDays = Math.floor((now.setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86_400_000);
-  if (diffDays === 0) return "Bugun";
-  if (diffDays === 1) return "Kecha";
-  if (diffDays < 7) return `${diffDays} kun oldin`;
-  return d.toLocaleDateString("uz-UZ", { day: "numeric", month: "long" });
+export function formatSom(value: number, currency: string, opts?: { signed?: boolean }): string {
+  return `${formatAmount(value, opts)}${NBSP}${currency}`;
 }
 
-export function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
+/** Short form for chips: 10K, 25K, 1.2M */
+export function formatShort(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 ? 1 : 0)}M`;
+  if (value >= 1000) return `${Math.round(value / 1000)}K`;
+  return String(value);
 }
 
-export function formatClock(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
-  const s = Math.floor(totalSeconds % 60);
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+export function formatTime(ts: number, intlTag: string): string {
+  return new Date(ts).toLocaleTimeString(intlTag, { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+export function formatDate(ts: number, intlTag: string): string {
+  return new Date(ts).toLocaleDateString(intlTag, { day: "numeric", month: "long" });
+}
+
+export function dayDiff(ts: number, now = Date.now()): number {
+  const a = new Date(now);
+  a.setHours(0, 0, 0, 0);
+  const b = new Date(ts);
+  b.setHours(0, 0, 0, 0);
+  return Math.round((a.getTime() - b.getTime()) / 86_400_000);
+}
+
+export function formatRating(r: number): string {
+  return r.toFixed(1);
 }

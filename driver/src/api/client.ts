@@ -2,9 +2,9 @@ import type { ApiAdapter } from "./adapterTypes";
 import { mockAdapter } from "./adapters/mock";
 import { httpAdapter } from "./adapters/http";
 
-// In demo mode we always talk to the mock adapter. To connect a real
-// backend, implement every method in adapters/http.ts and flip this flag
-// (VITE_DEMO_MODE=false) — no screen or component needs to change.
+// Demo mode always uses the mock adapter. To connect a real backend,
+// implement adapters/http.ts and set VITE_DEMO_MODE=false — no screen changes.
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE !== "false";
 
 export const api: ApiAdapter = DEMO_MODE ? mockAdapter : httpAdapter;
+export const isDemo = DEMO_MODE;

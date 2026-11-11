@@ -1,21 +1,39 @@
 import type { Config } from "tailwindcss";
 
+const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
+
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
+    // Radius scale is final: buttons 8, cards 12, sheets 16. Pills (full) only
+    // for status dots, avatars, the online toggle and chips.
+    borderRadius: {
+      none: "0",
+      button: "8px",
+      card: "12px",
+      sheet: "16px",
+      full: "9999px",
+    },
+    fontWeight: {
+      // Two weights only.
+      medium: "500",
+      bold: "700",
+    },
     extend: {
       colors: {
         bg: "var(--color-bg)",
-        card: "var(--color-card)",
+        surface: "var(--color-surface)",
+        raised: "var(--color-raised)",
         ink: "rgb(var(--color-text-rgb) / <alpha-value>)",
+        muted: "var(--color-muted)",
+        line: "var(--color-line)",
         accent: "rgb(var(--color-accent-rgb) / <alpha-value>)",
-        "accent-5": "var(--color-accent-5)",
-        "accent-10": "var(--color-accent-10)",
-        "brand-yellow": "var(--color-brand-yellow)",
+        yellow: "var(--color-yellow)",
         "on-yellow": "var(--color-on-yellow)",
-        warning: "rgb(var(--color-warning-rgb) / <alpha-value>)",
+        gold: "var(--color-gold)",
+        success: "rgb(var(--color-success-rgb) / <alpha-value>)",
         danger: "rgb(var(--color-danger-rgb) / <alpha-value>)",
-        border: "var(--color-border)",
+        warning: "rgb(var(--color-warning-rgb) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["InterVariable", "Inter", "system-ui", "sans-serif"],
@@ -23,56 +41,65 @@ export default {
       fontSize: {
         xs: ["12px", { lineHeight: "16px" }],
         sm: ["14px", { lineHeight: "20px" }],
+        base: ["16px", { lineHeight: "22px" }],
         lg: ["18px", { lineHeight: "24px" }],
-        xl: ["28px", { lineHeight: "34px" }],
+        xl: ["22px", { lineHeight: "28px" }],
+        "2xl": ["28px", { lineHeight: "34px" }],
+        "3xl": ["36px", { lineHeight: "40px", letterSpacing: "-0.02em" }],
+        "4xl": ["44px", { lineHeight: "48px", letterSpacing: "-0.025em" }],
       },
       boxShadow: {
-        soft: "0 2px 12px -2px var(--shadow-color)",
-        softer: "0 1px 4px 0 var(--shadow-color)",
-        inner5: "inset 0 1px 0 0 rgba(255,255,255,0.18)",
+        1: "var(--shadow-1)",
+        2: "var(--shadow-2)",
+        none: "none",
       },
-      borderRadius: {
-        button: "var(--radius-button)",
-        "2xl": "16px",
-        "3xl": "24px",
-        sheet: "var(--radius-sheet)",
-      },
+      transitionTimingFunction: { DEFAULT: EASE },
+      transitionDuration: { DEFAULT: "240ms" },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
-        "slide-up": {
-          from: { opacity: "0", transform: "translateY(12px)" },
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
-        "scale-in": {
-          from: { opacity: "0", transform: "scale(0.94)" },
-          to: { opacity: "1", transform: "scale(1)" },
+        "sheet-up": {
+          from: { transform: "translateY(100%)" },
+          to: { transform: "translateY(0)" },
         },
         "pulse-ring": {
-          "0%": { transform: "scale(0.9)", opacity: "0.6" },
-          "100%": { transform: "scale(1.6)", opacity: "0" },
+          "0%": { transform: "scale(0.6)", opacity: "0.55" },
+          "100%": { transform: "scale(2.2)", opacity: "0" },
         },
-        shimmer: {
-          "0%": { backgroundPosition: "-200% 0" },
-          "100%": { backgroundPosition: "200% 0" },
+        radar: {
+          "0%": { transform: "translate(-50%,-50%) scale(0.2)", opacity: "0.5" },
+          "100%": { transform: "translate(-50%,-50%) scale(1)", opacity: "0" },
         },
-        "drive-bob": {
-          "0%,100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-3px)" },
+        breathe: {
+          "0%,100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.04)" },
         },
         "check-pop": {
-          "0%": { transform: "scale(0)" },
-          "60%": { transform: "scale(1.15)" },
-          "100%": { transform: "scale(1)" },
+          "0%": { transform: "scale(0.4)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" },
         },
+        shimmer: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        spin: { to: { transform: "rotate(360deg)" } },
+        halo: { "0%": { transform: "scale(1)", opacity: "0.45" }, "100%": { transform: "scale(1.08, 1.5)", opacity: "0" } },
+        deplete: { from: { transform: "scaleX(1)" }, to: { transform: "scaleX(0)" } },
       },
       animation: {
-        "fade-in": "fade-in 0.3s ease-out",
-        "slide-up": "slide-up 0.35s cubic-bezier(0.16,1,0.3,1)",
-        "scale-in": "scale-in 0.25s cubic-bezier(0.16,1,0.3,1)",
-        "pulse-ring": "pulse-ring 1.8s cubic-bezier(0.2,0.6,0.4,1) infinite",
-        shimmer: "shimmer 1.6s linear infinite",
-        "drive-bob": "drive-bob 1.2s ease-in-out infinite",
-        "check-pop": "check-pop 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+        "fade-in": `fade-in 240ms ${EASE} both`,
+        "fade-up": `fade-up 280ms ${EASE} both`,
+        "sheet-up": `sheet-up 280ms ${EASE} both`,
+        "pulse-ring": `pulse-ring 1.8s ${EASE} infinite`,
+        radar: `radar 3s ${EASE} infinite both`,
+        breathe: `breathe 2s ${EASE} infinite`,
+        "check-pop": `check-pop 280ms ${EASE} both`,
+        shimmer: `shimmer 1.4s ${EASE} infinite`,
+        spin: "spin 0.9s linear infinite",
+        halo: `halo 1.8s ${EASE} infinite`,
       },
     },
   },

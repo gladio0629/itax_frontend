@@ -14,25 +14,34 @@
   [role="button"] {
     touch-action: manipulation;
   }
-  html {
-    color-scheme: dark;
-  }
   html,
   body {
     background: var(--color-bg);
     color: rgb(var(--color-text-rgb));
+    overscroll-behavior: none;
   }
   body {
     font-family: "InterVariable", "Inter", system-ui, sans-serif;
-    font-feature-settings: "cv11", "tnum" 0;
+    font-weight: 500;
     -webkit-font-smoothing: antialiased;
   }
-  .tabular {
-    font-feature-settings: "tnum" 1;
-    font-variant-numeric: tabular-nums;
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p,
+  li,
+  label {
+    text-wrap: pretty;
+  }
+  input,
+  textarea,
+  select {
+    font: inherit;
   }
   :focus-visible {
-    outline: 2px solid rgb(var(--color-accent-rgb));
+    outline: 2px solid var(--color-yellow);
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -48,20 +57,24 @@
 }
 
 @layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .press {
+    transition: transform 200ms var(--ease), opacity 200ms var(--ease);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
   .no-scrollbar {
-    -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .shimmer-bg {
-    background: linear-gradient(
-      90deg,
-      var(--color-border) 25%,
-      rgb(var(--color-text-rgb) / 0.04) 37%,
-      var(--color-border) 63%
-    );
-    background-size: 400% 100%;
+  /* Scroll area that ends above the tab bar. */
+  .pb-tabbar {
+    padding-bottom: 24px;
   }
 }

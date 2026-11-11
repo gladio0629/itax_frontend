@@ -1,55 +1,77 @@
 import type {
-  City,
-  DriverProfile,
-  EarningsStats,
-  NotificationItem,
-  OrderWithDetails,
-  OtpRequestResult,
-  RegistrationInput,
-  ReviewRequest,
-  WalletSummary,
+  ActiveTrip, BonusInfo, CancelReason, DemoPreset, DriverProfile, HelpRequest, HelpTopic, HistoryFilter,
+  HistoryPage, HomeSummary, LedgerPage, LedgerQuery, NotificationItem, NotificationPrefs, Offer, PayProvider,
+  RegistrationOptions, ReviewRequest, Session, TopupOptions, TripDetail, TripStage, TripSummary, WalletSummary,
+  Car,
 } from "./types";
 
 /**
- * Every screen talks to the app exclusively through this interface.
- * `mockAdapter` implements it fully against the local mock DB.
- * `httpAdapter` is the integration point for a real backend later —
- * it currently throws NotImplemented for every method.
+ * Every screen talks to the app only through this interface.
+ * `mockAdapter` implements it against local state; `httpAdapter` is the
+ * integration point for the real backend.
  */
 export interface ApiAdapter {
+  // Session & registration
+  getSession(): Promise<Session>;
+  getRegistrationOptions(): Promise<RegistrationOptions>;
+  requestOtp(phone: string): Promise<{ requestId: string; demoCode: string; resendInSec: number }>;
+  verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;
+  savePersonal(input: { name: string; cityId: string }): Promise<Session>;
+  saveCar(input: { model: string; colorKey: string; plate: string; year: number }): Promise<Session>;
+  submitDocuments(input: { licenseFile: string; registrationFile: string }): Promise<ReviewRequest>;
+  logout(): Promise<Session>;
+
+  // Home cockpit
   getProfile(): Promise<DriverProfile>;
-  setOnline(online: boolean): Promise<DriverProfile>;
+  getHomeSummary(): Promise<HomeSummary>;
+  setOnline(online: boolean): Promise<HomeSummary>;
+  getCurrentOffer(): Promise<Offer | null>;
+  acceptOffer(offerId: string): Promise<ActiveTrip>;
+  declineOffer(offerId: string): Promise<void>;
 
-  getOffers(): Promise<OrderWithDetails[]>;
-  acceptOffer(orderId: string): Promise<OrderWithDetails>;
-  declineOffer(orderId: string): Promise<void>;
+  // Active trip
+  getActiveTrip(): Promise<ActiveTrip | null>;
+  advanceTrip(tripId: string): Promise<ReviewRequest>;
+  getCancelReasons(): Promise<CancelReason[]>;
+  cancelTrip(tripId: string, reasonKey: string): Promise<void>;
+  getTripSummary(tripId: string): Promise<TripSummary>;
 
-  getActiveTrip(): Promise<OrderWithDetails | null>;
-  startTrip(orderId: string): Promise<OrderWithDetails>;
-  completeTrip(orderId: string): Promise<OrderWithDetails>;
-  cancelTrip(orderId: string, reason: string): Promise<OrderWithDetails>;
+  // Orders history
+  getHistory(filter: HistoryFilter): Promise<HistoryPage>;
+  getTripDetail(id: string): Promise<TripDetail>;
 
-  getOrderHistory(): Promise<OrderWithDetails[]>;
-
+  // Wallet
   getWallet(): Promise<WalletSummary>;
-  requestWalletTopup(amount: number): Promise<ReviewRequest>;
+  getLedger(query: LedgerQuery): Promise<LedgerPage>;
+  getTopupOptions(): Promise<TopupOptions>;
+  requestTopup(amount: number, provider: PayProvider): Promise<ReviewRequest>;
+  linkCard(provider: PayProvider): Promise<ReviewRequest>;
+
+  // Profile
+  getBonus(): Promise<BonusInfo>;
+  requestProfileChange(field: "name" | "phone" | "car", value: string): Promise<ReviewRequest>;
+  getNotifications(): Promise<NotificationItem[]>;
+  markAllNotificationsRead(): Promise<void>;
+  getNotificationPrefs(): Promise<NotificationPrefs>;
+  setNotificationPrefs(prefs: NotificationPrefs): Promise<NotificationPrefs>;
+  getHelpRequests(): Promise<HelpRequest[]>;
+  submitHelpRequest(topic: HelpTopic, message?: string): Promise<ReviewRequest>;
+  getAppInfo(): Promise<{ version: string; build: string }>;
+
+  // Shared review mechanism
   getReviewStatus(reviewId: string): Promise<ReviewRequest>;
 
-  getEarningsStats(range: "week" | "month"): Promise<EarningsStats>;
-
-  getNotifications(): Promise<NotificationItem[]>;
-  markNotificationRead(id: string): Promise<void>;
-
-  getCities(): Promise<City[]>;
-
-  getRegistrationStatus(): Promise<{ documentsStatus: DriverProfile["documentsStatus"] }>;
-  requestOtp(phone: string): Promise<OtpRequestResult>;
-  verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;
-  submitRegistration(input: RegistrationInput): Promise<ReviewRequest>;
+  // Demo controls (mock only — the http adapter rejects them)
+  demoApplyPreset(preset: DemoPreset): Promise<void>;
+  demoTriggerOffer(): Promise<void>;
+  demoTripAtStage(stage: Exclude<TripStage, "completed">): Promise<void>;
 }
 
+export type { Car };
+
 export class NotImplementedError extends Error {
+  code = "NOT_IMPLEMENTED";
   constructor(method: string) {
-    super(`${method}: httpAdapter is not implemented yet. Wire it to the real IZGO backend.`);
+    super(`${method}: httpAdapter is not implemented yet.`);
   }
 }
