@@ -19,6 +19,8 @@ export const DELIVERY_VEHICLES: DeliveryVehicle[] = ["spark", "damas", "labo", "
  * space in cm: width (along the vehicle) × depth × height. */
 export type DeliveryVehicleSpec = {
   id: DeliveryVehicle;
+  /** Size chip label — S, M, L, XL, XXL, 3XL. Not translated. */
+  sizeLabel: string;
   descKey: string;
   dimensionsCm: { width: number; depth: number; height: number };
   maxWeightKg: number;

@@ -118,6 +118,8 @@ export const ru: Dictionary = {
   "seat.taken": "занято",
   "seat.wholeCarHint": "Все 4 места только для вас",
 
+  "cargo.title": "Груз",
+  "cargo.price": "Цена",
   "cargo.vehicleTitle": "Тип машины",
   "cargo.vehicle.spark": "Spark",
   "cargo.vehicle.damas": "Damas",

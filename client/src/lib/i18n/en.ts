@@ -118,6 +118,8 @@ export const en: Dictionary = {
   "seat.taken": "taken",
   "seat.wholeCarHint": "All 4 seats are just for you",
 
+  "cargo.title": "Cargo",
+  "cargo.price": "Price",
   "cargo.vehicleTitle": "Vehicle type",
   "cargo.vehicle.spark": "Spark",
   "cargo.vehicle.damas": "Damas",

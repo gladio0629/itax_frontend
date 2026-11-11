@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Armchair, Car as CarIcon, ChevronRight, X } from "@/lib/icons";
+import { Armchair, Car as CarIcon, ChevronRight, Package, X } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, Seat } from "@/api/types";
 import type { OrderDraft } from "@/stores/orderStore";
@@ -22,9 +22,12 @@ const STEP_KEYS = ["order.step.route", "order.step.details", "order.step.summary
 
 function StepHeader({
   step,
+  cargo,
   onClose,
 }: {
   step: number;
+  /** Dostavka details: the panel reads as "Kargo" with a cargo icon. */
+  cargo: boolean;
   onClose: () => void;
 }) {
   const { t } = useT();
@@ -49,7 +52,19 @@ function StepHeader({
           </span>
         </button>
       </div>
-      <p className="mt-1 text-xs font-semibold text-ink/60">{t(STEP_KEYS[step])}</p>
+      {cargo ? (
+        <div className="mt-1 flex items-center gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
+            <Package className="h-[18px] w-[18px]" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-ink">{t("cargo.title")}</h2>
+            <p className="text-xs font-semibold text-ink/60">{t(STEP_KEYS[step])}</p>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-1 text-xs font-semibold text-ink/60">{t(STEP_KEYS[step])}</p>
+      )}
     </div>
   );
 }
@@ -74,7 +89,14 @@ export function OrderSheet({
   onClose: () => void;
 }) {
   const { t, intlTag } = useT();
-  const [step, setStep] = useState(0);
+  const [step, setStepRaw] = useState(0);
+  const [direction, setDirection] = useState<"fwd" | "back">("fwd");
+  const bodyRef = useRef<HTMLDivElement>(null);
+  function setStep(next: number) {
+    setDirection(next > step ? "fwd" : "back");
+    setStepRaw(next);
+    bodyRef.current?.scrollTo({ top: 0 });
+  }
   const [picker, setPicker] = useState<"from" | "to" | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [seatsError, setSeatsError] = useState(false);
@@ -117,7 +139,8 @@ export function OrderSheet({
         seatIds: draft.seatIds,
         cargo: draft.serviceType === "delivery" ? draft.cargo : undefined,
       }),
-    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, draft.mode, draft.seatIds, draft.cargo]
+    // Keyed on the vehicle, not the cargo object — typing a note mustn't refetch.
+    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, draft.mode, draft.seatIds, draft.cargo.vehicle]
   );
 
   const canNext =
@@ -127,11 +150,16 @@ export function OrderSheet({
       ? draft.serviceType === "delivery" || draft.mode === "car" || draft.seatIds.length > 0
       : true;
 
+  // Dostavka's Panel 2 confirms the vehicle (price + Tasdiqlash) and moves on
+  // to the summary — the same step change, not a separate action.
+  const cargoConfirm = step === 1 && draft.serviceType === "delivery";
+
   return (
     <div className="flex h-full flex-col">
-      <StepHeader step={step} onClose={onClose} />
+      <StepHeader step={step} cargo={step === 1 && draft.serviceType === "delivery"} onClose={onClose} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-3">
+      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-3">
+        <div key={step} className={direction === "fwd" ? "animate-step-fwd" : "animate-step-back"}>
         {step === 0 && (
           <RouteFields
             from={addresses.from}
@@ -197,7 +225,7 @@ export function OrderSheet({
                     ? draft.mode === "car"
                       ? t("order.wholeCar")
                       : seatCountLabel(t, draft.seatIds.length, intlTag)
-                    : t("order.delivery")}
+                    : `${t("order.delivery")} · ${t(`cargo.vehicle.${draft.cargo.vehicle}` as TranslationKey)}`}
                 </span>
                 <span className="tabular">{timingSummary(draft.timing, t, intlTag)}</span>
               </div>
@@ -233,9 +261,24 @@ export function OrderSheet({
             <PaymentMethodSection value={draft.paymentMethod} onChange={(m) => setField("paymentMethod", m)} />
           </div>
         )}
+        </div>
       </div>
 
       <div className="border-t border-border px-5 py-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
+        {cargoConfirm && (
+          <div className="mb-3 flex min-h-[28px] items-center justify-between gap-3" aria-live="polite">
+            <span className="text-sm text-ink/60">{t("cargo.price")}</span>
+            {quote.status === "success" ? (
+              <span className="text-lg font-bold text-ink tabular">{formatSom(quote.data.total, intlTag)}</span>
+            ) : quote.status === "error" ? (
+              <button onClick={quote.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
+                {t("order.quoteError")}
+              </button>
+            ) : (
+              <Skeleton className="h-6 w-28" />
+            )}
+          </div>
+        )}
         {submitError && (
           <p role="alert" aria-live="polite" className="mb-2 text-xs font-normal text-danger">
             {t("order.submitError")}
@@ -247,7 +290,11 @@ export function OrderSheet({
               {t("common.back")}
             </Button>
           )}
-          {step < 2 ? (
+          {cargoConfirm ? (
+            <Button fullWidth className="text-base" disabled={!canNext} onClick={() => setStep(2)}>
+              {t("common.confirm")}
+            </Button>
+          ) : step < 2 ? (
             <Button fullWidth disabled={!canNext} onClick={() => setStep(step + 1)}>
               {t("order.next")} <ChevronRight className="h-4 w-4" />
             </Button>

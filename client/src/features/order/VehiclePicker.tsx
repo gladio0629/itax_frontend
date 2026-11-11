@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { api } from "@/api/client";
 import { DELIVERY_VEHICLES, type CargoInput, type DeliveryVehicle } from "@/api/types";
@@ -24,16 +24,6 @@ export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange
   const { t, intlTag } = useT();
   const specs = useQuery(() => api.getDeliveryVehicles(), []);
   const chipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const first = useRef(true);
-
-  // Keep the active chip in view (e.g. picking Fura on a narrow screen).
-  useEffect(() => {
-    const el = chipRefs.current[value.vehicle];
-    if (!el) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: first.current || reduce ? "auto" : "smooth" });
-    first.current = false;
-  }, [value.vehicle, specs.status]);
 
   function select(v: DeliveryVehicle) {
     if (v !== value.vehicle) onChange({ ...value, vehicle: v });
@@ -71,9 +61,9 @@ export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange
       ) : specs.status === "loading" ? (
         <div className="space-y-3" aria-busy="true" aria-label={t("cargo.vehicleTitle")}>
           <Skeleton className="h-[200px] w-full rounded-card" />
-          <div className="flex gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-11 w-20 rounded-full" />
+          <div className="grid grid-cols-6 gap-1.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-xl" />
             ))}
           </div>
           <Skeleton className="h-12 w-full" />
@@ -105,7 +95,7 @@ export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange
                 role="radiogroup"
                 aria-labelledby="vehicle-title"
                 onKeyDown={onKeyDown}
-                className="no-scrollbar -mx-5 flex snap-x scroll-px-5 gap-2 overflow-x-auto overscroll-x-contain px-5 py-1"
+                className="grid grid-cols-6 gap-1.5"
               >
                 {specs.data.map((s) => {
                   const selected = s.id === value.vehicle;
@@ -118,28 +108,34 @@ export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange
                       aria-checked={selected}
                       tabIndex={selected ? 0 : -1}
                       onClick={() => select(s.id)}
-                      translate={BRAND_NAMED.includes(s.id) ? "no" : undefined}
+                      aria-label={`${s.sizeLabel} — ${name(s.id)}`}
+                      translate="no"
                       className={cn(
-                        "h-11 shrink-0 snap-start whitespace-nowrap rounded-full border px-5 text-sm font-semibold transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.97]",
-                        selected ? "border-brand-yellow bg-brand-yellow text-on-yellow" : "border-border text-ink/60 hover:border-ink/25 hover:text-ink"
+                        "h-12 min-w-0 whitespace-nowrap rounded-xl border-2 px-0 text-[15px] font-bold tabular transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.97]",
+                        selected
+                          ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer"
+                          : "border-border bg-card text-ink/60 hover:border-ink/25 hover:text-ink"
                       )}
                     >
-                      {name(s.id)}
+                      {s.sizeLabel}
                     </button>
                   );
                 })}
               </div>
 
               {/* What it carries — slides in on change. */}
-              <div key={spec.id} className="animate-desc-in" aria-live="polite">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="min-w-0 truncate text-base font-semibold text-ink" translate={BRAND_NAMED.includes(spec.id) ? "no" : undefined}>
-                    {name(spec.id)}
+              <div key={spec.id} className="animate-desc-in rounded-card border border-border bg-card p-4" aria-live="polite">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="min-w-0 truncate text-sm font-semibold text-ink/70">
+                    <span translate="no" className="mr-1.5 rounded-md bg-ink/5 px-1.5 py-0.5 text-xs font-bold text-ink">
+                      {spec.sizeLabel}
+                    </span>
+                    <span translate={BRAND_NAMED.includes(spec.id) ? "no" : undefined}>{name(spec.id)}</span>
                   </p>
-                  <span className="shrink-0 rounded-full bg-accent-5 px-3 py-1 text-sm font-semibold text-accent tabular">
-                    {t("cargo.maxWeight", { kg: formatNumber(spec.maxWeightKg, intlTag) })}
-                  </span>
                 </div>
+                <p className="mt-2 text-[22px] font-bold leading-7 text-ink tabular">
+                  {t("cargo.maxWeight", { kg: formatNumber(spec.maxWeightKg, intlTag) })}
+                </p>
                 <p className="mt-1 text-sm text-ink">{t(spec.descKey as TranslationKey)}</p>
                 <p className="mt-1 text-sm text-ink/60 tabular">
                   {t("cargo.dimensions", { dims: `${d.width} × ${d.depth} × ${d.height}` })}

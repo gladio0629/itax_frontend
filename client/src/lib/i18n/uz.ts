@@ -118,6 +118,8 @@ export const uz = {
   "seat.taken": "band",
   "seat.wholeCarHint": "Barcha 4 o'rindiq faqat siz uchun",
 
+  "cargo.title": "Kargo",
+  "cargo.price": "Narx",
   "cargo.vehicleTitle": "Mashina turi",
   "cargo.vehicle.spark": "Spark",
   "cargo.vehicle.damas": "Damas",

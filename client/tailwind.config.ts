@@ -85,6 +85,14 @@ export default {
           "0%,100%": { transform: "translate(0,0)" },
           "50%": { transform: "translate(-10px,10px)" },
         },
+        "step-fwd": {
+          from: { opacity: "0", transform: "translateX(16px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        "step-back": {
+          from: { opacity: "0", transform: "translateX(-16px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
         "bob-y": {
           "0%,100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-4px)" },
@@ -103,6 +111,8 @@ export default {
         "drift-a": "drift-a 9s ease-in-out infinite",
         "drift-b": "drift-b 11s ease-in-out infinite",
         "bob-y": "bob-y 1.6s ease-in-out infinite",
+        "step-fwd": "step-fwd 0.24s cubic-bezier(0.2,0,0,1)",
+        "step-back": "step-back 0.24s cubic-bezier(0.2,0,0,1)",
       },
     },
   },
