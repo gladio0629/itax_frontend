@@ -100,13 +100,9 @@ function StepButton({ action, confirming, onClick }: { action: ActiveTrip["nextA
       aria-busy={confirming || undefined}
       className="press relative mt-4 flex h-14 w-full items-center justify-center overflow-hidden rounded-button bg-yellow text-base font-bold text-on-yellow shadow-1 disabled:cursor-wait"
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute inset-0 origin-left bg-on-yellow/15",
-          confirming ? "scale-x-100 transition-transform duration-[1000ms]" : "scale-x-0"
-        )}
-      />
+      {confirming && (
+        <span aria-hidden="true" className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-on-yellow/20 to-transparent" />
+      )}
       <span key={action} className="relative animate-fade-up">
         {confirming ? t("trip.confirming") : t(`trip.action.${action}`)}
       </span>

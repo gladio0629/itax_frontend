@@ -35,7 +35,7 @@ export function TabBar({ badge }: { badge?: Partial<Record<(typeof TABS)[number]
               {({ isActive }) => (
                 <>
                   <span className="relative">
-                    <Icon className={cn("h-6 w-6", isActive && "text-yellow")} />
+                    <Icon className="h-6 w-6" />
                     {badge?.[to] && <span className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface" />}
                   </span>
                   {t(key)}

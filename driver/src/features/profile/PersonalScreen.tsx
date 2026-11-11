@@ -107,7 +107,7 @@ function DocBadge({ status }: { status: DocumentStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium",
+        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-button px-3 text-sm font-medium",
         status === "approved" && "bg-success/15 text-success",
         status === "auto_review" && "bg-warning/15 text-warning",
         status === "none" && "bg-raised text-muted"
@@ -170,7 +170,7 @@ function EditSheet({ field, label, onClose, onDone }: { field: Field; label: str
             data-autofocus
           />
           <p className="mt-3 text-sm text-muted">{t("personal.readOnlyNote")}</p>
-          <Button type="submit" size="lg" fullWidth className="mt-5" loading={busy} disabled={!value.trim()}>
+          <Button type="submit" size="lg" fullWidth className="mt-5" loading={busy}>
             {t("personal.sendRequest")}
           </Button>
         </form>

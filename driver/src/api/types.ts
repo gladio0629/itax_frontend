@@ -189,8 +189,14 @@ export type WalletSummary = {
 
 export type TopupOptions = { presets: number[]; min: number; max: number; providers: PayProvider[] };
 
-export type BonusLevel = { key: "bronze" | "silver" | "gold"; tripsRequired: number; commissionPct: number };
-export type BonusRule = { key: string; progress: number; target: number; done: boolean };
+export type BonusLevel = {
+  key: "bronze" | "silver" | "gold";
+  tripsRequired: number;
+  commissionPct: number;
+  /** 0..1 position of this milestone on the weekly progress bar. */
+  position: number;
+};
+export type BonusRule = { key: string; progress: number; target: number; done: boolean; ratio: number };
 export type BonusInfo = {
   active: boolean;
   currentLevel: BonusLevel;

@@ -72,7 +72,7 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
         <span
           className={cn(
             "relative flex h-20 w-20 items-center justify-center rounded-full",
-            settled ? (status === "approved" ? "animate-check-pop bg-success text-bg" : "animate-check-pop bg-danger text-white") : "bg-raised text-gold"
+            settled ? (status === "approved" ? "animate-check-pop bg-success text-bg" : "animate-check-pop bg-danger-fill text-white") : "bg-raised text-gold"
           )}
         >
           {settled ? status === "approved" ? <Check className="h-9 w-9" /> : <X className="h-9 w-9" /> : <Clock className="h-8 w-8" />}

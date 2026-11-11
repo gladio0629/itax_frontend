@@ -18,11 +18,21 @@
   body {
     background: var(--color-bg);
     color: rgb(var(--color-text-rgb));
-    overscroll-behavior: none;
+  }
+  @media (pointer: fine) {
+    html {
+      overscroll-behavior: none;
+    }
+  }
+  option {
+    background-color: var(--color-surface);
+    color: rgb(var(--color-text-rgb));
   }
   body {
     font-family: "InterVariable", "Inter", system-ui, sans-serif;
     font-weight: 500;
+    /* Tabular figures everywhere: money, times, distances, ratings line up. */
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
   }
   h1,
@@ -40,8 +50,14 @@
   select {
     font: inherit;
   }
+  button,
+  input,
+  select,
+  textarea {
+    font-variant-numeric: inherit;
+  }
   :focus-visible {
-    outline: 2px solid var(--color-yellow);
+    outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -66,6 +82,15 @@
   }
   .press:active {
     transform: scale(0.97);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .press:hover {
+      opacity: 0.9;
+    }
+  }
+  /* Controls inside clipping containers draw their focus ring inside. */
+  .focus-inset:focus-visible {
+    outline-offset: -3px;
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;

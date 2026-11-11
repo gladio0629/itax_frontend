@@ -50,11 +50,11 @@ export default function TripDetailScreen() {
               </div>
               <RouteLine pickup={d.pickup} dropoff={d.dropoff} pickupLabel={t("offer.pickup")} dropoffLabel={t("offer.dropoff")} size="md" />
               <div className="mt-4 flex flex-wrap gap-2 text-sm">
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-raised px-3 text-ink">
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-button bg-raised px-3 text-ink">
                   {d.payment === "cash" ? <Banknote className="h-4 w-4 text-muted" /> : <CreditCard className="h-4 w-4 text-muted" />}
                   {d.payment === "cash" ? t("pay.cash") : t("pay.card")}
                 </span>
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-raised px-3 text-ink">
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-button bg-raised px-3 text-ink">
                   {d.kind === "delivery" ? <Package className="h-4 w-4 text-muted" /> : <Users className="h-4 w-4 text-muted" />}
                   {d.kind === "delivery" && d.cargo && isKey(d.cargo.labelKey)
                     ? t("offer.cargo", { label: t(d.cargo.labelKey), kg: d.cargo.weightKg })

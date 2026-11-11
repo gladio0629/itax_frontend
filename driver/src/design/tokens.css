@@ -2,23 +2,35 @@
    adapted from it. Brand: navy #264A9F, yellow #F6BF0E. */
 :root,
 [data-theme="dark"] {
-  --color-bg: #0a1330;
-  --color-surface: #121e45;
-  --color-raised: #1a2856;
+  --color-bg-rgb: 10 19 48;
+  --color-surface-rgb: 18 30 69;
+  --color-raised-rgb: 26 40 86;
+  --color-bg: rgb(var(--color-bg-rgb));
+  --color-surface: rgb(var(--color-surface-rgb));
+  --color-raised: rgb(var(--color-raised-rgb));
   --color-text-rgb: 238 242 250;
-  --color-muted: #a3aecb;
+  --color-muted-rgb: 163 174 203;
+  --color-muted: rgb(var(--color-muted-rgb));
   --color-line: rgba(238, 242, 250, 0.08);
   --color-accent-rgb: 143 176 255;
 
   /* Yellow fill + the navy that always sits on it. */
-  --color-yellow: #f6bf0e;
-  --color-on-yellow: #16264d;
-  /* Yellow used AS text (earnings). Same yellow on navy; deepened in light. */
+  --color-yellow-rgb: 246 191 14;
+  --color-yellow: rgb(var(--color-yellow-rgb));
+  --color-on-yellow-rgb: 22 38 77;
+  --color-on-yellow: rgb(var(--color-on-yellow-rgb));
+  /* Yellow used AS text/icon (earnings, active tab). Same yellow on navy; deepened in light. */
   --color-gold: #f6bf0e;
+  /* Keyboard focus ring: yellow on navy, navy on light. */
+  --color-focus: #f6bf0e;
 
   --color-success-rgb: 74 222 154;
   --color-danger-rgb: 255 122 122;
   --color-warning-rgb: 255 177 92;
+  /* Solid fills that carry white text (badges, banners, destructive buttons). */
+  --color-danger-fill: #d3343a;
+  --color-warning-fill: #ffb15c;
+  --color-on-warning: #1a1203;
 
   /* Map */
   --map-ground: #0d1838;
@@ -37,21 +49,23 @@
 }
 
 [data-theme="light"] {
-  --color-bg: #f2f4f9;
-  --color-surface: #ffffff;
-  --color-raised: #eaeef6;
+  --color-bg-rgb: 242 244 249;
+  --color-surface-rgb: 255 255 255;
+  --color-raised-rgb: 234 238 246;
   --color-text-rgb: 14 22 48;
-  --color-muted: #55607a;
-  --color-line: rgba(14, 22, 48, 0.08);
+  --color-muted-rgb: 85 96 122;
+  --color-line: rgba(14, 22, 48, 0.1);
   --color-accent-rgb: 38 74 159;
 
-  --color-yellow: #f6bf0e;
-  --color-on-yellow: #16264d;
   --color-gold: #8a6500;
+  --color-focus: #264a9f;
 
-  --color-success-rgb: 14 122 74;
+  --color-success-rgb: 11 104 62;
   --color-danger-rgb: 198 40 40;
   --color-warning-rgb: 154 70 8;
+  --color-danger-fill: #c62828;
+  --color-warning-fill: #a14a07;
+  --color-on-warning: #ffffff;
 
   --map-ground: #e6ebf5;
   --map-block: #d7deec;

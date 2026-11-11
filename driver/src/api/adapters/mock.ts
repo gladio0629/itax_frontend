@@ -314,7 +314,12 @@ function applyReview(s: DriverState, r: ReviewRequest) {
       break;
     }
     case "profile_change":
-      if (p.field === "name" && typeof p.value === "string" && p.value.trim()) s.profile.name = p.value.trim();
+      if (typeof p.value === "string" && p.value.trim()) {
+        const v = p.value.trim();
+        if (p.field === "name") s.profile.name = v;
+        if (p.field === "phone") s.profile.phoneMasked = maskPhone(v);
+        if (p.field === "car") s.profile.car = { ...s.profile.car, model: v };
+      }
       break;
     case "help_request": {
       const h = s.help.find((x) => x.id === p.helpId);
@@ -376,9 +381,9 @@ export const mockAdapter: ApiAdapter = {
       const s = state();
       const normalized = plate.toUpperCase().replace(/\s+/g, " ").trim();
       // Uzbek plates: "01 A 123 BC" (private) or "01 123 ABC" (company).
-      if (!/^\d{2} ([A-Z] \d{3} [A-Z]{2}|\d{3} [A-Z]{3})$/.test(normalized)) throw new ApiError("PLATE_INVALID");
       if (!model) throw new ApiError("MODEL_REQUIRED");
       if (!CAR_COLORS.some((c) => c.key === colorKey)) throw new ApiError("COLOR_REQUIRED");
+      if (!/^\d{2} ([A-Z] \d{3} [A-Z]{2}|\d{3} [A-Z]{3})$/.test(normalized)) throw new ApiError("PLATE_INVALID");
       s.draft = { ...s.draft, car: { model, colorKey, plate: normalized, year } };
       s.session = { ...s.session, stage: "documents" };
       persist();
@@ -624,18 +629,18 @@ export const mockAdapter: ApiAdapter = {
       const cancels = s.trips.filter((t) => t.createdAt >= weekStart && t.status === "cancelled").length;
       return {
         active: current.commissionPct < BASE_COMMISSION_PCT,
-        currentLevel: { ...current },
-        nextLevel: next ? { ...next } : null,
-        levels: BONUS_LEVELS.map((l) => ({ ...l })),
+        currentLevel: { ...current, position: current.tripsRequired / top.tripsRequired },
+        nextLevel: next ? { ...next, position: next.tripsRequired / top.tripsRequired } : null,
+        levels: BONUS_LEVELS.map((l) => ({ ...l, position: l.tripsRequired / top.tripsRequired })),
         weekTrips: wt,
         progressRatio: Math.min(1, wt / top.tripsRequired),
         tripsToNext: next ? next.tripsRequired - wt : 0,
         commissionPct: current.commissionPct,
         baseCommissionPct: BASE_COMMISSION_PCT,
         rules: [
-          { key: "bonus.rule.trips", progress: Math.min(wt, top.tripsRequired), target: top.tripsRequired, done: wt >= top.tripsRequired },
-          { key: "bonus.rule.rating", progress: Math.round(s.profile.rating * 10), target: 48, done: s.profile.rating >= 4.8 },
-          { key: "bonus.rule.cancels", progress: cancels, target: 2, done: cancels < 2 },
+          { key: "bonus.rule.trips", progress: Math.min(wt, top.tripsRequired), target: top.tripsRequired, done: wt >= top.tripsRequired, ratio: Math.min(1, wt / top.tripsRequired) },
+          { key: "bonus.rule.rating", progress: s.profile.rating, target: 4.8, done: s.profile.rating >= 4.8, ratio: Math.min(1, s.profile.rating / 4.8) },
+          { key: "bonus.rule.cancels", progress: cancels, target: 2, done: cancels < 2, ratio: cancels < 2 ? 1 : 0 },
         ],
         savedThisWeek: saved,
         resetsInDays: 7 - new Date().getDay() || 7,

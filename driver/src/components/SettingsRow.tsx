@@ -43,7 +43,7 @@ export function SettingsRow({ icon: Icon, tile, label, value, to, onClick, trail
       {(to || onClick) && !trailing && !danger && <ChevronRight className="h-5 w-5 shrink-0 text-muted" />}
     </>
   );
-  const cls = "press flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left";
+  const cls = "press focus-inset flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left";
   if (to) return <Link to={to} className={cls}>{body}</Link>;
   if (onClick) return <button type="button" onClick={onClick} className={cls}>{body}</button>;
   return <div className={cls}>{body}</div>;

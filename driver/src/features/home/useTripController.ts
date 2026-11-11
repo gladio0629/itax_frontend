@@ -1,61 +1,59 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
-import type { ActiveTrip, TripSummary } from "@/api/types";
+import type { TripSummary } from "@/api/types";
 import { useQuery } from "@/lib/useQuery";
 import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { useT } from "@/lib/i18n/provider";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
  * Owns the active-trip loop for any screen that shows it: polling, the step
- * button (submitForReview via advanceTrip), cancel, and the post-trip
- * summary. All state transitions are decided by the adapter.
+ * button (advanceTrip → submitForReview → wait for approval), cancel, and the
+ * post-trip summary. Every transition is decided by the adapter.
  */
 export function useTripController(opts?: { onFinished?: () => void }) {
   const { t } = useT();
   const [confirming, setConfirming] = useState(false);
   const [summary, setSummary] = useState<TripSummary | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
-  const lastTrip = useRef<ActiveTrip | null>(null);
-  const trip = useQuery(() => api.getActiveTrip(), [], { pollMs: confirming ? 400 : 3000 });
+  const trip = useQuery(() => api.getActiveTrip(), [], { pollMs: confirming ? null : 3000 });
   const onFinished = useRef(opts?.onFinished);
   onFinished.current = opts?.onFinished;
-
-  // Detect "the trip I was confirming has finished" → fetch its summary.
-  useEffect(() => {
-    const current = trip.data;
-    const prev = lastTrip.current;
-    if (current === undefined) return;
-    if (prev && confirming) {
-      if (current === null && prev.nextAction === "finish") {
-        setConfirming(false);
-        api
-          .getTripSummary(prev.id)
-          .then((s) => {
-            setSummary(s);
-            onFinished.current?.();
-          })
-          .catch(() => onFinished.current?.());
-      } else if (current && (current.stage !== prev.stage || !current.pendingReviewId)) {
-        setConfirming(false);
-      }
-    }
-    if (!confirming || current) lastTrip.current = current;
-  }, [trip.data, confirming]);
+  const alive = useRef(true);
+  useEffect(() => () => void (alive.current = false), []);
 
   const advance = useCallback(async () => {
     const current = trip.data;
-    if (!current) return;
-    lastTrip.current = current;
+    if (!current || confirming) return;
+    const finishing = current.nextAction === "finish";
     setConfirming(true);
     try {
-      await api.advanceTrip(current.id);
-      trip.reload(true);
+      const review = await api.advanceTrip(current.id);
+      // Wait for the adapter to approve the step (applies it exactly once).
+      for (let i = 0; i < 40; i++) {
+        const r = await api.getReviewStatus(review.id).catch(() => null);
+        if (r && r.status !== "pending") break;
+        await sleep(300);
+      }
+      if (!alive.current) return;
+      if (finishing) {
+        const s = await api.getTripSummary(current.id).catch(() => null);
+        trip.setData(null);
+        if (s) setSummary(s);
+        onFinished.current?.();
+      } else {
+        const next = await api.getActiveTrip();
+        trip.setData(next);
+      }
     } catch (e) {
-      setConfirming(false);
       toast(errorMessage(e, t), "danger");
+      trip.reload(true);
+    } finally {
+      if (alive.current) setConfirming(false);
     }
-  }, [trip, t]);
+  }, [trip, confirming, t]);
 
   const cancel = useCallback(
     async (reasonKey: string) => {
@@ -65,7 +63,6 @@ export function useTripController(opts?: { onFinished?: () => void }) {
       try {
         await api.cancelTrip(current.id, reasonKey);
         toast(t("trip.cancelled"));
-        lastTrip.current = null;
         trip.setData(null);
         onFinished.current?.();
         return true;

@@ -1,6 +1,6 @@
 # IZGO Driver
 
-Driver-facing mobile web app, dark/night mode by default. Port 5174.
+Driver-facing mobile web app. Navy night theme by default (light theme in Profil). Port 5174.
 
 ```bash
 npm install
@@ -10,18 +10,24 @@ npm run build
 npm run check:no-network
 ```
 
-## Demo login
+## Structure
 
-The driver is always considered logged in for this demo (no login screen) — the app opens
-straight to the home/dispatch screen for a seeded demo driver.
+- Bottom tabs: **Asosiy** (map cockpit), **Buyurtmalar** (Faol / Tarix), **Hamyon**, **Profil**.
+- `src/api/adapterTypes.ts` is the whole contract between screens and the backend. Screens
+  render what the adapter returns and send requests; commission, debt limit and level, offer
+  timing, trip stages, bonus levels, filtering and pagination are all computed in
+  `src/api/adapters/mock.ts`.
+- `src/mockDb/driverDb.ts` holds the driver's local demo state (seeded relative to "now", and
+  re-anchored daily so "today" is never empty). `src/seed/generate.ts` is the seed shared with
+  client/admin and stays identical across apps.
+- i18n: `src/lib/i18n/{uz,ru,en}.ts` + `useT()`. `uz` is the source; ru/en are typed against it.
+- Design tokens: `src/design/tokens.css` + `tailwind.config.ts` (radius 8/12/16, weights
+  500/700, one easing curve, two shadow levels).
 
-## Key flows
+## Demo
 
-- Online/offline toggle, incoming order requests with accept/decline
-- Active trip screen with live-animated route (static local SVG map + simulated progress)
-- Wallet balance, earnings, commission history
-- Document upload / re-verification uses the shared "submitForReview" pattern
-- Stats screen with recharts-based weekly earnings chart
-
-Use the floating Demo Control Panel (bottom-right) to reset the database or simulate
-"no driver found", slow internet, forced errors, wallet limit, or fast-forwarded time.
+- New drivers go through a 4-step sign-up (phone + OTP, personal, car, documents). Demo OTP: `0000`.
+- **Profil → Demo boshqaruv**: role presets (new driver, online, near/at the debt limit, bonus
+  active, offline), an incoming order, a trip at each stage, slow internet, error mode, reset.
+- Every verification (OTP, documents, top-up, card link, trip steps, profile changes, support
+  requests) goes through the shared `submitForReview` → `ReviewStatus` pattern.

@@ -76,7 +76,7 @@ export default function TopupScreen() {
             className="flex min-h-full flex-col"
             onSubmit={(e) => {
               e.preventDefault();
-              if (amount > 0) submit();
+              submit();
             }}
           >
             <SectionLabel>{t("topup.amount")}</SectionLabel>
@@ -131,7 +131,7 @@ export default function TopupScreen() {
               </p>
             )}
             <div className="mt-auto pt-6">
-              <Button type="submit" size="lg" fullWidth loading={busy} disabled={amount <= 0}>
+              <Button type="submit" size="lg" fullWidth loading={busy}>
                 {amount > 0 ? t("topup.submit", { amount: `${formatAmount(amount)} ${t("common.som")}` }) : t("topup.submitEmpty")}
               </Button>
             </div>

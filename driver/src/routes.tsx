@@ -23,6 +23,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/register" element={<RegistrationFlow />} />
+      {/* Demo panel is also reachable while signed out (from the registration header). */}
+      <Route path="/demo" element={<DemoScreen />} />
       <Route element={<AppShell />}>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/orders" element={<OrdersScreen />} />

@@ -369,11 +369,31 @@ export function presetState(preset: DemoPreset): DriverState {
   }
 }
 
+/** Re-anchor stored demo data to today by whole days, so "today" never goes stale. */
+function reanchor(s: DriverState) {
+  const day = 86_400_000;
+  const start = (ts: number) => new Date(ts).setHours(0, 0, 0, 0);
+  const days = Math.round((start(Date.now()) - start(s.seededAt)) / day);
+  if (days <= 0) return;
+  const shift = days * day;
+  s.seededAt += shift;
+  s.trips.forEach((t) => {
+    t.createdAt += shift;
+    t.timeline = t.timeline.map((e) => ({ ...e, at: e.at + shift }));
+  });
+  s.ledger.forEach((e) => (e.createdAt += shift));
+  s.notifications.forEach((n) => (n.createdAt += shift));
+  s.help.forEach((h) => (h.createdAt += shift));
+  s.offer = null;
+  s.trip = null;
+}
+
 export function state(): DriverState {
   if (cache) return cache;
   const stored = readJSON<DriverState | null>(KEY, null);
   cache = stored && stored.version === 3 ? stored : seedState();
-  if (!stored) persist();
+  reanchor(cache);
+  persist();
   return cache;
 }
 

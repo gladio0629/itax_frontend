@@ -18,7 +18,7 @@ export default function AboutScreen() {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
         <div className="mb-6 flex flex-col items-center py-6 text-center">
           <img src="/izgo-logo.png" alt="IZGO" width={88} height={88} className="h-[88px] w-[88px] rounded-card bg-white object-contain p-2 shadow-2" />
-          <p className="mt-4 text-xl font-bold text-ink">{t("app.name")}</p>
+          <p translate="no" className="mt-4 text-xl font-bold text-ink">{t("app.name")}</p>
           <p className="mt-1 text-sm text-muted">{t("about.tagline")}</p>
           {info.data ? (
             <p className="tabular mt-2 text-sm text-muted">{t("about.version", { version: info.data.version, build: info.data.build })}</p>

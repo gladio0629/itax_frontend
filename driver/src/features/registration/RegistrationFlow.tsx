@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { isDemo } from "@/api/client";
 import { api } from "@/api/client";
 import type { RegistrationOptions, SessionStage } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { errorMessage } from "@/lib/errors";
 import { useSession } from "@/stores/sessionStore";
-import { Camera, Check, ChevronLeft, IdCard, FileText } from "@/lib/icons";
+import { Camera, Check, ChevronLeft, FileText, FlaskConical, IdCard } from "@/lib/icons";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { Chip } from "@/components/Chip";
 import { ReviewStatus } from "@/components/ReviewStatus";
-import { DemoBadge } from "@/components/DemoBadge";
 import { Skeleton } from "@/components/Skeleton";
 import { cn } from "@/lib/cn";
 
@@ -36,7 +36,12 @@ export default function RegistrationFlow() {
       <header className="shrink-0 px-4" style={{ paddingTop: "calc(var(--safe-top) + 16px)" }}>
         <div className="flex items-center justify-between">
           <p className="tabular text-sm text-muted">{t("reg.step", { n: step })}</p>
-          <DemoBadge />
+          {isDemo && (
+            <Link to="/demo" className="press focus-inset -my-2 -mr-2 flex h-12 items-center gap-2 rounded-button px-3 text-sm font-medium text-muted">
+              <FlaskConical className="h-5 w-5" />
+              {t("profile.demo")}
+            </Link>
+          )}
         </div>
         <ol className="mt-3 grid grid-cols-4 gap-2" aria-label={t("reg.title")}>
           {STEP_KEYS.map((k, i) => {
@@ -46,7 +51,7 @@ export default function RegistrationFlow() {
               <li key={k} aria-current={state === "active" ? "step" : undefined}>
                 <span className="relative block h-1.5 overflow-hidden rounded-full bg-ink/10">
                   <span
-                    className="absolute inset-0 origin-left bg-yellow transition-transform duration-[400ms]"
+                    className="absolute inset-0 origin-left bg-yellow transition-transform duration-[280ms]"
                     style={{ transform: `scaleX(${state === "todo" ? 0 : state === "active" ? 0.5 : 1})` }}
                   />
                 </span>
@@ -202,6 +207,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
               inputMode="numeric"
               autoComplete={i === 0 ? "one-time-code" : "off"}
               maxLength={4}
+              spellCheck={false}
               aria-label={t("reg.codeDigit", { n: i + 1 })}
               aria-invalid={error ? true : undefined}
               disabled={busy}
@@ -254,7 +260,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
         className="[&_input]:tabular"
       />
       <BottomAction>
-        <Button type="submit" size="lg" fullWidth loading={busy} disabled={digits.length !== 9}>
+        <Button type="submit" size="lg" fullWidth loading={busy}>
           {t("reg.sendCode")}
         </Button>
       </BottomAction>
@@ -317,7 +323,7 @@ function PersonalStep({ options, onSaved }: { options: RegistrationOptions; onSa
         </p>
       )}
       <BottomAction>
-        <Button type="submit" size="lg" fullWidth loading={busy} disabled={!name.trim() || !cityId}>
+        <Button type="submit" size="lg" fullWidth loading={busy}>
           {t("common.continue")}
         </Button>
       </BottomAction>
@@ -385,9 +391,9 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
               role="radio"
               aria-checked={colorKey === c.key}
               onClick={() => setColorKey(c.key)}
-              className={cn("press flex h-12 items-center gap-2 rounded-full pl-2 pr-4 text-sm", colorKey === c.key ? "bg-yellow text-on-yellow" : "bg-raised text-ink")}
+              className={cn("press flex h-12 items-center gap-2 rounded-button pl-2 pr-4 text-sm", colorKey === c.key ? "bg-yellow text-on-yellow" : "bg-raised text-ink")}
             >
-              <span aria-hidden="true" className="h-8 w-8 rounded-full ring-2 ring-inset ring-black/15" style={{ background: c.hex }} />
+              <span aria-hidden="true" className="h-8 w-8 rounded-button ring-2 ring-inset ring-black/15" style={{ background: c.hex }} />
               {t(`color.${c.key}` as never)}
             </button>
           ))}
@@ -430,7 +436,7 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
         </p>
       )}
       <BottomAction>
-        <Button type="submit" size="lg" fullWidth loading={busy} disabled={!model || !colorKey || !plate.trim()}>
+        <Button type="submit" size="lg" fullWidth loading={busy}>
           {t("common.continue")}
         </Button>
       </BottomAction>
@@ -466,12 +472,13 @@ function DocsStep({ onSubmitted }: { onSubmitted: () => void }) {
     timers.current.push(id);
   }
 
+  const uploadingAny = Object.values(files).some((f) => !f.name && f.progress > 0);
+
   async function submit() {
-    if (!files.license.name || !files.registration.name) return;
     setBusy(true);
     setError(null);
     try {
-      await api.submitDocuments({ licenseFile: files.license.name, registrationFile: files.registration.name });
+      await api.submitDocuments({ licenseFile: files.license.name ?? "", registrationFile: files.registration.name ?? "" });
       onSubmitted();
     } catch (e) {
       setError(errorMessage(e, t));
@@ -503,7 +510,7 @@ function DocsStep({ onSubmitted }: { onSubmitted: () => void }) {
               </div>
               {uploading && (
                 <span className="relative mt-3 block h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
-                  <span className="absolute inset-0 origin-left bg-yellow transition-transform duration-150" style={{ transform: `scaleX(${f.progress})` }} />
+                  <span className="absolute inset-0 origin-left bg-yellow transition-transform duration-200" style={{ transform: `scaleX(${f.progress})` }} />
                 </span>
               )}
               <Button variant="secondary" fullWidth className="mt-3" disabled={uploading || busy} onClick={() => pick(kind)}>
@@ -520,7 +527,7 @@ function DocsStep({ onSubmitted }: { onSubmitted: () => void }) {
         </p>
       )}
       <BottomAction>
-        <Button size="lg" fullWidth loading={busy} disabled={!files.license.name || !files.registration.name} onClick={submit}>
+        <Button size="lg" fullWidth loading={busy} disabled={uploadingAny} onClick={submit}>
           {t("reg.submitDocs")}
         </Button>
       </BottomAction>

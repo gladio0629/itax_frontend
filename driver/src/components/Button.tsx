@@ -18,7 +18,7 @@ const variants: Record<Variant, string> = {
   primary: "bg-yellow text-on-yellow shadow-1",
   secondary: "bg-raised text-ink",
   ghost: "bg-transparent text-ink",
-  danger: "bg-danger text-white",
+  danger: "bg-danger-fill text-white",
   navy: "bg-[#264A9F] text-white shadow-1",
 };
 const sizes: Record<Size, string> = {

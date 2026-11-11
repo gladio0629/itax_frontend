@@ -84,10 +84,32 @@ function ActivePanel() {
   );
 }
 
+const RANGES: HistoryRange[] = ["all", "today", "week", "month"];
+
+/** Filters live in the URL (?range=&min=&city=) so they survive reloads and deep links. */
+function useHistoryFilter(): [HistoryFilter, (next: HistoryFilter | ((f: HistoryFilter) => HistoryFilter)) => void] {
+  const [params, setParams] = useSearchParams();
+  const rangeParam = params.get("range") as HistoryRange | null;
+  const filter: HistoryFilter = {
+    range: rangeParam && RANGES.includes(rangeParam) ? rangeParam : "all",
+    minEarnings: Number(params.get("min")) || 0,
+    city: params.get("city") ?? "",
+  };
+  const set = (next: HistoryFilter | ((f: HistoryFilter) => HistoryFilter)) => {
+    const f = typeof next === "function" ? next(filter) : next;
+    const p: Record<string, string> = { tab: "history" };
+    if (f.range !== "all") p.range = f.range;
+    if (f.minEarnings) p.min = String(f.minEarnings);
+    if (f.city) p.city = f.city;
+    setParams(p, { replace: true });
+  };
+  return [filter, set];
+}
+
 function HistoryPanel() {
   const { t } = useT();
-  const [filter, setFilter] = useState<HistoryFilter>(DEFAULT_FILTER);
-  const [cityInput, setCityInput] = useState("");
+  const [filter, setFilter] = useHistoryFilter();
+  const [cityInput, setCityInput] = useState(filter.city);
   const [sheetOpen, setSheetOpen] = useState(false);
   const debounce = useRef<number>();
   useEffect(() => () => window.clearTimeout(debounce.current), []);
@@ -132,7 +154,7 @@ function HistoryPanel() {
                 setCityInput("");
                 setFilter((f) => ({ ...f, city: "" }));
               }}
-              className="-mr-2 flex h-12 w-10 items-center justify-center text-muted"
+              className="-mr-3 flex h-12 w-12 items-center justify-center text-muted"
             >
               <X className="h-5 w-5" />
             </button>

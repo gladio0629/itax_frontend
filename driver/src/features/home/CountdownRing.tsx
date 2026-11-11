@@ -24,7 +24,7 @@ export function CountdownRing({ total, remaining, label }: { total: number; rema
             strokeLinecap="round"
             transform={`rotate(${(360 / total) * i} 32 32)`}
             className={cn(
-              "transition-opacity duration-300",
+              "transition-opacity duration-[240ms]",
               urgent ? "stroke-danger" : "stroke-yellow",
               i < remaining ? "opacity-100" : "opacity-15"
             )}

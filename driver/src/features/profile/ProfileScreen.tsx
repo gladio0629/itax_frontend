@@ -68,11 +68,11 @@ export default function ProfileScreen() {
                   <span className="tabular text-sm text-muted">({t("profile.ratingCount", { n: p.ratingCount })})</span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                  <span className="inline-flex h-8 items-center gap-2 rounded-full bg-surface px-3 text-sm text-ink shadow-1">
+                  <span className="inline-flex h-8 items-center gap-2 rounded-button bg-surface px-3 text-sm text-ink shadow-1">
                     <span aria-hidden="true" className="h-3 w-3 rounded-full ring-1 ring-ink/20" style={{ background: p.car.colorHex }} />
                     {p.car.model}, {t(`color.${p.car.color}` as never)}
                   </span>
-                  <span className="tabular inline-flex h-8 items-center rounded-button border-2 border-ink/80 bg-white px-2 text-sm font-bold tracking-wide text-[#0e1630]">{p.car.plate}</span>
+                  <span translate="no" className="tabular inline-flex h-8 items-center rounded-button border-2 border-ink/80 bg-white px-2 text-sm font-bold tracking-wide text-[#0e1630]">{p.car.plate}</span>
                 </div>
                 <p className="tabular mt-2 text-sm text-muted">
                   {t("profile.trips", { n: p.totalTrips })}, {t("profile.since", { year: p.memberSinceYear })}

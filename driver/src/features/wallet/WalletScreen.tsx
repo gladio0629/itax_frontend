@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { HistoryRange, LedgerEntry, LedgerType } from "@/api/types";
 import { useT, isKey } from "@/lib/i18n/provider";
@@ -34,6 +33,11 @@ export default function WalletScreen() {
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader title={t("wallet.title")} />
+      {w && w.debt.level !== "ok" && (
+        <div className="shrink-0 px-4 pb-2">
+          <DebtBanner level={w.debt.level} />
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
         {wallet.error && !w ? (
           <ErrorState error={wallet.error} onRetry={() => wallet.reload()} />
@@ -45,8 +49,6 @@ export default function WalletScreen() {
           </div>
         ) : (
           <div className="space-y-4">
-            <DebtBanner level={w.debt.level} />
-
             {/* Hero — always a navy card, in both themes, so yellow text stays AA. */}
             <section
               aria-label={t("wallet.balance")}
@@ -54,7 +56,7 @@ export default function WalletScreen() {
               style={{ background: "linear-gradient(140deg, #24448f 0%, #15275a 55%, #0d1a40 100%)" }}
             >
               <p className="relative text-sm text-[#C3CCE4]">{t("wallet.balance")}</p>
-              <p className={cn("tabular relative mt-1 text-4xl font-bold", w.balance < 0 ? "text-[#FF9B7A]" : "text-[#F6BF0E]")}>
+              <p className={cn("tabular relative mt-1 text-4xl font-bold", w.balance < 0 ? "text-[#FFB39C]" : "text-[#F6BF0E]")}>
                 {formatAmount(balance)}
                 <span className="ml-1.5 text-base font-medium text-[#C3CCE4]">{t("common.som")}</span>
               </p>
@@ -62,7 +64,7 @@ export default function WalletScreen() {
               {w.debt.debtAmount > 0 && (
                 <div className="relative mt-4">
                   <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="tabular font-bold text-[#FF9B7A]">{t("wallet.debt", { amount: `${formatAmount(-w.debt.debtAmount)} ${t("common.som")}` })}</span>
+                    <span className="tabular font-bold text-[#FFB39C]">{t("wallet.debt", { amount: `${formatAmount(-w.debt.debtAmount)} ${t("common.som")}` })}</span>
                     <span className="tabular text-[#C3CCE4]">{t("wallet.debtLimit", { amount: formatAmount(w.debt.limit) })}</span>
                   </div>
                   <ProgressBar value={w.debt.usedRatio} tone={w.debt.level === "ok" ? "warning" : "danger"} label={t("wallet.debtProgress")} className="bg-white/15" />
@@ -142,9 +144,24 @@ const TYPE_ICON: Record<LedgerType, { icon: typeof Car; tile: keyof typeof TILE 
 
 function Ledger() {
   const { t } = useT();
-  const [type, setType] = useState<LedgerType | "all">("all");
-  const [range, setRange] = useState<HistoryRange>("all");
-  const [page, setPage] = useState(1);
+  // Ledger filters and page live in the URL (?type=&range=&page=).
+  const [params, setParams] = useSearchParams();
+  const typeParam = params.get("type") as LedgerType | null;
+  const rangeParam = params.get("range") as HistoryRange | null;
+  const type: LedgerType | "all" = typeParam && TYPES.includes(typeParam) ? typeParam : "all";
+  const range: HistoryRange = rangeParam && RANGES.includes(rangeParam) ? rangeParam : "all";
+  const page = Math.max(1, Number(params.get("page")) || 1);
+  const update = (next: { type?: LedgerType | "all"; range?: HistoryRange; page?: number }) => {
+    const v = { type, range, page, ...next };
+    const p: Record<string, string> = {};
+    if (v.type !== "all") p.type = v.type;
+    if (v.range !== "all") p.range = v.range;
+    if (v.page > 1) p.page = String(v.page);
+    setParams(p, { replace: true });
+  };
+  const setType = (ty: LedgerType | "all") => update({ type: ty, page: 1 });
+  const setRange = (r: HistoryRange) => update({ range: r, page: 1 });
+  const setPage = (fn: (p: number) => number) => update({ page: fn(page) });
   const q = useQuery(() => api.getLedger({ type, range, page }), [type, range, page]);
   const data = q.data;
 
@@ -157,14 +174,14 @@ function Ledger() {
 
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4" role="group" aria-label={t("wallet.typeFilter")}>
         {TYPES.map((ty) => (
-          <Chip key={ty} selected={type === ty} onClick={() => { setType(ty); setPage(1); }}>
+          <Chip key={ty} selected={type === ty} onClick={() => setType(ty)}>
             {t(`wallet.type.${ty}`)}
           </Chip>
         ))}
       </div>
       <div className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4" role="group" aria-label={t("wallet.rangeFilter")}>
         {RANGES.map((r) => (
-          <Chip key={r} selected={range === r} onClick={() => { setRange(r); setPage(1); }} className="h-12 bg-transparent ring-1 ring-inset ring-line aria-pressed:bg-yellow aria-pressed:ring-0">
+          <Chip key={r} selected={range === r} onClick={() => setRange(r)}>
             {t(`orders.range.${r}`)}
           </Chip>
         ))}
@@ -206,7 +223,7 @@ function LedgerRow({ entry: e }: { entry: LedgerEntry }) {
     <li className="flex items-center gap-3 px-4 py-3">
       <span className={cn("relative flex h-10 w-10 shrink-0 items-center justify-center rounded-button", TILE[meta.tile])}>
         <Icon className="h-5 w-5" />
-        <span className={cn("absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-surface", positive ? "bg-success text-bg" : "bg-danger text-white")}>
+        <span className={cn("absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-surface", positive ? "bg-success text-bg" : "bg-danger-fill text-white")}>
           {positive ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
         </span>
       </span>

@@ -13,7 +13,7 @@ export function providerName(p: PayProvider) {
 export function ProviderTile({ provider }: { provider: PayProvider }) {
   const s = STYLE[provider];
   return (
-    <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-button text-base font-bold text-white ${s.bg}`}>
+    <span aria-hidden="true" translate="no" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-button text-base font-bold text-white ${s.bg}`}>
       {s.label[0]}
     </span>
   );

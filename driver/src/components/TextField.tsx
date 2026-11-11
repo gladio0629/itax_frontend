@@ -1,10 +1,16 @@
-import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, type InputHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 type Props = InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string; hint?: string; prefix?: ReactNode };
 
 export const TextField = forwardRef<HTMLInputElement, Props>(({ label, error, hint, prefix, className, id, ...rest }, ref) => {
   const auto = useId();
+  const inner = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => inner.current as HTMLInputElement);
+  // Focus the field when validation fails, so the fix is one tap away.
+  useEffect(() => {
+    if (error) inner.current?.focus({ preventScroll: false });
+  }, [error]);
   const inputId = id ?? auto;
   const msgId = `${inputId}-msg`;
   return (
@@ -20,7 +26,7 @@ export const TextField = forwardRef<HTMLInputElement, Props>(({ label, error, hi
       >
         {prefix && <span className="tabular text-base text-muted">{prefix}</span>}
         <input
-          ref={ref}
+          ref={inner}
           id={inputId}
           aria-invalid={error ? true : undefined}
           aria-describedby={error || hint ? msgId : undefined}

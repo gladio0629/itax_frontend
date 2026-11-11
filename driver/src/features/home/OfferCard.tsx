@@ -55,7 +55,7 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm text-muted">{t("offer.new")}</p>
-              <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-raised px-2.5 text-xs font-medium text-ink">
+              <span className="inline-flex h-7 items-center gap-1.5 rounded-button bg-raised px-2.5 text-xs font-medium text-ink">
                 <PayIcon className="h-4 w-4 text-muted" />
                 {offer.payment === "cash" ? t("pay.cash") : t("pay.card")}
               </span>
@@ -70,8 +70,8 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
         <RouteLine pickup={offer.pickup} dropoff={offer.dropoff} pickupLabel={t("offer.pickup")} dropoffLabel={t("offer.dropoff")} />
 
         <dl className="mt-4 grid grid-cols-3 gap-2">
-          <Meta label={t("offer.distance")} value={`${offer.distanceKm} ${t("common.km")}`} />
-          <Meta label={t("offer.toPickup")} value={`${offer.pickupEtaMin} ${t("common.min")}`} />
+          <Meta label={t("offer.distance")} value={`${offer.distanceKm}\u00a0${t("common.km")}`} />
+          <Meta label={t("offer.toPickup")} value={`${offer.pickupEtaMin}\u00a0${t("common.min")}`} />
           {offer.kind === "delivery" ? (
             <Meta label={t("offer.delivery")} value={<span className="inline-flex items-center gap-1.5"><Package className="h-4 w-4 text-muted" />{offer.cargo?.weightKg ?? 0} kg</span>} />
           ) : (

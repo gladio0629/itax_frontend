@@ -26,7 +26,7 @@ export function ProgressBar({
     >
       <div
         className={cn(
-          "absolute inset-0 origin-left rounded-full transition-transform duration-[600ms]",
+          "absolute inset-0 origin-left rounded-full transition-transform duration-[280ms]",
           tone === "yellow" ? "bg-yellow" : tone === "danger" ? "bg-danger" : "bg-warning"
         )}
         style={{ transform: `scaleX(${v})` }}

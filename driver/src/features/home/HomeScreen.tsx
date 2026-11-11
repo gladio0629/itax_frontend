@@ -14,6 +14,7 @@ import { Avatar } from "@/components/Avatar";
 import { DemoBadge } from "@/components/DemoBadge";
 import { Skeleton } from "@/components/Skeleton";
 import { Spinner } from "@/components/Spinner";
+import { Button } from "@/components/Button";
 import { cn } from "@/lib/cn";
 import { DriverMap } from "./DriverMap";
 import { OfferCard } from "./OfferCard";
@@ -47,18 +48,17 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!pollOffers) return;
     let alive = true;
-    const tick = () =>
-      api
-        .getCurrentOffer()
-        .then((o) => {
-          if (alive && o) setOffer(o);
-        })
-        .catch(() => {});
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      const o = await api.getCurrentOffer().catch(() => null);
+      if (!alive) return;
+      if (o) setOffer(o);
+      else timer = setTimeout(tick, 2000);
+    };
     tick();
-    const id = setInterval(tick, 2000);
     return () => {
       alive = false;
-      clearInterval(id);
+      clearTimeout(timer);
     };
   }, [pollOffers]);
 
@@ -115,6 +115,7 @@ export default function HomeScreen() {
 
   return (
     <div className="relative h-full overflow-hidden">
+      <h1 className="sr-only">{t("home.title")}</h1>
       <DriverMap online={online} label={t("home.mapLabel")} />
 
       {/* Top bar */}
@@ -140,7 +141,7 @@ export default function HomeScreen() {
         >
           <Bell className="h-6 w-6" />
           {!!s?.unreadNotifications && (
-            <span className="tabular absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-bold text-white ring-2 ring-surface">
+            <span className="tabular absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger-fill px-1 text-xs font-bold text-white ring-2 ring-surface">
               {s.unreadNotifications}
             </span>
           )}
@@ -187,7 +188,16 @@ export default function HomeScreen() {
         ) : (
           <>
             {s && <DebtBanner level={s.debt.level} onTopup={() => navigate("/wallet/topup")} className="shadow-2" />}
+            {summary.error && !s ? (
+              <div role="alert" className="flex items-center gap-3 rounded-card bg-surface p-3 pl-4 shadow-2">
+                <p className="min-w-0 flex-1 text-sm text-ink">{t("error.loadTitle")}</p>
+                <Button variant="secondary" onClick={() => summary.reload()}>
+                  {t("common.retry")}
+                </Button>
+              </div>
+            ) : (
             <OnlineToggle online={online} loading={toggling || !s} onToggle={toggleOnline} hint={!s ? "" : !online ? t("home.offlineHint") : blocked ? t("home.blockedHint") : t("home.waiting")} />
+            )}
           </>
         )}
       </div>
@@ -211,7 +221,7 @@ function OnlineToggle({ online, loading, onToggle, hint }: { online: boolean; lo
   return (
     <div className="flex flex-col items-center gap-3">
       {hint && (
-        <p key={hint} className="animate-fade-in rounded-full bg-surface/90 px-4 py-2 text-sm text-ink shadow-1 backdrop-blur" role="status">
+        <p key={hint} className="animate-fade-in rounded-button bg-surface/90 px-4 py-2 text-sm text-ink shadow-1 backdrop-blur" role="status">
           {hint}
         </p>
       )}

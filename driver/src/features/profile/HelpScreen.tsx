@@ -169,7 +169,7 @@ function PrevRow({ r }: { r: HelpRequest }) {
         <p className="truncate text-base text-ink">{t(`help.topic.${r.topic}`)}</p>
         <p className="tabular text-sm text-muted">{relativeTime(r.createdAt, t)}</p>
       </div>
-      <span className={cn("inline-flex h-8 shrink-0 items-center rounded-full px-3 text-sm font-medium", r.status === "resolved" ? "bg-success/15 text-success" : "bg-warning/15 text-warning")}>
+      <span className={cn("inline-flex h-8 shrink-0 items-center rounded-button px-3 text-sm font-medium", r.status === "resolved" ? "bg-success/15 text-success" : "bg-warning/15 text-warning")}>
         {t(`help.status.${r.status}`)}
       </span>
     </li>

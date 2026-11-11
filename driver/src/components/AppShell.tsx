@@ -5,10 +5,13 @@ import { useSession } from "@/stores/sessionStore";
 import { useQuery } from "@/lib/useQuery";
 import { api } from "@/api/client";
 import { RouteFallback } from "./RouteFallback";
+import { ChunkBoundary } from "./ChunkBoundary";
+import { useT } from "@/lib/i18n/provider";
 
 /** Tab-bar layout for every signed-in screen. The tab bar stays on sub-pages. */
 export function AppShell() {
   const session = useSession((s) => s.session);
+  const { t } = useT();
   const location = useLocation();
   const summary = useQuery(() => api.getHomeSummary(), [location.pathname], { pollMs: 15000 });
 
@@ -21,10 +24,18 @@ export function AppShell() {
   const debtWarn = summary.data && summary.data.debt.level !== "ok";
   return (
     <div className="flex h-full flex-col">
+      <a
+        href="#app-main"
+        className="sr-only z-[70] rounded-button bg-yellow px-4 py-3 text-sm font-bold text-on-yellow focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+      >
+        {t("common.skip")}
+      </a>
       <main id="app-main" tabIndex={-1} className="relative min-h-0 flex-1 outline-none">
-        <Suspense fallback={<RouteFallback />}>
-          <Outlet />
-        </Suspense>
+        <ChunkBoundary key={location.pathname} title={t("error.loadTitle")} action={t("common.retry")}>
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
+        </ChunkBoundary>
       </main>
       <TabBar badge={{ "/wallet": !!debtWarn }} />
     </div>

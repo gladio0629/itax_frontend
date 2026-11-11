@@ -13,8 +13,8 @@ export function MiniRouteMap({ pickup, dropoff, label }: { pickup: Place; dropof
         <circle cx="44" cy="106" r="9" fill="var(--color-yellow)" stroke="var(--color-surface)" strokeWidth="3" />
         <circle cx="296" cy="40" r="9" fill="rgb(var(--color-text-rgb))" stroke="var(--color-surface)" strokeWidth="3" />
       </svg>
-      <span className="absolute bottom-3 left-3 rounded-full bg-surface/90 px-2.5 py-1 text-xs font-medium text-ink shadow-1">{pickup.city.name}</span>
-      <span className="absolute right-3 top-3 rounded-full bg-surface/90 px-2.5 py-1 text-xs font-medium text-ink shadow-1">{dropoff.city.name}</span>
+      <span className="absolute bottom-3 left-3 rounded-button bg-surface/90 px-2.5 py-1 text-xs font-medium text-ink shadow-1">{pickup.city.name}</span>
+      <span className="absolute right-3 top-3 rounded-button bg-surface/90 px-2.5 py-1 text-xs font-medium text-ink shadow-1">{dropoff.city.name}</span>
     </div>
   );
 }

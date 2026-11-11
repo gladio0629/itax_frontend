@@ -80,7 +80,7 @@ export const DriverMap = memo(function DriverMap({ online, label }: { online: bo
         <span
           key={i}
           aria-hidden="true"
-          className={cn("absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity duration-[400ms]", online ? "opacity-100" : "opacity-50")}
+          className={cn("absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity duration-[280ms]", online ? "opacity-100" : "opacity-50")}
           style={{ left: `${p.x}%`, top: `${p.y}%` }}
         >
           <span className="absolute inset-0 rounded-full bg-accent/30" />
@@ -91,7 +91,7 @@ export const DriverMap = memo(function DriverMap({ online, label }: { online: bo
       {/* Online wash + radar rings (opacity/transform only). */}
       <div
         aria-hidden="true"
-        className={cn("absolute inset-0 transition-opacity duration-[400ms]", online ? "opacity-100" : "opacity-0")}
+        className={cn("absolute inset-0 transition-opacity duration-[280ms]", online ? "opacity-100" : "opacity-0")}
         style={{ background: "radial-gradient(circle at 50% 46%, rgba(246,191,14,0.14), transparent 55%)" }}
       />
       {online &&

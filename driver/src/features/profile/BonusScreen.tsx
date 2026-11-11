@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/Skeleton";
 import { cn } from "@/lib/cn";
 
 const LEVEL_TONE: Record<BonusLevel["key"], string> = {
-  bronze: "bg-[#B06A33] text-white",
+  bronze: "bg-[#94531F] text-white",
   silver: "bg-[#AEB7C8] text-[#0e1630]",
   gold: "bg-yellow text-on-yellow",
 };
@@ -48,7 +48,7 @@ export default function BonusScreen() {
                     {b.active && <s className="ml-2 text-lg font-medium text-[#C3CCE4]">{b.baseCommissionPct}%</s>}
                   </p>
                 </div>
-                <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-bold", LEVEL_TONE[b.currentLevel.key])}>
+                <span className={cn("inline-flex h-9 items-center gap-1.5 rounded-button px-3 text-sm font-bold", LEVEL_TONE[b.currentLevel.key])}>
                   <Trophy className="h-4 w-4" />
                   {t(`bonus.level.${b.currentLevel.key}`)}
                 </span>
@@ -58,13 +58,13 @@ export default function BonusScreen() {
               <ProgressBar
                 className="mt-3 h-3 bg-white/15"
                 value={b.progressRatio}
-                milestones={b.levels.filter((l) => l.tripsRequired > 0 && l.tripsRequired < top.tripsRequired).map((l) => l.tripsRequired / top.tripsRequired)}
+                milestones={b.levels.filter((l) => l.position > 0 && l.position < 1).map((l) => l.position)}
                 label={t("bonus.progressLabel", { n: b.weekTrips, target: top.tripsRequired })}
               />
               {/* Milestone labels under the bar, positioned on the same scale. */}
               <div className="relative mt-2 h-10" aria-hidden="true">
                 {b.levels.map((l) => {
-                  const x = (l.tripsRequired / top.tripsRequired) * 100;
+                  const x = l.position * 100;
                   const reached = b.weekTrips >= l.tripsRequired;
                   return (
                     <span
@@ -126,7 +126,7 @@ export default function BonusScreen() {
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-base text-ink">{t(r.key as never)}</p>
                         {r.done ? (
-                          <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-success/15 px-2.5 text-sm font-medium text-success">
+                          <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-button bg-success/15 px-2.5 text-sm font-medium text-success">
                             <Check className="h-4 w-4" />
                             {t("bonus.ruleDone")}
                           </span>
@@ -134,7 +134,7 @@ export default function BonusScreen() {
                           <span className="tabular shrink-0 text-sm text-muted">{t("bonus.ruleProgress", { progress: r.progress, target: r.target })}</span>
                         )}
                       </div>
-                      {r.key === "bonus.rule.trips" && <ProgressBar className="mt-3" value={r.progress / r.target} label={t(r.key as never)} />}
+                      {r.key === "bonus.rule.trips" && <ProgressBar className="mt-3" value={r.ratio} label={t(r.key as never)} />}
                     </Card>
                   </li>
                 ))}

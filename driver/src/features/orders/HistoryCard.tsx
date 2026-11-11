@@ -39,7 +39,7 @@ export function HistoryCard({ item }: { item: HistoryItem }) {
           )}
         </p>
         {cancelled ? (
-          <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-danger/15 px-2.5 text-xs font-medium text-danger">{t("orders.cancelledBadge")}</span>
+          <span className="inline-flex h-7 shrink-0 items-center rounded-button bg-danger/15 px-2.5 text-xs font-medium text-danger">{t("orders.cancelledBadge")}</span>
         ) : (
           <p className="tabular shrink-0 text-xl font-bold text-gold">
             +{formatAmount(item.earnings)}

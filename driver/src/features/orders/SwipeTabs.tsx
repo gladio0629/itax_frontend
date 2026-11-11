@@ -56,7 +56,7 @@ export function SwipeTabs({ tabs, index, onIndexChange, label }: { tabs: Tab[]; 
             aria-controls={`panel-${t.id}`}
             tabIndex={i === index ? 0 : -1}
             onClick={() => onIndexChange(i)}
-            className={cn("h-12 text-base font-bold", i === index ? "text-ink" : "text-muted")}
+            className={cn("focus-inset h-12 text-base font-bold", i === index ? "text-ink" : "text-muted")}
           >
             {t.label}
           </button>
