@@ -19,10 +19,10 @@ const base =
 
 const variants: Record<Variant, string> = {
   // Brand yellow is the signature accent: every primary action, always with on-yellow text.
-  primary: "bg-brand-yellow text-on-yellow shadow-softer hover:bg-brand-yellow-hover",
+  primary: "bg-brand-yellow text-on-yellow hover:bg-brand-yellow-hover",
   secondary: "border border-border bg-card text-ink hover:bg-ink/[0.04]",
   ghost: "bg-transparent text-ink/80 hover:bg-ink/5",
-  danger: "bg-danger text-white shadow-softer hover:bg-danger/90",
+  danger: "bg-danger text-white hover:bg-danger/90",
 };
 
 const sizes: Record<Size, string> = {

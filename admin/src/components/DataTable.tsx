@@ -104,7 +104,7 @@ export function DataTable<T>({
         <EmptyState icon={emptyIcon ?? <Search />} title={emptyTitle} description={emptyDescription} />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-card border border-border bg-card shadow-softer">
+          <div className="overflow-x-auto rounded-card border border-border bg-card">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-ink/[0.02]">

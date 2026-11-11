@@ -6,9 +6,10 @@ type Props = HTMLAttributes<HTMLDivElement> & {
 };
 
 export function Card({ className, padded = true, ...rest }: Props) {
-  return <div className={cn("rounded-card border border-border bg-card shadow-softer", padded && "p-6", className)} {...rest} />;
+  return <div className={cn("rounded-card border border-border bg-card", padded && "p-6", className)} {...rest} />;
 }
 
+/** Resting surfaces use a hairline border, no shadow; elevation is reserved for floating layers. */
 /** Section heading inside a card: one size/weight everywhere. */
 export function CardTitle({ children, className }: { children: React.ReactNode; className?: string }) {
   return <h2 className={cn("text-sm font-semibold text-ink", className)}>{children}</h2>;

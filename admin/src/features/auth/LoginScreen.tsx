@@ -105,7 +105,7 @@ export function LoginScreen() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
-      <div className="w-full max-w-[420px] rounded-card bg-card p-8 shadow-softer">
+      <div className="w-full max-w-[420px] rounded-card border border-border bg-card p-8">
         <div className="mb-8 flex items-center gap-3">
           <Logo size={44} />
           <div>

@@ -7,14 +7,14 @@ type Props = {
   retrying?: boolean;
 };
 
-export function ErrorState({ message = "Ulanishda xatolik yuz berdi", onRetry, retrying }: Props) {
+export function ErrorState({ message = "Ulanish uzildi. Internetni tekshirib, qayta urinib ko'ring.", onRetry, retrying }: Props) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 px-8 py-16 text-center animate-fade-in">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-danger/10 text-danger">
+    <div role="alert" className="flex flex-col items-center justify-center gap-4 rounded-card border border-border bg-card px-8 py-16 text-center animate-fade-in">
+      <div className="flex h-16 w-16 items-center justify-center rounded-card bg-danger/10 text-danger" aria-hidden>
         <WifiOff className="h-7 w-7" />
       </div>
       <div className="space-y-1">
-        <p className="text-sm font-semibold text-ink">Nimadir xato ketdi</p>
+        <p className="text-sm font-semibold text-ink">Ma'lumotlarni yuklab bo'lmadi</p>
         <p className="text-sm text-ink/60">{message}</p>
       </div>
       <Button variant="secondary" size="sm" onClick={onRetry} loading={retrying}>

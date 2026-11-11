@@ -12,8 +12,8 @@ export function DemoBadge({ inline }: { inline?: boolean }) {
     <span
       className={
         inline
-          ? "rounded-full bg-ink/[0.06] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-ink/60"
-          : "pointer-events-none fixed right-4 top-4 z-40 rounded-full bg-ink/80 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-white"
+          ? "rounded-full bg-ink/[0.06] px-2 py-1 text-xs font-semibold text-ink/60"
+          : "pointer-events-none fixed right-4 top-4 z-40 rounded-full bg-ink/80 px-2 py-1 text-xs font-semibold text-white"
       }
     >
       Demo

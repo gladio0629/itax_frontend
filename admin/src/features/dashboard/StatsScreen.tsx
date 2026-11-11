@@ -56,8 +56,7 @@ export function StatsScreen() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-ink/60">Tanlangan davr bo'yicha asosiy ko'rsatkichlar</p>
+      <div className="flex items-center gap-4">
         <Segmented label="Davr" items={PERIODS} value={period} onChange={setPeriod} />
       </div>
 
