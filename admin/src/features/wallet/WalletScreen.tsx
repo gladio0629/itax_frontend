@@ -175,7 +175,7 @@ export function WalletScreen() {
           {proposals.map((p) => {
             const driver = drivers.find((d) => d.id === p.driverId);
             return (
-              <div key={p.id} className="rounded-card bg-ink/5 p-4">
+              <div key={p.id} className="rounded-card border border-warning/20 bg-warning/[0.04] p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <Badge tone="pending">Ikkinchi adminga yuborildi</Badge>
                   <span className="text-xs text-ink/50">{p.proposedByName}</span>

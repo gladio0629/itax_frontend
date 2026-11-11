@@ -15,13 +15,18 @@ type Props = {
 export function ConfirmDialog({ open, title, description, confirmLabel = "Tasdiqlash", tone = "danger", loading, onConfirm, onCancel }: Props) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 !m-0 flex items-center justify-center bg-ink/40 px-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 !m-0 flex items-center justify-center bg-ink/40 px-4 animate-fade-in">
       <div
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
         aria-describedby="confirm-desc"
-        onKeyDown={(e) => e.key === "Escape" && !loading && onCancel()}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return;
+          // Close only this dialog, not a drawer underneath it.
+          e.stopPropagation();
+          if (!loading) onCancel();
+        }}
         className="w-full max-w-sm rounded-sheet bg-card p-6 text-center shadow-2xl animate-scale-in"
       >
         <div

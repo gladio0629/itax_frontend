@@ -41,7 +41,7 @@ export function DemoControlPanel() {
   return (
     <div className="fixed bottom-4 left-3 z-50 flex flex-col items-start gap-3">
       {open && (
-        <div className="w-80 rounded-sheet bg-sidebar-bg p-5 text-white shadow-2xl animate-slide-up">
+        <div className="max-h-[calc(100vh-96px)] w-80 overflow-y-auto overscroll-contain rounded-sheet bg-sidebar-bg p-5 text-white shadow-2xl animate-slide-up">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold">Demo boshqaruv paneli</p>
             <button type="button" onClick={() => setOpen(false)} aria-label="Yopish" className="rounded-full p-1 hover:bg-white/10">

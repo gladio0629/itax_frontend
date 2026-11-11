@@ -128,7 +128,7 @@ export function StatsScreen() {
                     <XAxis dataKey="date" tick={{ fontSize: 12, fill: AXIS }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 12, fill: AXIS }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} cursor={CURSOR} />
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} formatter={(v: string) => <span style={{ color: "rgba(14,20,32,0.7)" }}>{v}</span>} />
                     <Line type="monotone" animationDuration={400} dataKey="passengers" name="Yo'lovchilar" stroke={NAVY} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                     <Line type="monotone" animationDuration={400} dataKey="drivers" name="Haydovchilar" stroke={YELLOW} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                   </LineChart>

@@ -19,7 +19,7 @@ export function SkeletonRow({ cols = 5 }: { cols?: number }) {
 export function SkeletonCard() {
   return (
     <div className="rounded-card border border-border bg-card p-6">
-      <Skeleton className="mb-3 h-3.5 w-1/2" />
+      <Skeleton className="mb-3 h-4 w-1/2" />
       <Skeleton className="h-7 w-2/3" />
     </div>
   );

@@ -77,8 +77,8 @@ export function Sidebar({ sections, badges }: { sections: Section[]; badges: Sec
                         <span
                           aria-hidden
                           className={cn(
-                            "tabular relative flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-yellow px-1 text-xs font-semibold text-on-yellow",
-                            "absolute right-1 top-0 xl:static"
+                            "tabular flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-yellow px-1 text-xs font-semibold text-on-yellow",
+                            "absolute right-0 top-0 xl:relative xl:right-auto xl:top-auto"
                           )}
                         >
                           {badge}

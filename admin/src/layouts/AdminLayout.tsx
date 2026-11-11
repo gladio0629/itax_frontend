@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
 import { Button } from "@/components/Button";
+import { ErrorState } from "@/components/ErrorState";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
@@ -28,7 +29,7 @@ export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
-  const { me } = usePermissions();
+  const { me, error: meError, loading: meLoading, retry } = usePermissions();
   const [badges, setBadges] = useState<SectionBadges>({});
 
   useEffect(() => {
@@ -59,7 +60,11 @@ export function AdminLayout() {
         <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto outline-none overscroll-contain px-6 py-6 xl:px-8 xl:py-8">
           {/* Content never stretches past 1280px on wide screens. */}
           <div className="mx-auto w-full max-w-[1280px]">
-            <Outlet />
+            {meError && !me ? (
+              <ErrorState message="Hisob ruxsatlarini yuklab bo'lmadi. Qayta urinib ko'ring." onRetry={retry} retrying={meLoading} />
+            ) : (
+              <Outlet />
+            )}
           </div>
         </main>
       </div>

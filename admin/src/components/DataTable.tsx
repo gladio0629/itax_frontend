@@ -117,7 +117,7 @@ export function DataTable<T>({
                         scope="col"
                         style={{ width: col.width }}
                         aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
-                        className={cn("h-11 whitespace-nowrap px-3 text-xs font-semibold text-ink/60 xl:px-4", col.align === "right" && "text-right")}
+                        className={cn("h-12 whitespace-nowrap px-3 text-xs font-semibold text-ink/60 xl:px-4", col.align === "right" && "text-right")}
                       >
                         {col.sortValue ? (
                           <button

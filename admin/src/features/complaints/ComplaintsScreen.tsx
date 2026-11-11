@@ -28,7 +28,7 @@ const STATUS_TONE: Record<ComplaintStatus, BadgeTone> = {
   open: "pending",
   reviewing: "accent",
   resolved: "success",
-  dismissed: "neutral",
+  dismissed: "danger",
 };
 const STATUS_LABEL: Record<ComplaintStatus, string> = {
   open: "Ochiq",

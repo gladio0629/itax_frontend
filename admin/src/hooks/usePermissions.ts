@@ -7,9 +7,10 @@ export function usePermissions() {
   const error = useMeStore((s) => s.error);
   const load = useMeStore((s) => s.load);
 
+  // Load once; after a failure wait for an explicit retry instead of looping.
   useEffect(() => {
-    if (!me && !loading) load();
-  }, [me, loading, load]);
+    if (!me && !loading && !error) load();
+  }, [me, loading, error, load]);
 
-  return { me, loading, error };
+  return { me, loading, error, retry: load };
 }

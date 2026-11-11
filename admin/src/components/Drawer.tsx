@@ -26,7 +26,8 @@ export function Drawer({
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
-    panel.current?.focus();
+    // Respect autoFocus inside the drawer; otherwise move focus to the panel.
+    if (!panel.current?.contains(document.activeElement)) panel.current?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") close.current();
     }
