@@ -4,8 +4,8 @@ import { AppShell } from "@/components/AppShell";
 
 // Every screen is its own lazy chunk.
 const HomeScreen = lazy(() => import("@/features/home/HomeScreen"));
-const OrdersScreen = lazy(() => import("@/features/orders/OrdersScreen"));
-const TripDetailScreen = lazy(() => import("@/features/orders/TripDetailScreen"));
+const HistoryScreen = lazy(() => import("@/features/history/HistoryScreen"));
+const TripDetailScreen = lazy(() => import("@/features/history/TripDetailScreen"));
 const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen"));
 const TopupScreen = lazy(() => import("@/features/wallet/TopupScreen"));
 const CardsScreen = lazy(() => import("@/features/wallet/CardsScreen"));
@@ -27,8 +27,10 @@ export function AppRoutes() {
       <Route path="/demo" element={<DemoScreen />} />
       <Route element={<AppShell />}>
         <Route path="/" element={<HomeScreen />} />
-        <Route path="/orders" element={<OrdersScreen />} />
-        <Route path="/orders/:tripId" element={<TripDetailScreen />} />
+        <Route path="/history" element={<HistoryScreen />} />
+        <Route path="/history/:tripId" element={<TripDetailScreen />} />
+        {/* Old "Buyurtmalar" links. */}
+        <Route path="/orders/*" element={<Navigate to="/history" replace />} />
         <Route path="/wallet" element={<WalletScreen />} />
         <Route path="/wallet/topup" element={<TopupScreen />} />
         <Route path="/wallet/cards" element={<CardsScreen />} />

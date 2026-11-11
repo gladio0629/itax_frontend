@@ -25,7 +25,7 @@ export default function TripDetailScreen() {
 
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader title={t("detail.title")} back="/orders?tab=history" />
+      <ScreenHeader title={t("detail.title")} back="/history" />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
         {notFound ? (
           <EmptyState icon={SearchX} title={t("detail.notFound")} />

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { HistoryFilter, HistoryRange } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { formatShort } from "@/lib/format";
-import { Car, Search, SearchX, SlidersHorizontal, X } from "@/lib/icons";
+import { Search, SearchX, SlidersHorizontal, X } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
@@ -13,73 +13,18 @@ import { SkeletonList } from "@/components/Skeleton";
 import { Button } from "@/components/Button";
 import { Chip } from "@/components/Chip";
 import { Sheet } from "@/components/Sheet";
-import { ActiveTripCard } from "@/features/home/ActiveTripCard";
-import { TripSummaryCard } from "@/features/home/TripSummaryCard";
-import { CancelSheet } from "@/features/home/CancelSheet";
-import { useTripController } from "@/features/home/useTripController";
-import { SwipeTabs } from "./SwipeTabs";
 import { HistoryCard } from "./HistoryCard";
 
 const DEFAULT_FILTER: HistoryFilter = { range: "all", minEarnings: 0, city: "" };
 
-export default function OrdersScreen() {
+export default function HistoryScreen() {
   const { t } = useT();
-  const [params, setParams] = useSearchParams();
-  const index = params.get("tab") === "history" ? 1 : 0;
-  const setIndex = (i: number) => setParams(i === 1 ? { tab: "history" } : {}, { replace: true });
-
   return (
     <div className="flex h-full flex-col">
       <ScreenHeader title={t("orders.title")} />
-      <SwipeTabs
-        label={t("orders.tabsLabel")}
-        index={index}
-        onIndexChange={setIndex}
-        tabs={[
-          { id: "active", label: t("orders.tabActive"), content: <ActivePanel /> },
-          { id: "history", label: t("orders.tabHistory"), content: <HistoryPanel /> },
-        ]}
-      />
-    </div>
-  );
-}
-
-function ActivePanel() {
-  const { t } = useT();
-  const navigate = useNavigate();
-  const tc = useTripController();
-  const [cancelOpen, setCancelOpen] = useState(false);
-
-  return (
-    <div className="px-4 pb-6 pt-4">
-      {tc.summary ? (
-        <TripSummaryCard summary={tc.summary} onDismiss={tc.dismissSummary} />
-      ) : tc.error && !tc.trip ? (
-        <ErrorState error={tc.error} onRetry={() => tc.reload()} />
-      ) : tc.loading ? (
-        <SkeletonList rows={2} label={t("common.loading")} />
-      ) : tc.trip ? (
-        <ActiveTripCard trip={tc.trip} confirming={tc.confirming} onAction={tc.advance} onCancel={() => setCancelOpen(true)} className="shadow-1" />
-      ) : (
-        <EmptyState
-          icon={Car}
-          title={t("orders.emptyActiveTitle")}
-          description={t("orders.emptyActiveDesc")}
-          action={
-            <Button fullWidth onClick={() => navigate("/")}>
-              {t("orders.goHome")}
-            </Button>
-          }
-        />
-      )}
-      <CancelSheet
-        open={cancelOpen}
-        busy={tc.cancelBusy}
-        onClose={() => setCancelOpen(false)}
-        onConfirm={async (reason) => {
-          if (await tc.cancel(reason)) setCancelOpen(false);
-        }}
-      />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <HistoryPanel />
+      </div>
     </div>
   );
 }
@@ -97,7 +42,7 @@ function useHistoryFilter(): [HistoryFilter, (next: HistoryFilter | ((f: History
   };
   const set = (next: HistoryFilter | ((f: HistoryFilter) => HistoryFilter)) => {
     const f = typeof next === "function" ? next(filter) : next;
-    const p: Record<string, string> = { tab: "history" };
+    const p: Record<string, string> = {};
     if (f.range !== "all") p.range = f.range;
     if (f.minEarnings) p.min = String(f.minEarnings);
     if (f.city) p.city = f.city;
@@ -118,7 +63,7 @@ function HistoryPanel() {
   const dirty = activeFilters > 0 || filter.city !== "";
 
   return (
-    <div className="px-4 pb-6 pt-4">
+    <div className="px-4 pb-6 pt-2">
       <div className="flex gap-2">
         <form
           role="search"

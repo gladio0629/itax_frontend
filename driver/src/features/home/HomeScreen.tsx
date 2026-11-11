@@ -4,10 +4,8 @@ import { api } from "@/api/client";
 import type { Offer } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
-import { useCountUp } from "@/lib/useCountUp";
 import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
-import { formatAmount } from "@/lib/format";
 import { Bell, Power } from "@/lib/icons";
 import { DebtBanner } from "@/features/wallet/DebtBanner";
 import { Avatar } from "@/components/Avatar";
@@ -41,7 +39,6 @@ export default function HomeScreen() {
   const online = !!s?.online;
   const blocked = s ? !s.canAcceptOrders : false;
   const busyWithTrip = !!tc.trip || !!tc.summary;
-  const earnings = useCountUp(s?.todayEarnings);
 
   // Poll for an incoming order only while online and free.
   const pollOffers = online && !busyWithTrip && !offer && !blocked;
@@ -111,8 +108,6 @@ export default function HomeScreen() {
     toast(t("offer.expired"));
   }
 
-  const showEarnings = !offer && !tc.trip && !tc.summary;
-
   return (
     <div className="relative h-full overflow-hidden">
       <h1 className="sr-only">{t("home.title")}</h1>
@@ -145,35 +140,6 @@ export default function HomeScreen() {
               {s.unreadNotifications}
             </span>
           )}
-        </button>
-      </div>
-
-      {/* Earnings — the glance number */}
-      <div
-        className={cn(
-          "absolute inset-x-0 z-10 flex justify-center px-4 transition-[opacity,transform] duration-[280ms]",
-          showEarnings ? "opacity-100" : "pointer-events-none -translate-y-2 opacity-0"
-        )}
-        style={{ top: "calc(var(--safe-top) + 76px)" }}
-        aria-hidden={!showEarnings}
-      >
-        <button
-          type="button"
-          tabIndex={showEarnings ? 0 : -1}
-          onClick={() => navigate("/wallet")}
-          aria-label={`${t("home.todayEarnings")}: ${formatAmount(s?.todayEarnings ?? 0)} ${t("common.som")}. ${t("home.openWallet")}`}
-          className="press min-w-[220px] rounded-card bg-surface/95 px-6 py-4 text-center shadow-2 backdrop-blur"
-        >
-          <p className="text-sm text-muted">{t("home.todayEarnings")}</p>
-          {s ? (
-            <p className="tabular mt-1 text-4xl font-bold text-gold">
-              {formatAmount(earnings)}
-              <span className="ml-1.5 text-base font-medium text-muted">{t("common.som")}</span>
-            </p>
-          ) : (
-            <Skeleton className="mx-auto mt-2 h-10 w-40" />
-          )}
-          <p className="tabular mt-1 text-sm text-muted">{t("home.tripsCount", { n: s?.todayTrips ?? 0 })}</p>
         </button>
       </div>
 

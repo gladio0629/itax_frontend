@@ -11,7 +11,7 @@ export function HistoryCard({ item }: { item: HistoryItem }) {
   const cancelled = item.status === "cancelled";
   return (
     <Link
-      to={`/orders/${item.id}`}
+      to={`/history/${item.id}`}
       aria-label={t("orders.openDetail", { from: item.from.name, to: item.to.name, amount: `${formatAmount(item.earnings)} ${t("common.som")}` })}
       className="press block rounded-card bg-surface p-4 shadow-1"
     >

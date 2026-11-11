@@ -1,12 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Home, ListChecks, User, Wallet } from "@/lib/icons";
+import { History, Home, User, Wallet } from "@/lib/icons";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/cn";
 
 const TABS = [
   { to: "/", key: "tab.home", icon: Home, end: true },
-  { to: "/orders", key: "tab.orders", icon: ListChecks, end: false },
   { to: "/wallet", key: "tab.wallet", icon: Wallet, end: false },
+  { to: "/history", key: "tab.history", icon: History, end: false },
   { to: "/profile", key: "tab.profile", icon: User, end: false },
 ] as const;
 

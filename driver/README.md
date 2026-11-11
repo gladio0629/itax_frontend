@@ -12,7 +12,7 @@ npm run check:no-network
 
 ## Structure
 
-- Bottom tabs: **Asosiy** (map cockpit), **Buyurtmalar** (Faol / Tarix), **Hamyon**, **Profil**.
+- Bottom tabs: **Asosiy** (map cockpit, active order), **Hamyon** (Bugungi daromad, balance, ledger), **Tarix** (past trips), **Profil**.
 - `src/api/adapterTypes.ts` is the whole contract between screens and the backend. Screens
   render what the adapter returns and send requests; commission, debt limit and level, offer
   timing, trip stages, bonus levels, filtering and pagination are all computed in

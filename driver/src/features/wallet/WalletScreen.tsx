@@ -8,7 +8,7 @@ import { formatAmount } from "@/lib/format";
 import { relativeTime } from "@/lib/relative";
 import { ArrowDownLeft, ArrowUpRight, Banknote, Car, ChevronRight, CreditCard, Gift, Percent, Plus, Receipt, Wallet } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
-import { Card, SectionLabel } from "@/components/Card";
+import { SectionLabel } from "@/components/Card";
 import { Skeleton, SkeletonList } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { EmptyState } from "@/components/EmptyState";
@@ -29,6 +29,7 @@ export default function WalletScreen() {
   const wallet = useQuery(() => api.getWallet(), []);
   const w = wallet.data;
   const balance = useCountUp(w?.balance);
+  const todayEarnings = useCountUp(w?.today.earnings);
 
   return (
     <div className="flex h-full flex-col">
@@ -43,12 +44,33 @@ export default function WalletScreen() {
           <ErrorState error={wallet.error} onRetry={() => wallet.reload()} />
         ) : !w ? (
           <div className="space-y-4" role="status" aria-label={t("common.loading")}>
+            <Skeleton className="h-36 rounded-card" />
             <Skeleton className="h-52 rounded-card" />
-            <Skeleton className="h-24 rounded-card" />
             <Skeleton className="h-16 rounded-card" />
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Bugungi daromad — the glance number, first thing on Hamyon. */}
+            <section aria-labelledby="today-h" className="rounded-card bg-surface p-5 shadow-1">
+              <p id="today-h" className="text-sm text-muted">{t("wallet.today")}</p>
+              <p className="tabular mt-1 text-4xl font-bold text-gold">
+                {formatAmount(todayEarnings)}
+                <span className="ml-1.5 text-base font-medium text-muted">{t("common.som")}</span>
+              </p>
+              <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
+                <div>
+                  <dt className="text-sm text-muted">{t("wallet.trips")}</dt>
+                  <dd className="tabular text-lg font-bold text-ink">{w.today.trips}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted">{t("wallet.avg")}</dt>
+                  <dd className="text-lg font-bold text-ink">
+                    <Money value={w.today.avgPerTrip} />
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
             {/* Hero — always a navy card, in both themes, so yellow text stays AA. */}
             <section
               aria-label={t("wallet.balance")}
@@ -76,23 +98,6 @@ export default function WalletScreen() {
                 {t("wallet.topup")}
               </Button>
             </section>
-
-            <Card className="p-4">
-              <p className="text-sm text-muted">{t("wallet.today")}</p>
-              <Money value={w.today.earnings} className="mt-1 block text-3xl font-bold text-gold" />
-              <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-line pt-3">
-                <div>
-                  <dt className="text-sm text-muted">{t("wallet.trips")}</dt>
-                  <dd className="tabular text-lg font-bold text-ink">{w.today.trips}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted">{t("wallet.avg")}</dt>
-                  <dd className="text-lg font-bold text-ink">
-                    <Money value={w.today.avgPerTrip} />
-                  </dd>
-                </div>
-              </dl>
-            </Card>
 
             <Link to="/profile/bonus" className="press flex items-center gap-3 rounded-card bg-surface p-4 shadow-1" aria-label={`${t("wallet.commission", { pct: w.commission.pct })}. ${t("wallet.openBonus")}`}>
               <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-button", TILE.yellow)}>
