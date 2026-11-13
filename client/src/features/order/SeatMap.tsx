@@ -1,4 +1,5 @@
-import { useEffect, useId } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
+import carTopUrl from "@/assets/car-top.webp";
 import { Check, Lock } from "@/lib/icons";
 import type { OrderMode, Seat, SeatPosition } from "@/api/types";
 import { formatSom } from "@/lib/format";
@@ -39,13 +40,32 @@ const COUNT_KEY: Record<1 | 2 | 3, TranslationKey> = {
 };
 type Choice = 1 | 2 | 3 | "car";
 
-function boxStyle({ x, y, w, h }: Box) {
+// Photo car (src/assets/car-top.webp, 639×1213, cropped from brand/car-top.png).
+// Boxes are in the photo's own pixels, measured on the image. `seat` traces
+// the seat as drawn (highlight goes exactly there); `hit` is the tap area.
+// The rear bench is split into even thirds for tapping, because its middle
+// cushion is only about half as wide as the outer two.
+const PHOTO_W = 639;
+const PHOTO_H = 1213;
+const PHOTO_SPOT: Record<SeatPosition, { hit: Box; seat: Box }> = {
+  front: { hit: { x: 352, y: 414, w: 150, h: 200 }, seat: { x: 360, y: 424, w: 133, h: 180 } },
+  "back-left": { hit: { x: 141, y: 680, w: 119, h: 234 }, seat: { x: 147, y: 689, w: 136, h: 215 } },
+  "back-mid": { hit: { x: 264, y: 680, w: 111, h: 234 }, seat: { x: 285, y: 689, w: 68, h: 215 } },
+  "back-right": { hit: { x: 379, y: 680, w: 119, h: 234 }, seat: { x: 355, y: 689, w: 138, h: 215 } },
+};
+
+function boxStyle({ x, y, w, h }: Box, planeW = PLANE_W, planeH = PLANE_H) {
   return {
-    left: `${(x / PLANE_W) * 100}%`,
-    top: `${(y / PLANE_H) * 100}%`,
-    width: `${(w / PLANE_W) * 100}%`,
-    height: `${(h / PLANE_H) * 100}%`,
+    left: `${(x / planeW) * 100}%`,
+    top: `${(y / planeH) * 100}%`,
+    width: `${(w / planeW) * 100}%`,
+    height: `${(h / planeH) * 100}%`,
   };
+}
+
+/** `inner` positioned relative to `outer`, both in the same pixel space. */
+function innerStyle(inner: Box, outer: Box) {
+  return boxStyle({ x: inner.x - outer.x, y: inner.y - outer.y, w: inner.w, h: inner.h }, outer.w, outer.h);
 }
 
 function CarBody() {
@@ -172,7 +192,8 @@ export function seatCountLabel(t: (key: TranslationKey, params?: Record<string, 
 }
 
 /**
- * Premium top-down 3D sedan on a road, roof open so the salon shows: the
+ * Premium top-down car on a road (the photo render, or the inline SVG car if
+ * the photo can't load), roof open so the salon shows: the
  * driver's seat (steering wheel, never selectable), the front passenger seat
  * and the three rear seats. Four chips above the car — 1, 2, 3 kishi and
  * Butun mashina — and the seats themselves are two views of one selection:
@@ -242,6 +263,36 @@ export function SeatMap({
   const active: Choice | null = wholeCar ? "car" : seatIds.length >= 1 && seatIds.length <= 3 ? (seatIds.length as 1 | 2 | 3) : null;
   const choices: Choice[] = [1, 2, 3, "car"];
 
+  // The photo car is the default; if it fails to load or decode, fall back
+  // to the inline SVG car, which needs no network or decoder.
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const photoRef = useCallback((img: HTMLImageElement | null) => {
+    // Covers an error that fired before React attached onError.
+    if (img?.complete && img.naturalWidth === 0) setPhotoFailed(true);
+  }, []);
+  const usePhoto = !photoFailed;
+
+  function seatView(position: SeatPosition) {
+    const seat = byId[position];
+    const isSelected = seatIds.includes(position);
+    const taken = !!seat?.taken && !isSelected;
+    const state: SeatState = taken ? "taken" : wholeCar ? "whole" : isSelected ? "selected" : "free";
+    const label = [t(SEAT_LABEL_KEY[position]), seat?.price != null ? formatSom(seat.price, intlTag) : null, taken ? t("seat.taken") : null]
+      .filter(Boolean)
+      .join(", ");
+    return {
+      state,
+      buttonProps: {
+        type: "button" as const,
+        "data-state": state,
+        disabled: taken,
+        "aria-pressed": wholeCar || isSelected,
+        "aria-label": label,
+        onClick: () => toggleSeat(position),
+      },
+    };
+  }
+
   const summary = wholeCar
     ? t("seat.wholeCarHint")
     : seatIds.length === 0
@@ -282,49 +333,64 @@ export function SeatMap({
             </button>
           </p>
         )}
-        <div className="seat3d-stage">
+        <div className="seat3d-stage" data-car={usePhoto ? "photo" : "svg"}>
           <div className="seat3d-road" aria-hidden="true">
             <span className="seat3d-lane seat3d-lane--left" />
             <span className="seat3d-lane seat3d-lane--right" />
           </div>
           <div className="seat3d-ground" aria-hidden="true" />
           <div className="seat3d-float">
-            <div className="seat3d-plane">
-              <CarBody />
-              <span className="seat3d" data-state="driver" style={boxStyle(DRIVER_BOX)} aria-hidden="true">
-                <SeatShape state="driver">
-                  <SteeringWheel />
-                </SeatShape>
-              </span>
-              {ORDER.map((position) => {
-                const seat = byId[position];
-                const isSelected = seatIds.includes(position);
-                const taken = !!seat?.taken && !isSelected;
-                const state: SeatState = taken ? "taken" : wholeCar ? "whole" : isSelected ? "selected" : "free";
-                const label = [
-                  t(SEAT_LABEL_KEY[position]),
-                  seat?.price != null ? formatSom(seat.price, intlTag) : null,
-                  taken ? t("seat.taken") : null,
-                ]
-                  .filter(Boolean)
-                  .join(", ");
-                return (
-                  <button
-                    key={position}
-                    type="button"
-                    className="seat3d"
-                    data-state={state}
-                    style={boxStyle(SEAT_BOX[position])}
-                    disabled={taken}
-                    aria-pressed={wholeCar || isSelected}
-                    aria-label={label}
-                    onClick={() => toggleSeat(position)}
-                  >
-                    <SeatShape state={state} />
-                  </button>
-                );
-              })}
-            </div>
+            {usePhoto ? (
+              <div className="seat3d-plane seat3d-plane--photo">
+                <img
+                  ref={photoRef}
+                  src={carTopUrl}
+                  alt=""
+                  width={PHOTO_W}
+                  height={PHOTO_H}
+                  decoding="async"
+                  draggable={false}
+                  className="seat3d-photo"
+                  onError={() => setPhotoFailed(true)}
+                />
+                {ORDER.map((position) => {
+                  const { hit, seat } = PHOTO_SPOT[position];
+                  const { state, buttonProps } = seatView(position);
+                  return (
+                    <button key={position} {...buttonProps} className="seatspot" style={boxStyle(hit, PHOTO_W, PHOTO_H)}>
+                      <span className="seatspot-mark" style={innerStyle(seat, hit)} aria-hidden="true">
+                        {state === "selected" || state === "whole" ? (
+                          <span className="seatspot-badge">
+                            <Check className="seatspot-icon" strokeWidth={3.2} />
+                          </span>
+                        ) : state === "taken" ? (
+                          <span className="seatspot-badge">
+                            <Lock className="seatspot-icon" strokeWidth={2.6} />
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="seat3d-plane">
+                <CarBody />
+                <span className="seat3d" data-state="driver" style={boxStyle(DRIVER_BOX)} aria-hidden="true">
+                  <SeatShape state="driver">
+                    <SteeringWheel />
+                  </SeatShape>
+                </span>
+                {ORDER.map((position) => {
+                  const { state, buttonProps } = seatView(position);
+                  return (
+                    <button key={position} {...buttonProps} className="seat3d" style={boxStyle(SEAT_BOX[position])}>
+                      <SeatShape state={state} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
         <div className="border-t border-border bg-card px-4 py-2.5 text-center">
