@@ -5,13 +5,14 @@ import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
 import {
   BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_COLORS, CAR_MODELS, DEBT_LIMIT, DEBT_NEAR_RATIO, OFFER_COUNTDOWN_SEC,
-  appendLedger, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
-  replaceState, state, weekTrips, type DriverState, type LiveTrip, type OfferRecord, type TripRecord,
+  appendLedger, carClassFor, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
+  replaceState, state, weekTrips, type DetailsRecord, type DriverState, type LiveTrip, type OfferRecord,
+  type StopRecord, type TripRecord,
 } from "@/mockDb/driverDb";
 import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
-  ActiveTrip, BonusInfo, DebtState, DriverProfile, HistoryItem, HistoryPage, HomeSummary, LedgerPage, Offer,
+  ActiveTrip, BonusInfo, DebtState, DemoOrderVariant, OfferPlace, OrderExtras, OrderOption, Place, TripPlace, DriverProfile, HistoryItem, HistoryPage, HomeSummary, LedgerPage, Offer,
   PassengerInfo, ReviewKind, ReviewRequest, TopupOptions, TripDetail, TripStage, TripStep, TripSummary, WalletSummary,
 } from "../types";
 
@@ -30,6 +31,14 @@ const ADDR: Record<string, string[]> = {
   nks: ["Doslik guzari, 6", "Berdaq ko'chasi, 19"],
   xva: ["Ichan qal'a darvozasi", "Xiva avtovokzali"],
 };
+
+// Passenger comments are their own words, so they stay untranslated.
+const COMMENTS = [
+  "Darvoza oldida kutib turing, iltimos.",
+  "Yo'lda dorixonaga 5 daqiqaga to'xtaymiz.",
+  "Konditsionerni yoqib qo'ying, iltimos.",
+  "Telefonim o'chib qolishi mumkin, podyezd oldida turaman.",
+];
 
 const rand = makeRng(Date.now() % 1_000_000);
 
@@ -78,11 +87,35 @@ function passengerInfo(id: string): PassengerInfo {
   return { name: p.name, rating: p.rating, phoneMasked: `+998 ** *** ** ${tail}`, avatarSeed: p.avatarSeed };
 }
 
+/** Before acceptance the intercom code is withheld — only its existence is shown. */
+function offerPlace(cityId: string, address: string, d?: DetailsRecord): OfferPlace {
+  if (!d) return { city: cityRef(cityId), address };
+  const { intercom, ...rest } = d;
+  return { city: cityRef(cityId), address, details: { ...rest, intercomOnAccept: intercom ? true : undefined } };
+}
+
+function tripPlace(cityId: string, address: string, d?: DetailsRecord): TripPlace {
+  return d ? { city: cityRef(cityId), address, details: { ...d } } : { city: cityRef(cityId), address };
+}
+
+function extras<P extends Place>(o: OfferRecord, place: (cityId: string, address: string, d?: DetailsRecord) => P): OrderExtras<P> {
+  return {
+    carClass: o.carClass,
+    stops: o.stops.map((st) => place(st.cityId, st.address, st.details)),
+    comment: o.comment,
+    options: o.options.map((x) => ({ ...x })),
+    luggageCount: o.luggageCount,
+    forOther: o.forOtherName ? { name: o.forOtherName } : null,
+    contactMode: o.options.some((x) => x.kind === "text_only") ? "text" : "call",
+  };
+}
+
 function toOffer(o: OfferRecord): Offer {
   return {
+    ...extras(o, offerPlace),
     id: o.id,
-    pickup: { city: cityRef(o.fromCityId), address: o.pickupAddr },
-    dropoff: { city: cityRef(o.toCityId), address: o.dropoffAddr },
+    pickup: offerPlace(o.fromCityId, o.pickupAddr, o.pickupDetails),
+    dropoff: offerPlace(o.toCityId, o.dropoffAddr, o.dropoffDetails),
     distanceKm: o.distanceKm,
     durationMin: o.durationMin,
     pickupEtaMin: o.pickupEtaMin,
@@ -120,14 +153,15 @@ function toActiveTrip(t: LiveTrip): ActiveTrip {
     remainingMin = Math.max(1, Math.round(t.durationMin * (1 - frac)));
   }
   return {
+    ...extras(t, tripPlace),
     id: t.id,
     stage: t.stage,
     steps: steps(t.stage),
     nextAction: t.stage === "to_pickup" ? "arrived" : t.stage === "waiting" ? "start" : "finish",
     pendingReviewId: t.pendingReviewId,
     passenger: passengerInfo(t.passengerId),
-    pickup: { city: cityRef(t.fromCityId), address: t.pickupAddr },
-    dropoff: { city: cityRef(t.toCityId), address: t.dropoffAddr },
+    pickup: tripPlace(t.fromCityId, t.pickupAddr, t.pickupDetails),
+    dropoff: tripPlace(t.toCityId, t.dropoffAddr, t.dropoffDetails),
     remainingKm,
     remainingMin,
     price: t.price,
@@ -167,33 +201,69 @@ function inRange(ts: number, range: "all" | "today" | "week" | "month") {
   return true;
 }
 
-function makeOffer(s: DriverState): OfferRecord {
+function flatDetails(withIntercom: boolean): DetailsRecord {
+  const apartment = String(rand.int(4, 96));
+  return {
+    entrance: String(rand.int(1, 6)),
+    floor: String(rand.int(1, 9)),
+    apartment,
+    intercom: withIntercom ? `${apartment}#${rand.int(1000, 9999)}` : undefined,
+  };
+}
+
+/** Passenger-order extras. "full" turns every detail on for the demo. */
+function passengerExtras(full: boolean, toCityId: string, dropoffAddr: string, passengerId: string) {
+  const stopAddr = (ADDR[toCityId] ?? []).filter((a) => a !== dropoffAddr);
+  const stops: StopRecord[] = (full || rand.bool(0.25)) && stopAddr.length ? [{ cityId: toCityId, address: rand.pick(stopAddr) }] : [];
+  const options: OrderOption[] = [];
+  if (full || rand.bool(0.15)) options.push({ kind: "child_seat", ageGroup: full ? "toddler" : rand.pick(["infant", "toddler", "booster"] as const) });
+  if (full || rand.bool(0.1)) options.push({ kind: "pet" });
+  if (full || rand.bool(0.2)) options.push({ kind: "big_luggage" });
+  if (full || rand.bool(0.05)) options.push({ kind: "wheelchair" });
+  if (full || rand.bool(0.08)) options.push({ kind: "text_only" });
+  const others = passengers.filter((p) => p.id !== passengerId);
+  return {
+    pickupDetails: full || rand.bool(0.6) ? flatDetails(full || rand.bool(0.7)) : undefined,
+    stops,
+    comment: full ? "Bolam bilan chiqaman, 5 daqiqa kutib turing, iltimos." : rand.bool(0.4) ? rand.pick(COMMENTS) : null,
+    options,
+    luggageCount: full ? 2 : rand.int(0, 3),
+    forOtherName: full || rand.bool(0.15) ? rand.pick(others).name : null,
+  };
+}
+
+function makeOffer(s: DriverState, variant: DemoOrderVariant = "random"): OfferRecord {
   const from = s.profile.cityId;
   const to = rand.pick(CITIES.filter((c) => c.id !== from && ["smq", "bxr", "and", "nmn", "frg", "qrs"].includes(c.id)));
   const distanceKm = roadDistanceKm(from, to.id);
-  const kind = rand.bool(0.25) ? "delivery" : "passengers";
-  const n = kind === "passengers" ? rand.int(1, 3) : undefined;
+  const kind = variant === "full" ? "passengers" : variant === "cargo" || rand.bool(0.25) ? "delivery" : "passengers";
+  const n = kind === "passengers" ? (variant === "full" ? 3 : rand.int(1, 3)) : undefined;
   const price = computePrice(distanceKm, kind === "delivery" ? "car" : "seat", ["front", "back-left", "back-mid"].slice(0, n ?? 1));
   const now = Date.now();
-  return {
+  const passengerId = rand.pick(passengers).id;
+  const dropoffAddr = rand.pick(ADDR[to.id] ?? ["Markaz"]);
+  const base = {
     id: genId("ofr"),
     fromCityId: from,
     toCityId: to.id,
     pickupAddr: rand.pick(ADDR[from] ?? ["Markaz"]),
-    dropoffAddr: rand.pick(ADDR[to.id] ?? ["Markaz"]),
+    dropoffAddr,
+    carClass: carClassFor(s.profile.car.model),
     distanceKm,
     durationMin: Math.round((distanceKm / 75) * 60),
     pickupEtaMin: rand.int(3, 9),
     price,
     priceMax: Math.round((price * 1.15) / 1000) * 1000,
-    passengerId: rand.pick(passengers).id,
+    passengerId,
     kind,
     passengers: n,
     cargo: kind === "delivery" ? rand.pick([{ labelKey: "cargo.box", weightKg: 8 }, { labelKey: "cargo.documents", weightKg: 1 }, { labelKey: "cargo.bags", weightKg: 15 }]) : undefined,
     payment: rand.bool(0.6) ? "cash" : "card",
     createdAt: now,
     expiresAt: now + OFFER_COUNTDOWN_SEC * 1000,
-  };
+  } satisfies Partial<OfferRecord>;
+  if (kind === "passengers") return { ...base, ...passengerExtras(variant === "full", to.id, dropoffAddr, passengerId) };
+  return { ...base, stops: [], comment: null, options: [], luggageCount: 0, forOtherName: null };
 }
 
 function scheduleNextOffer(s: DriverState, minMs = 6000, maxMs = 11000) {
@@ -737,22 +807,22 @@ export const mockAdapter: ApiAdapter = {
       replaceState(presetState(preset));
     }, { noFail: true, minMs: 100, maxMs: 200 }),
 
-  demoTriggerOffer: () =>
+  demoTriggerOffer: (variant = "random") =>
     withLatency(() => {
       const s = state();
       requireActive(s);
       if (s.trip) throw new ApiError("TRIP_ACTIVE");
       s.online = true;
-      s.offer = makeOffer(s);
+      s.offer = makeOffer(s, variant);
       s.nextOfferAt = null;
       persist();
     }, { noFail: true, minMs: 80, maxMs: 120 }),
 
-  demoTripAtStage: (stage) =>
+  demoTripAtStage: (stage, variant = "random") =>
     withLatency(() => {
       const s = state();
       requireActive(s);
-      const o = makeOffer(s);
+      const o = makeOffer(s, variant);
       const now = Date.now();
       const timeline: LiveTrip["timeline"] = [{ stage: "accepted", at: now - 9 * 60_000 }];
       if (stage !== "to_pickup") timeline.push({ stage: "arrived", at: now - 3 * 60_000 });

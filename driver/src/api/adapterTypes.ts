@@ -1,5 +1,5 @@
 import type {
-  ActiveTrip, BonusInfo, CancelReason, DemoPreset, DriverProfile, HelpRequest, HelpTopic, HistoryFilter,
+  ActiveTrip, BonusInfo, CancelReason, DemoOrderVariant, DemoPreset, DriverProfile, HelpRequest, HelpTopic, HistoryFilter,
   HistoryPage, HomeSummary, LedgerPage, LedgerQuery, NotificationItem, NotificationPrefs, Offer, PayProvider,
   RegistrationOptions, ReviewRequest, Session, TopupOptions, TripDetail, TripStage, TripSummary, WalletSummary,
   Car,
@@ -63,8 +63,8 @@ export interface ApiAdapter {
 
   // Demo controls (mock only — the http adapter rejects them)
   demoApplyPreset(preset: DemoPreset): Promise<void>;
-  demoTriggerOffer(): Promise<void>;
-  demoTripAtStage(stage: Exclude<TripStage, "completed">): Promise<void>;
+  demoTriggerOffer(variant?: DemoOrderVariant): Promise<void>;
+  demoTripAtStage(stage: Exclude<TripStage, "completed">, variant?: DemoOrderVariant): Promise<void>;
 }
 
 export type { Car };

@@ -8,6 +8,42 @@ export type PaymentType = "cash" | "card";
 export type OrderKind = "passengers" | "delivery";
 export type Cargo = { labelKey: string; weightKg: number };
 
+/** Class the order was placed in (matches the driver's car class). */
+export type CarClass = "economy" | "comfort" | "business";
+/** Child-seat age groups: 0–1, 1–4, 4–12 years. */
+export type ChildSeatAge = "infant" | "toddler" | "booster";
+
+/** Podyezd / qavat / kvartira, as the passenger typed them. */
+export type AddressDetails = { entrance?: string; floor?: string; apartment?: string };
+/** Before acceptance the intercom code is withheld; `intercomOnAccept` says one exists. */
+export type OfferPlace = Place & { details?: AddressDetails & { intercomOnAccept?: boolean } };
+/** After acceptance the adapter adds the intercom code. */
+export type TripPlace = Place & { details?: AddressDetails & { intercom?: string } };
+
+export type OrderOption =
+  | { kind: "child_seat"; ageGroup: ChildSeatAge }
+  | { kind: "pet" }
+  | { kind: "big_luggage" }
+  | { kind: "wheelchair" }
+  | { kind: "text_only" };
+export type OrderOptionKind = OrderOption["kind"];
+
+/** How the driver reaches the passenger: text-only orders switch the call button to chat. */
+export type ContactMode = "call" | "text";
+
+/** Order details shared by the incoming offer and the active trip. */
+export type OrderExtras<P extends Place> = {
+  carClass: CarClass;
+  /** Intermediate stops, in driving order (pickup and final dropoff excluded). */
+  stops: P[];
+  comment: string | null;
+  options: OrderOption[];
+  luggageCount: number;
+  /** Set when the client ordered the ride for someone else. */
+  forOther: { name: string } | null;
+  contactMode: ContactMode;
+};
+
 export type ReviewKind =
   | "otp_verify"
   | "driver_registration"
@@ -69,10 +105,10 @@ export type HomeSummary = {
   bonusActive: boolean;
 };
 
-export type Offer = {
+export type Offer = OrderExtras<OfferPlace> & {
   id: string;
-  pickup: Place;
-  dropoff: Place;
+  pickup: OfferPlace;
+  dropoff: OfferPlace;
   distanceKm: number;
   durationMin: number;
   pickupEtaMin: number;
@@ -94,7 +130,7 @@ export type TripAction = "arrived" | "start" | "finish";
 
 export type PassengerInfo = { name: string; rating: number; phoneMasked: string; avatarSeed: string };
 
-export type ActiveTrip = {
+export type ActiveTrip = OrderExtras<TripPlace> & {
   id: string;
   stage: TripStage;
   steps: TripStep[];
@@ -102,8 +138,8 @@ export type ActiveTrip = {
   /** Review id when the current step is being confirmed. */
   pendingReviewId: string | null;
   passenger: PassengerInfo;
-  pickup: Place;
-  dropoff: Place;
+  pickup: TripPlace;
+  dropoff: TripPlace;
   remainingKm: number;
   remainingMin: number;
   price: number;
@@ -241,5 +277,8 @@ export type RegistrationOptions = {
 };
 
 export type CancelReason = { key: string };
+
+/** Which kind of order a demo event produces. */
+export type DemoOrderVariant = "random" | "full" | "cargo";
 
 export type DemoPreset = "new" | "online" | "near_debt" | "debt" | "bonus" | "offline";

@@ -6,6 +6,7 @@ import { Button } from "@/components/Button";
 import { formatAmount } from "@/lib/format";
 import { CountdownRing } from "./CountdownRing";
 import { RouteLine } from "./RouteLine";
+import { CommentNote, OptionChips, OrderTags } from "./OrderDetails";
 import { cn } from "@/lib/cn";
 
 type Props = {
@@ -50,7 +51,7 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
     >
       <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1.5 bg-yellow" />
       <div className="p-4 pl-5">
-        <div className="mb-4 flex items-center gap-3">
+        <div className="mb-3 flex items-center gap-3">
           <CountdownRing total={offer.countdownSec} remaining={remaining} label={t("offer.secondsLeft", { n: remaining })} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
@@ -67,9 +68,20 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
           </div>
         </div>
 
-        <RouteLine pickup={offer.pickup} dropoff={offer.dropoff} pickupLabel={t("offer.pickup")} dropoffLabel={t("offer.dropoff")} />
+        <div className="mb-3">
+          <OrderTags carClass={offer.carClass} forOther={offer.forOther} />
+        </div>
 
-        <dl className="mt-4 grid grid-cols-3 gap-2">
+        <RouteLine
+          pickup={offer.pickup}
+          dropoff={offer.dropoff}
+          stops={offer.stops}
+          pickupLabel={t("offer.pickup")}
+          dropoffLabel={t("offer.dropoff")}
+          stopLabel={(n) => t("order.stop", { n })}
+        />
+
+        <dl className="mt-3 grid grid-cols-3 gap-2">
           <Meta label={t("offer.distance")} value={`${offer.distanceKm}\u00a0${t("common.km")}`} />
           <Meta label={t("offer.toPickup")} value={`${offer.pickupEtaMin}\u00a0${t("common.min")}`} />
           {offer.kind === "delivery" ? (
@@ -80,6 +92,17 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
         </dl>
         {offer.kind === "delivery" && offer.cargo && isKey(offer.cargo.labelKey) && (
           <p className="mt-2 truncate text-sm text-muted">{t("offer.cargo", { label: t(offer.cargo.labelKey), kg: offer.cargo.weightKg })}</p>
+        )}
+
+        {(offer.options.length > 0 || offer.luggageCount > 0) && (
+          <div className="mt-3">
+            <OptionChips options={offer.options} luggageCount={offer.luggageCount} />
+          </div>
+        )}
+        {offer.comment && (
+          <div className="mt-3">
+            <CommentNote text={offer.comment} />
+          </div>
         )}
 
         <Button size="lg" fullWidth className="mt-4" loading={accepting} disabled={blocked || leaving} onClick={onAccept}>

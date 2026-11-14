@@ -7,7 +7,7 @@ import { CITIES, computePrice, generateSeed, roadDistanceKm, type Passenger } fr
 import { makeRng } from "@/lib/prng";
 import { readJSON, writeJSON } from "./storage";
 import type {
-  Cargo, DemoPreset, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
+  AddressDetails, Cargo, CarClass, DemoPreset, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
   NotificationPrefs, OrderKind, PaymentType, ReviewRequest, Session, TimelineEvent, TripStage, TripSummary,
 } from "@/api/types";
 
@@ -78,12 +78,24 @@ export type TripRecord = {
   timeline: TimelineEvent[];
 };
 
+/** Address details as stored; the adapter decides when `intercom` is revealed. */
+export type DetailsRecord = AddressDetails & { intercom?: string };
+export type StopRecord = { cityId: string; address: string; details?: DetailsRecord };
+
 export type OfferRecord = {
   id: string;
   fromCityId: string;
   toCityId: string;
   pickupAddr: string;
   dropoffAddr: string;
+  pickupDetails?: DetailsRecord;
+  dropoffDetails?: DetailsRecord;
+  carClass: CarClass;
+  stops: StopRecord[];
+  comment: string | null;
+  options: OrderOption[];
+  luggageCount: number;
+  forOtherName: string | null;
   distanceKm: number;
   durationMin: number;
   pickupEtaMin: number;
@@ -109,7 +121,7 @@ export type LiveTrip = OfferRecord & {
 export type Draft = { name?: string; cityId?: string; car?: { model: string; colorKey: string; plate: string; year: number } };
 
 export type DriverState = {
-  version: 3;
+  version: 4;
   seededAt: number;
   registered: boolean;
   session: Session;
@@ -158,6 +170,13 @@ export function cityRef(id: string) {
 }
 export function genId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** The class a car model drives in; it decides which orders reach the driver. */
+export function carClassFor(model: string): CarClass {
+  if (/Malibu|K5|Sonata/.test(model)) return "business";
+  if (/Gentra|Onix|Tracker/.test(model)) return "comfort";
+  return "economy";
 }
 
 /** Commission rate that applies for this many trips in the current week. */
@@ -364,7 +383,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
     notifications.length = 0;
   }
   return {
-    version: 3,
+    version: 4,
     seededAt: now,
     registered,
     session: registered ? { stage: "active", phone: "+998 90 *** ** 41" } : { stage: "signed_out" },
@@ -437,10 +456,21 @@ function reanchor(s: DriverState) {
   s.trip = null;
 }
 
+/** v3 → v4: offers and live trips gained order details; drop any in flight. */
+function upgrade(stored: { version: number } | null): DriverState | null {
+  if (!stored) return null;
+  if (stored.version === 4) return stored as DriverState;
+  if (stored.version !== 3) return null;
+  const s = stored as unknown as DriverState;
+  s.version = 4;
+  s.offer = null;
+  s.trip = null;
+  return s;
+}
+
 export function state(): DriverState {
   if (cache) return cache;
-  const stored = readJSON<DriverState | null>(KEY, null);
-  cache = stored && stored.version === 3 ? stored : seedState();
+  cache = upgrade(readJSON<{ version: number } | null>(KEY, null)) ?? seedState();
   reanchor(cache);
   persist();
   return cache;

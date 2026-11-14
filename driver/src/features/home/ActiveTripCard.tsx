@@ -7,6 +7,8 @@ import { Money } from "@/components/Money";
 import { toast } from "@/lib/toast";
 import { formatDuration } from "@/lib/format";
 import { TripSteps } from "./TripSteps";
+import { PlaceDetails } from "./RouteLine";
+import { CommentNote, OptionChips, OrderTags } from "./OrderDetails";
 import { cn } from "@/lib/cn";
 
 type Props = {
@@ -45,6 +47,10 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
         </a>
       </div>
 
+      <div className="mt-3">
+        <OrderTags carClass={trip.carClass} forOther={trip.forOther} />
+      </div>
+
       <p className="mt-3 flex items-center gap-2 text-sm text-muted">
         <Route className="h-4 w-4 shrink-0" />
         <span className="truncate">
@@ -59,14 +65,15 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
         <TripSteps steps={trip.steps} />
       </div>
 
-      <div className="mt-4 flex items-center gap-3 rounded-card bg-raised p-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow text-on-yellow">
+      <div className="mt-4 flex items-start gap-3 rounded-card bg-raised p-3">
+        <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow text-on-yellow">
           <Navigation className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted">{toPickup ? t("trip.toPickup") : t("trip.toDropoff")}</p>
           <p className="truncate text-base font-bold text-ink">{target.city.name}</p>
           <p className="truncate text-sm text-muted">{target.address}</p>
+          <PlaceDetails place={target} />
         </div>
         <div className="shrink-0 text-right">
           <p className="tabular text-lg font-bold text-ink">
@@ -75,6 +82,38 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
           <p className="tabular text-xs text-muted">{formatDuration(trip.remainingMin, t)}</p>
         </div>
       </div>
+
+      {trip.stops.length > 0 && (
+        <section aria-labelledby={`${trip.id}-stops`} className="mt-3 px-1">
+          <h3 id={`${trip.id}-stops`} className="text-xs text-muted">
+            {t("order.stops")}
+          </h3>
+          <ol className="mt-1 space-y-1">
+            {trip.stops.map((st, i) => (
+              <li key={i} className="flex gap-2 text-sm text-ink">
+                <span className="tabular w-4 shrink-0 font-bold text-muted">{i + 1}.</span>
+                <span className="min-w-0">
+                  <span className="block truncate">
+                    {st.address}, {st.city.name}
+                  </span>
+                  <PlaceDetails place={st} />
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {(trip.options.length > 0 || trip.luggageCount > 0) && (
+        <div className="mt-3">
+          <OptionChips options={trip.options} luggageCount={trip.luggageCount} />
+        </div>
+      )}
+      {trip.comment && (
+        <div className="mt-3">
+          <CommentNote text={trip.comment} />
+        </div>
+      )}
 
       <div className="mt-3 flex items-center justify-between px-1 text-sm">
         <span className="inline-flex items-center gap-2 text-muted">

@@ -143,8 +143,14 @@ export default function HomeScreen() {
         </button>
       </div>
 
-      {/* Bottom zone (thumb reach) */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex max-h-full flex-col justify-end gap-3 overflow-y-auto overscroll-contain p-4 no-scrollbar">
+      {/* Bottom zone (thumb reach). The inner mt-auto pins short content to the
+          bottom while a tall card still scrolls from its top (justify-end
+          would clip it). Top padding keeps the card clear of the top bar. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex max-h-full flex-col overflow-y-auto overscroll-contain p-4 no-scrollbar"
+        style={{ paddingTop: "calc(var(--safe-top) + 68px)" }}
+      >
+        <div className="pointer-events-auto mt-auto flex flex-col gap-3">
         {tc.summary ? (
           <TripSummaryCard summary={tc.summary} onDismiss={tc.dismissSummary} />
         ) : tc.trip ? (
@@ -166,6 +172,7 @@ export default function HomeScreen() {
             )}
           </>
         )}
+        </div>
       </div>
 
       <NotificationsSheet open={notifOpen} onClose={() => setNotifOpen(false)} onRead={() => summary.reload(true)} />

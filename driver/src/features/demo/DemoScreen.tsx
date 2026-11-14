@@ -70,6 +70,7 @@ export default function DemoScreen() {
         <SectionLabel className="mt-6">{t("demo.events")}</SectionLabel>
         <SettingsGroup>
           <SettingsRow icon={Zap} tile="yellow" label={t("demo.incomingOrder")} onClick={busy ? undefined : () => run("offer", () => api.demoTriggerOffer(), "/")} />
+          <SettingsRow icon={Zap} tile="yellow" label={t("demo.offerFull")} onClick={busy ? undefined : () => run("offer-full", () => api.demoTriggerOffer("full"), "/")} />
           {STAGES.map((s) => (
             <SettingsRow
               key={s}
@@ -79,6 +80,12 @@ export default function DemoScreen() {
               onClick={busy ? undefined : () => run(s, () => api.demoTripAtStage(s), "/")}
             />
           ))}
+          <SettingsRow
+            icon={ListChecks}
+            tile="green"
+            label={t("demo.tripFull", { stage: t("trip.stage.to_pickup") })}
+            onClick={busy ? undefined : () => run("trip-full", () => api.demoTripAtStage("to_pickup", "full"), "/")}
+          />
         </SettingsGroup>
 
         <SectionLabel className="mt-6">{t("demo.network")}</SectionLabel>
