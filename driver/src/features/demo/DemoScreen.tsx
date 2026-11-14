@@ -7,7 +7,7 @@ import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { useSession } from "@/stores/sessionStore";
 import { useDemoStore } from "@/stores/demoStore";
-import { AlertTriangle, Car, Gift, ListChecks, Power, RotateCcw, User, UserPlus, Wallet, WifiOff, Zap } from "@/lib/icons";
+import { AlertTriangle, Car, Gift, ListChecks, Power, RotateCcw, Truck, User, UserPlus, Wallet, WifiOff, Zap } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/Card";
 import { SettingsGroup, SettingsRow } from "@/components/SettingsRow";
@@ -71,6 +71,7 @@ export default function DemoScreen() {
         <SettingsGroup>
           <SettingsRow icon={Zap} tile="yellow" label={t("demo.incomingOrder")} onClick={busy ? undefined : () => run("offer", () => api.demoTriggerOffer(), "/")} />
           <SettingsRow icon={Zap} tile="yellow" label={t("demo.offerFull")} onClick={busy ? undefined : () => run("offer-full", () => api.demoTriggerOffer("full"), "/")} />
+          <SettingsRow icon={Truck} tile="yellow" label={t("demo.offerCargo")} onClick={busy ? undefined : () => run("offer-cargo", () => api.demoTriggerOffer("cargo"), "/")} />
           {STAGES.map((s) => (
             <SettingsRow
               key={s}
@@ -85,6 +86,12 @@ export default function DemoScreen() {
             tile="green"
             label={t("demo.tripFull", { stage: t("trip.stage.to_pickup") })}
             onClick={busy ? undefined : () => run("trip-full", () => api.demoTripAtStage("to_pickup", "full"), "/")}
+          />
+          <SettingsRow
+            icon={Truck}
+            tile="green"
+            label={t("demo.tripCargo", { stage: t("trip.stage.to_pickup") })}
+            onClick={busy ? undefined : () => run("trip-cargo", () => api.demoTripAtStage("to_pickup", "cargo"), "/")}
           />
         </SettingsGroup>
 

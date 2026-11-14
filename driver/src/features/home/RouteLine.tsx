@@ -18,6 +18,7 @@ export function RouteLine({
   dropoffLabel,
   stopLabel,
   size = "lg",
+  showEndLabels = false,
 }: {
   pickup: AnyPlace;
   dropoff: AnyPlace;
@@ -27,6 +28,8 @@ export function RouteLine({
   /** Visible label for the n-th stop (1-based). */
   stopLabel?: (n: number) => string;
   size?: "lg" | "md";
+  /** Show the pickup/dropoff labels (cargo: "Yuklash" / "2-tushirish"), not just to screen readers. */
+  showEndLabels?: boolean;
 }) {
   const city = size === "lg" ? "text-lg" : "text-base";
   const points = [
@@ -54,7 +57,7 @@ export function RouteLine({
               </p>
             ) : (
               <>
-                <span className="sr-only">{label}: </span>
+                {showEndLabels ? <p className="text-xs text-muted">{label}</p> : <span className="sr-only">{label}: </span>}
                 <p className={`truncate font-bold text-ink ${city}`}>{p.city.name}</p>
                 <p className="truncate text-sm text-muted">{p.address}</p>
               </>

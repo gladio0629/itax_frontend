@@ -1,15 +1,14 @@
 import type { ActiveTrip } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { Link } from "react-router-dom";
-import { Banknote, CreditCard, MessageCircle, Navigation, Phone, Route } from "@/lib/icons";
+import { Banknote, CreditCard, MessageCircle, Navigation, Route } from "@/lib/icons";
 import { Avatar } from "@/components/Avatar";
 import { Stars } from "@/components/Stars";
 import { Money } from "@/components/Money";
-import { toast } from "@/lib/toast";
 import { formatDuration } from "@/lib/format";
 import { TripSteps } from "./TripSteps";
 import { PlaceDetails } from "./RouteLine";
-import { CommentNote, OptionChips, OrderTags } from "./OrderDetails";
+import { CallButton, CommentNote, ContactList, FreightGrid, FreightTags, OptionChips, OrderTags } from "./OrderDetails";
 import { cn } from "@/lib/cn";
 
 type Props = {
@@ -25,6 +24,7 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
   const toPickup = trip.stage === "to_pickup";
   const target = toPickup ? trip.pickup : trip.dropoff;
   const PayIcon = trip.payment === "cash" ? Banknote : CreditCard;
+  const points = trip.freight ? [...trip.stops, trip.dropoff] : trip.stops;
 
   return (
     <section aria-label={t("trip.active")} className={cn("animate-sheet-up rounded-sheet bg-surface p-4 shadow-2", className)}>
@@ -50,7 +50,9 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
       </div>
 
       <div className="mt-3">
-        <OrderTags carClass={trip.carClass} forOther={trip.forOther} />
+        <OrderTags carClass={trip.carClass} forOther={trip.forOther}>
+          {trip.freight && <FreightTags freight={trip.freight} />}
+        </OrderTags>
       </div>
 
       <p className="mt-3 flex items-center gap-2 text-sm text-muted">
@@ -85,13 +87,14 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
         </div>
       </div>
 
-      {trip.stops.length > 0 && (
+      {/* Cargo: every drop-off in order. Passenger: the stops on the way. */}
+      {points.length > 0 && (
         <section aria-labelledby={`${trip.id}-stops`} className="mt-3 px-1">
           <h3 id={`${trip.id}-stops`} className="text-xs text-muted">
-            {t("order.stops")}
+            {trip.freight ? t("order.dropoffs") : t("order.stops")}
           </h3>
-          <ol className="mt-1 space-y-1">
-            {trip.stops.map((st, i) => (
+          <ol className="mt-1 space-y-1.5">
+            {points.map((st, i) => (
               <li key={i} className="flex gap-2 text-sm text-ink">
                 <span className="tabular w-4 shrink-0 font-bold text-muted">{i + 1}.</span>
                 <span className="min-w-0">
@@ -104,6 +107,17 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
             ))}
           </ol>
         </section>
+      )}
+
+      {trip.freight && (
+        <>
+          <div className="mt-3">
+            <FreightGrid freight={trip.freight} showDims />
+          </div>
+          <div className="mt-3">
+            <ContactList freight={trip.freight} callable />
+          </div>
+        </>
       )}
 
       {(trip.options.length > 0 || trip.luggageCount > 0) && (
@@ -125,35 +139,20 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
         <Money value={trip.price} className="text-lg font-bold text-gold" />
       </div>
 
-      <StepButton action={trip.nextAction} confirming={confirming} onClick={onAction} />
+      {/* Sticky: the step button stays in reach while a long order scrolls. */}
+      <div className="sticky bottom-0 z-10 -mx-4 -mb-4 rounded-b-sheet bg-surface px-4 pb-4 pt-3">
+        <StepButton action={trip.nextAction} confirming={confirming} onClick={onAction} />
 
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={confirming}
-        className="press mt-1 flex h-12 w-full items-center justify-center rounded-button text-sm font-medium text-muted disabled:opacity-40"
-      >
-        {t("trip.cancel")}
-      </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={confirming}
+          className="press mt-1 flex h-12 w-full items-center justify-center rounded-button text-sm font-medium text-muted disabled:opacity-40"
+        >
+          {t("trip.cancel")}
+        </button>
+      </div>
     </section>
-  );
-}
-
-/** Masked number: the demo shows it instead of dialling. */
-export function CallButton({ name, phoneMasked, size = 48 }: { name: string; phoneMasked: string; size?: 40 | 48 }) {
-  const { t } = useT();
-  return (
-    <a
-      href={`tel:${phoneMasked.replace(/[^\d+]/g, "")}`}
-      onClick={(e) => {
-        e.preventDefault();
-        toast(t("trip.callMasked", { phone: phoneMasked }));
-      }}
-      aria-label={t("trip.call", { name })}
-      className={cn("press flex shrink-0 items-center justify-center rounded-full bg-success/15 text-success", size === 48 ? "h-12 w-12" : "h-10 w-10")}
-    >
-      <Phone className="h-5 w-5" />
-    </a>
   );
 }
 
@@ -167,7 +166,7 @@ function StepButton({ action, confirming, onClick }: { action: ActiveTrip["nextA
       onClick={onClick}
       disabled={confirming}
       aria-busy={confirming || undefined}
-      className="press relative mt-4 flex h-14 w-full items-center justify-center overflow-hidden rounded-button bg-yellow text-base font-bold text-on-yellow shadow-1 disabled:cursor-wait"
+      className="press relative flex h-14 w-full items-center justify-center overflow-hidden rounded-button bg-yellow text-base font-bold text-on-yellow shadow-1 disabled:cursor-wait"
     >
       {confirming && (
         <span aria-hidden="true" className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-on-yellow/20 to-transparent" />

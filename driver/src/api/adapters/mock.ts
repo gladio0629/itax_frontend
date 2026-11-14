@@ -5,7 +5,7 @@ import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
 import {
   BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_COLORS, CAR_MODELS, DEBT_LIMIT, DEBT_NEAR_RATIO, OFFER_COUNTDOWN_SEC,
-  appendLedger, carClassFor, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
+  appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
   replaceState, state, weekTrips, type DetailsRecord, type DriverState, type LiveTrip, type OfferRecord,
   type StopRecord, type TripRecord,
 } from "@/mockDb/driverDb";
@@ -114,6 +114,7 @@ function extras<P extends Place>(o: OfferRecord, place: (cityId: string, address
     luggageCount: o.luggageCount,
     forOther: o.forOtherName ? { name: o.forOtherName } : null,
     contactMode: o.options.some((x) => x.kind === "text_only") ? "text" : "call",
+    freight: o.freight ? { ...o.freight, body: { ...o.freight.body }, sender: { ...o.freight.sender }, receiver: { ...o.freight.receiver } } : null,
   };
 }
 
@@ -239,6 +240,34 @@ function passengerExtras(full: boolean, toCityId: string, dropoffAddr: string, p
   };
 }
 
+/** Cargo-order extras: body matches the driver's, drop-offs in order, contacts masked. */
+function cargoExtras(s: DriverState, demo: boolean, toCityId: string, dropoffAddr: string, passengerId: string) {
+  const people = passengers.filter((p) => p.id !== passengerId);
+  const sender = demo ? rand.pick(people) : passengers.find((p) => p.id === passengerId) ?? people[0];
+  const receiver = rand.pick(people.filter((p) => p.id !== sender.id));
+  const stopAddr = (ADDR[toCityId] ?? []).filter((a) => a !== dropoffAddr);
+  const stops: StopRecord[] = (demo || rand.bool(0.3)) && stopAddr.length ? [{ cityId: toCityId, address: rand.pick(stopAddr), details: flatDetails(false) }] : [];
+  const hourly = demo || rand.bool(0.3);
+  return {
+    pickupDetails: flatDetails(demo || rand.bool(0.5)),
+    dropoffDetails: demo || rand.bool(0.5) ? flatDetails(false) : undefined,
+    stops,
+    comment: demo ? "Qutilarda idish-tovoq bor, ehtiyot bo'ling. Lift ishlamaydi." : rand.bool(0.3) ? "Qutilar og'ir emas, lekin sinadigan narsalar bor." : null,
+    options: [],
+    luggageCount: 0,
+    forOtherName: null,
+    freight: {
+      tab: demo ? "kargo" : rand.pick(["dostavka", "kargo"] as const),
+      body: cargoBodyFor(s.profile.car.model),
+      loaders: demo ? 2 : rand.int(0, 2),
+      billing: hourly ? { mode: "hourly" as const, hours: demo ? 3 : rand.int(2, 4) } : { mode: "route" as const },
+      sender: { name: sender.name, phoneMasked: passengerInfo(sender.id).phoneMasked },
+      receiver: { name: receiver.name, phoneMasked: passengerInfo(receiver.id).phoneMasked },
+      rideAlong: demo || rand.bool(0.3),
+    },
+  };
+}
+
 function makeOffer(s: DriverState, variant: DemoOrderVariant = "random"): OfferRecord {
   const from = s.profile.cityId;
   const to = rand.pick(CITIES.filter((c) => c.id !== from && ["smq", "bxr", "and", "nmn", "frg", "qrs"].includes(c.id)));
@@ -264,13 +293,13 @@ function makeOffer(s: DriverState, variant: DemoOrderVariant = "random"): OfferR
     passengerId,
     kind,
     passengers: n,
-    cargo: kind === "delivery" ? rand.pick([{ labelKey: "cargo.box", weightKg: 8 }, { labelKey: "cargo.documents", weightKg: 1 }, { labelKey: "cargo.bags", weightKg: 15 }]) : undefined,
+    cargo: variant === "cargo" ? { labelKey: "cargo.box", weightKg: 40 } : kind === "delivery" ? rand.pick([{ labelKey: "cargo.box", weightKg: 8 }, { labelKey: "cargo.documents", weightKg: 1 }, { labelKey: "cargo.bags", weightKg: 15 }]) : undefined,
     payment: rand.bool(0.6) ? "cash" : "card",
     createdAt: now,
     expiresAt: now + OFFER_COUNTDOWN_SEC * 1000,
   } satisfies Partial<OfferRecord>;
-  if (kind === "passengers") return { ...base, ...passengerExtras(variant === "full", to.id, dropoffAddr, passengerId) };
-  return { ...base, stops: [], comment: null, options: [], luggageCount: 0, forOtherName: null };
+  if (kind === "passengers") return { ...base, ...passengerExtras(variant === "full", to.id, dropoffAddr, passengerId), freight: null };
+  return { ...base, ...cargoExtras(s, variant === "cargo", to.id, dropoffAddr, passengerId) };
 }
 
 function scheduleNextOffer(s: DriverState, minMs = 6000, maxMs = 11000) {

@@ -7,7 +7,7 @@ import { CITIES, computePrice, generateSeed, roadDistanceKm, type Passenger } fr
 import { makeRng } from "@/lib/prng";
 import { readJSON, writeJSON } from "./storage";
 import type {
-  AddressDetails, Cargo, CarClass, DemoPreset, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
+  AddressDetails, Cargo, CarClass, CargoBody, DemoPreset, Freight, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
   NotificationPrefs, OrderKind, PaymentType, ReviewRequest, Session, TimelineEvent, TripStage, TripSummary,
 } from "@/api/types";
 
@@ -96,6 +96,7 @@ export type OfferRecord = {
   options: OrderOption[];
   luggageCount: number;
   forOtherName: string | null;
+  freight: Freight | null;
   distanceKm: number;
   durationMin: number;
   pickupEtaMin: number;
@@ -181,6 +182,21 @@ export function carClassFor(model: string): CarClass {
   if (/Malibu|K5|Sonata/.test(model)) return "business";
   if (/Gentra|Onix|Tracker/.test(model)) return "comfort";
   return "economy";
+}
+
+/** Cargo bodies, S–3XL — the same scale the client's delivery picker uses. */
+export const CARGO_BODIES: Record<string, CargoBody> = {
+  S: { sizeLabel: "S", dimensionsCm: { width: 170, depth: 100, height: 90 }, maxWeightKg: 300 },
+  M: { sizeLabel: "M", dimensionsCm: { width: 220, depth: 130, height: 130 }, maxWeightKg: 700 },
+  L: { sizeLabel: "L", dimensionsCm: { width: 280, depth: 160, height: 50 }, maxWeightKg: 1_000 },
+  XL: { sizeLabel: "XL", dimensionsCm: { width: 420, depth: 200, height: 200 }, maxWeightKg: 3_000 },
+  XXL: { sizeLabel: "XXL", dimensionsCm: { width: 600, depth: 240, height: 240 }, maxWeightKg: 5_000 },
+  "3XL": { sizeLabel: "3XL", dimensionsCm: { width: 840, depth: 260, height: 240 }, maxWeightKg: 8_000 },
+};
+
+/** Every model the app registers is a passenger car, which carries S-size cargo. */
+export function cargoBodyFor(_model: string): CargoBody {
+  return CARGO_BODIES.S;
 }
 
 /** Commission rate that applies for this many trips in the current week. */

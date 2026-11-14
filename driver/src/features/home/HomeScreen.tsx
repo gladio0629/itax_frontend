@@ -147,10 +147,11 @@ export default function HomeScreen() {
           bottom while a tall card still scrolls from its top (justify-end
           would clip it). Top padding keeps the card clear of the top bar. */}
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex max-h-full flex-col overflow-y-auto overscroll-contain p-4 no-scrollbar"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex max-h-full flex-col overflow-y-auto overscroll-contain px-4 no-scrollbar"
         style={{ paddingTop: "calc(var(--safe-top) + 68px)" }}
       >
-        <div className="pointer-events-auto mt-auto flex flex-col gap-3">
+        {/* Bottom gap lives inside the scrolled content so a card's sticky footer meets the tab bar. */}
+        <div className="pointer-events-auto mt-auto flex flex-col gap-3 pb-4">
         {tc.summary ? (
           <TripSummaryCard summary={tc.summary} onDismiss={tc.dismissSummary} />
         ) : tc.trip ? (

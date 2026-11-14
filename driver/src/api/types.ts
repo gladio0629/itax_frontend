@@ -31,6 +31,24 @@ export type OrderOptionKind = OrderOption["kind"];
 /** How the driver reaches the passenger: text-only orders switch the call button to chat. */
 export type ContactMode = "call" | "text";
 
+/** Which client tab the delivery order came from. */
+export type DeliveryTab = "dostavka" | "kargo";
+/** Cargo body size, S–3XL (same scale as the client's vehicle picker). Dimensions in cm. */
+export type CargoBody = { sizeLabel: string; dimensionsCm: { width: number; depth: number; height: number }; maxWeightKg: number };
+export type Contact = { name: string; phoneMasked: string };
+export type FreightBilling = { mode: "hourly"; hours: number } | { mode: "route" };
+/** Cargo-order details. Drop-offs are the order's `stops` plus its final `dropoff`. */
+export type Freight = {
+  tab: DeliveryTab;
+  body: CargoBody;
+  loaders: number;
+  billing: FreightBilling;
+  sender: Contact;
+  receiver: Contact;
+  /** The cargo owner rides along in the vehicle. */
+  rideAlong: boolean;
+};
+
 /** Order details shared by the incoming offer and the active trip. */
 export type OrderExtras<P extends Place> = {
   carClass: CarClass;
@@ -42,6 +60,8 @@ export type OrderExtras<P extends Place> = {
   /** Set when the client ordered the ride for someone else. */
   forOther: { name: string } | null;
   contactMode: ContactMode;
+  /** Set on cargo orders only. */
+  freight: Freight | null;
 };
 
 export type ReviewKind =

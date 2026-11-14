@@ -6,7 +6,7 @@ import { Button } from "@/components/Button";
 import { formatAmount } from "@/lib/format";
 import { CountdownRing } from "./CountdownRing";
 import { RouteLine } from "./RouteLine";
-import { CommentNote, OptionChips, OrderTags } from "./OrderDetails";
+import { CommentNote, ContactList, FreightGrid, FreightTags, OptionChips, OrderTags } from "./OrderDetails";
 import { cn } from "@/lib/cn";
 
 type Props = {
@@ -39,13 +39,14 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
   }, [remaining]);
 
   const PayIcon = offer.payment === "cash" ? Banknote : CreditCard;
+  const cargo = !!offer.freight;
 
   return (
     <section
       aria-label={t("offer.new")}
       aria-live="assertive"
       className={cn(
-        "relative overflow-hidden rounded-sheet bg-surface shadow-2 transition-[opacity,transform] duration-[280ms]",
+        "relative overflow-clip rounded-sheet bg-surface shadow-2 transition-[opacity,transform] duration-[280ms]",
         leaving ? "translate-y-6 opacity-0" : "animate-sheet-up"
       )}
     >
@@ -69,31 +70,44 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
         </div>
 
         <div className="mb-3">
-          <OrderTags carClass={offer.carClass} forOther={offer.forOther} />
+          <OrderTags carClass={offer.carClass} forOther={offer.forOther}>
+            {offer.freight && <FreightTags freight={offer.freight} />}
+          </OrderTags>
         </div>
 
         <RouteLine
           pickup={offer.pickup}
           dropoff={offer.dropoff}
           stops={offer.stops}
-          pickupLabel={t("offer.pickup")}
-          dropoffLabel={t("offer.dropoff")}
-          stopLabel={(n) => t("order.stop", { n })}
+          pickupLabel={cargo ? t("order.loadAt") : t("offer.pickup")}
+          dropoffLabel={cargo ? (offer.stops.length ? t("order.dropN", { n: offer.stops.length + 1 }) : t("order.unload")) : t("offer.dropoff")}
+          stopLabel={(n) => (cargo ? t("order.dropN", { n }) : t("order.stop", { n }))}
+          showEndLabels={cargo}
         />
 
         <dl className="mt-3 grid grid-cols-3 gap-2">
           <Meta label={t("offer.distance")} value={`${offer.distanceKm}\u00a0${t("common.km")}`} />
           <Meta label={t("offer.toPickup")} value={`${offer.pickupEtaMin}\u00a0${t("common.min")}`} />
           {offer.kind === "delivery" ? (
-            <Meta label={t("offer.delivery")} value={<span className="inline-flex items-center gap-1.5"><Package className="h-4 w-4 text-muted" />{offer.cargo?.weightKg ?? 0} kg</span>} />
+            <Meta label={cargo && offer.cargo && isKey(offer.cargo.labelKey) ? t(offer.cargo.labelKey) : t("offer.delivery")} value={<span className="inline-flex items-center gap-1.5"><Package className="h-4 w-4 text-muted" />{offer.cargo?.weightKg ?? 0} kg</span>} />
           ) : (
             <Meta label={t("trip.passenger")} value={<span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-muted" />{offer.passengers ?? 1}</span>} />
           )}
         </dl>
-        {offer.kind === "delivery" && offer.cargo && isKey(offer.cargo.labelKey) && (
+        {!cargo && offer.kind === "delivery" && offer.cargo && isKey(offer.cargo.labelKey) && (
           <p className="mt-2 truncate text-sm text-muted">{t("offer.cargo", { label: t(offer.cargo.labelKey), kg: offer.cargo.weightKg })}</p>
         )}
 
+        {offer.freight && (
+          <>
+            <div className="mt-2">
+              <FreightGrid freight={offer.freight} />
+            </div>
+            <div className="mt-3">
+              <ContactList freight={offer.freight} callable={false} />
+            </div>
+          </>
+        )}
         {(offer.options.length > 0 || offer.luggageCount > 0) && (
           <div className="mt-3">
             <OptionChips options={offer.options} luggageCount={offer.luggageCount} />
@@ -105,17 +119,20 @@ export function OfferCard({ offer, accepting, blocked, onAccept, onSkip, onExpir
           </div>
         )}
 
-        <Button size="lg" fullWidth className="mt-4" loading={accepting} disabled={blocked || leaving} onClick={onAccept}>
-          {t("offer.accept")}
-        </Button>
-        <button
-          type="button"
-          onClick={onSkip}
-          disabled={accepting || leaving}
-          className="press mt-1 flex h-12 w-full items-center justify-center rounded-button text-sm font-medium text-muted disabled:opacity-40"
-        >
-          {t("offer.skip")}
-        </button>
+        {/* Sticky: on a long order the decision stays in reach while details scroll. */}
+        <div className="sticky bottom-0 z-10 -mb-4 bg-surface pb-1 pt-3">
+          <Button size="lg" fullWidth loading={accepting} disabled={blocked || leaving} onClick={onAccept}>
+            {t("offer.accept")}
+          </Button>
+          <button
+            type="button"
+            onClick={onSkip}
+            disabled={accepting || leaving}
+            className="press mt-1 flex h-12 w-full items-center justify-center rounded-button text-sm font-medium text-muted disabled:opacity-40"
+          >
+            {t("offer.skip")}
+          </button>
+        </div>
       </div>
     </section>
   );
