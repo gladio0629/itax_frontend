@@ -5,14 +5,14 @@ import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
 import {
   BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_COLORS, CAR_MODELS, DEBT_LIMIT, DEBT_NEAR_RATIO, OFFER_COUNTDOWN_SEC,
-  appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
+  CHILD_SEAT_AGES, DEFAULT_CAPABILITIES, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
   replaceState, state, weekTrips, type DetailsRecord, type DriverState, type LiveTrip, type OfferRecord,
   type StopRecord, type TripRecord,
 } from "@/mockDb/driverDb";
 import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
-  ActiveTrip, BonusInfo, DebtState, DemoOrderVariant, OfferPlace, OrderExtras, OrderOption, Place, TripPlace, DriverProfile, HistoryItem, HistoryPage, HomeSummary, LedgerPage, Offer,
+  ActiveTrip, BonusInfo, CapabilitiesInput, DebtState, DemoOrderVariant, DriverCapabilities, OfferPlace, OrderExtras, OrderOption, Place, TripPlace, DriverProfile, HistoryItem, HistoryPage, HomeSummary, LedgerPage, Offer,
   PassengerInfo, ReviewKind, ReviewRequest, TopupOptions, TripChat, TripDetail, TripStage, TripStep, TripSummary, WalletSummary,
 } from "../types";
 
@@ -304,6 +304,38 @@ function makeOffer(s: DriverState, variant: DemoOrderVariant = "random"): OfferR
 
 function scheduleNextOffer(s: DriverState, minMs = 6000, maxMs = 11000) {
   s.nextOfferAt = Date.now() + minMs + Math.random() * (maxMs - minMs);
+}
+
+// ---------- capabilities ----------
+
+function toCapabilities(s: DriverState): DriverCapabilities {
+  s.capabilities ??= { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
+  const c = s.capabilities;
+  return {
+    childSeat: c.childSeat,
+    childSeatAges: [...c.childSeatAges],
+    ageGroups: [...CHILD_SEAT_AGES],
+    pets: c.pets,
+    bigLuggage: c.bigLuggage,
+    carModel: s.profile.car.model,
+    carClass: carClassFor(s.profile.car.model),
+    cargoBody: { ...cargoBodyFor(s.profile.car.model) },
+  };
+}
+
+/**
+ * Age groups and the child-seat switch stay consistent: turning the seat on
+ * with no group picks 1–4 (the most common seat); clearing the last group
+ * turns the seat off. Groups are kept in display order.
+ */
+function normalizeCapabilities(prev: CapabilitiesInput, input: CapabilitiesInput): CapabilitiesInput {
+  let ages = CHILD_SEAT_AGES.filter((a) => input.childSeatAges.includes(a));
+  let childSeat = !!input.childSeat;
+  if (childSeat && !ages.length) {
+    if (prev.childSeat) childSeat = false; // the last group was just cleared
+    else ages = ["toddler"];
+  }
+  return { childSeat, childSeatAges: ages, pets: !!input.pets, bigLuggage: !!input.bigLuggage };
 }
 
 // ---------- chat ----------
@@ -879,6 +911,17 @@ export const mockAdapter: ApiAdapter = {
       persist();
       return r;
     }),
+
+  getCapabilities: () => withLatency(() => toCapabilities(state())),
+
+  setCapabilities: (input) =>
+    withLatency(() => {
+      const s = state();
+      const prev = toCapabilities(s);
+      s.capabilities = normalizeCapabilities(prev, input);
+      persist();
+      return toCapabilities(s);
+    }, { minMs: 120, maxMs: 260 }),
 
   getAppInfo: () => withLatency(() => ({ version: "2.0.0", build: "2026.11" }), { noFail: true }),
 

@@ -13,6 +13,7 @@ const CardLinkScreen = lazy(() => import("@/features/wallet/CardLinkScreen"));
 const ProfileScreen = lazy(() => import("@/features/profile/ProfileScreen"));
 const PersonalScreen = lazy(() => import("@/features/profile/PersonalScreen"));
 const BonusScreen = lazy(() => import("@/features/profile/BonusScreen"));
+const CapabilitiesScreen = lazy(() => import("@/features/profile/CapabilitiesScreen"));
 const NotificationPrefsScreen = lazy(() => import("@/features/profile/NotificationPrefsScreen"));
 const HelpScreen = lazy(() => import("@/features/profile/HelpScreen"));
 const AboutScreen = lazy(() => import("@/features/profile/AboutScreen"));
@@ -40,6 +41,7 @@ export function AppRoutes() {
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/profile/personal" element={<PersonalScreen />} />
         <Route path="/profile/bonus" element={<BonusScreen />} />
+        <Route path="/profile/capabilities" element={<CapabilitiesScreen />} />
         <Route path="/profile/notifications" element={<NotificationPrefsScreen />} />
         <Route path="/profile/help" element={<HelpScreen />} />
         <Route path="/profile/about" element={<AboutScreen />} />

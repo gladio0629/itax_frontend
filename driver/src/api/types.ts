@@ -103,6 +103,21 @@ export type DriverProfile = {
   memberSinceYear: number;
 };
 
+/** "Imkoniyatlarim": what the driver offers. Car class and cargo body are read-only (from the car). */
+export type DriverCapabilities = {
+  childSeat: boolean;
+  /** Age groups the seat(s) fit; empty only while childSeat is off. */
+  childSeatAges: ChildSeatAge[];
+  /** Every age group the driver can pick from, in display order. */
+  ageGroups: ChildSeatAge[];
+  pets: boolean;
+  bigLuggage: boolean;
+  carModel: string;
+  carClass: CarClass;
+  cargoBody: CargoBody;
+};
+export type CapabilitiesInput = Pick<DriverCapabilities, "childSeat" | "childSeatAges" | "pets" | "bigLuggage">;
+
 export type DebtLevel = "ok" | "near" | "blocked";
 export type DebtState = {
   level: DebtLevel;

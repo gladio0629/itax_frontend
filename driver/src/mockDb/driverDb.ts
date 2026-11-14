@@ -7,7 +7,7 @@ import { CITIES, computePrice, generateSeed, roadDistanceKm, type Passenger } fr
 import { makeRng } from "@/lib/prng";
 import { readJSON, writeJSON } from "./storage";
 import type {
-  AddressDetails, Cargo, CarClass, CargoBody, DemoPreset, Freight, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
+  AddressDetails, CapabilitiesInput, Cargo, CarClass, CargoBody, ChildSeatAge, DemoPreset, Freight, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
   NotificationPrefs, OrderKind, PaymentType, ReviewRequest, Session, TimelineEvent, TripStage, TripSummary,
 } from "@/api/types";
 
@@ -146,6 +146,8 @@ export type DriverState = {
     pastTrips?: number;
   };
   online: boolean;
+  /** "Imkoniyatlarim" switches (car class and cargo body derive from the car). */
+  capabilities: CapabilitiesInput;
   balance: number;
   ledger: LedgerEntry[];
   trips: TripRecord[];
@@ -183,6 +185,9 @@ export function carClassFor(model: string): CarClass {
   if (/Gentra|Onix|Tracker/.test(model)) return "comfort";
   return "economy";
 }
+
+export const CHILD_SEAT_AGES: ChildSeatAge[] = ["infant", "toddler", "booster"];
+export const DEFAULT_CAPABILITIES: CapabilitiesInput = { childSeat: true, childSeatAges: ["toddler", "booster"], pets: false, bigLuggage: true };
 
 /** Cargo bodies, S–3XL — the same scale the client's delivery picker uses. */
 export const CARGO_BODIES: Record<string, CargoBody> = {
@@ -425,6 +430,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
       pastTrips: registered ? 280 : 0,
     },
     online: opts.online ?? false,
+    capabilities: { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] },
     balance: registered ? ledger[0]?.balanceAfter ?? target : 0,
     ledger,
     trips,
@@ -485,6 +491,7 @@ function upgrade(stored: { version: number } | null): DriverState | null {
   s.version = 4;
   s.offer = null;
   s.trip = null;
+  s.capabilities = { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
   return s;
 }
 

@@ -5,7 +5,7 @@ import { useT } from "@/lib/i18n/provider";
 import { useTheme } from "@/lib/theme";
 import { useQuery } from "@/lib/useQuery";
 import { useSession } from "@/stores/sessionStore";
-import { Bell, FlaskConical, Gift, Globe, Info, LifeBuoy, LogOut, Moon, Sun, User } from "@/lib/icons";
+import { Bell, FlaskConical, Gift, Globe, Info, LifeBuoy, LogOut, Moon, SlidersHorizontal, Sun, User } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SettingsGroup, SettingsRow } from "@/components/SettingsRow";
 import { Avatar } from "@/components/Avatar";
@@ -89,6 +89,7 @@ export default function ProfileScreen() {
 
         <SettingsGroup label={t("profile.groupAccount")}>
           <SettingsRow icon={User} tile="blue" label={t("profile.personal")} to="/profile/personal" />
+          <SettingsRow icon={SlidersHorizontal} tile="green" label={t("profile.capabilities")} to="/profile/capabilities" />
           <SettingsRow
             icon={Gift}
             tile="yellow"

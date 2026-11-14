@@ -1,7 +1,7 @@
 import type {
   ActiveTrip, BonusInfo, CancelReason, DemoOrderVariant, DemoPreset, DriverProfile, HelpRequest, HelpTopic, HistoryFilter,
   HistoryPage, HomeSummary, LedgerPage, LedgerQuery, NotificationItem, NotificationPrefs, Offer, PayProvider,
-  RegistrationOptions, ReviewRequest, Session, ChatSend, TripChat, TopupOptions, TripDetail, TripStage, TripSummary, WalletSummary,
+  RegistrationOptions, ReviewRequest, Session, ChatSend, TripChat, CapabilitiesInput, DriverCapabilities, TopupOptions, TripDetail, TripStage, TripSummary, WalletSummary,
   Car,
 } from "./types";
 
@@ -60,6 +60,9 @@ export interface ApiAdapter {
   getHelpRequests(): Promise<HelpRequest[]>;
   submitHelpRequest(topic: HelpTopic, message?: string): Promise<ReviewRequest>;
   getAppInfo(): Promise<{ version: string; build: string }>;
+  /** "Imkoniyatlarim". The adapter normalises the input (age groups ↔ child-seat switch). */
+  getCapabilities(): Promise<DriverCapabilities>;
+  setCapabilities(input: CapabilitiesInput): Promise<DriverCapabilities>;
 
   // Shared review mechanism
   getReviewStatus(reviewId: string): Promise<ReviewRequest>;
