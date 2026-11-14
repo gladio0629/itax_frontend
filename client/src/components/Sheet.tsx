@@ -1,8 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useIsIOS } from "@/lib/platform";
+import { cn } from "@/lib/cn";
+
+/**
+ * UIScrollView-style rubber band: past an edge the sheet follows the finger
+ * with diminishing resistance, approaching `dim` asymptotically.
+ */
+function rubberBand(overshoot: number, dim: number) {
+  return (1 - 1 / ((overshoot * 0.55) / dim + 1)) * dim;
+}
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
-function useSheetA11y(open: boolean, onClose: () => void, panelRef: React.RefObject<HTMLDivElement>) {
+export function useSheetA11y(open: boolean, onClose: () => void, panelRef: React.RefObject<HTMLDivElement>) {
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -51,24 +61,38 @@ type SheetProps = {
 export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
+  const dragLast = useRef({ y: 0, t: 0, v: 0 });
+  const ios = useIsIOS();
   useSheetA11y(open, onClose, panelRef);
 
   if (!open) return null;
 
   function onPointerDown(e: React.PointerEvent) {
     dragStartY.current = e.clientY;
+    dragLast.current = { y: e.clientY, t: e.timeStamp, v: 0 };
+    if (panelRef.current) panelRef.current.style.transition = "none";
   }
   function onPointerMove(e: React.PointerEvent) {
     if (dragStartY.current == null || !panelRef.current) return;
-    const dy = Math.max(0, e.clientY - dragStartY.current);
+    const raw = e.clientY - dragStartY.current;
+    if (ios) {
+      const dt = e.timeStamp - dragLast.current.t;
+      if (dt > 0) dragLast.current.v = (e.clientY - dragLast.current.y) / dt;
+      dragLast.current.y = e.clientY;
+      dragLast.current.t = e.timeStamp;
+    }
+    // iOS: pulling up stretches with resistance instead of stopping dead.
+    const dy = raw >= 0 ? raw : ios ? -rubberBand(-raw, 60) : 0;
     panelRef.current.style.transform = `translateY(${dy}px)`;
   }
   function onPointerUp(e: React.PointerEvent) {
     if (dragStartY.current == null || !panelRef.current) return;
     const dy = e.clientY - dragStartY.current;
+    // iOS: settle back with UIKit timing; a quick downward flick dismisses.
+    panelRef.current.style.transition = ios ? "transform 380ms cubic-bezier(0.32,0.72,0,1)" : "";
     panelRef.current.style.transform = "";
     dragStartY.current = null;
-    if (dy > 90) onClose();
+    if (dy > 90 || (ios && dy > 20 && dragLast.current.v > 0.6)) onClose();
   }
 
   return (
@@ -132,8 +156,10 @@ type DragSheetProps = {
 export function DragSheet({ snap, onSnapChange, children, ariaLabel, handleLabel, onVisibleHeightChange }: DragSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ h: 0, safeTop: 0 });
-  const drag = useRef<{ startY: number; startHeight: number; moved: boolean } | null>(null);
+  const drag = useRef<{ startY: number; startHeight: number; moved: boolean; lastY: number; lastT: number; v: number } | null>(null);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
+  // iOS detents: rubber band at both ends, flick velocity picks the detent.
+  const ios = useIsIOS();
 
   useLayoutEffect(() => {
     const parent = sheetRef.current?.parentElement;
@@ -161,7 +187,7 @@ export function DragSheet({ snap, onSnapChange, children, ariaLabel, handleLabel
   }, [snap, box.h, box.safeTop]);
 
   function onPointerDown(e: React.PointerEvent) {
-    drag.current = { startY: e.clientY, startHeight: heights[snap], moved: false };
+    drag.current = { startY: e.clientY, startHeight: heights[snap], moved: false, lastY: e.clientY, lastT: e.timeStamp, v: 0 };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   }
   function onPointerMove(e: React.PointerEvent) {
@@ -169,12 +195,29 @@ export function DragSheet({ snap, onSnapChange, children, ariaLabel, handleLabel
     const dy = drag.current.startY - e.clientY;
     if (Math.abs(dy) > 4) drag.current.moved = true;
     if (!drag.current.moved) return;
+    if (ios) {
+      const dt = e.timeStamp - drag.current.lastT;
+      // Upward velocity in px/ms (positive grows the sheet), lightly smoothed.
+      if (dt > 0) drag.current.v = 0.6 * ((drag.current.lastY - e.clientY) / dt) + 0.4 * drag.current.v;
+      drag.current.lastY = e.clientY;
+      drag.current.lastT = e.timeStamp;
+      const raw = drag.current.startHeight + dy;
+      const next =
+        raw > heights.full
+          ? heights.full + rubberBand(raw - heights.full, 120)
+          : raw < heights.collapsed
+          ? heights.collapsed - rubberBand(heights.collapsed - raw, 120)
+          : raw;
+      setDragHeight(next);
+      return;
+    }
     setDragHeight(Math.max(heights.collapsed * 0.7, Math.min(heights.full, drag.current.startHeight + dy)));
   }
   function onPointerUp() {
     if (!drag.current) return;
     const moved = drag.current.moved;
-    const current = dragHeight ?? heights[snap];
+    // iOS: aim at where the flick would carry the sheet, not where it was let go.
+    const current = (dragHeight ?? heights[snap]) + (ios ? drag.current.v * 180 : 0);
     drag.current = null;
     setDragHeight(null);
     if (!moved) return;
@@ -200,11 +243,21 @@ export function DragSheet({ snap, onSnapChange, children, ariaLabel, handleLabel
       ref={sheetRef}
       role="dialog"
       aria-label={ariaLabel}
-      className="absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-sheet bg-card shadow-soft will-change-transform"
+      className={cn(
+        "absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-sheet bg-card shadow-soft will-change-transform",
+        // iOS: a skirt below the sheet so a rubber-band pull past the full
+        // detent never shows a gap under it.
+        ios && "after:absolute after:inset-x-0 after:top-full after:h-[160px] after:bg-card after:content-['']"
+      )}
       style={{
         height: heights.full,
         transform: `translateY(${heights.full - visible}px)`,
-        transition: dragHeight == null ? "transform 300ms cubic-bezier(0.2,0.8,0.2,1)" : "none",
+        transition:
+          dragHeight == null
+            ? ios
+              ? "transform 480ms cubic-bezier(0.32,0.72,0,1)"
+              : "transform 300ms cubic-bezier(0.2,0.8,0.2,1)"
+            : "none",
         visibility: box.h ? undefined : "hidden",
       }}
     >

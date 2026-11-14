@@ -2,12 +2,32 @@ import { Check } from "@/lib/icons";
 import { Sheet } from "@/components/Sheet";
 import { useT } from "@/lib/i18n/provider";
 import type { Locale } from "@/lib/i18n/provider";
+import { useIsIOS } from "@/lib/platform";
+import { ActionSheet } from "@/components/ios/ActionSheet";
 
 const LOCALE_LABEL: Record<Locale, string> = { uz: "O'zbekcha", ru: "Русский", en: "English" };
 const LOCALES: Locale[] = ["uz", "ru", "en"];
 
 export function LanguageSheet({ onClose }: { onClose: () => void }) {
   const { locale, setLocale, t } = useT();
+  if (useIsIOS()) {
+    return (
+      <ActionSheet
+        open
+        onClose={onClose}
+        title={t("settings.language")}
+        cancelLabel={t("common.cancel")}
+        actions={LOCALES.map((l) => ({
+          label: LOCALE_LABEL[l],
+          checked: locale === l,
+          onSelect: () => {
+            setLocale(l);
+            onClose();
+          },
+        }))}
+      />
+    );
+  }
   return (
     <Sheet open onClose={onClose} ariaLabel={t("settings.language")}>
       <div className="px-5 pb-6 pt-3">

@@ -1,10 +1,47 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { useDemoStore } from "@/stores/demoStore";
 import { useIsIOS } from "@/lib/platform";
 
 // Desktop preview of the iOS interface: an iPhone 15-sized mockup that
 // simulates its safe-area insets (status bar / Dynamic Island, home indicator).
 const IOS_PREVIEW_INSETS = { "--safe-top": "59px", "--safe-bottom": "34px" } as CSSProperties;
+
+/**
+ * iOS keyboard: Safari doesn't shrink the layout viewport (or 100dvh) when the
+ * keyboard opens — only the visual viewport. While the keyboard is up, size
+ * the full-screen container to the visual viewport (and follow its offset when
+ * Safari pans), so bottom sheets and the order footer sit above the keyboard.
+ */
+function useKeyboardAwareHeight(ref: RefObject<HTMLDivElement>, enabled: boolean) {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const el = ref.current;
+    if (!enabled || !vv || !el) return;
+    const update = () => {
+      const keyboard = window.innerHeight - vv.height;
+      if (keyboard > 120) {
+        el.style.height = `${vv.height}px`;
+        el.style.transform = `translateY(${vv.offsetTop}px)`;
+        // The keyboard covers the home indicator: no bottom inset meanwhile.
+        el.style.setProperty("--safe-bottom", "0px");
+      } else {
+        el.style.height = "";
+        el.style.transform = "";
+        el.style.removeProperty("--safe-bottom");
+      }
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      el.style.height = "";
+      el.style.transform = "";
+      el.style.removeProperty("--safe-bottom");
+    };
+  }, [ref, enabled]);
+}
 
 /**
  * On a real phone this renders full-screen. On a wider viewport (desktop
@@ -15,6 +52,8 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
   const [isNarrow, setIsNarrow] = useState(true);
   const isDemo = useDemoStore((s) => s.isDemo);
   const ios = useIsIOS();
+  const screenRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareHeight(screenRef, ios && isNarrow);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 640px)");
@@ -31,6 +70,7 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
     const clearance = (isDemo ? { "--demo-clearance": "44px", "--demo-clearance-bar": "48px" } : {}) as CSSProperties;
     return (
       <div
+        ref={screenRef}
         className="relative mx-auto h-[100dvh] w-full max-w-[480px] overflow-hidden bg-bg ios:pl-[var(--safe-left)] ios:pr-[var(--safe-right)]"
         style={clearance}
       >

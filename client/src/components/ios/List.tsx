@@ -99,6 +99,10 @@ type RowProps = {
   separatorInset?: number;
   large?: boolean;
   ariaLabel?: string;
+  /** Row is one option of a radiogroup (role="radio", aria-checked={checked}). */
+  radio?: boolean;
+  /** Navigation row for the current page (accent, semibold, aria-current). */
+  current?: boolean;
   className?: string;
 };
 
@@ -118,6 +122,8 @@ export function ListRow({
   separatorInset,
   large,
   ariaLabel,
+  radio,
+  current,
   className,
 }: RowProps) {
   const interactive = !!(to || onClick);
@@ -144,7 +150,8 @@ export function ListRow({
           className={cn(
             "block",
             large ? "ios-title2 !font-normal" : "ios-body",
-            destructive ? "text-danger" : action ? "text-accent" : "text-ink",
+            destructive ? "text-danger" : action || current ? "text-accent" : "text-ink",
+            current && "font-semibold",
             (large || !subtitle) && "truncate"
           )}
         >
@@ -168,14 +175,29 @@ export function ListRow({
 
   if (to) {
     return (
-      <Link to={to} aria-label={ariaLabel} className={cn(classes, withInset)} style={style}>
+      <Link
+        to={to}
+        onClick={onClick}
+        aria-label={ariaLabel}
+        aria-current={current ? "page" : undefined}
+        className={cn(classes, withInset)}
+        style={style}
+      >
         {body}
       </Link>
     );
   }
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} aria-label={ariaLabel} className={cn(classes, withInset)} style={style}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={ariaLabel}
+        role={radio ? "radio" : undefined}
+        aria-checked={radio ? !!checked : undefined}
+        className={cn(classes, withInset)}
+        style={style}
+      >
         {body}
       </button>
     );

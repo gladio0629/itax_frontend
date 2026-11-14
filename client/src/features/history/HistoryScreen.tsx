@@ -12,6 +12,8 @@ import { formatRelativeDay, formatSom } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
+import { useIsIOS } from "@/lib/platform";
+import { Segmented } from "@/components/ios/Segmented";
 
 const STATUS_TONE: Record<string, { tone: "accent" | "danger" | "neutral" | "warning"; labelKey: TranslationKey }> = {
   completed: { tone: "accent", labelKey: "history.status.completed" },
@@ -38,7 +40,7 @@ function OrderRow({ o, intlTag }: { o: OrderWithDetails; intlTag: string }) {
   const { t } = useT();
   const status = STATUS_TONE[o.status] ?? STATUS_TONE.searching;
   return (
-    <Link to={`/history/${o.id}`} className="flex w-full flex-col gap-2 rounded-xl bg-card p-4 text-left shadow-softer hover:bg-ink/[0.02]">
+    <Link to={`/history/${o.id}`} className="flex w-full flex-col gap-2 rounded-xl bg-card p-4 text-left shadow-softer hover:bg-ink/[0.02] ios:transition-colors ios:duration-100 ios:active:bg-[var(--ios-row-pressed)]">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-ink">
           {o.fromCity.name} &rarr; {o.toCity.name}
@@ -121,6 +123,7 @@ export function HistoryScreen() {
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; axis: "x" | "y" | null } | null>(null);
   const [dragDX, setDragDX] = useState(0);
+  const ios = useIsIOS();
 
   function loadTab(filter: Filter, reset: boolean) {
     setTabs((prev) => ({ ...prev, [filter]: { ...prev[filter], state: "loading" } }));
@@ -180,8 +183,24 @@ export function HistoryScreen() {
 
   return (
     <div className="flex h-full flex-col bg-bg">
-      <PageTitle>{t("history.title")}</PageTitle>
+      <PageTitle
+        scrollKey={activeIndex}
+        accessory={
+          ios ? (
+            <Segmented
+              ariaLabel={t("history.tabsLabel")}
+              value={FILTERS[activeIndex]}
+              onChange={(f) => setActiveIndex(FILTERS.indexOf(f))}
+              tabs={{ id: (f) => `history-tab-${f}`, controls: (f) => `history-panel-${f}` }}
+              options={FILTERS.map((f) => ({ id: f, label: t(FILTER_KEY[f]) }))}
+            />
+          ) : undefined
+        }
+      >
+        {t("history.title")}
+      </PageTitle>
 
+      {!ios && (
       <div
         role="tablist"
         aria-label={t("history.tabsLabel")}
@@ -215,6 +234,7 @@ export function HistoryScreen() {
           </button>
         ))}
       </div>
+      )}
 
       <div
         className="relative flex-1 overflow-hidden"

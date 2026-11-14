@@ -18,6 +18,8 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 import { formatSom, formatSomParts, formatRelativeDay } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { BonusDetailSheet } from "./BonusDetailSheet";
+import { useIsIOS } from "@/lib/platform";
+import { PageTitle } from "@/components/PageTitle";
 
 const SOURCE_ICON: Record<BonusSourceIcon, typeof Gift> = {
   order: Car,
@@ -44,8 +46,10 @@ export function BonusScreen() {
   const [celebrateKey, setCelebrateKey] = useState(0);
   const [detailSource, setDetailSource] = useState<BonusSource | null>(null);
 
-  // The hero is navy in both themes, so the floating hamburger over it goes white.
-  useHeaderTone("onDark");
+  const ios = useIsIOS();
+  // The hero is navy in both themes, so the floating hamburger over it goes
+  // white. (iOS has a navigation bar on the grouped background instead.)
+  useHeaderTone(ios ? "auto" : "onDark");
 
   const summary = useQuery(() => api.getBonusSummary(), []);
   const sources = useQuery(() => api.getBonusSources(), []);
@@ -139,9 +143,13 @@ export function BonusScreen() {
 
   const s = summary.status === "success" ? summary.data : null;
 
-  return (
-    <div className="relative flex h-full flex-col bg-bg">
-      <div className="relative overflow-hidden bg-on-yellow px-4 pb-6 text-white" style={{ paddingTop: "calc(var(--safe-top) + 68px)" }}>
+  // Balance hero: a full-bleed navy header in the standard design; on iOS a
+  // 12px card at the top of the scroll content, under the Large Title.
+  const hero = (
+      <div
+        className={cn("relative overflow-hidden bg-on-yellow text-white", ios ? "mb-6 rounded-card p-4 ios-squircle" : "px-4 pb-6")}
+        style={ios ? undefined : { paddingTop: "calc(var(--safe-top) + 68px)" }}
+      >
         {celebrateKey > 0 && <ConfettiBurst key={celebrateKey} />}
         <p className="text-xs font-normal text-white/60">{t("bonus.balanceCaption")}</p>
         <div className="mt-1 flex items-end gap-1.5">
@@ -196,8 +204,14 @@ export function BonusScreen() {
           </div>
         )}
       </div>
+  );
 
+
+  return (
+    <div className="relative flex h-full flex-col bg-bg">
+      {ios ? <PageTitle>{t("drawer.bonuslar")}</PageTitle> : hero}
       <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4 pt-5">
+        {ios && hero}
         <p className="mb-3 text-sm font-semibold text-ink">{t("bonus.sourcesTitle")}</p>
         {sources.status === "loading" && (
           <div className="space-y-2">

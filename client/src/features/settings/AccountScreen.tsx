@@ -17,6 +17,7 @@ import { useT } from "@/lib/i18n/provider";
 import { PhoneChangeSheet } from "./PhoneChangeSheet";
 import { useIsIOS } from "@/lib/platform";
 import { IconTile, ListRow, ListSection } from "@/components/ios/List";
+import { Alert } from "@/components/ios/Alert";
 
 function formatPhoneInput(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 9);
@@ -324,7 +325,34 @@ export function AccountScreen() {
         </Sheet>
       )}
 
-      {deleteTarget && (
+      {/* iOS: the destructive confirmation is an alert; the review status that
+          follows still appears in a sheet. */}
+      {ios && deleteTarget && !deleteReviewId && (
+        <Alert
+          open
+          title={t("account.deleteAccount")}
+          message={t("account.deleteAccountConfirm", { name: deleteTarget.name })}
+          onCancel={() => setDeleteTarget(null)}
+          actions={[
+            { label: t("common.cancel"), style: "cancel", onPress: () => setDeleteTarget(null) },
+            { label: t("account.deleteConfirmButton"), style: "destructive", onPress: confirmDelete },
+          ]}
+        />
+      )}
+      {ios && selfDeleteOpen && !selfDeleteReviewId && (
+        <Alert
+          open
+          title={t("account.deleteSelfAction")}
+          message={t("account.deleteSelfFullWarning")}
+          onCancel={() => setSelfDeleteOpen(false)}
+          actions={[
+            { label: t("common.cancel"), style: "cancel", onPress: () => setSelfDeleteOpen(false) },
+            { label: t("account.deleteConfirmButton"), style: "destructive", onPress: confirmSelfDelete },
+          ]}
+        />
+      )}
+
+      {deleteTarget && (!ios || deleteReviewId) && (
         <Sheet open onClose={() => { setDeleteTarget(null); setDeleteReviewId(null); }} ariaLabel={t("account.deleteAccount")}>
           <div className="px-5 pb-6 pt-3">
             {deleteReviewId ? (
@@ -352,7 +380,7 @@ export function AccountScreen() {
         </Sheet>
       )}
 
-      {selfDeleteOpen && (
+      {selfDeleteOpen && (!ios || selfDeleteReviewId) && (
         <Sheet open onClose={() => { setSelfDeleteOpen(false); setSelfDeleteReviewId(null); }} ariaLabel={t("account.deleteSelfAction")}>
           <div className="px-5 pb-6 pt-3">
             {selfDeleteReviewId ? (

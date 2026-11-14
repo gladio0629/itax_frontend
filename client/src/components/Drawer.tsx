@@ -70,10 +70,10 @@ export function Drawer({ open, onClose, children, ariaLabel }: Props) {
 
   return (
     <div className="absolute inset-0 z-40" role="dialog" aria-modal="true" aria-label={ariaLabel}>
-      <div className="absolute inset-0 animate-fade-in bg-black/40" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 animate-fade-in bg-black/40 ios:bg-[var(--ios-backdrop)]" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
-        className="absolute inset-y-0 left-0 flex w-[82%] max-w-[320px] flex-col animate-drawer-in overflow-y-auto overscroll-contain bg-card shadow-soft will-change-transform"
+        className="absolute inset-y-0 left-0 flex w-[82%] max-w-[320px] flex-col animate-drawer-in overflow-y-auto overscroll-contain bg-card shadow-soft will-change-transform ios:bg-[var(--ios-material)] ios:backdrop-blur-2xl ios:backdrop-saturate-150"
         style={{ paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

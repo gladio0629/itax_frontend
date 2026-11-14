@@ -17,6 +17,8 @@ import { TimeSelector } from "./TimeSelector";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
 import { RouteFields } from "./RouteFields";
+import { useIsIOS } from "@/lib/platform";
+import { Segmented } from "@/components/ios/Segmented";
 
 const STEP_KEYS = ["order.step.route", "order.step.details", "order.step.summary"] as const;
 
@@ -89,6 +91,7 @@ export function OrderSheet({
   onClose: () => void;
 }) {
   const { t, intlTag } = useT();
+  const ios = useIsIOS();
   const [step, setStepRaw] = useState(0);
   const [direction, setDirection] = useState<"fwd" | "back">("fwd");
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -175,6 +178,17 @@ export function OrderSheet({
 
         {step === 1 && (
           <div className="space-y-4">
+            {ios ? (
+              <Segmented
+                ariaLabel={t("order.step.details")}
+                value={draft.serviceType}
+                onChange={(v) => setField("serviceType", v)}
+                options={[
+                  { id: "passenger", label: t("order.passenger"), icon: Armchair },
+                  { id: "delivery", label: t("order.delivery"), icon: CarIcon },
+                ]}
+              />
+            ) : (
             <div className="grid grid-cols-2 gap-2">
               <SegmentButton
                 selected={draft.serviceType === "passenger"}
@@ -189,6 +203,7 @@ export function OrderSheet({
                 onClick={() => setField("serviceType", "delivery")}
               />
             </div>
+            )}
 
             {draft.serviceType === "passenger" ? (
               <>

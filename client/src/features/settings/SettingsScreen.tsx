@@ -17,6 +17,7 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
 import { useIsIOS } from "@/lib/platform";
 import { IconTile, ListRow, ListSection } from "@/components/ios/List";
+import { Alert } from "@/components/ios/Alert";
 
 function Row({
   icon: Icon,
@@ -190,6 +191,25 @@ export function SettingsScreen() {
       )}
 
       {languageOpen && <LanguageSheet onClose={() => setLanguageOpen(false)} />}
+      {ios ? (
+        <Alert
+          open={logoutOpen}
+          title={t("settings.logoutConfirmTitle")}
+          message={t("settings.logoutConfirmDesc")}
+          onCancel={() => setLogoutOpen(false)}
+          actions={[
+            { label: t("common.cancel"), style: "cancel", onPress: () => setLogoutOpen(false) },
+            {
+              label: t("settings.logout"),
+              style: "destructive",
+              onPress: () => {
+                logout();
+                navigate("/auth/phone", { replace: true });
+              },
+            },
+          ]}
+        />
+      ) : (
       <Sheet open={logoutOpen} onClose={() => setLogoutOpen(false)} ariaLabel={t("settings.logoutConfirmTitle")}>
         <div className="px-5 pb-3 pt-3">
           <h2 className="mb-2 text-sm font-semibold text-ink">{t("settings.logoutConfirmTitle")}</h2>
@@ -211,6 +231,7 @@ export function SettingsScreen() {
           </div>
         </div>
       </Sheet>
+      )}
     </div>
   );
 }

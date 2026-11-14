@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
+import { useIsIOS } from "@/lib/platform";
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_COUNT = 5;
@@ -24,13 +25,19 @@ export function WheelPicker({
   onChange,
   ariaLabel,
   isDimmed,
+  format,
 }: {
   options: string[];
   value: string;
   onChange: (value: string) => void;
   ariaLabel: string;
   isDimmed?: (option: string) => boolean;
+  /** Display label for an option (defaults to the option itself). */
+  format?: (option: string) => string;
 }) {
+  // iOS: UIDatePicker look — gray selection band, regular weight, 22pt rows,
+  // unavailable rows simply greyed (no strike-through).
+  const ios = useIsIOS();
   const listId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -153,7 +160,10 @@ export function WheelPicker({
     <div className="relative select-none" style={{ height: ITEM_HEIGHT * VISIBLE_COUNT }}>
       {/* Highlight band behind the centre row */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-xl bg-brand-yellow/15 ring-1 ring-inset ring-brand-yellow/60"
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2",
+          ios ? "rounded-lg bg-[var(--ios-fill-tertiary)]" : "rounded-xl bg-brand-yellow/15 ring-1 ring-inset ring-brand-yellow/60"
+        )}
         style={{ height: ITEM_HEIGHT }}
         aria-hidden="true"
       />
@@ -188,7 +198,13 @@ export function WheelPicker({
               onClick={() => scrollToIndex(i, true)}
               className={cn(
                 "flex cursor-pointer items-center justify-center text-lg tabular will-change-transform",
-                selected ? "font-semibold text-ink" : dimmed ? "text-ink/25 line-through decoration-ink/20" : "text-ink/70"
+                ios
+                  ? cn("whitespace-nowrap px-1 text-[22px] tracking-[0.35px]", dimmed ? "text-ink/25" : "text-ink")
+                  : selected
+                  ? "font-semibold text-ink"
+                  : dimmed
+                  ? "text-ink/25 line-through decoration-ink/20"
+                  : "text-ink/70"
               )}
               // 288 rows: let the browser skip off-screen ones (fixed height, so
               // scroll maths is unaffected).
@@ -200,7 +216,7 @@ export function WheelPicker({
                 containIntrinsicSize: `auto ${ITEM_HEIGHT}px`,
               }}
             >
-              {opt}
+              {format ? format(opt) : opt}
             </div>
           );
         })}

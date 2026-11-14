@@ -8,6 +8,9 @@ import { X } from "@/lib/icons";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { cn } from "@/lib/cn";
+import { useIsIOS } from "@/lib/platform";
+import { Segmented as IOSSegmented } from "@/components/ios/Segmented";
+import { Switch } from "@/components/Switch";
 import {
   addDays,
   bookableDays,
@@ -48,6 +51,8 @@ function Segmented<T extends string>({
   onChange: (v: T) => void;
   label: string;
 }) {
+  const ios = useIsIOS();
+  if (ios) return <IOSSegmented ariaLabel={label} value={value} onChange={onChange} options={options} />;
   return (
     <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2">
       {options.map((o) => {
@@ -242,6 +247,30 @@ function ScheduledFields({
   const earliest = earliestToday(rules, now);
   const onToday = start === today;
   const chipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const ios = useIsIOS();
+
+  // iOS date wheels: "Bugun", "Ertaga", then "Sha 16-noy"… across the
+  // bookable window; "Bir necha kun" adds a second wheel for the last day,
+  // limited to maxRangeDays after the first. Every change goes through the
+  // same commit/normalizeTiming path as the chips.
+  const dayText = (d: string) =>
+    d === today || d === addDays(today, 1) ? dayLabel(d, t, intlTag, now) : `${weekdayShort(d, intlTag)} ${shortDate(d, intlTag)}`;
+  const endChoices = (from: string) => days.filter((d) => d > from && dayDiff(from, d) <= rules.maxRangeDays);
+  function setStartDay(d: string) {
+    let nextEnd = end;
+    if (end) {
+      const choices = endChoices(d);
+      nextEnd = choices.includes(end) ? end : choices[0];
+    }
+    commit({ ...timing, date: d, dateEnd: nextEnd });
+  }
+  function toggleMultiDay() {
+    if (end) commit({ ...timing, dateEnd: undefined });
+    else {
+      const first = endChoices(start)[0];
+      if (first) commit({ ...timing, dateEnd: first });
+    }
+  }
 
   // Keep the start chip in view (e.g. after jumping to tomorrow).
   useEffect(() => {
@@ -299,6 +328,38 @@ function ScheduledFields({
   return (
     <div className="space-y-4 pt-2">
       {/* Date first */}
+      {ios ? (
+        <div>
+          <p className="mb-1 text-xs font-semibold text-ink/60">{t("when.date")}</p>
+          <div className={cn(end && "grid grid-cols-2 gap-3")}>
+            <div>
+              {end && <p className="mb-1 text-center text-xs font-semibold text-ink/60">{t("order.timeFrom")}</p>}
+              <WheelPicker options={days} value={start} onChange={setStartDay} format={dayText} ariaLabel={t("when.date")} />
+            </div>
+            {end && (
+              <div>
+                <p className="mb-1 text-center text-xs font-semibold text-ink/60">{t("order.timeTo")}</p>
+                <WheelPicker
+                  options={endChoices(start)}
+                  value={end}
+                  onChange={(d) => commit({ ...timing, dateEnd: d })}
+                  format={dayText}
+                  ariaLabel={`${t("when.date")}, ${t("order.timeTo")}`}
+                />
+              </div>
+            )}
+          </div>
+          <div className="mt-2 flex min-h-[44px] items-center justify-between gap-3">
+            <span className="text-sm text-ink">{t("when.multiDay")}</span>
+            <Switch
+              checked={!!end}
+              onChange={toggleMultiDay}
+              disabled={!end && endChoices(start).length === 0}
+              label={t("when.multiDay")}
+            />
+          </div>
+        </div>
+      ) : (
       <div>
         <p id="when-date" className="mb-2 text-xs font-semibold text-ink/60">
           {t("when.date")}
@@ -358,6 +419,7 @@ function ScheduledFields({
           )}
         </div>
       </div>
+      )}
 
       <Segmented
         label={t("when.time")}
