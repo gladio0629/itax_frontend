@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
@@ -116,5 +117,12 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Platform variants (see lib/platform.ts): `ios:rounded-full`,
+    // `standalone:hidden`. They only apply under the matching <html> attribute.
+    plugin(({ addVariant }) => {
+      addVariant("ios", 'html[data-platform="ios"] &');
+      addVariant("standalone", 'html[data-standalone="true"] &');
+    }),
+  ],
 } satisfies Config;

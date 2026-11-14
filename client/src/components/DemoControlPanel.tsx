@@ -3,6 +3,8 @@ import { FlaskConical, RotateCcw, X } from "@/lib/icons";
 import { useDemoStore, type DemoScenarios } from "@/stores/demoStore";
 import { Switch } from "@/components/Switch";
 import { useModalOpen } from "@/lib/useModalOpen";
+import { detectedPlatform, readPlatformOverride, setPlatformOverride, type PlatformOverride } from "@/lib/platform";
+import { cn } from "@/lib/cn";
 
 const SCENARIO_LABELS: Record<keyof DemoScenarios, { label: string; hint: string }> = {
   noDriverFound: { label: "Haydovchi topilmadi", hint: "Buyurtma qidiruvi muvaffaqiyatsiz tugaydi" },
@@ -12,6 +14,43 @@ const SCENARIO_LABELS: Record<keyof DemoScenarios, { label: string; hint: string
   fastForward: { label: "Vaqtni tezlashtirish", hint: "Kutish vaqtlari qisqartiriladi" },
   bonusBelowMin: { label: "Bonus minimal darajadan past", hint: "Bonusni yechib bo'lmaydi deb hisoblanadi" },
 };
+
+const PLATFORM_OPTIONS: { id: PlatformOverride; label: string }[] = [
+  { id: "auto", label: "Avto" },
+  { id: "ios", label: "iOS" },
+  { id: "standard", label: "Standart" },
+];
+
+/** Avto / iOS / Standart — forces the iOS interface on desktop (applies with a reload). */
+function PlatformToggle() {
+  const current = readPlatformOverride();
+  const detected = detectedPlatform() === "ios" ? "iOS" : "Standart";
+  return (
+    <div className="mb-3 rounded-xl bg-white/5 px-3 py-2.5">
+      <p className="mb-2 flex items-baseline justify-between gap-2 text-xs font-semibold">
+        <span id="demo-platform-label">Platforma</span>
+        <span className="text-[11px] font-normal text-white/70">Qurilma: {detected}</span>
+      </p>
+      <div role="radiogroup" aria-labelledby="demo-platform-label" className="grid grid-cols-3 gap-1 rounded-lg bg-white/10 p-0.5">
+        {PLATFORM_OPTIONS.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={current === o.id}
+            onClick={() => current !== o.id && setPlatformOverride(o.id)}
+            className={cn(
+              "min-h-[36px] rounded-md text-xs font-semibold transition-colors",
+              current === o.id ? "bg-white text-[#13201c]" : "text-white/80 hover:bg-white/10"
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function useWideViewport() {
   const [wide, setWide] = useState(() => window.matchMedia("(min-width: 640px)").matches);
@@ -52,13 +91,14 @@ export function DemoControlPanel() {
   return (
     <div className="fixed right-4 z-50 flex flex-col items-end gap-3" style={{ bottom }}>
       {open && (
-        <div className="w-72 max-w-[calc(100vw-32px)] rounded-2xl bg-[#13201c] p-4 text-white shadow-2xl animate-slide-up" role="dialog" aria-label="Demo boshqaruv paneli">
+        <div className="max-h-[calc(100dvh-96px)] w-72 max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl bg-[#13201c] p-4 text-white shadow-2xl animate-slide-up" role="dialog" aria-label="Demo boshqaruv paneli">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold">Demo boshqaruv paneli</p>
             <button onClick={() => setOpen(false)} aria-label="Yopish" className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10">
               <X className="h-4 w-4" />
             </button>
           </div>
+          <PlatformToggle />
           <div className="space-y-2">
             {(Object.keys(SCENARIO_LABELS) as Array<keyof DemoScenarios>).map((key) => {
               const meta = SCENARIO_LABELS[key];
