@@ -67,19 +67,31 @@ export function OrderTrackScreen() {
   async function retrySearch() {
     setRetrying(true);
     try {
-      const fromAddressId =
-        draft.fromAddressId || defaultAddressesForCity(order?.fromCityId ?? "")[0]?.id || "";
-      const toAddressId =
-        draft.toAddressId || defaultAddressesForCity(order?.toCityId ?? "")[0]?.id || "";
+      // Re-order exactly what was ordered: the order's extras hold the route,
+      // stops, details, class, options and promo (the draft was reset on submit).
+      const x = order?.extras;
+      const fromAddressId = x?.fromAddressId || defaultAddressesForCity(order?.fromCityId ?? "")[0]?.id || "";
+      const toAddressId = x?.toAddressId || defaultAddressesForCity(order?.toCityId ?? "")[0]?.id || "";
+      const serviceType = x?.serviceType ?? draft.serviceType;
       const res = await api.createOrder({
-        serviceType: draft.serviceType,
+        serviceType,
         fromAddressId,
         toAddressId,
         mode: order?.mode ?? draft.mode,
         seatIds: order?.seatIds ?? draft.seatIds,
-        cargo: draft.cargo,
+        cargo: x?.cargo ?? (serviceType === "delivery" ? draft.cargo : undefined),
         paymentMethod: order?.paymentMethod ?? draft.paymentMethod,
-        timing: draft.timing,
+        timing: x?.timing ?? draft.timing,
+        fromDetails: x?.fromDetails,
+        toDetails: x?.toDetails,
+        stops: x?.stops,
+        comment: x?.comment,
+        optionIds: x?.optionIds,
+        optionVariants: x?.optionVariants,
+        carClass: x?.carClass,
+        luggage: x?.luggage,
+        rider: x?.rider,
+        promoCode: x?.promoCode,
       });
       navigate(`/order/track/${res.id}`, { replace: true });
     } catch {

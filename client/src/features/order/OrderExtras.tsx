@@ -1,14 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Baby, Lightbulb, Luggage, Package, X } from "@/lib/icons";
-import type { LucideIcon } from "@/lib/icons";
+import { Lightbulb, X } from "@/lib/icons";
 import { api } from "@/api/client";
-import type { CommentHint, OrderOption, OrderOptionId, ServiceType } from "@/api/types";
-import { Switch } from "@/components/Switch";
+import type { CarClassId, CommentHint, OrderOption, OrderOptionId, ServiceType } from "@/api/types";
 import { formatSom } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
-
-const OPTION_ICONS: Partial<Record<OrderOptionId, LucideIcon>> = { child_seat: Baby, big_luggage: Luggage };
 
 /**
  * "Haydovchiga izoh" with smart hints. The adapter reads the text and says
@@ -20,6 +16,7 @@ export function DriverComment({
   onChange,
   maxLength,
   serviceType,
+  carClass,
   options,
   selectedOptionIds,
   onApplyHint,
@@ -29,6 +26,7 @@ export function DriverComment({
   /** The adapter's limit; undefined while the rules load. */
   maxLength?: number;
   serviceType: ServiceType;
+  carClass: CarClassId;
   options: OrderOption[];
   selectedOptionIds: OrderOptionId[];
   onApplyHint: (id: OrderOptionId) => void;
@@ -51,7 +49,7 @@ export function DriverComment({
     }
     const timer = window.setTimeout(() => {
       api
-        .getCommentHints({ text, serviceType, selectedOptionIds })
+        .getCommentHints({ text, serviceType, carClass, selectedOptionIds })
         .then((h) => {
           if (req === request.current) setHints(h);
         })
@@ -59,7 +57,7 @@ export function DriverComment({
     }, 300);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, serviceType, selectedKey]);
+  }, [value, serviceType, carClass, selectedKey]);
 
   const visible = hints.filter((h) => !dismissed.includes(h.optionId) && !selectedOptionIds.includes(h.optionId));
 
@@ -117,63 +115,6 @@ export function DriverComment({
           );
         })}
       </div>
-    </section>
-  );
-}
-
-/** Add-ons the adapter offers for this service type, with its prices. */
-export function OrderOptions({
-  status,
-  options,
-  selected,
-  onToggle,
-  onRetry,
-}: {
-  status: "loading" | "error" | "success";
-  options: OrderOption[];
-  selected: OrderOptionId[];
-  onToggle: (id: OrderOptionId) => void;
-  onRetry: () => void;
-}) {
-  const { t, intlTag } = useT();
-  // Nothing while loading: Dostavka has no add-ons, and a header that
-  // flashes in and vanishes reads as a glitch.
-  if (status === "loading" || (status === "success" && options.length === 0)) return null;
-  return (
-    <section aria-labelledby="options-title" className="space-y-3">
-      <p id="options-title" className="text-sm font-semibold text-ink">
-        {t("options.title")}
-      </p>
-      {status === "error" && (
-        <button onClick={onRetry} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
-          {t("common.loadFailedRetry")}
-        </button>
-      )}
-      {status === "success" && (
-        <div className="divide-y divide-border overflow-hidden rounded-xl border border-border ios:border-0 ios:bg-[var(--ios-fill-quaternary)]">
-          {options.map((o) => {
-            const Icon = OPTION_ICONS[o.id] ?? Package;
-            const on = selected.includes(o.id);
-            const title = t(o.titleKey as TranslationKey);
-            return (
-              <div key={o.id} className="flex min-h-[60px] items-center gap-3 px-3 py-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent ios:bg-card">
-                  <Icon className="h-[18px] w-[18px]" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-ink">{title}</span>
-                  <span className="block text-xs text-ink/60">
-                    <span className="font-semibold text-ink/80 tabular">+{formatSom(o.price, intlTag)}</span>
-                    {" \u00b7 "}
-                    {t(o.descKey as TranslationKey)}
-                  </span>
-                </span>
-                <Switch checked={on} onChange={() => onToggle(o.id)} label={title} />
-              </div>
-            );
-          })}
-        </div>
-      )}
     </section>
   );
 }

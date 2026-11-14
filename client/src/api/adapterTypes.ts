@@ -1,5 +1,14 @@
 import type { DeliveryVehicleSpec,
   AddressDetails,
+  CarClass,
+  CarClassId,
+  EmergencyContact,
+  EmergencyContacts,
+  LuggageRules,
+  PromoResult,
+  Rider,
+  TipOptions,
+  TripShare,
   CommentHint,
   OrderDetailsRules,
   OrderOption,
@@ -55,12 +64,27 @@ export interface ApiAdapter {
 
   getOrderDetailsRules(): Promise<OrderDetailsRules>;
   /** Add-ons available for a service type (none for Dostavka). */
-  getOrderOptions(serviceType: ServiceType): Promise<OrderOption[]>;
+  getOrderOptions(input: { serviceType: ServiceType; carClass?: CarClassId }): Promise<OrderOption[]>;
   getCommentHints(input: {
     text: string;
     serviceType: ServiceType;
+    carClass?: CarClassId;
     selectedOptionIds: OrderOptionId[];
   }): Promise<CommentHint[]>;
+  /** Class cards for the current order; each price is that class's total. */
+  getCarClasses(input: QuoteInput): Promise<CarClass[]>;
+  getLuggageRules(route: { fromAddressId: string; toAddressId: string }): Promise<LuggageRules>;
+  /** Normalizes "Kim ketadi?"; throws an ApiError with a translation key. */
+  validateRider(rider: Rider): Promise<Rider>;
+
+  getTipOptions(orderId: string): Promise<TipOptions>;
+  sendTip(orderId: string, amount: number): Promise<ReviewRequest>;
+
+  getTripShareLink(orderId: string): Promise<TripShare>;
+  getEmergencyContacts(): Promise<EmergencyContacts>;
+  addEmergencyContact(contact: { name: string; phone: string }): Promise<EmergencyContact>;
+  removeEmergencyContact(id: string): Promise<void>;
+  getSupportContact(): Promise<{ phone: string }>;
   /** Details remembered for a saved address, or null. */
   getSavedAddressDetails(addressId: string): Promise<AddressDetails | null>;
   /** Validates and normalizes Tafsilotlar; a saved address remembers them. */
@@ -87,7 +111,7 @@ export interface ApiAdapter {
 
   getWallet(): Promise<WalletSummary>;
 
-  applyPromoCode(code: string): Promise<{ valid: boolean; discountPct: number; message: string }>;
+  applyPromoCode(code: string): Promise<PromoResult>;
 
   getBonusSummary(): Promise<BonusSummary>;
   getBonusSources(): Promise<BonusSource[]>;

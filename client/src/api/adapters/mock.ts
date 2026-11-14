@@ -16,6 +16,16 @@ import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   AddressDetails,
+  CarClass,
+  CarClassId,
+  EmergencyContact,
+  EmergencyContacts,
+  LuggageRules,
+  OptionVariants,
+  PromoResult,
+  Rider,
+  TipOptions,
+  TripShare,
   CommentHint,
   OrderDetailsRules,
   OrderMode,
@@ -84,18 +94,105 @@ const ORDER_DETAILS_RULES: OrderDetailsRules = {
   addressFieldMaxLength: 10,
   intercomMaxLength: 16,
   addressNoteMaxLength: 200,
+  riderNameMaxLength: 40,
 };
 const STOP_FEE = 5_000;
-const ORDER_OPTIONS: Record<ServiceType, OrderOption[]> = {
+type OptionDef = Omit<OrderOption, "available" | "reasonKey"> & {
+  /** Classes that can't offer it, with the reason shown on the disabled row. */
+  notIn?: { classes: CarClassId[]; reasonKey: string };
+};
+const CHILD_SEAT_AGES = [
+  { id: "0_9m", labelKey: "option.child_seat.age.0_9m" },
+  { id: "9m_4y", labelKey: "option.child_seat.age.9m_4y" },
+  { id: "4_12y", labelKey: "option.child_seat.age.4_12y" },
+];
+const OPTION_DEFS: Record<ServiceType, OptionDef[]> = {
   passenger: [
-    { id: "child_seat", titleKey: "option.child_seat", descKey: "option.child_seat.desc", price: 15_000 },
+    { id: "child_seat", titleKey: "option.child_seat", descKey: "option.child_seat.desc", price: 15_000, variants: CHILD_SEAT_AGES, defaultVariant: "9m_4y" },
+    { id: "pet", titleKey: "option.pet", descKey: "option.pet.desc", price: 20_000, notIn: { classes: ["biznes"], reasonKey: "option.reason.notInBiznes" } },
     { id: "big_luggage", titleKey: "option.big_luggage", descKey: "option.big_luggage.desc", price: 10_000 },
+    { id: "find_car", titleKey: "option.find_car", descKey: "option.find_car.desc", price: 0 },
+    { id: "wheelchair", titleKey: "option.wheelchair", descKey: "option.wheelchair.desc", price: 0, notIn: { classes: ["standart", "komfort", "biznes"], reasonKey: "option.reason.minivenOnly" } },
+    { id: "text_only", titleKey: "option.text_only", descKey: "option.text_only.desc", price: 0 },
   ],
   delivery: [],
 };
+
+function orderOptions(serviceType: ServiceType, carClass: CarClassId = "standart"): OrderOption[] {
+  return OPTION_DEFS[serviceType].map(({ notIn, ...o }) => {
+    const blocked = !!notIn && notIn.classes.includes(carClass);
+    return { ...o, variants: o.variants?.map((v) => ({ ...v })), available: !blocked, reasonKey: blocked ? notIn!.reasonKey : undefined };
+  });
+}
+
+/** Car classes: a surcharge on the base fare, and when each can't be booked. */
+const CAR_CLASSES: Record<CarClassId, { nameKey: string; seats: number; surchargePct: number }> = {
+  standart: { nameKey: "class.standart", seats: 4, surchargePct: 0 },
+  komfort: { nameKey: "class.komfort", seats: 4, surchargePct: 25 },
+  biznes: { nameKey: "class.biznes", seats: 4, surchargePct: 70 },
+  miniven: { nameKey: "class.miniven", seats: 6, surchargePct: 40 },
+};
+const CAR_CLASS_IDS = Object.keys(CAR_CLASSES) as CarClassId[];
+const BIZNES_MAX_KM = 700;
+
+function classAvailability(id: CarClassId, mode: OrderMode, directKm: number): string | undefined {
+  // The seat map has 4 seats; a 6-seat minivan is booked whole.
+  if (id === "miniven" && mode === "seat") return "class.reason.wholeCarOnly";
+  if (id === "biznes" && directKm > BIZNES_MAX_KM) return "class.reason.longRoute";
+  return undefined;
+}
+
+const PROMO_CODES: Record<string, number> = { IZGO10: 10 };
+
+// Tips: chip amounts and the custom range. A tip goes through the review
+// mechanism like any other money movement in the demo.
+const TIP_RULES = { presets: [0, 5_000, 10_000, 20_000], min: 1_000, max: 200_000 };
+const TIPS_KEY = "tips";
+type StoredTip = { amount: number; reviewId: string };
+function loadTips() {
+  return readJSON<Record<string, StoredTip>>(TIPS_KEY, {});
+}
+
+const EMERGENCY_KEY = "emergency_contacts";
+const EMERGENCY_MAX = 3;
+const SUPPORT_PHONE = "+998 71 200 00 00";
+function loadEmergency() {
+  return readJSON<EmergencyContact[]>(EMERGENCY_KEY, []);
+}
+const LUGGAGE_MAX = 4;
+const PHONE_DIGITS = 9;
+/** "+998 90 123 45 67" → "901234567"; the country code is fixed. */
+function nationalDigits(phone: string) {
+  const d = phone.replace(/\D/g, "");
+  return d.startsWith("998") && d.length === PHONE_DIGITS + 3 ? d.slice(3) : d;
+}
+function formatPhone(digits: string) {
+  return `+998 ${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`;
+}
+function normalizeRider(rider: Rider | undefined): Rider {
+  if (!rider || rider.kind === "me") return { kind: "me" };
+  const name = rider.name.trim();
+  if (!name) throw new ApiError("RIDER_NAME", "rider.error.name");
+  if (name.length > ORDER_DETAILS_RULES.riderNameMaxLength) throw new ApiError("RIDER_NAME", "rider.error.nameLong");
+  const digits = nationalDigits(rider.phone);
+  if (digits.length !== PHONE_DIGITS) throw new ApiError("RIDER_PHONE", "rider.error.phone");
+  return { kind: "other", name, phone: formatPhone(digits) };
+}
+function normalizeLuggage(route: { fromAddressId: string; toAddressId: string }, luggage: number | undefined) {
+  const rules = luggageRules(route);
+  const n = luggage ?? 0;
+  if (!rules) return n === 0 ? undefined : (() => { throw new ApiError("LUGGAGE", "luggage.error"); })();
+  if (!Number.isInteger(n) || n < rules.min || n > rules.max) throw new ApiError("LUGGAGE", "luggage.error");
+  return n || undefined;
+}
+function luggageRules(route: { fromAddressId: string; toAddressId: string }) {
+  // Bags are counted for intercity trips only.
+  return addressOf(route.fromAddressId).cityId !== addressOf(route.toAddressId).cityId ? { min: 0, max: LUGGAGE_MAX } : null;
+}
+
 /** Word-start stems per add-on, uz/ru/en. Matched against whole words so
  * "bolalar" and "ребёнком" hit but a stem in the middle of a word doesn't. */
-const HINT_STEMS: Record<OrderOptionId, { stems: string[]; messageKey: string }> = {
+const HINT_STEMS: Partial<Record<OrderOptionId, { stems: string[]; messageKey: string }>> = {
   child_seat: {
     stems: ["bola", "farzand", "chaqaloq", "ребён", "ребен", "дети", "детей", "детьми", "детск", "малыш", "child", "kid", "baby", "toddler"],
     messageKey: "hint.childSeat",
@@ -146,11 +243,26 @@ function validateStopsCount(count: number) {
   if (count > ORDER_DETAILS_RULES.maxStops) throw new ApiError("TOO_MANY_STOPS", "stops.tooMany");
 }
 
-function validateOptions(serviceType: ServiceType, optionIds: OrderOptionId[] | undefined): OrderOptionId[] {
-  const allowed = new Set(ORDER_OPTIONS[serviceType].map((o) => o.id));
+function validateOptions(
+  serviceType: ServiceType,
+  carClass: CarClassId,
+  optionIds: OrderOptionId[] | undefined,
+  variants: OptionVariants | undefined
+): { optionIds: OrderOptionId[]; optionVariants: OptionVariants } {
+  const options = orderOptions(serviceType, carClass);
   const ids = [...new Set(optionIds ?? [])];
-  if (ids.some((id) => !allowed.has(id))) throw new ApiError("INVALID_OPTION", "order.quoteError");
-  return ids;
+  const optionVariants: OptionVariants = {};
+  for (const id of ids) {
+    const o = options.find((x) => x.id === id);
+    if (!o) throw new ApiError("INVALID_OPTION", "order.quoteError");
+    if (!o.available) throw new ApiError("OPTION_UNAVAILABLE", o.reasonKey ?? "order.quoteError");
+    if (o.variants) {
+      const v = variants?.[id] ?? o.defaultVariant;
+      if (!o.variants.some((x) => x.id === v)) throw new ApiError("INVALID_OPTION", "order.quoteError");
+      optionVariants[id] = v;
+    }
+  }
+  return { optionIds: ids, optionVariants };
 }
 
 type PriceInput = {
@@ -162,16 +274,26 @@ type PriceInput = {
   seatIds: string[];
   cargo?: CargoInput;
   optionIds: OrderOptionId[];
+  optionVariants?: OptionVariants;
+  carClass?: CarClassId;
+  promoCode?: string;
 };
 
-/** The one price for an order — quote, create and update all call this, so
- * the charged price can't drift from the quote. Lines sum to the total. */
+/** The one price for an order — quote, class cards, create and update all
+ * call this, so the charged price can't drift from the quote. Lines sum to
+ * the total. */
 function priceOrder(input: PriceInput) {
   validateStopsCount(input.stops.length);
-  const optionIds = validateOptions(input.serviceType, input.optionIds);
+  const carClass: CarClassId = input.serviceType === "passenger" ? input.carClass ?? "standart" : "standart";
+  if (!CAR_CLASSES[carClass]) throw new ApiError("INVALID_CLASS", "order.quoteError");
+  const { optionIds, optionVariants } = validateOptions(input.serviceType, carClass, input.optionIds, input.optionVariants);
   const cities = [input.fromAddressId, ...input.stops, input.toAddressId].map((id) => addressOf(id).cityId);
   const directKm = roadDistanceKm(cities[0], cities[cities.length - 1]);
   if (directKm === 0) throw new ApiError("INVALID_ROUTE", "order.quoteError");
+  if (input.serviceType === "passenger") {
+    const reason = classAvailability(carClass, input.mode, directKm);
+    if (reason) throw new ApiError("CLASS_UNAVAILABLE", reason);
+  }
   let routeKm = 0;
   for (let i = 1; i < cities.length; i++) routeKm += roadDistanceKm(cities[i - 1], cities[i]);
   const detourKm = Math.max(0, routeKm - directKm);
@@ -194,6 +316,8 @@ function priceOrder(input: PriceInput) {
       if (frontSurcharge > 0) lines.push({ key: "quote.frontSurcharge", amount: frontSurcharge });
       detourPerKm = DEFAULT_TARIFF.perKmSeat * Math.max(input.seatIds.length, 1);
     }
+    const pct = CAR_CLASSES[carClass].surchargePct;
+    if (pct > 0) lines.push({ key: `quote.class.${carClass}`, params: { pct }, amount: Math.round((fare * pct) / 100 / 1000) * 1000 });
   }
   input.stops.forEach((id, i) => {
     lines.push({ key: "quote.stop", params: { n: i + 1, place: addressOf(id).label }, amount: STOP_FEE });
@@ -201,11 +325,19 @@ function priceOrder(input: PriceInput) {
   if (detourKm > 0) {
     lines.push({ key: "quote.detour", params: { km: detourKm }, amount: Math.round((detourPerKm * detourKm) / 1000) * 1000 });
   }
-  for (const option of ORDER_OPTIONS[input.serviceType]) {
-    if (optionIds.includes(option.id)) lines.push({ key: `quote.option.${option.id}`, amount: option.price });
+  for (const option of OPTION_DEFS[input.serviceType]) {
+    if (optionIds.includes(option.id) && option.price > 0) lines.push({ key: `quote.option.${option.id}`, amount: option.price });
+  }
+  let promoCode: string | undefined;
+  if (input.promoCode) {
+    promoCode = input.promoCode.trim().toUpperCase();
+    const pct = PROMO_CODES[promoCode];
+    if (!pct) throw new ApiError("PROMO_INVALID", "promo.invalid");
+    const subtotal = lines.reduce((sum, l) => sum + l.amount, 0);
+    lines.push({ key: "quote.promo", params: { code: promoCode, pct }, amount: -Math.round((subtotal * pct) / 100 / 1000) * 1000 });
   }
   const total = lines.reduce((sum, l) => sum + l.amount, 0);
-  return { directKm, routeKm, lines, total, optionIds };
+  return { directKm, routeKm, lines, total, optionIds, optionVariants, carClass, promoCode };
 }
 
 const SEAT_POSITIONS: SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
@@ -502,17 +634,52 @@ export const mockAdapter: ApiAdapter = {
   getOrderDetailsRules: () =>
     withLatency<OrderDetailsRules>(() => ({ ...ORDER_DETAILS_RULES }), { minMs: 100, maxMs: 250 }),
 
-  getOrderOptions: (serviceType) =>
-    withLatency<OrderOption[]>(() => ORDER_OPTIONS[serviceType].map((o) => ({ ...o })), { minMs: 100, maxMs: 250 }),
+  getOrderOptions: ({ serviceType, carClass }) =>
+    withLatency<OrderOption[]>(() => orderOptions(serviceType, carClass), { minMs: 100, maxMs: 250 }),
 
-  getCommentHints: ({ text, serviceType, selectedOptionIds }) =>
+  getCommentHints: ({ text, serviceType, carClass, selectedOptionIds }) =>
     withLatency<CommentHint[]>(() => {
       const words = text.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-      const available = ORDER_OPTIONS[serviceType].map((o) => o.id).filter((id) => !selectedOptionIds.includes(id));
-      return available
-        .filter((id) => words.some((w) => HINT_STEMS[id].stems.some((stem) => w.startsWith(stem))))
-        .map((id) => ({ optionId: id, messageKey: HINT_STEMS[id].messageKey }));
+      // Never suggest something already on, or that this class can't offer.
+      return orderOptions(serviceType, carClass)
+        .filter((o) => o.available && !selectedOptionIds.includes(o.id))
+        .flatMap((o) => {
+          const h = HINT_STEMS[o.id];
+          return h && words.some((w) => h.stems.some((stem) => w.startsWith(stem))) ? [{ optionId: o.id, messageKey: h.messageKey }] : [];
+        });
     }, { minMs: 80, maxMs: 180 }),
+
+  getCarClasses: (input) =>
+    withLatency<CarClass[]>(() => {
+      const directKm = roadDistanceKm(addressOf(input.fromAddressId).cityId, addressOf(input.toAddressId).cityId);
+      return CAR_CLASS_IDS.map((id) => {
+        const c = CAR_CLASSES[id];
+        const reasonKey = classAvailability(id, input.mode, directKm);
+        let price = 0;
+        if (!reasonKey) {
+          // Same price the quote would give with this class; options this
+          // class can't offer are left out rather than failing the card.
+          const offered = new Set(orderOptions("passenger", id).filter((o) => o.available).map((o) => o.id));
+          price = priceOrder({
+            serviceType: "passenger",
+            fromAddressId: input.fromAddressId,
+            toAddressId: input.toAddressId,
+            stops: input.stops ?? [],
+            mode: input.mode,
+            seatIds: input.seatIds,
+            optionIds: (input.optionIds ?? []).filter((o) => offered.has(o)),
+            optionVariants: input.optionVariants,
+            carClass: id,
+            promoCode: input.promoCode,
+          }).total;
+        }
+        return { id, nameKey: c.nameKey, seats: c.seats, price, available: !reasonKey, reasonKey };
+      });
+    }, { minMs: 250, maxMs: 500 }),
+
+  getLuggageRules: (route) => withLatency<LuggageRules>(() => luggageRules(route), { minMs: 100, maxMs: 250 }),
+
+  validateRider: (rider) => withLatency<Rider>(() => normalizeRider(rider), { minMs: 150, maxMs: 300 }),
 
   getSavedAddressDetails: (addressId) =>
     withLatency<AddressDetails | null>(() => {
@@ -554,6 +721,9 @@ export const mockAdapter: ApiAdapter = {
         seatIds: input.seatIds,
         cargo: input.serviceType === "delivery" ? input.cargo : undefined,
         optionIds: input.optionIds ?? [],
+        optionVariants: input.optionVariants,
+        carClass: input.carClass,
+        promoCode: input.promoCode,
       });
       return {
         distanceKm: routeKm,
@@ -595,7 +765,9 @@ export const mockAdapter: ApiAdapter = {
       const fromPointDetails = normalizeDetails(input.fromDetails);
       const toPointDetails = normalizeDetails(input.toDetails);
       const comment = normalizeComment(input.comment);
-      const { routeKm: distanceKm, total: price, optionIds } = priceOrder({
+      const rider = normalizeRider(input.rider);
+      const luggage = normalizeLuggage(input, input.luggage);
+      const { routeKm: distanceKm, total: price, optionIds, optionVariants, carClass, promoCode } = priceOrder({
         serviceType: input.serviceType,
         fromAddressId: input.fromAddressId,
         toAddressId: input.toAddressId,
@@ -604,6 +776,9 @@ export const mockAdapter: ApiAdapter = {
         seatIds: input.seatIds,
         cargo,
         optionIds: input.optionIds ?? [],
+        optionVariants: input.optionVariants,
+        carClass: input.carClass,
+        promoCode: input.promoCode,
       });
       const now = Date.now();
       const searchMs = scenarios.noDriverFound
@@ -639,6 +814,11 @@ export const mockAdapter: ApiAdapter = {
         stops,
         comment,
         optionIds,
+        optionVariants,
+        carClass: input.serviceType === "passenger" ? carClass : undefined,
+        luggage,
+        rider: rider.kind === "other" ? rider : undefined,
+        promoCode,
       });
       return toDetails(order);
     }, { minMs: 400, maxMs: 800 }),
@@ -697,8 +877,14 @@ export const mockAdapter: ApiAdapter = {
         seatIds,
         cargo: nextExtras.cargo,
         optionIds: patch.optionIds ?? nextExtras.optionIds ?? [],
+        // Class, variants and promo aren't editable here; they must survive
+        // a partial save (e.g. payment only) and keep pricing the order.
+        optionVariants: nextExtras.optionVariants,
+        carClass: nextExtras.carClass,
+        promoCode: nextExtras.promoCode,
       });
       nextExtras.optionIds = priced.optionIds;
+      nextExtras.optionVariants = priced.optionVariants;
       const fromCityId = addressOf(nextExtras.fromAddressId).cityId;
       const toCityId = addressOf(nextExtras.toAddressId).cityId;
 
@@ -889,13 +1075,87 @@ export const mockAdapter: ApiAdapter = {
       };
     }),
 
+  getTipOptions: (orderId) =>
+    withLatency<TipOptions>(() => {
+      const order = db.getOrder(orderId);
+      if (!order) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");
+      const stored = loadTips()[orderId];
+      let sent: TipOptions["sent"];
+      if (stored) {
+        const status = getReviewRequest(stored.reviewId) ? pollReview(stored.reviewId).status : "approved";
+        sent = { amount: stored.amount, reviewId: stored.reviewId, status };
+      }
+      return {
+        allowed: order.status === "completed" && !!order.driverId && !stored,
+        presets: [...TIP_RULES.presets],
+        min: TIP_RULES.min,
+        max: TIP_RULES.max,
+        sent,
+      };
+    }, { minMs: 150, maxMs: 350 }),
+
+  sendTip: (orderId, amount) =>
+    withLatency(() => {
+      const order = db.getOrder(orderId);
+      if (!order) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");
+      if (order.status !== "completed" || !order.driverId) throw new ApiError("TIP_NOT_ALLOWED", "tip.error.notAllowed");
+      if (loadTips()[orderId]) throw new ApiError("TIP_ALREADY_SENT", "tip.error.alreadySent");
+      if (!Number.isInteger(amount) || amount < TIP_RULES.min || amount > TIP_RULES.max) {
+        throw new ApiError("TIP_RANGE", "tip.error.range");
+      }
+      const review = submitForReview("tip", { orderId, amount, driverId: order.driverId });
+      writeJSON(TIPS_KEY, { ...loadTips(), [orderId]: { amount, reviewId: review.id } });
+      return review;
+    }, { minMs: 300, maxMs: 600 }),
+
+  getTripShareLink: (orderId) =>
+    withLatency<TripShare>(() => {
+      const order = db.getOrder(orderId);
+      if (!order) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");
+      const driver = order.driverId ? db.drivers().find((d) => d.id === order.driverId) : undefined;
+      // A mock follow-the-trip link on the app's own origin — nothing leaves the device.
+      const token = hashSeed(`${orderId}|share`).toString(36);
+      return {
+        url: `${window.location.origin}/share/${token}`,
+        textKey: "safety.shareText",
+        params: {
+          from: cityOf(order.fromCityId).name,
+          to: cityOf(order.toCityId).name,
+          car: driver ? `${driver.carModel}, ${driver.plate}` : "—",
+        },
+      };
+    }, { minMs: 200, maxMs: 400 }),
+
+  getEmergencyContacts: () =>
+    withLatency<EmergencyContacts>(() => ({ contacts: loadEmergency(), max: EMERGENCY_MAX }), { minMs: 150, maxMs: 300 }),
+
+  addEmergencyContact: (contact) =>
+    withLatency<EmergencyContact>(() => {
+      const list = loadEmergency();
+      if (list.length >= EMERGENCY_MAX) throw new ApiError("CONTACTS_LIMIT", "safety.contacts.limit");
+      const normalized = normalizeRider({ kind: "other", ...contact });
+      if (normalized.kind !== "other") throw new ApiError("RIDER_NAME", "rider.error.name");
+      if (list.some((c) => c.phone === normalized.phone)) throw new ApiError("CONTACT_EXISTS", "safety.contacts.exists");
+      const created: EmergencyContact = { id: genId("ec"), name: normalized.name, phone: normalized.phone };
+      writeJSON(EMERGENCY_KEY, [...list, created]);
+      return created;
+    }, { minMs: 250, maxMs: 450 }),
+
+  removeEmergencyContact: (id) =>
+    withLatency<void>(() => {
+      writeJSON(EMERGENCY_KEY, loadEmergency().filter((c) => c.id !== id));
+    }, { minMs: 200, maxMs: 350 }),
+
+  getSupportContact: () => withLatency(() => ({ phone: SUPPORT_PHONE }), { minMs: 100, maxMs: 200 }),
+
   applyPromoCode: (code: string) =>
     withLatency(() => {
       const normalized = code.trim().toUpperCase();
-      if (normalized === "IZGO10") {
-        return { valid: true, discountPct: 10, message: "10% chegirma qo'llandi" };
+      const pct = PROMO_CODES[normalized];
+      if (pct) {
+        return { valid: true, discountPct: pct, message: `${pct}% chegirma qo'llandi`, messageKey: "promo.applied", code: normalized };
       }
-      return { valid: false, discountPct: 0, message: "Promo-kod topilmadi yoki muddati tugagan" };
+      return { valid: false, discountPct: 0, message: "Promo-kod topilmadi yoki muddati tugagan", messageKey: "promo.invalid", code: normalized };
     }, { minMs: 300, maxMs: 600 }),
 
   getBonusSummary: () =>

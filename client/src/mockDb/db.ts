@@ -9,7 +9,8 @@ export type ReviewKind =
   | "bonus_withdraw"
   | "phone_change"
   | "account_add"
-  | "account_delete";
+  | "account_delete"
+  | "tip";
 
 export type ReviewRequest = {
   id: string;

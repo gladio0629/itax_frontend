@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { OrderMode, PaymentMethod } from "@/seed/generate";
-import type { AddressDetails, CargoInput, OrderOptionId, OrderTiming, ServiceType } from "@/api/types";
+import type { AddressDetails, CargoInput, CarClassId, OptionVariants, OrderOptionId, OrderTiming, Rider, ServiceType } from "@/api/types";
 import { ADDRESSES } from "@/clientData/addresses";
 
 const DEFAULT_FROM_ADDRESS = ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "";
@@ -24,6 +24,10 @@ export type OrderDraft = {
   stops: DraftStop[];
   comment: string;
   optionIds: OrderOptionId[];
+  optionVariants: OptionVariants;
+  carClass: CarClassId;
+  luggage: number;
+  rider: Rider;
   mode: OrderMode;
   seatIds: string[];
   cargo: CargoInput;
@@ -49,6 +53,10 @@ const initialDraft: OrderDraft = {
   stops: [],
   comment: "",
   optionIds: [],
+  optionVariants: {},
+  carClass: "standart",
+  luggage: 0,
+  rider: { kind: "me" },
   mode: "car",
   seatIds: [],
   cargo: { vehicle: "spark" },

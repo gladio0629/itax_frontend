@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Armchair, Car as CarIcon, ChevronRight, Package, X } from "@/lib/icons";
 import { api } from "@/api/client";
-import type { Address, AddressDetails, OrderDetailsRules, OrderOptionId, Seat } from "@/api/types";
+import type { Address, AddressDetails, CarClass, OrderDetailsRules, OrderOption, OrderOptionId, Seat } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
 import { newStopUid, type OrderDraft } from "@/stores/orderStore";
 import { Button } from "@/components/Button";
@@ -19,7 +19,10 @@ import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
 import { RouteFields, type RouteTarget } from "./RouteFields";
 import { AddressDetailsSheet } from "./AddressDetailsSheet";
-import { DriverComment, OrderOptions } from "./OrderExtras";
+import { DriverComment } from "./OrderExtras";
+import { CarClassPicker } from "./CarClassPicker";
+import { IstaklarRow, IstaklarSheet } from "./IstaklarSheet";
+import { LuggageStepper, PromoRow, RiderSection, type RiderError } from "./TripDetails";
 import { detailsSummary } from "./addressDetails";
 import { useIsIOS } from "@/lib/platform";
 import { Segmented } from "@/components/ios/Segmented";
@@ -128,7 +131,41 @@ export function OrderSheet({
     };
   }, []);
 
-  const options = useQuery(() => api.getOrderOptions(draft.serviceType), [draft.serviceType]);
+  const passenger = draft.serviceType === "passenger";
+  const options = useQuery(
+    () => api.getOrderOptions({ serviceType: draft.serviceType, carClass: passenger ? draft.carClass : undefined }),
+    [draft.serviceType, draft.carClass]
+  );
+  const optionList = options.status === "success" ? options.data : [];
+  const [istaklarOpen, setIstaklarOpen] = useState(false);
+  const riderRef = useRef<{ focus: (f: "name" | "phone") => void }>(null);
+  const [riderError, setRiderError] = useState<RiderError>(null);
+  const [validating, setValidating] = useState(false);
+
+  /** Switching an option on applies the adapter's default sub-choice (the
+   * child seat's age group); off clears it. */
+  function setOption(o: OrderOption, on: boolean) {
+    const d = draftRef.current;
+    setField("optionIds", on ? [...d.optionIds.filter((x) => x !== o.id), o.id] : d.optionIds.filter((x) => x !== o.id));
+    if (o.variants) {
+      const v = { ...d.optionVariants };
+      if (on) v[o.id] = v[o.id] ?? o.defaultVariant;
+      else delete v[o.id];
+      setField("optionVariants", v);
+    }
+  }
+
+  // A class change can make a selected option unavailable: drop it rather
+  // than send something the adapter will refuse.
+  const optionData = options.status === "success" ? options.data : null;
+  useEffect(() => {
+    if (!optionData) return;
+    const ok = new Set(optionData.filter((o) => o.available).map((o) => o.id));
+    const d = draftRef.current;
+    const kept = d.optionIds.filter((id) => ok.has(id));
+    if (kept.length !== d.optionIds.length) setField("optionIds", kept);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [optionData]);
 
   function pointAddressId(target: RouteTarget, d: OrderDraft = draftRef.current) {
     if (target === "from") return d.fromAddressId;
@@ -180,8 +217,7 @@ export function OrderSheet({
 
   const stopsKey = draft.stops.map((st) => st.addressId).join("|");
   const optionsKey = draft.optionIds.join(",");
-  const toggleOption = (id: OrderOptionId) =>
-    setField("optionIds", draft.optionIds.includes(id) ? draft.optionIds.filter((x) => x !== id) : [...draft.optionIds, id]);
+  const variantsKey = JSON.stringify(draft.optionVariants);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [seatsError, setSeatsError] = useState(false);
   const [seatsReload, setSeatsReload] = useState(0);
@@ -224,12 +260,77 @@ export function OrderSheet({
         seatIds: draft.seatIds,
         cargo: draft.serviceType === "delivery" ? draft.cargo : undefined,
         optionIds: draft.optionIds,
+        optionVariants: draft.optionVariants,
+        carClass: passenger ? draft.carClass : undefined,
+        promoCode: draft.promoCode || undefined,
       }),
     // Keyed on the vehicle, not the cargo object — typing a note mustn't
     // refetch; likewise the comment and Tafsilotlar never re-quote. Every
     // stop add/remove/reorder/change does.
-    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, draft.cargo.vehicle, optionsKey]
+    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, draft.cargo.vehicle, optionsKey, variantsKey, draft.carClass, draft.promoCode]
   );
+
+  // Class cards: each price is the adapter's total for this order with that
+  // class, so they follow the same inputs as the quote (minus the class).
+  const classes = useQuery(
+    () =>
+      passenger && canQuote
+        ? api.getCarClasses({
+            serviceType: "passenger",
+            fromAddressId: draft.fromAddressId,
+            toAddressId: draft.toAddressId,
+            stops: draft.stops.map((st) => st.addressId),
+            mode: draft.mode,
+            seatIds: draft.seatIds,
+            optionIds: draft.optionIds,
+            optionVariants: draft.optionVariants,
+            promoCode: draft.promoCode || undefined,
+          })
+        : Promise.resolve([] as CarClass[]),
+    [passenger, canQuote, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, optionsKey, variantsKey, draft.promoCode]
+  );
+  // Keep the last cards on screen while they re-price.
+  const lastClasses = useRef<CarClass[]>([]);
+  if (classes.status === "success") lastClasses.current = classes.data;
+  const classData = classes.status === "success" ? classes.data : null;
+  useEffect(() => {
+    if (!classData || !passenger) return;
+    const current = classData.find((c) => c.id === draftRef.current.carClass);
+    if (current && !current.available) {
+      const first = classData.find((c) => c.available);
+      if (first) setField("carClass", first.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classData]);
+
+  const luggageRules = useQuery(
+    () => (canQuote ? api.getLuggageRules({ fromAddressId: draft.fromAddressId, toAddressId: draft.toAddressId }) : Promise.resolve(null)),
+    [canQuote, draft.fromAddressId, draft.toAddressId]
+  );
+  const luggage = luggageRules.status === "success" ? luggageRules.data : null;
+
+  /** Leaving the details step: the adapter checks "Kim ketadi?" while its
+   * fields are still on screen. */
+  async function nextFromDetails() {
+    if (passenger && draft.rider.kind === "other") {
+      setValidating(true);
+      setRiderError(null);
+      try {
+        await api.validateRider(draft.rider);
+      } catch (err) {
+        const e = err as { code?: string; message?: string };
+        if (e.code === "RIDER_NAME" || e.code === "RIDER_PHONE") {
+          const field = e.code === "RIDER_NAME" ? "name" : "phone";
+          setRiderError({ field, message: t(e.message as TranslationKey) });
+          riderRef.current?.focus(field);
+        } else setRiderError({ field: "form", message: t("common.errorMessage") });
+        return;
+      } finally {
+        setValidating(false);
+      }
+    }
+    setStep(2);
+  }
 
   const canNext =
     step === 0
@@ -340,6 +441,13 @@ export function OrderSheet({
 
             {draft.serviceType === "passenger" ? (
               <>
+                <CarClassPicker
+                  status={classes.status}
+                  classes={classes.status === "success" ? classes.data : lastClasses.current}
+                  value={draft.carClass}
+                  onChange={(id) => setField("carClass", id)}
+                  onRetry={classes.refetch}
+                />
                 <SeatMap
                   seats={seats}
                   mode={draft.mode}
@@ -358,28 +466,49 @@ export function OrderSheet({
 
             <TimeSelector value={draft.timing} onChange={(timing) => setField("timing", timing)} />
 
+            {passenger && luggage && (
+              <LuggageStepper rules={luggage} value={Math.min(draft.luggage, luggage.max)} onChange={(n) => setField("luggage", n)} />
+            )}
+
+            {passenger && (
+              <RiderSection
+                ref={riderRef}
+                value={draft.rider}
+                onChange={(r) => {
+                  setField("rider", r);
+                  setRiderError(null);
+                }}
+                nameMaxLength={rules?.riderNameMaxLength}
+                error={riderError}
+              />
+            )}
+
             {/* Dostavka has its own "Izoh" on the vehicle picker. */}
-            {draft.serviceType === "passenger" && (
+            {passenger && (
               <DriverComment
                 value={draft.comment}
                 onChange={(v) => setField("comment", v)}
                 maxLength={rules?.commentMaxLength}
                 serviceType={draft.serviceType}
-                options={options.status === "success" ? options.data : []}
+                carClass={draft.carClass}
+                options={optionList}
                 selectedOptionIds={draft.optionIds}
                 onApplyHint={(id) => {
-                  if (!draftRef.current.optionIds.includes(id)) setField("optionIds", [...draftRef.current.optionIds, id]);
+                  const o = optionList.find((x) => x.id === id);
+                  if (o?.available && !draftRef.current.optionIds.includes(id)) setOption(o, true);
                 }}
               />
             )}
 
-            <OrderOptions
-              status={options.status}
-              options={options.status === "success" ? options.data : []}
-              selected={draft.optionIds}
-              onToggle={toggleOption}
-              onRetry={options.refetch}
-            />
+            {options.status === "error" ? (
+              <button onClick={options.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
+                {t("common.loadFailedRetry")}
+              </button>
+            ) : (
+              optionList.length > 0 && (
+                <IstaklarRow options={optionList} selected={draft.optionIds} variants={draft.optionVariants} onOpen={() => setIstaklarOpen(true)} />
+              )
+            )}
           </div>
         )}
 
@@ -420,6 +549,35 @@ export function OrderSheet({
                 </span>
                 <span className="tabular">{timingSummary(draft.timing, t, intlTag)}</span>
               </div>
+              {passenger && (
+                <dl className="mt-2 space-y-1 border-t border-border pt-2 text-xs">
+                  <SummaryRow
+                    label={t("class.title")}
+                    value={t(`class.${draft.carClass}` as TranslationKey)}
+                  />
+                  {draft.optionIds.length > 0 && (
+                    <SummaryRow
+                      label={t("options.title")}
+                      value={optionList
+                        .filter((o) => draft.optionIds.includes(o.id))
+                        .map((o) => {
+                          const v = o.variants?.find((x) => x.id === draft.optionVariants[o.id]);
+                          return v ? `${t(o.titleKey as TranslationKey)} (${t(v.labelKey as TranslationKey)})` : t(o.titleKey as TranslationKey);
+                        })
+                        .join(", ")}
+                    />
+                  )}
+                  {luggage && (
+                    <SummaryRow
+                      label={t("luggage.title")}
+                      value={draft.luggage > 0 ? t("luggage.count", { n: draft.luggage }) : t("luggage.none")}
+                    />
+                  )}
+                  {draft.rider.kind === "other" && (
+                    <SummaryRow label={t("rider.title")} value={`${draft.rider.name.trim()}, +998 ${draft.rider.phone}`} />
+                  )}
+                </dl>
+              )}
               {draft.serviceType === "passenger" && draft.comment.trim() && (
                 <p className="mt-2 border-t border-border pt-2 text-xs text-ink/60">
                   <span className="font-semibold">{t("comment.title")}:</span>{" "}
@@ -456,6 +614,9 @@ export function OrderSheet({
 
             <p className="pt-1 text-sm font-semibold text-ink">{t("order.step.payment")}</p>
             <PaymentMethodSection value={draft.paymentMethod} onChange={(m) => setField("paymentMethod", m)} />
+
+            <p className="pt-1 text-sm font-semibold text-ink">{t("promo.title")}</p>
+            <PromoRow value={draft.promoCode} onChange={(code) => setField("promoCode", code)} />
           </div>
         )}
         </div>
@@ -492,7 +653,7 @@ export function OrderSheet({
               {t("common.confirm")}
             </Button>
           ) : step < 2 ? (
-            <Button fullWidth disabled={!canNext} onClick={() => setStep(step + 1)}>
+            <Button fullWidth disabled={!canNext} loading={validating} onClick={() => (step === 1 ? nextFromDetails() : setStep(step + 1))}>
               {t("order.next")} <ChevronRight className="h-4 w-4" />
             </Button>
           ) : (
@@ -521,6 +682,17 @@ export function OrderSheet({
             pickAddress(picker, addr);
             setPicker(null);
           }}
+        />
+      )}
+
+      {istaklarOpen && (
+        <IstaklarSheet
+          options={optionList}
+          selected={draft.optionIds}
+          variants={draft.optionVariants}
+          onToggle={(o) => setOption(o, !draftRef.current.optionIds.includes(o.id))}
+          onVariant={(id, v) => setField("optionVariants", { ...draftRef.current.optionVariants, [id]: v })}
+          onClose={() => setIstaklarOpen(false)}
         />
       )}
 
@@ -561,5 +733,14 @@ function SegmentButton({
     >
       <Icon className="h-4 w-4" /> {label}
     </button>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="shrink-0 text-ink/60">{label}:</dt>
+      <dd className="min-w-0 break-words text-ink">{value}</dd>
+    </div>
   );
 }

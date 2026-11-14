@@ -106,6 +106,11 @@ export function HomeScreen() {
         // The comment field is shown for Yo'lovchi only (Dostavka has its own Izoh).
         comment: draft.serviceType === "passenger" ? draft.comment : undefined,
         optionIds: draft.optionIds,
+        optionVariants: draft.optionVariants,
+        // Class, bags and "Kim ketadi?" are Yo'lovchi-only fields.
+        carClass: draft.serviceType === "passenger" ? draft.carClass : undefined,
+        luggage: draft.serviceType === "passenger" ? draft.luggage : undefined,
+        rider: draft.serviceType === "passenger" ? draft.rider : undefined,
       });
       navigate(`/order/track/${order.id}`);
       reset();

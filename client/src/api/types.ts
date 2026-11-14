@@ -104,16 +104,68 @@ export type RouteStop = {
   details?: AddressDetails;
 };
 
-export type OrderOptionId = "child_seat" | "big_luggage";
+export type OrderOptionId = "child_seat" | "pet" | "big_luggage" | "find_car" | "wheelchair" | "text_only";
 
-/** An add-on the passenger can switch on. The price is the adapter's; the
- * UI only shows it. */
+/** An add-on ("Istaklar") the passenger can switch on. Price and
+ * availability are the adapter's; the UI only shows them. */
 export type OrderOption = {
   id: OrderOptionId;
   titleKey: string;
   descKey: string;
+  /** 0 = free. */
   price: number;
+  available: boolean;
+  /** Why it's unavailable (translation key), when it is. */
+  reasonKey?: string;
+  /** A required sub-choice, e.g. the child seat's age group. */
+  variants?: { id: string; labelKey: string }[];
+  /** Applied when the option is switched on (from its switch or a hint). */
+  defaultVariant?: string;
 };
+export type OptionVariants = Partial<Record<OrderOptionId, string>>;
+
+export type CarClassId = "standart" | "komfort" | "biznes" | "miniven";
+/** One "Klass" card. `price` is the adapter's total for the current order
+ * with this class. */
+export type CarClass = {
+  id: CarClassId;
+  nameKey: string;
+  seats: number;
+  price: number;
+  available: boolean;
+  reasonKey?: string;
+};
+
+/** "Kim ketadi?" — the passenger, or someone the passenger orders for. */
+export type Rider = { kind: "me" } | { kind: "other"; name: string; phone: string };
+
+/** "Bagaj" stepper bounds for a route; null when it isn't offered. */
+export type LuggageRules = { min: number; max: number } | null;
+
+export type PromoResult = {
+  valid: boolean;
+  discountPct: number;
+  /** Legacy Uzbek text; the UI shows messageKey. */
+  message: string;
+  messageKey: string;
+  /** The normalized code to put on the order. */
+  code: string;
+};
+
+export type TipOptions = {
+  allowed: boolean;
+  /** Chip amounts, 0 = no tip. */
+  presets: number[];
+  min: number;
+  max: number;
+  sent?: { amount: number; reviewId: string; status: "pending" | "approved" | "rejected" };
+};
+
+export type EmergencyContact = { id: string; name: string; phone: string };
+export type EmergencyContacts = { contacts: EmergencyContact[]; max: number };
+
+/** A mock "follow my trip" link plus the share text (as a translation key). */
+export type TripShare = { url: string; textKey: string; params: Record<string, string | number> };
 
 /** A suggestion derived from the driver comment ("bola", "чемодан", …).
  * Suggestions only — nothing is applied until the passenger taps. */
@@ -132,6 +184,7 @@ export type OrderDetailsRules = {
   addressFieldMaxLength: number;
   intercomMaxLength: number;
   addressNoteMaxLength: number;
+  riderNameMaxLength: number;
 };
 
 export type QuoteInput = {
@@ -144,6 +197,10 @@ export type QuoteInput = {
   seatIds: string[];
   cargo?: CargoInput;
   optionIds?: OrderOptionId[];
+  optionVariants?: OptionVariants;
+  carClass?: CarClassId;
+  /** Only a code applyPromoCode() accepted. */
+  promoCode?: string;
 };
 
 export type Quote = {
@@ -171,6 +228,11 @@ export type CreateOrderInput = {
   /** "Haydovchiga izoh". */
   comment?: string;
   optionIds?: OrderOptionId[];
+  optionVariants?: OptionVariants;
+  carClass?: CarClassId;
+  /** Bags, within getLuggageRules(). */
+  luggage?: number;
+  rider?: Rider;
 };
 
 /** Everything about an order that isn't on the shared Order type (which
@@ -187,6 +249,11 @@ export type OrderExtras = {
   stops?: RouteStop[];
   comment?: string;
   optionIds?: OrderOptionId[];
+  optionVariants?: OptionVariants;
+  carClass?: CarClassId;
+  luggage?: number;
+  rider?: Rider;
+  promoCode?: string;
 };
 
 export type UpdateOrderInput = Partial<{
