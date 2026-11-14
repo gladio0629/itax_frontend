@@ -137,7 +137,8 @@ html[data-platform="ios"],
 html[data-platform="ios"] body {
   height: 100%;
   overflow: hidden;
-  overscroll-behavior: none;
+  /* Vertical only: keeps the browser's horizontal swipe-back in Safari. */
+  overscroll-behavior-y: none;
 }
 html[data-platform="ios"] body {
   -webkit-user-select: none;
@@ -159,9 +160,10 @@ html[data-platform="ios"] :is(input, textarea, select):not(.text-lg, .text-xl, .
   line-height: 22px;
   letter-spacing: -0.43px;
 }
-/* Safety net on any real iOS WebKit, whatever the demo platform override. */
+/* Safety net on real iOS WebKit when the demo forces the standard design
+   (in iOS mode the 17px rule above applies). */
 @supports (-webkit-touch-callout: none) {
-  html:root :is(input, textarea, select):not(.text-lg, .text-xl, .text-4xl) {
+  html:not([data-platform="ios"]) :is(input, textarea, select):not(.text-lg, .text-xl, .text-4xl) {
     font-size: 16px;
   }
 }
