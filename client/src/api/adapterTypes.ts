@@ -1,4 +1,10 @@
 import type { DeliveryVehicleSpec,
+  AddressDetails,
+  CommentHint,
+  OrderDetailsRules,
+  OrderOption,
+  OrderOptionId,
+  ServiceType,
   SchedulingRules,
   AccountSummary,
   Address,
@@ -46,6 +52,19 @@ export interface ApiAdapter {
   getQuote(input: QuoteInput): Promise<Quote>;
   getDeliveryVehicles(): Promise<DeliveryVehicleSpec[]>;
   getSchedulingRules(): Promise<SchedulingRules>;
+
+  getOrderDetailsRules(): Promise<OrderDetailsRules>;
+  /** Add-ons available for a service type (none for Dostavka). */
+  getOrderOptions(serviceType: ServiceType): Promise<OrderOption[]>;
+  getCommentHints(input: {
+    text: string;
+    serviceType: ServiceType;
+    selectedOptionIds: OrderOptionId[];
+  }): Promise<CommentHint[]>;
+  /** Details remembered for a saved address, or null. */
+  getSavedAddressDetails(addressId: string): Promise<AddressDetails | null>;
+  /** Validates and normalizes Tafsilotlar; a saved address remembers them. */
+  saveAddressDetails(addressId: string, details: AddressDetails): Promise<AddressDetails>;
 
   requestOtp(phone: string): Promise<OtpRequestResult>;
   verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, Heart, LocateFixed, MapPin } from "@/lib/icons";
 import { api } from "@/api/client";
-import type { Address, SavedAddressInfo } from "@/api/types";
+import type { Address, AddressDetails, SavedAddressInfo } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
 import { FakeMap } from "@/components/FakeMap";
 import { DragSheet, type SnapPoint } from "@/components/Sheet";
@@ -13,6 +13,7 @@ import { useDemoStore } from "@/stores/demoStore";
 import { useT } from "@/lib/i18n/provider";
 import { formatKm } from "@/lib/format";
 import { OrderSheet } from "@/features/order/OrderSheet";
+import { detailsSummary } from "@/features/order/addressDetails";
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -58,8 +59,12 @@ export function HomeScreen() {
   const fromAddress = addressById(draft.fromAddressId) ?? null;
   const toAddress = addressById(draft.toAddressId) ?? null;
 
-  function openFlow(presetTo?: Address) {
-    if (presetTo) setField("toAddressId", presetTo.id);
+  function openFlow(presetTo?: Address, details?: AddressDetails) {
+    if (presetTo) {
+      setField("toAddressId", presetTo.id);
+      // A saved address keeps its Tafsilotlar.
+      setField("toDetails", details ?? {});
+    }
     setExpanded(true);
     setSnap("full");
   }
@@ -83,6 +88,12 @@ export function HomeScreen() {
         paymentMethod: draft.paymentMethod,
         timing: draft.timing,
         promoCode: draft.promoCode || undefined,
+        fromDetails: draft.fromDetails,
+        toDetails: draft.toDetails,
+        stops: draft.stops.map((st) => ({ addressId: st.addressId, details: st.details })),
+        // The comment field is shown for Yo'lovchi only (Dostavka has its own Izoh).
+        comment: draft.serviceType === "passenger" ? draft.comment : undefined,
+        optionIds: draft.optionIds,
       });
       navigate(`/order/track/${order.id}`);
       reset();
@@ -183,10 +194,10 @@ export function HomeScreen() {
               <p className="text-xs text-ink/60">{t("home.noSavedAddresses")}</p>
             ) : (
               <div className="space-y-2">
-                {saved.map(({ address, distanceKm, etaMinutes }) => (
+                {saved.map(({ address, details, distanceKm, etaMinutes }) => (
                   <button
                     key={address.id}
-                    onClick={() => openFlow(address)}
+                    onClick={() => openFlow(address, details)}
                     className="flex w-full items-center gap-3 rounded-xl bg-card px-4 py-3.5 text-left shadow-softer ios:bg-[var(--ios-fill-quaternary)] ios:transition-colors ios:duration-100 ios:active:bg-[var(--ios-fill)]"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
@@ -194,6 +205,9 @@ export function HomeScreen() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-ink">{address.label}</p>
+                      {details && detailsSummary(details, t) && (
+                        <p className="truncate text-xs text-ink/60">{detailsSummary(details, t)}</p>
+                      )}
                       <p className="text-xs text-ink/60 tabular">
                         {formatKm(distanceKm, intlTag)} &middot; ~{etaMinutes} {t("order.minutesShort")}
                       </p>

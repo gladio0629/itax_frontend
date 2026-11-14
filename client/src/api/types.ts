@@ -82,13 +82,68 @@ export type SchedulingRules = {
   stepMinutes: number;
 };
 
+/** "Tafsilotlar" for one route point. Every field is optional free text —
+ * the adapter trims, drops empty fields and enforces the lengths in
+ * OrderDetailsRules. */
+export type AddressDetails = {
+  /** Podyezd */
+  entrance?: string;
+  /** Qavat */
+  floor?: string;
+  /** Kvartira */
+  apartment?: string;
+  /** Domofon kodi — the UI never shows it unmasked outside its own input. */
+  intercom?: string;
+  /** Izoh */
+  note?: string;
+};
+
+/** One intermediate stop between Qayerdan and Qayerga. */
+export type RouteStop = {
+  addressId: string;
+  details?: AddressDetails;
+};
+
+export type OrderOptionId = "child_seat" | "big_luggage";
+
+/** An add-on the passenger can switch on. The price is the adapter's; the
+ * UI only shows it. */
+export type OrderOption = {
+  id: OrderOptionId;
+  titleKey: string;
+  descKey: string;
+  price: number;
+};
+
+/** A suggestion derived from the driver comment ("bola", "чемодан", …).
+ * Suggestions only — nothing is applied until the passenger taps. */
+export type CommentHint = {
+  optionId: OrderOptionId;
+  messageKey: string;
+};
+
+/** Limits for the order-details inputs. The adapter owns them and
+ * re-validates on quote/create/update; the UI only reads them for
+ * maxLength attributes, counters and hiding "To'xtash qo'shish". */
+export type OrderDetailsRules = {
+  maxStops: number;
+  commentMaxLength: number;
+  /** Podyezd, Qavat, Kvartira. */
+  addressFieldMaxLength: number;
+  intercomMaxLength: number;
+  addressNoteMaxLength: number;
+};
+
 export type QuoteInput = {
   serviceType: ServiceType;
   fromAddressId: string;
   toAddressId: string;
+  /** Intermediate stops' address ids, in route order. */
+  stops?: string[];
   mode: OrderMode;
   seatIds: string[];
   cargo?: CargoInput;
+  optionIds?: OrderOptionId[];
 };
 
 export type Quote = {
@@ -110,6 +165,12 @@ export type CreateOrderInput = {
   paymentMethod: PaymentMethod;
   timing: OrderTiming;
   promoCode?: string;
+  fromDetails?: AddressDetails;
+  toDetails?: AddressDetails;
+  stops?: RouteStop[];
+  /** "Haydovchiga izoh". */
+  comment?: string;
+  optionIds?: OrderOptionId[];
 };
 
 /** Everything about an order that isn't on the shared Order type (which
@@ -119,6 +180,13 @@ export type OrderExtras = {
   fromAddressId: string;
   toAddressId: string;
   timing: OrderTiming;
+  serviceType?: ServiceType;
+  cargo?: CargoInput;
+  fromDetails?: AddressDetails;
+  toDetails?: AddressDetails;
+  stops?: RouteStop[];
+  comment?: string;
+  optionIds?: OrderOptionId[];
 };
 
 export type UpdateOrderInput = Partial<{
@@ -129,10 +197,17 @@ export type UpdateOrderInput = Partial<{
   cargo: CargoInput;
   paymentMethod: PaymentMethod;
   timing: OrderTiming;
+  fromDetails: AddressDetails;
+  toDetails: AddressDetails;
+  stops: RouteStop[];
+  comment: string;
+  optionIds: OrderOptionId[];
 }>;
 
 export type SavedAddressInfo = {
   address: Address;
+  /** Tafsilotlar remembered for this saved address. */
+  details?: AddressDetails;
   distanceKm: number;
   etaMinutes: number;
 };

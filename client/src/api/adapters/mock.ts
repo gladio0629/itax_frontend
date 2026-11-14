@@ -15,6 +15,14 @@ import {
 import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
+  AddressDetails,
+  CommentHint,
+  OrderDetailsRules,
+  OrderMode,
+  OrderOption,
+  OrderOptionId,
+  RouteStop,
+  ServiceType,
   CargoInput,
   DeliveryVehicle,
   DeliveryVehicleSpec,
@@ -68,6 +76,138 @@ function deliveryPrice(cargo: CargoInput | undefined, distanceKm: number) {
   const distanceFee = Math.round((rate.perKm * distanceKm) / 1000) * 1000;
   return { baseFee: rate.base, distanceFee, total: rate.base + distanceFee };
 }
+// ── Order details: stops, Tafsilotlar, comment, add-ons ─────────────────────
+// Limits, prices and keyword matching all live here; the UI reads them.
+const ORDER_DETAILS_RULES: OrderDetailsRules = {
+  maxStops: 3,
+  commentMaxLength: 300,
+  addressFieldMaxLength: 10,
+  intercomMaxLength: 16,
+  addressNoteMaxLength: 200,
+};
+const STOP_FEE = 5_000;
+const ORDER_OPTIONS: Record<ServiceType, OrderOption[]> = {
+  passenger: [
+    { id: "child_seat", titleKey: "option.child_seat", descKey: "option.child_seat.desc", price: 15_000 },
+    { id: "big_luggage", titleKey: "option.big_luggage", descKey: "option.big_luggage.desc", price: 10_000 },
+  ],
+  delivery: [],
+};
+/** Word-start stems per add-on, uz/ru/en. Matched against whole words so
+ * "bolalar" and "ребёнком" hit but a stem in the middle of a word doesn't. */
+const HINT_STEMS: Record<OrderOptionId, { stems: string[]; messageKey: string }> = {
+  child_seat: {
+    stems: ["bola", "farzand", "chaqaloq", "ребён", "ребен", "дети", "детей", "детьми", "детск", "малыш", "child", "kid", "baby", "toddler"],
+    messageKey: "hint.childSeat",
+  },
+  big_luggage: {
+    stems: ["velosiped", "velik", "chamadon", "sumka", "bagaj", "yuk", "велосипед", "велик", "чемодан", "сумк", "багаж", "bicycle", "bike", "suitcase", "luggage", "bag"],
+    messageKey: "hint.bigLuggage",
+  },
+};
+const SAVED_DETAILS_KEY = "saved_address_details";
+const SEEDED_SAVED_DETAILS: Record<string, AddressDetails> = {
+  "smq-1": { entrance: "2", floor: "5", apartment: "18", intercom: "18K4927", note: "Sariq darvoza, bekat ro'parasida" },
+};
+
+function savedAddressDetails(): Record<string, AddressDetails> {
+  return readJSON<Record<string, AddressDetails>>(SAVED_DETAILS_KEY, SEEDED_SAVED_DETAILS);
+}
+
+/** Trims every field, drops empty ones, enforces the lengths. Returns
+ * undefined for "nothing filled in". */
+function normalizeDetails(details: AddressDetails | undefined): AddressDetails | undefined {
+  if (!details) return undefined;
+  const r = ORDER_DETAILS_RULES;
+  const limits: Record<keyof AddressDetails, number> = {
+    entrance: r.addressFieldMaxLength,
+    floor: r.addressFieldMaxLength,
+    apartment: r.addressFieldMaxLength,
+    intercom: r.intercomMaxLength,
+    note: r.addressNoteMaxLength,
+  };
+  const out: AddressDetails = {};
+  for (const key of Object.keys(limits) as (keyof AddressDetails)[]) {
+    const value = (details[key] ?? "").trim();
+    if (!value) continue;
+    if (value.length > limits[key]) throw new ApiError("TOO_LONG", "details.error.tooLong");
+    out[key] = value;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function normalizeComment(comment: string | undefined): string | undefined {
+  const value = (comment ?? "").trim();
+  if (value.length > ORDER_DETAILS_RULES.commentMaxLength) throw new ApiError("TOO_LONG", "comment.tooLong");
+  return value || undefined;
+}
+
+function validateStopsCount(count: number) {
+  if (count > ORDER_DETAILS_RULES.maxStops) throw new ApiError("TOO_MANY_STOPS", "stops.tooMany");
+}
+
+function validateOptions(serviceType: ServiceType, optionIds: OrderOptionId[] | undefined): OrderOptionId[] {
+  const allowed = new Set(ORDER_OPTIONS[serviceType].map((o) => o.id));
+  const ids = [...new Set(optionIds ?? [])];
+  if (ids.some((id) => !allowed.has(id))) throw new ApiError("INVALID_OPTION", "order.quoteError");
+  return ids;
+}
+
+type PriceInput = {
+  serviceType: ServiceType;
+  fromAddressId: string;
+  toAddressId: string;
+  stops: string[];
+  mode: OrderMode;
+  seatIds: string[];
+  cargo?: CargoInput;
+  optionIds: OrderOptionId[];
+};
+
+/** The one price for an order — quote, create and update all call this, so
+ * the charged price can't drift from the quote. Lines sum to the total. */
+function priceOrder(input: PriceInput) {
+  validateStopsCount(input.stops.length);
+  const optionIds = validateOptions(input.serviceType, input.optionIds);
+  const cities = [input.fromAddressId, ...input.stops, input.toAddressId].map((id) => addressOf(id).cityId);
+  const directKm = roadDistanceKm(cities[0], cities[cities.length - 1]);
+  if (directKm === 0) throw new ApiError("INVALID_ROUTE", "order.quoteError");
+  let routeKm = 0;
+  for (let i = 1; i < cities.length; i++) routeKm += roadDistanceKm(cities[i - 1], cities[i]);
+  const detourKm = Math.max(0, routeKm - directKm);
+
+  const lines: QuoteLine[] = [];
+  let detourPerKm: number;
+  if (input.serviceType === "delivery") {
+    const { baseFee, distanceFee } = deliveryPrice(input.cargo, directKm);
+    lines.push({ key: "quote.cargoBase", amount: baseFee });
+    lines.push({ key: "quote.cargoDistance", params: { km: directKm }, amount: distanceFee });
+    detourPerKm = (VEHICLE_RATES[(input.cargo ?? DEFAULT_CARGO).vehicle] ?? VEHICLE_RATES.spark).perKm;
+  } else {
+    const fare = computePrice(directKm, input.mode, input.seatIds, DEFAULT_TARIFF);
+    if (input.mode === "car") {
+      lines.push({ key: "quote.carFare", amount: fare });
+      detourPerKm = DEFAULT_TARIFF.perKmCar;
+    } else {
+      const frontSurcharge = input.seatIds.includes("front") ? DEFAULT_TARIFF.frontSeatSurcharge : 0;
+      lines.push({ key: "quote.seatFare", params: { count: Math.max(input.seatIds.length, 1) }, amount: fare - frontSurcharge });
+      if (frontSurcharge > 0) lines.push({ key: "quote.frontSurcharge", amount: frontSurcharge });
+      detourPerKm = DEFAULT_TARIFF.perKmSeat * Math.max(input.seatIds.length, 1);
+    }
+  }
+  input.stops.forEach((id, i) => {
+    lines.push({ key: "quote.stop", params: { n: i + 1, place: addressOf(id).label }, amount: STOP_FEE });
+  });
+  if (detourKm > 0) {
+    lines.push({ key: "quote.detour", params: { km: detourKm }, amount: Math.round((detourPerKm * detourKm) / 1000) * 1000 });
+  }
+  for (const option of ORDER_OPTIONS[input.serviceType]) {
+    if (optionIds.includes(option.id)) lines.push({ key: `quote.option.${option.id}`, amount: option.price });
+  }
+  const total = lines.reduce((sum, l) => sum + l.amount, 0);
+  return { directKm, routeKm, lines, total, optionIds };
+}
+
 const SEAT_POSITIONS: SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
 const BONUS_MIN_WITHDRAW = 50_000;
 const BONUS_MONTHLY_MAX = 300_000;
@@ -331,9 +471,10 @@ export const mockAdapter: ApiAdapter = {
   getSavedAddresses: (fromAddressId: string) =>
     withLatency<SavedAddressInfo[]>(() => {
       const fromCityId = addressOf(fromAddressId).cityId;
+      const details = savedAddressDetails();
       return savedAddresses().map((address) => {
         const distanceKm = roadDistanceKm(fromCityId, address.cityId);
-        return { address, distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
+        return { address, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
       });
     }, { minMs: 150, maxMs: 350 }),
 
@@ -358,6 +499,40 @@ export const mockAdapter: ApiAdapter = {
 
   getSchedulingRules: () => withLatency<SchedulingRules>(() => ({ ...SCHEDULING_RULES }), { minMs: 100, maxMs: 250 }),
 
+  getOrderDetailsRules: () =>
+    withLatency<OrderDetailsRules>(() => ({ ...ORDER_DETAILS_RULES }), { minMs: 100, maxMs: 250 }),
+
+  getOrderOptions: (serviceType) =>
+    withLatency<OrderOption[]>(() => ORDER_OPTIONS[serviceType].map((o) => ({ ...o })), { minMs: 100, maxMs: 250 }),
+
+  getCommentHints: ({ text, serviceType, selectedOptionIds }) =>
+    withLatency<CommentHint[]>(() => {
+      const words = text.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+      const available = ORDER_OPTIONS[serviceType].map((o) => o.id).filter((id) => !selectedOptionIds.includes(id));
+      return available
+        .filter((id) => words.some((w) => HINT_STEMS[id].stems.some((stem) => w.startsWith(stem))))
+        .map((id) => ({ optionId: id, messageKey: HINT_STEMS[id].messageKey }));
+    }, { minMs: 80, maxMs: 180 }),
+
+  getSavedAddressDetails: (addressId) =>
+    withLatency<AddressDetails | null>(() => {
+      if (!savedAddresses().some((a) => a.id === addressId)) return null;
+      return savedAddressDetails()[addressId] ?? null;
+    }, { minMs: 80, maxMs: 200 }),
+
+  saveAddressDetails: (addressId, details) =>
+    withLatency<AddressDetails>(() => {
+      addressOf(addressId);
+      const normalized = normalizeDetails(details) ?? {};
+      if (savedAddresses().some((a) => a.id === addressId)) {
+        const all = savedAddressDetails();
+        if (Object.keys(normalized).length) all[addressId] = normalized;
+        else delete all[addressId];
+        writeJSON(SAVED_DETAILS_KEY, all);
+      }
+      return normalized;
+    }, { minMs: 150, maxMs: 300 }),
+
   getDeliveryVehicles: () =>
     withLatency<DeliveryVehicleSpec[]>(
       () =>
@@ -370,47 +545,24 @@ export const mockAdapter: ApiAdapter = {
 
   getQuote: (input: QuoteInput) =>
     withLatency<Quote>(() => {
-      const fromCityId = addressOf(input.fromAddressId).cityId;
-      const toCityId = addressOf(input.toAddressId).cityId;
-      const distanceKm = roadDistanceKm(fromCityId, toCityId);
-      if (distanceKm === 0) throw new ApiError("INVALID_ROUTE", "Yo'nalishni tanlang");
-      const etaMinutes = 3 + Math.round(Math.random() * 6);
-      const durationMinutes = Math.round((distanceKm / 70) * 60);
-
-      if (input.serviceType === "delivery") {
-        const { baseFee, distanceFee, total } = deliveryPrice(input.cargo, distanceKm);
-        const cargoLines: QuoteLine[] = [
-          { key: "quote.cargoBase", amount: baseFee },
-          { key: "quote.cargoDistance", params: { km: distanceKm }, amount: distanceFee },
-        ];
-        return {
-          distanceKm,
-          lines: cargoLines,
-          total,
-          currency: "som",
-          etaMinutes,
-          durationMinutes,
-        };
-      }
-
-      const total = computePrice(distanceKm, input.mode, input.seatIds, DEFAULT_TARIFF);
-      if (input.mode === "car") {
-        return {
-          distanceKm,
-          lines: [{ key: "quote.carFare", amount: total }],
-          total,
-          currency: "som",
-          etaMinutes,
-          durationMinutes,
-        };
-      }
-      const frontSurcharge = input.seatIds.includes("front") ? DEFAULT_TARIFF.frontSeatSurcharge : 0;
-      const seatFare = total - frontSurcharge;
-      const seatLines: QuoteLine[] = [
-        { key: "quote.seatFare", params: { count: Math.max(input.seatIds.length, 1) }, amount: seatFare },
-      ];
-      if (frontSurcharge > 0) seatLines.push({ key: "quote.frontSurcharge", amount: frontSurcharge });
-      return { distanceKm, lines: seatLines, total, currency: "som", etaMinutes, durationMinutes };
+      const { routeKm, lines, total } = priceOrder({
+        serviceType: input.serviceType,
+        fromAddressId: input.fromAddressId,
+        toAddressId: input.toAddressId,
+        stops: input.stops ?? [],
+        mode: input.mode,
+        seatIds: input.seatIds,
+        cargo: input.serviceType === "delivery" ? input.cargo : undefined,
+        optionIds: input.optionIds ?? [],
+      });
+      return {
+        distanceKm: routeKm,
+        lines,
+        total,
+        currency: "som",
+        etaMinutes: 3 + Math.round(Math.random() * 6),
+        durationMinutes: Math.round((routeKm / 70) * 60),
+      };
     }, { minMs: 300, maxMs: 600 }),
 
   requestOtp: (_phone: string) =>
@@ -435,11 +587,24 @@ export const mockAdapter: ApiAdapter = {
       const scenarios = getDemoScenarios();
       const fromCityId = addressOf(input.fromAddressId).cityId;
       const toCityId = addressOf(input.toAddressId).cityId;
-      const distanceKm = roadDistanceKm(fromCityId, toCityId);
-      const price =
-        input.serviceType === "delivery"
-          ? deliveryPrice(input.cargo, distanceKm).total
-          : computePrice(distanceKm, input.mode, input.seatIds, DEFAULT_TARIFF);
+      const cargo = input.serviceType === "delivery" ? input.cargo : undefined;
+      const stops: RouteStop[] = (input.stops ?? []).map((st) => ({
+        addressId: addressOf(st.addressId).id,
+        details: normalizeDetails(st.details),
+      }));
+      const fromPointDetails = normalizeDetails(input.fromDetails);
+      const toPointDetails = normalizeDetails(input.toDetails);
+      const comment = normalizeComment(input.comment);
+      const { routeKm: distanceKm, total: price, optionIds } = priceOrder({
+        serviceType: input.serviceType,
+        fromAddressId: input.fromAddressId,
+        toAddressId: input.toAddressId,
+        stops: stops.map((st) => st.addressId),
+        mode: input.mode,
+        seatIds: input.seatIds,
+        cargo,
+        optionIds: input.optionIds ?? [],
+      });
       const now = Date.now();
       const searchMs = scenarios.noDriverFound
         ? 9_000 + Math.random() * 6_000
@@ -467,6 +632,13 @@ export const mockAdapter: ApiAdapter = {
         fromAddressId: input.fromAddressId,
         toAddressId: input.toAddressId,
         timing: input.timing,
+        serviceType: input.serviceType,
+        cargo,
+        fromDetails: fromPointDetails,
+        toDetails: toPointDetails,
+        stops,
+        comment,
+        optionIds,
       });
       return toDetails(order);
     }, { minMs: 400, maxMs: 800 }),
@@ -489,27 +661,48 @@ export const mockAdapter: ApiAdapter = {
       }
       if (patch.timing) validateTiming(patch.timing);
 
-      const extras = loadOrderExtras()[orderId] ?? {
+      const extras: OrderExtras = loadOrderExtras()[orderId] ?? {
         fromAddressId: ADDRESSES.find((a) => a.cityId === order.fromCityId)?.id ?? "",
         toAddressId: ADDRESSES.find((a) => a.cityId === order.toCityId)?.id ?? "",
         timing: { timeMode: "now" as const },
       };
+      // Merge: a field missing from the patch is unchanged, not cleared — the
+      // track screen's sheet only sends the fields it edits.
       const nextExtras: OrderExtras = {
+        ...extras,
         fromAddressId: patch.fromAddressId ?? extras.fromAddressId,
         toAddressId: patch.toAddressId ?? extras.toAddressId,
         timing: patch.timing ?? extras.timing,
       };
-      const fromCityId = addressOf(nextExtras.fromAddressId).cityId;
-      const toCityId = addressOf(nextExtras.toAddressId).cityId;
-      const distanceKm = roadDistanceKm(fromCityId, toCityId);
-      if (distanceKm === 0) throw new ApiError("INVALID_ROUTE", "order.quoteError");
+      // A new address starts without the old one's Tafsilotlar.
+      if (patch.fromAddressId && patch.fromAddressId !== extras.fromAddressId) nextExtras.fromDetails = undefined;
+      if (patch.toAddressId && patch.toAddressId !== extras.toAddressId) nextExtras.toDetails = undefined;
+      if (patch.fromDetails) nextExtras.fromDetails = normalizeDetails(patch.fromDetails);
+      if (patch.toDetails) nextExtras.toDetails = normalizeDetails(patch.toDetails);
+      if (patch.stops) {
+        nextExtras.stops = patch.stops.map((st) => ({ addressId: addressOf(st.addressId).id, details: normalizeDetails(st.details) }));
+      }
+      if (patch.comment !== undefined) nextExtras.comment = normalizeComment(patch.comment);
 
       const mode = patch.mode ?? order.mode;
       const seatIds = patch.seatIds ?? order.seatIds;
       const paymentMethod = patch.paymentMethod ?? order.paymentMethod;
-      const price = computePrice(distanceKm, mode, seatIds, DEFAULT_TARIFF);
+      const serviceType = nextExtras.serviceType ?? "passenger";
+      const priced = priceOrder({
+        serviceType,
+        fromAddressId: nextExtras.fromAddressId,
+        toAddressId: nextExtras.toAddressId,
+        stops: (nextExtras.stops ?? []).map((st) => st.addressId),
+        mode,
+        seatIds,
+        cargo: nextExtras.cargo,
+        optionIds: patch.optionIds ?? nextExtras.optionIds ?? [],
+      });
+      nextExtras.optionIds = priced.optionIds;
+      const fromCityId = addressOf(nextExtras.fromAddressId).cityId;
+      const toCityId = addressOf(nextExtras.toAddressId).cityId;
 
-      db.updateOrder(orderId, { fromCityId, toCityId, distanceKm, mode, seatIds, paymentMethod, price });
+      db.updateOrder(orderId, { fromCityId, toCityId, distanceKm: priced.routeKm, mode, seatIds, paymentMethod, price: priced.total });
       saveOrderExtra(orderId, nextExtras);
       return toDetails(db.getOrder(orderId)!);
     }, { minMs: 300, maxMs: 600 }),

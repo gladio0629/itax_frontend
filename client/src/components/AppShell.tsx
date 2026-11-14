@@ -212,7 +212,20 @@ export function AppShell() {
   return (
     <ShellNavContext.Provider value={shellNav}>
     <HeaderToneContext.Provider value={setTone}>
-    <div ref={shellRef} className="relative h-full w-full overflow-hidden">
+    <div
+      ref={shellRef}
+      className="relative h-full w-full overflow-hidden"
+      // A clipping box must never scroll: focusing an input inside a sheet
+      // that is still sliding in (e.g. the address search's autoFocus) would
+      // otherwise shift the whole app up and leave it there.
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        if (el.scrollTop || el.scrollLeft) {
+          el.scrollTop = 0;
+          el.scrollLeft = 0;
+        }
+      }}
+    >
       {showFloating &&
         (isTopLevel ? (
           <button

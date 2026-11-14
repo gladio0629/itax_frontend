@@ -1,14 +1,29 @@
 import { create } from "zustand";
 import type { OrderMode, PaymentMethod } from "@/seed/generate";
-import type { CargoInput, OrderTiming, ServiceType } from "@/api/types";
+import type { AddressDetails, CargoInput, OrderOptionId, OrderTiming, ServiceType } from "@/api/types";
 import { ADDRESSES } from "@/clientData/addresses";
 
 const DEFAULT_FROM_ADDRESS = ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "";
+
+/** An intermediate stop in the draft. `uid` is a client-side key for React
+ * and drag-to-reorder; the adapter only ever sees the address id. */
+export type DraftStop = { uid: string; addressId: string; details: AddressDetails };
+
+let stopSeq = 0;
+export function newStopUid() {
+  stopSeq += 1;
+  return `stop_${stopSeq}`;
+}
 
 export type OrderDraft = {
   serviceType: ServiceType;
   fromAddressId: string;
   toAddressId: string;
+  fromDetails: AddressDetails;
+  toDetails: AddressDetails;
+  stops: DraftStop[];
+  comment: string;
+  optionIds: OrderOptionId[];
   mode: OrderMode;
   seatIds: string[];
   cargo: CargoInput;
@@ -29,6 +44,11 @@ const initialDraft: OrderDraft = {
   serviceType: "passenger",
   fromAddressId: DEFAULT_FROM_ADDRESS,
   toAddressId: "",
+  fromDetails: {},
+  toDetails: {},
+  stops: [],
+  comment: "",
+  optionIds: [],
   mode: "car",
   seatIds: [],
   cargo: { vehicle: "spark" },

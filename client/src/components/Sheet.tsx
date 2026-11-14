@@ -18,7 +18,9 @@ export function useSheetA11y(open: boolean, onClose: () => void, panelRef: React
   useEffect(() => {
     if (!open) return;
     previouslyFocused.current = document.activeElement as HTMLElement;
-    panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    // preventScroll: mid slide-in the control is still below the screen, and
+    // a plain focus() would scroll the app's overflow-hidden shell to it.
+    panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true });
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -52,13 +54,15 @@ type SheetProps = {
   onClose: () => void;
   children: ReactNode;
   ariaLabel: string;
+  /** Extra classes for the panel (e.g. the iOS grouped background). */
+  panelClassName?: string;
 };
 
 /**
  * Modal bottom sheet — height fits content (max 88%), swipe the handle down,
  * tap the backdrop or press Escape to dismiss.
  */
-export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
+export function Sheet({ open, onClose, children, ariaLabel, panelClassName }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
   const dragLast = useRef({ y: 0, t: 0, v: 0 });
@@ -100,7 +104,10 @@ export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
       <div className="absolute inset-0 animate-fade-in bg-black/40 ios:bg-[var(--ios-backdrop)] ios:backdrop-blur-[3px]" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
-        className="absolute inset-x-0 bottom-0 flex max-h-[88%] animate-slide-up flex-col rounded-t-sheet bg-card shadow-soft will-change-transform ios:animate-ios-sheet-in ios:shadow-none"
+        className={cn(
+          "absolute inset-x-0 bottom-0 flex max-h-[88%] animate-slide-up flex-col rounded-t-sheet bg-card shadow-soft will-change-transform ios:animate-ios-sheet-in ios:shadow-none",
+          panelClassName
+        )}
         style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
       >
         <div

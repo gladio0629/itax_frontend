@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Armchair, Car as CarIcon, ChevronRight, Package, X } from "@/lib/icons";
 import { api } from "@/api/client";
-import type { Address, Seat } from "@/api/types";
-import type { OrderDraft } from "@/stores/orderStore";
+import type { Address, AddressDetails, OrderDetailsRules, OrderOptionId, Seat } from "@/api/types";
+import { addressById } from "@/clientData/addresses";
+import { newStopUid, type OrderDraft } from "@/stores/orderStore";
 import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/Skeleton";
 import { formatSom } from "@/lib/format";
@@ -16,7 +17,10 @@ import { AddressPickerSheet } from "./AddressPickerSheet";
 import { TimeSelector } from "./TimeSelector";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
-import { RouteFields } from "./RouteFields";
+import { RouteFields, type RouteTarget } from "./RouteFields";
+import { AddressDetailsSheet } from "./AddressDetailsSheet";
+import { DriverComment, OrderOptions } from "./OrderExtras";
+import { detailsSummary } from "./addressDetails";
 import { useIsIOS } from "@/lib/platform";
 import { Segmented } from "@/components/ios/Segmented";
 
@@ -100,7 +104,84 @@ export function OrderSheet({
     setStepRaw(next);
     bodyRef.current?.scrollTo({ top: 0 });
   }
-  const [picker, setPicker] = useState<"from" | "to" | null>(null);
+  // "newStop" opens the search for a stop that is only added once picked,
+  // so an empty stop never reaches the quote.
+  const [picker, setPicker] = useState<RouteTarget | "newStop" | null>(null);
+  const [detailsFor, setDetailsFor] = useState<RouteTarget | null>(null);
+  const [rules, setRules] = useState<OrderDetailsRules | null>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  useEffect(() => {
+    let alive = true;
+    let attempt = 0;
+    const load = () =>
+      api
+        .getOrderDetailsRules()
+        .then((r) => alive && setRules(r))
+        .catch(() => {
+          if (alive && ++attempt < 4) window.setTimeout(load, 800);
+        });
+    load();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const options = useQuery(() => api.getOrderOptions(draft.serviceType), [draft.serviceType]);
+
+  function pointAddressId(target: RouteTarget, d: OrderDraft = draftRef.current) {
+    if (target === "from") return d.fromAddressId;
+    if (target === "to") return d.toAddressId;
+    return d.stops.find((st) => st.uid === target.stop)?.addressId ?? "";
+  }
+  function pointDetails(target: RouteTarget): AddressDetails {
+    if (target === "from") return draft.fromDetails;
+    if (target === "to") return draft.toDetails;
+    return draft.stops.find((st) => st.uid === target.stop)?.details ?? {};
+  }
+  function setPointDetails(target: RouteTarget, details: AddressDetails) {
+    if (target === "from") setField("fromDetails", details);
+    else if (target === "to") setField("toDetails", details);
+    else {
+      setField(
+        "stops",
+        draftRef.current.stops.map((st) => (st.uid === target.stop ? { ...st, details } : st))
+      );
+    }
+  }
+
+  /** A new address starts without the old one's Tafsilotlar; a saved
+   * address brings its own back from the adapter. */
+  function pickAddress(which: RouteTarget | "newStop", addr: Address) {
+    let target: RouteTarget;
+    if (which === "newStop") {
+      const uid = newStopUid();
+      setField("stops", [...draftRef.current.stops, { uid, addressId: addr.id, details: {} }]);
+      target = { stop: uid };
+    } else if (which === "from" || which === "to") {
+      onAddressChange(which, addr);
+      setField(which === "from" ? "fromDetails" : "toDetails", {});
+      target = which;
+    } else {
+      setField(
+        "stops",
+        draftRef.current.stops.map((st) => (st.uid === which.stop ? { ...st, addressId: addr.id, details: {} } : st))
+      );
+      target = which;
+    }
+    api
+      .getSavedAddressDetails(addr.id)
+      .then((saved) => {
+        if (saved && pointAddressId(target) === addr.id) setPointDetails(target, saved);
+      })
+      .catch(() => {});
+  }
+
+  const stopsKey = draft.stops.map((st) => st.addressId).join("|");
+  const optionsKey = draft.optionIds.join(",");
+  const toggleOption = (id: OrderOptionId) =>
+    setField("optionIds", draft.optionIds.includes(id) ? draft.optionIds.filter((x) => x !== id) : [...draft.optionIds, id]);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [seatsError, setSeatsError] = useState(false);
   const [seatsReload, setSeatsReload] = useState(0);
@@ -138,12 +219,16 @@ export function OrderSheet({
         serviceType: draft.serviceType,
         fromAddressId: draft.fromAddressId,
         toAddressId: draft.toAddressId,
+        stops: draft.stops.map((st) => st.addressId),
         mode: draft.mode,
         seatIds: draft.seatIds,
         cargo: draft.serviceType === "delivery" ? draft.cargo : undefined,
+        optionIds: draft.optionIds,
       }),
-    // Keyed on the vehicle, not the cargo object — typing a note mustn't refetch.
-    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, draft.mode, draft.seatIds, draft.cargo.vehicle]
+    // Keyed on the vehicle, not the cargo object — typing a note mustn't
+    // refetch; likewise the comment and Tafsilotlar never re-quote. Every
+    // stop add/remove/reorder/change does.
+    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, draft.cargo.vehicle, optionsKey]
   );
 
   const canNext =
@@ -164,16 +249,55 @@ export function OrderSheet({
       <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-3">
         <div key={step} className={direction === "fwd" ? "animate-step-fwd" : "animate-step-back"}>
         {step === 0 && (
-          <RouteFields
-            from={addresses.from}
-            to={addresses.to}
-            onPick={setPicker}
-            onSwap={() => {
-              const f = draft.fromAddressId;
-              setField("fromAddressId", draft.toAddressId);
-              setField("toAddressId", f);
-            }}
-          />
+          <>
+            <RouteFields
+              from={addresses.from}
+              to={addresses.to}
+              onPick={setPicker}
+              onSwap={() => {
+                const f = draft.fromAddressId;
+                const fd = draft.fromDetails;
+                setField("fromAddressId", draft.toAddressId);
+                setField("toAddressId", f);
+                setField("fromDetails", draft.toDetails);
+                setField("toDetails", fd);
+                // Swapping reverses the whole route, stops included.
+                setField("stops", [...draft.stops].reverse());
+              }}
+              fromDetailsLine={detailsSummary(draft.fromDetails, t)}
+              toDetailsLine={detailsSummary(draft.toDetails, t)}
+              onDetails={setDetailsFor}
+              stops={draft.stops.map((st) => ({
+                uid: st.uid,
+                address: addressById(st.addressId) ?? null,
+                detailsLine: detailsSummary(st.details, t),
+              }))}
+              maxStops={rules?.maxStops ?? null}
+              onAddStop={() => setPicker("newStop")}
+              onPickStop={(uid) => setPicker({ stop: uid })}
+              onRemoveStop={(uid) => setField("stops", draftRef.current.stops.filter((st) => st.uid !== uid))}
+              onReorderStops={(from, to) => {
+                const next = [...draftRef.current.stops];
+                const [moved] = next.splice(from, 1);
+                next.splice(to, 0, moved);
+                setField("stops", next);
+              }}
+            />
+            {canQuote && (
+              <div className="mt-3 flex min-h-[44px] items-center justify-between gap-3 px-1" aria-live="polite">
+                <span className="text-sm text-ink/60">{t("order.priceEstimate")}</span>
+                {quote.status === "success" ? (
+                  <span className="text-base font-semibold text-ink tabular">{formatSom(quote.data.total, intlTag)}</span>
+                ) : quote.status === "error" ? (
+                  <button onClick={quote.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
+                    {t("order.quoteError")}
+                  </button>
+                ) : (
+                  <Skeleton className="h-5 w-24" />
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {step === 1 && (
@@ -182,7 +306,10 @@ export function OrderSheet({
               <Segmented
                 ariaLabel={t("order.step.details")}
                 value={draft.serviceType}
-                onChange={(v) => setField("serviceType", v)}
+                onChange={(v) => {
+                  setField("serviceType", v);
+                  setField("optionIds", []);
+                }}
                 options={[
                   { id: "passenger", label: t("order.passenger"), icon: Armchair },
                   { id: "delivery", label: t("order.delivery"), icon: CarIcon },
@@ -194,13 +321,19 @@ export function OrderSheet({
                 selected={draft.serviceType === "passenger"}
                 icon={Armchair}
                 label={t("order.passenger")}
-                onClick={() => setField("serviceType", "passenger")}
+                onClick={() => {
+                  setField("serviceType", "passenger");
+                  setField("optionIds", []);
+                }}
               />
               <SegmentButton
                 selected={draft.serviceType === "delivery"}
                 icon={CarIcon}
                 label={t("order.delivery")}
-                onClick={() => setField("serviceType", "delivery")}
+                onClick={() => {
+                  setField("serviceType", "delivery");
+                  setField("optionIds", []);
+                }}
               />
             </div>
             )}
@@ -224,6 +357,29 @@ export function OrderSheet({
             )}
 
             <TimeSelector value={draft.timing} onChange={(timing) => setField("timing", timing)} />
+
+            {/* Dostavka has its own "Izoh" on the vehicle picker. */}
+            {draft.serviceType === "passenger" && (
+              <DriverComment
+                value={draft.comment}
+                onChange={(v) => setField("comment", v)}
+                maxLength={rules?.commentMaxLength}
+                serviceType={draft.serviceType}
+                options={options.status === "success" ? options.data : []}
+                selectedOptionIds={draft.optionIds}
+                onApplyHint={(id) => {
+                  if (!draftRef.current.optionIds.includes(id)) setField("optionIds", [...draftRef.current.optionIds, id]);
+                }}
+              />
+            )}
+
+            <OrderOptions
+              status={options.status}
+              options={options.status === "success" ? options.data : []}
+              selected={draft.optionIds}
+              onToggle={toggleOption}
+              onRetry={options.refetch}
+            />
           </div>
         )}
 
@@ -231,9 +387,29 @@ export function OrderSheet({
           <div className="space-y-4">
             <div className="rounded-xl bg-accent-5 p-4">
               <p className="text-xs font-semibold text-ink/60">{t("order.route")}</p>
-              <p className="mt-1 text-sm font-semibold text-ink">
-                {addresses.from?.label} &rarr; {addresses.to?.label}
-              </p>
+              <ol className="mt-1.5 space-y-1.5">
+                {[
+                  { key: "from", label: addresses.from?.label, details: draft.fromDetails, dot: "bg-ink" },
+                  ...draft.stops.map((st) => ({
+                    key: st.uid,
+                    label: addressById(st.addressId)?.label,
+                    details: st.details,
+                    dot: "border-2 border-ink/50 bg-card",
+                  })),
+                  { key: "to", label: addresses.to?.label, details: draft.toDetails, dot: "bg-brand-yellow ring-1 ring-on-yellow/40" },
+                ].map((p) => {
+                  const line = detailsSummary(p.details, t);
+                  return (
+                    <li key={p.key} className="flex gap-2.5">
+                      <span className={cn("mt-[5px] h-2.5 w-2.5 shrink-0 rounded-full", p.dot)} aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-ink">{p.label}</span>
+                        {line && <span className="block text-xs text-ink/60">{line}</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
               <div className="mt-2 flex items-center justify-between text-xs text-ink/60">
                 <span>
                   {draft.serviceType === "passenger"
@@ -244,6 +420,12 @@ export function OrderSheet({
                 </span>
                 <span className="tabular">{timingSummary(draft.timing, t, intlTag)}</span>
               </div>
+              {draft.serviceType === "passenger" && draft.comment.trim() && (
+                <p className="mt-2 border-t border-border pt-2 text-xs text-ink/60">
+                  <span className="font-semibold">{t("comment.title")}:</span>{" "}
+                  <span className="break-words text-ink">{draft.comment.trim()}</span>
+                </p>
+              )}
             </div>
 
             {quote.status === "loading" && (
@@ -260,9 +442,9 @@ export function OrderSheet({
             {quote.status === "success" && (
               <div className="space-y-2">
                 {quote.data.lines.map((line, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="text-ink/60">{t(line.key as TranslationKey, line.params)}</span>
-                    <span className="tabular font-normal text-ink">{formatSom(line.amount, intlTag)}</span>
+                  <div key={i} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 text-ink/60">{t(line.key as TranslationKey, line.params)}</span>
+                    <span className="shrink-0 tabular font-normal text-ink">{formatSom(line.amount, intlTag)}</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between border-t border-border pt-2 text-base font-semibold">
@@ -323,13 +505,34 @@ export function OrderSheet({
 
       {picker && (
         <AddressPickerSheet
-          title={t(picker === "from" ? "order.from" : "order.to")}
-          excludeCityId={picker === "from" ? addresses.to?.cityId : addresses.from?.cityId}
+          title={
+            picker === "from"
+              ? t("order.from")
+              : picker === "to"
+              ? t("order.to")
+              : picker === "newStop"
+              ? t("stops.add")
+              : t("stops.label", { n: draft.stops.findIndex((st) => st.uid === picker.stop) + 1 })
+          }
+          // A stop can be anywhere, including the pickup or drop-off city.
+          excludeCityId={picker === "from" ? addresses.to?.cityId : picker === "to" ? addresses.from?.cityId : undefined}
           onClose={() => setPicker(null)}
           onSelect={(addr) => {
-            onAddressChange(picker, addr);
+            pickAddress(picker, addr);
             setPicker(null);
           }}
+        />
+      )}
+
+      {detailsFor && addressById(pointAddressId(detailsFor, draft)) && (
+        <AddressDetailsSheet
+          // Re-mount per point so the form starts from that point's details.
+          key={typeof detailsFor === "string" ? detailsFor : detailsFor.stop}
+          address={addressById(pointAddressId(detailsFor, draft))!}
+          value={pointDetails(detailsFor)}
+          rules={rules}
+          onSave={(d) => setPointDetails(detailsFor, d)}
+          onClose={() => setDetailsFor(null)}
         />
       )}
 
