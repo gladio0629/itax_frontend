@@ -249,7 +249,7 @@ export type TripDetail = HistoryItem & {
   cancelReasonKey?: string;
 };
 
-export type LedgerType = "trip" | "commission" | "topup" | "bonus" | "payout";
+export type LedgerType = "trip" | "commission" | "tip" | "topup" | "bonus" | "payout";
 export type LedgerEntry = {
   id: string;
   type: LedgerType;

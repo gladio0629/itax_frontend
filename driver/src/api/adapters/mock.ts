@@ -5,7 +5,7 @@ import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
 import {
   BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_COLORS, CAR_MODELS, DEBT_LIMIT, DEBT_NEAR_RATIO, OFFER_COUNTDOWN_SEC,
-  CHILD_SEAT_AGES, DEFAULT_CAPABILITIES, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
+  CHILD_SEAT_AGES, DEFAULT_CAPABILITIES, TIP_AMOUNTS, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor, levelFor, passengers, persist, presetState, pushNotification,
   replaceState, state, weekTrips, type DetailsRecord, type DriverState, type LiveTrip, type OfferRecord,
   type StopRecord, type TripRecord,
 } from "@/mockDb/driverDb";
@@ -410,6 +410,8 @@ function finishTrip(s: DriverState, t: LiveTrip): TripSummary {
   };
   s.trips.unshift(record);
   for (const row of ledgerFor(record)) appendLedger(row.type, row.amount, row.descKey, row.descParams);
+  // Some passengers leave "choy puli" in the app; it lands in the wallet as its own row.
+  if (rand.bool(0.35)) appendLedger("tip", rand.pick(TIP_AMOUNTS), "ledger.desc.tip", { route: `${cityName(t.fromCityId)} – ${cityName(t.toCityId)}` });
   const summary: TripSummary = {
     tripId: t.id,
     gross: t.price,

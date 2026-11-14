@@ -267,6 +267,7 @@ export const uz = {
   "wallet.type.all": "Barchasi",
   "wallet.type.trip": "Safar",
   "wallet.type.commission": "Komissiya",
+  "wallet.type.tip": "Choy puli",
   "wallet.type.topup": "To'ldirish",
   "wallet.type.bonus": "Bonus",
   "wallet.type.payout": "Yechish",
@@ -279,6 +280,7 @@ export const uz = {
 
   "ledger.desc.cardTrip": "Karta orqali safar: {{route}}",
   "ledger.desc.commission": "Komissiya {{pct}}%: {{route}}",
+  "ledger.desc.tip": "Choy puli: {{route}}",
   "ledger.desc.topup": "Hamyon to'ldirildi ({{provider}})",
   "ledger.desc.payout": "Kartaga o'tkazildi •••• {{last4}}",
   "ledger.desc.weeklyBonus": "Haftalik bonus",

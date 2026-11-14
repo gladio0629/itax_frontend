@@ -6,7 +6,7 @@ import { useQuery } from "@/lib/useQuery";
 import { useCountUp } from "@/lib/useCountUp";
 import { formatAmount } from "@/lib/format";
 import { relativeTime } from "@/lib/relative";
-import { ArrowDownLeft, ArrowUpRight, Banknote, Car, ChevronRight, CreditCard, Gift, Percent, Plus, Receipt, Wallet } from "@/lib/icons";
+import { ArrowDownLeft, ArrowUpRight, Banknote, Car, ChevronRight, CreditCard, Gift, HandCoins, Percent, Plus, Receipt, Wallet } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/Card";
 import { Skeleton, SkeletonList } from "@/components/Skeleton";
@@ -20,7 +20,7 @@ import { TILE } from "@/components/SettingsRow";
 import { DebtBanner } from "./DebtBanner";
 import { cn } from "@/lib/cn";
 
-const TYPES: Array<LedgerType | "all"> = ["all", "trip", "commission", "topup", "bonus", "payout"];
+const TYPES: Array<LedgerType | "all"> = ["all", "trip", "commission", "tip", "topup", "bonus", "payout"];
 const RANGES: HistoryRange[] = ["all", "today", "week", "month"];
 
 export default function WalletScreen() {
@@ -143,6 +143,7 @@ export default function WalletScreen() {
 const TYPE_ICON: Record<LedgerType, { icon: typeof Car; tile: keyof typeof TILE }> = {
   trip: { icon: Car, tile: "green" },
   commission: { icon: Receipt, tile: "slate" },
+  tip: { icon: HandCoins, tile: "purple" },
   topup: { icon: Wallet, tile: "blue" },
   bonus: { icon: Gift, tile: "yellow" },
   payout: { icon: Banknote, tile: "teal" },

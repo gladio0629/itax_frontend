@@ -291,6 +291,8 @@ export function ledgerFor(trip: TripRecord): Omit<LedgerEntry, "balanceAfter">[]
   return out;
 }
 
+export const TIP_AMOUNTS = [3_000, 5_000, 5_000, 10_000];
+
 const PAYOUT_ABOVE = 250_000;
 const PAYOUT_LEAVES = 50_000;
 
@@ -387,6 +389,15 @@ export function seedState(opts: SeedOpts = {}): DriverState {
   [27, 18, 9, 3].forEach((d, i) =>
     rows.push({ id: `led_top_${i}`, type: "topup", amount: [100_000, 50_000, 50_000, 25_000][i], createdAt: now - d * day, descKey: "ledger.desc.topup", descParams: { provider: i % 2 ? "Click" : "Payme" } })
   );
+  // Choy puli: some passengers tip in the app after the ride (own RNG so the rest of the seed is unchanged).
+  const tipRng = makeRng(20_261_114);
+  for (const t of trips) {
+    if (t.status !== "completed" || !tipRng.bool(0.3)) continue;
+    rows.push({
+      id: `led_${t.id}_tip`, type: "tip", amount: tipRng.pick(TIP_AMOUNTS), createdAt: t.timeline[t.timeline.length - 1].at + 5 * 60_000,
+      descKey: "ledger.desc.tip", descParams: { route: `${cityName(t.fromCityId)} – ${cityName(t.toCityId)}` },
+    });
+  }
   rows.push({ id: "led_bonus_1", type: "bonus", amount: 25_000, createdAt: now - 8 * day, descKey: "ledger.desc.weeklyBonus" });
   rows.push({ id: "led_bonus_2", type: "bonus", amount: 15_000, createdAt: now - 20 * day, descKey: "ledger.desc.referralBonus" });
   rows.sort((a, b) => a.createdAt - b.createdAt);
