@@ -197,7 +197,9 @@ export function HistoryScreen() {
           ) : undefined
         }
       >
-        {t("history.title")}
+        {/* iOS: the short screen name, as in the drawer — it fits as a Large
+            Title on every iPhone and reads as "‹ Tarix" on the detail page. */}
+        {ios ? t("drawer.tarix") : t("history.title")}
       </PageTitle>
 
       {!ios && (

@@ -67,7 +67,7 @@ export function Alert({
               disabled={a.loading}
               onClick={a.onPress}
               className={cn(
-                "ios-body relative flex h-11 items-center justify-center px-3 transition-colors duration-100 active:bg-[var(--ios-material-pressed)] disabled:opacity-50",
+                "ios-body relative flex h-11 items-center justify-center px-3 transition-colors duration-100 hover:bg-[var(--ios-fill-quaternary)] focus-visible:outline-offset-[-2px] active:bg-[var(--ios-material-pressed)] disabled:opacity-50",
                 // Hairline above every button, and between side-by-side ones.
                 "before:absolute before:inset-x-0 before:top-0 before:h-px before:origin-top before:scale-y-[var(--hairline-scale,1)] before:bg-[var(--ios-bar-hairline)] before:content-['']",
                 sideBySide && i === 1 && "after:absolute after:inset-y-0 after:left-0 after:w-px after:origin-left after:scale-x-[var(--hairline-scale,1)] after:bg-[var(--ios-bar-hairline)] after:content-['']",

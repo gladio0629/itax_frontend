@@ -134,7 +134,8 @@ export function ListRow({
   const classes = cn(
     "relative flex w-full items-center gap-[15px] bg-card pl-4 pr-4 text-left",
     large ? "min-h-[76px] py-2.5" : subtitle ? "min-h-[60px] py-[9px]" : "min-h-[44px] py-[11px]",
-    interactive && "transition-colors duration-100 active:bg-[var(--ios-row-pressed)]",
+    interactive &&
+      "transition-colors duration-100 hover:bg-[var(--ios-fill-quaternary)] active:bg-[var(--ios-row-pressed)] focus-visible:outline-offset-[-2px]",
     // Hairline separator below every row but the last, inset like iOS.
     "ios-sep",
     centered && "justify-center",

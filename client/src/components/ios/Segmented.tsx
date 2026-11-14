@@ -66,7 +66,7 @@ export function Segmented<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(o.id)}
             className={cn(
-              "ios-footnote relative z-[1] flex min-w-0 items-center justify-center gap-1.5 rounded-[7px] px-2 text-ink transition-opacity active:opacity-60",
+              "ios-footnote relative z-[1] flex min-w-0 items-center justify-center gap-1.5 rounded-[7px] px-2 text-ink transition-opacity hover:opacity-80 active:opacity-60",
               // 44px hit area around the 28px segment.
               "before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']",
               selected ? "font-semibold" : "font-medium"

@@ -57,7 +57,7 @@ export function ActionSheet({
               onClick={a.onSelect}
               aria-current={a.checked || undefined}
               className={cn(
-                "ios-sep relative flex h-[57px] w-full items-center justify-center px-12 text-[20px] leading-[25px] tracking-[-0.45px] transition-colors duration-100 active:bg-[var(--ios-material-pressed)]",
+                "ios-sep relative flex h-[57px] w-full items-center justify-center px-12 text-[20px] leading-[25px] tracking-[-0.45px] transition-colors duration-100 hover:bg-[var(--ios-fill-quaternary)] focus-visible:outline-offset-[-2px] active:bg-[var(--ios-material-pressed)]",
                 a.destructive ? "text-danger" : "text-accent",
                 a.checked && "font-semibold"
               )}
@@ -75,7 +75,7 @@ export function ActionSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-2 flex h-[57px] w-full items-center justify-center rounded-[14px] bg-[var(--ios-elevated)] text-[20px] font-semibold leading-[25px] tracking-[-0.45px] text-accent transition-colors duration-100 active:bg-[var(--ios-row-pressed)] ios-squircle"
+          className="mt-2 flex h-[57px] w-full items-center justify-center rounded-[14px] bg-[var(--ios-elevated)] text-[20px] font-semibold leading-[25px] tracking-[-0.45px] text-accent transition-colors duration-100 hover:bg-[var(--ios-fill-quaternary)] active:bg-[var(--ios-row-pressed)] ios-squircle"
         >
           {cancelLabel}
         </button>

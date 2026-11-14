@@ -349,7 +349,8 @@ function ScheduledFields({
               </div>
             )}
           </div>
-          <div className="mt-2 flex min-h-[44px] items-center justify-between gap-3">
+          {/* The whole row is the hit target: tapping the text flips the switch. */}
+          <label className="mt-2 flex min-h-[44px] cursor-pointer items-center justify-between gap-3">
             <span className="text-sm text-ink">{t("when.multiDay")}</span>
             <Switch
               checked={!!end}
@@ -357,7 +358,7 @@ function ScheduledFields({
               disabled={!end && endChoices(start).length === 0}
               label={t("when.multiDay")}
             />
-          </div>
+          </label>
         </div>
       ) : (
       <div>
