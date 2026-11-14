@@ -59,8 +59,10 @@ function DetailsButton({ filled, place, onClick }: { filled: boolean; place: str
     >
       <span
         className={cn(
-          "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-colors",
-          filled ? "bg-accent text-bg" : "bg-card text-accent shadow-softer ios:bg-[var(--ios-fill-tertiary)]"
+          "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-[background-color,opacity]",
+          filled
+            ? "bg-accent text-bg group-hover:opacity-90"
+            : "bg-card text-accent shadow-softer group-hover:bg-accent-10 ios:bg-[var(--ios-fill-tertiary)]"
         )}
       >
         {t("details.button")}
@@ -357,7 +359,7 @@ function StopRow({
       )}
       <div
         className={cn(
-          "relative flex touch-pan-y items-center",
+          "relative flex touch-pan-y select-none items-center",
           dragging && "rounded-lg bg-card shadow-soft",
           dx < 0 && "bg-card"
         )}
@@ -395,7 +397,7 @@ function StopRow({
             }
           }}
           // Sits in the dot column: the grip is the stop's route marker too.
-          className={cn("flex h-11 w-[26px] shrink-0 touch-none items-center justify-center text-ink/60", dragging ? "cursor-grabbing" : "cursor-grab")}
+          className={cn("flex h-11 w-[26px] shrink-0 touch-none items-center justify-center text-ink/60 hover:text-ink", dragging ? "cursor-grabbing" : "cursor-grab")}
         >
           <GripVertical className="h-4 w-4" />
         </button>

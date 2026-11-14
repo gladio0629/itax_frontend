@@ -4,7 +4,6 @@ import type { LucideIcon } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { CommentHint, OrderOption, OrderOptionId, ServiceType } from "@/api/types";
 import { Switch } from "@/components/Switch";
-import { Skeleton } from "@/components/Skeleton";
 import { formatSom } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
@@ -79,7 +78,7 @@ export function DriverComment({
           maxLength={maxLength}
           onChange={(e) => onChange(e.target.value)}
           placeholder={t("comment.placeholder")}
-          className="block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink/60 focus:border-accent ios:border-0 ios:bg-[var(--ios-fill-tertiary)] ios:placeholder:text-[color:var(--ios-label-tertiary)]"
+          className="block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink/60 focus:border-accent ios:border-0 ios:bg-[var(--ios-fill-tertiary)] ios:focus:bg-[var(--ios-fill-secondary)] ios:placeholder:text-[color:var(--ios-label-tertiary)]"
         />
         {maxLength != null && (
           <p className="mt-1 text-right text-xs text-ink/60 tabular" aria-hidden={value.length < maxLength * 0.9}>
@@ -99,8 +98,8 @@ export function DriverComment({
               </span>
               <div className="min-w-0 flex-1">
                 <p className="pt-1.5 text-sm text-ink">{t(hint.messageKey as TranslationKey)}</p>
-                <button type="button" onClick={() => onApplyHint(hint.optionId)} className="flex h-11 items-center">
-                  <span className="flex h-8 items-center gap-1 rounded-full bg-accent px-3 text-xs font-semibold text-bg">
+                <button type="button" onClick={() => onApplyHint(hint.optionId)} className="group flex h-11 items-center">
+                  <span className="flex h-8 items-center gap-1 rounded-full bg-accent px-3 text-xs font-semibold text-bg transition-opacity group-hover:opacity-90 group-active:opacity-80">
                     {t("hint.apply")}
                     <span className="font-normal opacity-80 tabular">+{formatSom(option.price, intlTag)}</span>
                   </span>
@@ -110,7 +109,7 @@ export function DriverComment({
                 type="button"
                 onClick={() => setDismissed((d) => [...d, hint.optionId])}
                 aria-label={t("hint.dismiss")}
-                className="-mt-2 flex h-11 w-9 shrink-0 items-center justify-center text-ink/60"
+                className="-mt-2 flex h-11 w-9 shrink-0 items-center justify-center text-ink/60 hover:text-ink"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -137,13 +136,14 @@ export function OrderOptions({
   onRetry: () => void;
 }) {
   const { t, intlTag } = useT();
-  if (status === "success" && options.length === 0) return null;
+  // Nothing while loading: Dostavka has no add-ons, and a header that
+  // flashes in and vanishes reads as a glitch.
+  if (status === "loading" || (status === "success" && options.length === 0)) return null;
   return (
     <section aria-labelledby="options-title" className="space-y-3">
       <p id="options-title" className="text-sm font-semibold text-ink">
         {t("options.title")}
       </p>
-      {status === "loading" && <Skeleton className="h-[64px] w-full" />}
       {status === "error" && (
         <button onClick={onRetry} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
           {t("common.loadFailedRetry")}

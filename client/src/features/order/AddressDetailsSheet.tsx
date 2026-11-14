@@ -127,7 +127,7 @@ export function AddressDetailsSheet({
             maxLength={noteMax}
             onChange={(e) => set("note", e.target.value)}
             placeholder={t("details.notePlaceholder")}
-            className="ios-body block w-full resize-none bg-card px-4 py-[11px] text-ink outline-none placeholder:text-[color:var(--ios-label-tertiary)]"
+            className="ios-body block w-full resize-none bg-card px-4 py-[11px] text-ink outline-none transition-colors placeholder:text-[color:var(--ios-label-tertiary)] focus:bg-[var(--ios-fill-quaternary)]"
           />
         </ListSection>
 
@@ -220,7 +220,8 @@ export function AddressDetailsSheet({
 
 function IosField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="ios-sep relative flex min-h-[44px] items-center gap-4 bg-card pl-4 pr-4" style={{ ["--sep-inset" as string]: "16px" }}>
+    // Focus shows as the row's pressed fill (the inputs drop the outline).
+    <label className="ios-sep relative flex min-h-[44px] items-center gap-4 bg-card pl-4 pr-4 transition-colors focus-within:bg-[var(--ios-fill-quaternary)]" style={{ ["--sep-inset" as string]: "16px" }}>
       <span className="ios-body shrink-0 text-ink">{label}</span>
       <span className="min-w-0 flex-1">{children}</span>
     </label>

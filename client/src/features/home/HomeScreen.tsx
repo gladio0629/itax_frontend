@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, Heart, LocateFixed, MapPin } from "@/lib/icons";
 import { api } from "@/api/client";
@@ -42,9 +42,21 @@ export function HomeScreen() {
     api.getPickupEta().then((r) => setEta(r.minutes)).catch(() => {});
   }, []);
 
+  // Back on Home after the order flow: refetch, since the flow may have
+  // changed a saved address's Tafsilotlar (the adapter remembers them).
+  const flowWasOpen = useRef(false);
+  useEffect(() => {
+    if (expanded) flowWasOpen.current = true;
+    else if (flowWasOpen.current) {
+      flowWasOpen.current = false;
+      setSavedReload((n) => n + 1);
+    }
+  }, [expanded]);
+
   useEffect(() => {
     if (!draft.fromAddressId) return;
-    setSavedLoading(true);
+    // Skeleton only for the first load; a refresh keeps the list in place.
+    if (saved.length === 0) setSavedLoading(true);
     setSavedError(false);
     api
       .getSavedAddresses(draft.fromAddressId)
