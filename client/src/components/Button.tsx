@@ -20,20 +20,22 @@ const base =
 // (on-yellow) text. It's the default ("primary") button everywhere, since
 // each screen/sheet in this app renders at most one at a time; `brand` is
 // kept as an explicit alias for call sites that want to say so directly.
-const PRIMARY_CLASSES = "bg-brand-yellow text-on-yellow shadow-soft hover:brightness-105";
+const PRIMARY_CLASSES = "bg-brand-yellow text-on-yellow shadow-soft hover:brightness-105 ios:shadow-none";
 
 const variants: Record<Variant, string> = {
   primary: PRIMARY_CLASSES,
   brand: PRIMARY_CLASSES,
   secondary: "bg-accent-5 text-accent hover:bg-accent-10",
   ghost: "bg-transparent text-ink/80 hover:bg-ink/5",
-  danger: "bg-danger text-bg shadow-soft hover:brightness-105",
+  danger: "bg-danger text-bg shadow-soft hover:brightness-105 ios:text-white ios:shadow-none",
   dangerSoft: "bg-danger/10 text-danger hover:bg-danger/15",
 };
 
+// Large: 52px / 14px standard; 50px / 17px semibold on iOS (tokens).
+// Small: capsule on iOS.
 const sizes: Record<Size, string> = {
-  md: "h-[52px] px-6 text-sm",
-  sm: "h-11 px-4 text-sm",
+  md: "h-[var(--button-md-height)] px-6 text-[length:var(--button-md-text)] leading-5 ios:tracking-[-0.43px]",
+  sm: "h-11 px-4 text-sm ios:rounded-full",
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(

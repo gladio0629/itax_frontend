@@ -73,10 +73,10 @@ export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
 
   return (
     <div className="absolute inset-0 z-40" role="dialog" aria-modal="true" aria-label={ariaLabel}>
-      <div className="absolute inset-0 animate-fade-in bg-black/40" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 animate-fade-in bg-black/40 ios:bg-[var(--ios-backdrop)] ios:backdrop-blur-[3px]" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
-        className="absolute inset-x-0 bottom-0 flex max-h-[88%] animate-slide-up flex-col rounded-t-sheet bg-card shadow-soft will-change-transform"
+        className="absolute inset-x-0 bottom-0 flex max-h-[88%] animate-slide-up flex-col rounded-t-sheet bg-card shadow-soft will-change-transform ios:animate-ios-sheet-in ios:shadow-none"
         style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
       >
         <div
@@ -86,7 +86,7 @@ export function Sheet({ open, onClose, children, ariaLabel }: SheetProps) {
           onPointerUp={onPointerUp}
           aria-hidden="true"
         >
-          <div className="h-1.5 w-10 rounded-full bg-ink/15" />
+          <div className="h-1.5 w-10 rounded-full bg-ink/15 ios:h-[5px] ios:w-9 ios:bg-[var(--ios-grabber)]" />
         </div>
         <div className="min-h-0 overflow-y-auto overscroll-contain">{children}</div>
       </div>
@@ -230,7 +230,7 @@ export function DragSheet({ snap, onSnapChange, children, ariaLabel, handleLabel
         }}
         className="flex h-11 w-full shrink-0 cursor-grab touch-none items-center justify-center rounded-t-sheet"
       >
-        <span className="h-1.5 w-10 rounded-full bg-ink/15" />
+        <span className="h-1.5 w-10 rounded-full bg-ink/15 ios:h-[5px] ios:w-9 ios:bg-[var(--ios-grabber)]" />
       </button>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain no-scrollbar">{children}</div>
     </div>

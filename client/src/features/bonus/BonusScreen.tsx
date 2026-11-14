@@ -242,8 +242,10 @@ export function BonusScreen() {
               aria-pressed={filter === f}
               onClick={() => setFilter(f)}
               className={cn(
-                "h-11 shrink-0 rounded-xl border-2 px-4 text-xs font-semibold transition-colors",
-                filter === f ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
+                "h-11 shrink-0 rounded-chip border-2 px-4 text-xs font-semibold transition-colors ios:border-0 ios:text-sm",
+                filter === f
+                  ? "border-accent bg-accent-5 text-accent ios:bg-accent ios:text-white"
+                  : "border-border text-ink/70 ios:bg-[var(--ios-fill-tertiary)] ios:text-ink"
               )}
             >
               {t(FILTER_KEY[f])}

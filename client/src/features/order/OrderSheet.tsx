@@ -291,7 +291,7 @@ export function OrderSheet({
             </Button>
           )}
           {cargoConfirm ? (
-            <Button fullWidth className="text-base" disabled={!canNext} onClick={() => setStep(2)}>
+            <Button fullWidth disabled={!canNext} onClick={() => setStep(2)}>
               {t("common.confirm")}
             </Button>
           ) : step < 2 ? (

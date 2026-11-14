@@ -15,6 +15,8 @@ import { useTheme } from "@/lib/theme";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
+import { useIsIOS } from "@/lib/platform";
+import { IconTile, ListRow, ListSection } from "@/components/ios/List";
 
 function Row({
   icon: Icon,
@@ -66,6 +68,7 @@ export function SettingsScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [languageOpen, setLanguageOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const ios = useIsIOS();
 
   useEffect(() => {
     api.getProfile().then(setProfile).catch(() => {});
@@ -75,6 +78,60 @@ export function SettingsScreen() {
     <div className="flex h-full flex-col bg-bg">
       <PageTitle>{t("drawer.sozlamalar")}</PageTitle>
 
+      {ios ? (
+        <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain pt-2">
+          <ListSection>
+            <ListRow
+              large
+              to="/settings/account"
+              chevron
+              leading={
+                profile ? (
+                  <Avatar seed={profile.avatarSeed} name={profile.name} size={60} />
+                ) : (
+                  <span className="h-[60px] w-[60px] shrink-0 animate-pulse rounded-full bg-[var(--ios-fill-tertiary)]" />
+                )
+              }
+              title={profile?.name ?? "\u00a0"}
+              subtitle={profile?.phoneMasked ?? "\u00a0"}
+            />
+          </ListSection>
+
+          <ListSection>
+            <ListRow leading={<IconTile icon={Bell} tone="danger" />} title={t("settings.notifications")} to="/settings/notifications" />
+          </ListSection>
+
+          <ListSection>
+            <ListRow
+              leading={<IconTile icon={theme === "dark" ? Moon : Sun} />}
+              title={t("settings.theme")}
+              accessory={
+                <Switch
+                  checked={theme === "dark"}
+                  onChange={toggleTheme}
+                  label={theme === "dark" ? t("theme.toggleToLight") : t("theme.toggleToDark")}
+                />
+              }
+            />
+            <ListRow
+              leading={<IconTile icon={Globe} />}
+              title={t("settings.language")}
+              value={t(`settings.languageName.${locale}` as TranslationKey)}
+              chevron
+              onClick={() => setLanguageOpen(true)}
+            />
+          </ListSection>
+
+          <ListSection>
+            <ListRow leading={<IconTile icon={HelpCircle} tone="gray" />} title={t("history.help")} to="/help" />
+            <ListRow leading={<IconTile icon={Info} tone="gray" />} title={t("settings.about")} to="/settings/about" />
+          </ListSection>
+
+          <ListSection>
+            <ListRow centered destructive title={t("settings.logout")} onClick={() => setLogoutOpen(true)} />
+          </ListSection>
+        </div>
+      ) : (
       <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4 pt-2">
         <Link
           to="/settings/account"
@@ -130,6 +187,7 @@ export function SettingsScreen() {
           <LogOut className="h-4 w-4" /> {t("settings.logout")}
         </button>
       </div>
+      )}
 
       {languageOpen && <LanguageSheet onClose={() => setLanguageOpen(false)} />}
       <Sheet open={logoutOpen} onClose={() => setLogoutOpen(false)} ariaLabel={t("settings.logoutConfirmTitle")}>

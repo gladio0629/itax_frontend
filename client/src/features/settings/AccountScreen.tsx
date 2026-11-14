@@ -15,6 +15,8 @@ import { ErrorState } from "@/components/ErrorState";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
 import { PhoneChangeSheet } from "./PhoneChangeSheet";
+import { useIsIOS } from "@/lib/platform";
+import { IconTile, ListRow, ListSection } from "@/components/ios/List";
 
 function formatPhoneInput(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 9);
@@ -44,6 +46,7 @@ export function AccountScreen() {
   const [selfDeleteReviewId, setSelfDeleteReviewId] = useState<string | null>(null);
 
   const [loadError, setLoadError] = useState(false);
+  const ios = useIsIOS();
 
   function load() {
     setLoadError(false);
@@ -97,6 +100,27 @@ export function AccountScreen() {
     setSelfDeleteReviewId(review.id);
   }
 
+  const nameFields = (
+    <>
+      <Input label={t("account.firstName")} name="given-name" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+      <Input label={t("account.lastName")} name="family-name" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+      <button
+        onClick={() => setPhoneSheetOpen(true)}
+        className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-dashed border-accent/40 px-4 py-3 text-xs font-semibold text-accent"
+      >
+        {t("account.changePhone")}
+      </button>
+      <div className="flex gap-2 pt-1">
+        <Button variant="secondary" fullWidth onClick={() => setEditing(false)}>
+          {t("common.cancel")}
+        </Button>
+        <Button fullWidth loading={savingName} onClick={saveName}>
+          {t("common.save")}
+        </Button>
+      </div>
+    </>
+  );
+
   if (!profile) {
     return (
       <div className="flex h-full flex-col bg-bg">
@@ -109,6 +133,72 @@ export function AccountScreen() {
   return (
     <div className="relative flex h-full flex-col bg-bg">
       <ScreenHeader title={t("settings.account")} />
+      {ios ? (
+        <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain pt-2">
+          <ListSection>
+            <ListRow
+              large
+              leading={<Avatar seed={profile.avatarSeed} name={profile.name} size={60} />}
+              title={profile.name}
+              subtitle={profile.phoneMasked}
+              accessory={
+                !editing && (
+                  <button type="button" onClick={() => setEditing(true)} className="ios-body -mr-2 min-h-[44px] px-2 text-accent active:opacity-60">
+                    {t("account.edit")}
+                  </button>
+                )
+              }
+            />
+            {editing && (
+              <div className="space-y-3 bg-card p-4">
+                {nameFields}
+              </div>
+            )}
+          </ListSection>
+
+          {accounts.some((a) => !a.active) && (
+            <ListSection header={t("account.accountsTitle")}>
+              {accounts
+                .filter((a) => !a.active)
+                .map((a) => (
+                  <div
+                    key={a.id}
+                    className="ios-sep relative flex min-h-[60px] items-center bg-card"
+                    style={{ ["--sep-inset" as string]: "71px" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => switchAccount(a.id)}
+                      className="flex min-h-[60px] min-w-0 flex-1 items-center gap-[15px] py-2 pl-4 text-left transition-colors duration-100 active:bg-[var(--ios-row-pressed)]"
+                    >
+                      <Avatar seed={a.avatarSeed} name={a.name} size={40} />
+                      <span className="min-w-0">
+                        <span className="ios-body block truncate text-ink">{a.name}</span>
+                        <span className="ios-subheadline block text-[color:var(--ios-label-secondary)]">{a.phoneMasked}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(a)}
+                      aria-label={t("account.deleteAccount")}
+                      className="mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-danger active:opacity-60"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))}
+            </ListSection>
+          )}
+
+          <ListSection>
+            <ListRow action leading={<IconTile icon={Plus} />} title={t("account.addAccount")} onClick={() => setAddOpen(true)} />
+          </ListSection>
+
+          <ListSection header={t("account.dangerZone")} headerTone="danger" footer={t("account.deleteSelfWarning")}>
+            <ListRow centered destructive title={t("account.deleteSelfAction")} onClick={() => setSelfDeleteOpen(true)} />
+          </ListSection>
+        </div>
+      ) : (
       <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <Card className="mb-5 p-5">
           <div className={`flex items-center gap-4 ${editing ? "mb-4" : ""}`}>
@@ -130,22 +220,7 @@ export function AccountScreen() {
 
           {editing && (
             <div className="space-y-3 border-t border-border pt-4">
-              <Input label={t("account.firstName")} name="given-name" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-              <Input label={t("account.lastName")} name="family-name" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-              <button
-                onClick={() => setPhoneSheetOpen(true)}
-                className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-dashed border-accent/40 px-4 py-3 text-xs font-semibold text-accent"
-              >
-                {t("account.changePhone")}
-              </button>
-              <div className="flex gap-2 pt-1">
-                <Button variant="secondary" fullWidth onClick={() => setEditing(false)}>
-                  {t("common.cancel")}
-                </Button>
-                <Button fullWidth loading={savingName} onClick={saveName}>
-                  {t("common.save")}
-                </Button>
-              </div>
+              {nameFields}
             </div>
           )}
         </Card>
@@ -195,6 +270,7 @@ export function AccountScreen() {
           </Button>
         </Card>
       </div>
+      )}
 
       {phoneSheetOpen && (
         <PhoneChangeSheet

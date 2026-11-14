@@ -74,6 +74,7 @@ html[data-platform="ios"] {
 @media (min-resolution: 2dppx) {
   html[data-platform="ios"] {
     --hairline: 0.5px;
+    --hairline-scale: 0.5;
   }
 }
 
@@ -170,6 +171,24 @@ html[data-platform="ios"] [class*="active:scale"]:active {
   html[data-platform="ios"] :is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-card, .rounded-button, .rounded-group, .rounded-sheet, .rounded-t-sheet, .ios-squircle) {
     corner-shape: squircle;
   }
+}
+
+/* Inset list separator: a 1px line scaled to a hairline (a 0.5px-tall box
+   is dropped by some engines; a scaled 1px line renders everywhere). */
+.ios-sep::after {
+  content: "";
+  position: absolute;
+  left: var(--sep-inset, 16px);
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--color-border);
+  transform: scaleY(var(--hairline-scale, 1));
+  transform-origin: 0 100%;
+  pointer-events: none;
+}
+.ios-sep:last-child::after {
+  display: none;
 }
 
 /* Hairline separators (0.5px on 2x/3x screens). */

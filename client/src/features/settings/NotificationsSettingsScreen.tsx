@@ -9,12 +9,15 @@ import { ErrorState } from "@/components/ErrorState";
 import { Toast } from "@/components/Toast";
 import { useT } from "@/lib/i18n/provider";
 import { Switch } from "@/components/Switch";
+import { useIsIOS } from "@/lib/platform";
+import { IconTile, ListRow, ListSection } from "@/components/ios/List";
 
 export function NotificationsSettingsScreen() {
   const { t } = useT();
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const ios = useIsIOS();
 
   function load() {
     setLoadError(false);
@@ -47,6 +50,38 @@ export function NotificationsSettingsScreen() {
   return (
     <div className="relative flex h-full flex-col bg-bg">
       <ScreenHeader title={t("notifPrefs.title")} />
+      {ios ? (
+        <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain pt-2">
+          <ListSection footer={t("notifPrefs.masterDesc")}>
+            <ListRow
+              title={t("notifPrefs.master")}
+              accessory={<Switch checked={prefs.master} onChange={() => patch("master")} label={t("notifPrefs.master")} />}
+            />
+          </ListSection>
+          <ListSection>
+            {([
+              ["orderStatus", Car, "notifPrefs.orderStatus", "notifPrefs.orderStatusDesc"],
+              ["news", Megaphone, "notifPrefs.news", "notifPrefs.newsDesc"],
+              ["bonus", Gift, "notifPrefs.bonus", "notifPrefs.bonusDesc"],
+            ] as const).map(([key, Icon, title, desc]) => (
+              <ListRow
+                key={key}
+                leading={<IconTile icon={Icon} tone={key === "bonus" ? "yellow" : "accent"} />}
+                title={t(title)}
+                subtitle={t(desc)}
+                accessory={
+                  <Switch
+                    checked={prefs.master && prefs[key]}
+                    disabled={!prefs.master}
+                    onChange={() => patch(key)}
+                    label={t(title)}
+                  />
+                }
+              />
+            ))}
+          </ListSection>
+        </div>
+      ) : (
       <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <Card className="mb-4 p-4">
           <div className="flex items-center justify-between gap-3">
@@ -94,6 +129,7 @@ export function NotificationsSettingsScreen() {
           </div>
         </Card>
       </div>
+      )}
       {saveError && <Toast message={t("order.submitError")} onDone={() => setSaveError(false)} />}
     </div>
   );

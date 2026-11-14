@@ -103,6 +103,18 @@ export default {
           from: { opacity: "0", transform: "translateX(-16px)" },
           to: { opacity: "1", transform: "translateX(0)" },
         },
+        "ios-sheet-in": {
+          from: { transform: "translateY(100%)" },
+          to: { transform: "translateY(0)" },
+        },
+        "ios-backdrop-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "ios-alert-in": {
+          from: { opacity: "0", transform: "scale(1.15)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
         "bob-y": {
           "0%,100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-4px)" },
@@ -121,6 +133,10 @@ export default {
         "drift-a": "drift-a 9s ease-in-out infinite",
         "drift-b": "drift-b 11s ease-in-out infinite",
         "bob-y": "bob-y 1.6s ease-in-out infinite",
+        // iOS presentation timing (sheets, alerts).
+        "ios-sheet-in": "ios-sheet-in 0.42s cubic-bezier(0.32,0.72,0,1)",
+        "ios-backdrop-in": "ios-backdrop-in 0.3s ease-out",
+        "ios-alert-in": "ios-alert-in 0.3s cubic-bezier(0.32,0.72,0,1)",
         "step-fwd": "step-fwd 0.24s cubic-bezier(0.2,0,0,1)",
         "step-back": "step-back 0.24s cubic-bezier(0.2,0,0,1)",
       },
