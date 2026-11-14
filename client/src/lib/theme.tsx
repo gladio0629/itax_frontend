@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
 export type Theme = "light" | "dark";
 
@@ -21,26 +21,52 @@ function readStoredTheme(): Theme | null {
   }
 }
 
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+
 function systemTheme(): Theme {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia(DARK_QUERY).matches ? "dark" : "light";
 }
 
 type ViewTransitionDocument = Document & {
   startViewTransition?: (callback: () => void) => { finished: Promise<void> };
 };
 
+/**
+ * Browser chrome (Safari's status/address bar tint) matches the page
+ * background. Read from the resolved --color-bg so the platform's token set
+ * (standard or iOS) decides the colour; both media-qualified theme-color
+ * metas get it, because a manual override can differ from the system scheme.
+ */
+function syncThemeColor() {
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim();
+  if (!bg) return;
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", bg));
+}
+
+/**
+ * Theme follows the device setting (prefers-color-scheme), live, until the
+ * passenger flips the switch in Sozlamalar — that choice is stored and wins.
+ */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme() ?? systemTheme());
+  const [override, setOverride] = useState<Theme | null>(() => readStoredTheme());
+  const [system, setSystem] = useState<Theme>(() => systemTheme());
+  const theme = override ?? system;
 
   useEffect(() => {
+    const mq = window.matchMedia(DARK_QUERY);
+    const update = () => setSystem(mq.matches ? "dark" : "light");
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useLayoutEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    // Browser chrome (status bar / address bar) matches the page background.
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0a1020" : "#f5f7fb");
+    syncThemeColor();
   }, [theme]);
 
   const applyTheme = useCallback((next: Theme) => {
     const commit = () => {
-      setThemeState(next);
+      setOverride(next);
       try {
         localStorage.setItem(STORAGE_KEY, next);
       } catch {

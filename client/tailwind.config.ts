@@ -2,6 +2,9 @@ import type { Config } from "tailwindcss";
 import plugin from "tailwindcss/plugin";
 
 export default {
+  // Hover styles only where a real pointer can hover — on phones a tapped
+  // element otherwise keeps its hover background until the next tap.
+  future: { hoverOnlyWhenSupported: true },
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
@@ -18,18 +21,22 @@ export default {
         danger: "rgb(var(--color-danger-rgb) / <alpha-value>)",
         border: "var(--color-border)",
       },
+      // Family, sizes and shadows resolve through design tokens so the iOS
+      // token set (design/ios.css) can swap them without touching markup.
       fontFamily: {
-        sans: ["InterVariable", "Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-sans)"],
       },
       fontSize: {
-        xs: ["12px", { lineHeight: "16px" }],
-        sm: ["14px", { lineHeight: "20px" }],
-        lg: ["18px", { lineHeight: "24px" }],
-        xl: ["28px", { lineHeight: "34px" }],
+        xs: ["var(--text-xs)", { lineHeight: "var(--text-xs-lh)" }],
+        sm: ["var(--text-sm)", { lineHeight: "var(--text-sm-lh)" }],
+        base: ["var(--text-base)", { lineHeight: "var(--text-base-lh)" }],
+        lg: ["var(--text-lg)", { lineHeight: "var(--text-lg-lh)" }],
+        xl: ["var(--text-xl)", { lineHeight: "var(--text-xl-lh)" }],
+        "4xl": ["var(--text-4xl)", { lineHeight: "var(--text-4xl-lh)" }],
       },
       boxShadow: {
-        soft: "0 2px 12px -2px var(--shadow-color)",
-        softer: "0 1px 4px 0 var(--shadow-color)",
+        soft: "var(--shadow-soft)",
+        softer: "var(--shadow-softer)",
         inner5: "inset 0 1px 0 0 rgba(255,255,255,0.18)",
       },
       borderRadius: {
@@ -42,6 +49,8 @@ export default {
         card: "var(--radius-card)",
         "3xl": "var(--radius-card)",
         sheet: "var(--radius-sheet)",
+        group: "var(--radius-group)",
+        chip: "var(--radius-chip)",
       },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },

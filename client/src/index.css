@@ -1,5 +1,6 @@
 @import "./design/fonts.css";
 @import "./design/tokens.css";
+@import "./design/ios.css";
 
 @tailwind base;
 @tailwind components;
@@ -26,7 +27,7 @@
     color: rgb(var(--color-text-rgb));
   }
   body {
-    font-family: "InterVariable", "Inter", system-ui, sans-serif;
+    font-family: var(--font-sans);
     font-feature-settings: "cv11", "tnum" 0;
     -webkit-font-smoothing: antialiased;
   }
