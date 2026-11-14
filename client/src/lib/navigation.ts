@@ -54,7 +54,12 @@ export function installIOSTransitions(router: { navigate: NavigateFn }) {
   const original = router.navigate.bind(router);
 
   router.navigate = ((to, opts) => {
-    if (typeof to === "number") return original(to, opts);
+    if (typeof to === "number") {
+      // History pops pick their kind in the popstate listener; a kind set for
+      // this pop must not leak into the next push.
+      pendingKind = null;
+      return original(to, opts);
+    }
     const kind = pendingKind ?? (opts?.replace ? "fade" : "push");
     pendingKind = null;
     root.dataset.transition = kind;

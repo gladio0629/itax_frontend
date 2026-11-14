@@ -78,6 +78,13 @@ html[data-platform="ios"] {
     --hairline-scale: 0.5;
   }
 }
+/* 3x screens: one device pixel, as on iOS. */
+@media (min-resolution: 3dppx) {
+  html[data-platform="ios"] {
+    --hairline: 0.34px;
+    --hairline-scale: 0.3334;
+  }
+}
 
 html[data-platform="ios"][data-theme="dark"] {
   --color-bg: #000000;
@@ -170,7 +177,7 @@ html[data-platform="ios"] [class*="active:scale"]:active {
 /* Continuous (squircle) corners where the engine supports corner-shape;
    elsewhere the plain radius applies. */
 @supports (corner-shape: squircle) {
-  html[data-platform="ios"] :is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-card, .rounded-button, .rounded-group, .rounded-sheet, .rounded-t-sheet, .ios-squircle) {
+  html[data-platform="ios"] :is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-card, .rounded-button, .rounded-group, .rounded-sheet, .rounded-t-sheet, .ios-squircle):not([class*="rounded-full"]) {
     corner-shape: squircle;
   }
 }
