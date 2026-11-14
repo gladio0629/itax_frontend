@@ -145,9 +145,10 @@ export default function HomeScreen() {
 
       {/* Bottom zone (thumb reach). The inner mt-auto pins short content to the
           bottom while a tall card still scrolls from its top (justify-end
-          would clip it). Top padding keeps the card clear of the top bar. */}
+          would clip it). Top padding keeps the card clear of the top bar; scroll
+          padding keeps a focused control clear of a card's sticky footer. */}
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex max-h-full flex-col overflow-y-auto overscroll-contain px-4 no-scrollbar"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex max-h-full flex-col overflow-y-auto overscroll-contain scroll-pb-36 px-4 no-scrollbar"
         style={{ paddingTop: "calc(var(--safe-top) + 68px)" }}
       >
         {/* Bottom gap lives inside the scrolled content so a card's sticky footer meets the tab bar. */}

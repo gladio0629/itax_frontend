@@ -20,14 +20,17 @@ const OPTION_ICON: Record<OrderOptionKind, LucideIcon> = {
 export function Tag({ icon: Icon, children, tone = "plain", label }: { icon?: LucideIcon; children: ReactNode; tone?: "plain" | "accent" | "yellow"; label?: string }) {
   return (
     <span
-      aria-label={label}
       className={cn(
         "inline-flex h-7 max-w-full items-center gap-1.5 rounded-button px-2 text-xs font-medium",
         tone === "accent" ? "bg-accent/15 text-accent" : tone === "yellow" ? "bg-yellow text-on-yellow" : "bg-raised text-ink"
       )}
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" />}
-      <span className="truncate">{children}</span>
+      {/* aria-label on a plain span is not announced reliably; give readers the full phrase as text. */}
+      {label && <span className="sr-only">{label}</span>}
+      <span className="truncate" aria-hidden={label ? true : undefined}>
+        {children}
+      </span>
     </span>
   );
 }
@@ -98,7 +101,7 @@ export function CommentNote({ text }: { text: string | null }) {
       <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
       <div className="min-w-0">
         <figcaption className="text-xs text-muted">{t("order.comment")}</figcaption>
-        <blockquote className="text-sm text-ink">{text}</blockquote>
+        <blockquote className="break-words text-sm text-ink">{text}</blockquote>
       </div>
     </figure>
   );

@@ -113,6 +113,7 @@ export default function TripChatScreen() {
               </label>
               <input
                 id="chat-input"
+                name="message"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 maxLength={chat.maxLength}

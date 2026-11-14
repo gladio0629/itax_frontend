@@ -141,7 +141,7 @@ export const ru: Dictionary = {
   "chat.title": "Переписка",
   "chat.textOnlyNote": "Пассажир общается только сообщениями. Пожалуйста, не звоните.",
   "chat.quickReplies": "Быстрые ответы",
-  "chat.placeholder": "Сообщение",
+  "chat.placeholder": "Сообщение…",
   "chat.send": "Отправить",
   "chat.you": "Вы",
   "chat.noTrip": "Нет активной поездки",

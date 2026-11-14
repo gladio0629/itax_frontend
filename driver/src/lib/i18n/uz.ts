@@ -148,7 +148,7 @@ export const uz = {
   "chat.title": "Yozishma",
   "chat.textOnlyNote": "Yo'lovchi faqat yozishma orqali muloqot qiladi. Iltimos, qo'ng'iroq qilmang.",
   "chat.quickReplies": "Tezkor javoblar",
-  "chat.placeholder": "Xabar yozing",
+  "chat.placeholder": "Xabar yozing…",
   "chat.send": "Yuborish",
   "chat.you": "Siz",
   "chat.noTrip": "Faol safar yo'q",

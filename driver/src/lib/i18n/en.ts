@@ -141,7 +141,7 @@ export const en: Dictionary = {
   "chat.title": "Chat",
   "chat.textOnlyNote": "This passenger communicates by text only. Please don't call.",
   "chat.quickReplies": "Quick replies",
-  "chat.placeholder": "Type a message",
+  "chat.placeholder": "Type a message…",
   "chat.send": "Send",
   "chat.you": "You",
   "chat.noTrip": "No active trip",
