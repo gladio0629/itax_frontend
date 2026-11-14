@@ -1,6 +1,7 @@
 import type { ActiveTrip } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
-import { Banknote, CreditCard, Navigation, Phone, Route } from "@/lib/icons";
+import { Link } from "react-router-dom";
+import { Banknote, CreditCard, MessageCircle, Navigation, Phone, Route } from "@/lib/icons";
 import { Avatar } from "@/components/Avatar";
 import { Stars } from "@/components/Stars";
 import { Money } from "@/components/Money";
@@ -33,18 +34,19 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
           <p className="truncate text-base font-bold text-ink">{trip.passenger.name}</p>
           <Stars value={trip.passenger.rating} size={14} />
         </div>
-        <a
-          href={`tel:${trip.passenger.phoneMasked.replace(/[^\d+]/g, "")}`}
-          onClick={(e) => {
-            // Demo: the number is masked by the adapter; show it instead of dialling.
-            e.preventDefault();
-            toast(t("trip.callMasked", { phone: trip.passenger.phoneMasked }));
-          }}
-          aria-label={t("trip.call", { name: trip.passenger.name })}
-          className="press flex h-12 w-12 items-center justify-center rounded-full bg-success/15 text-success"
-        >
-          <Phone className="h-5 w-5" />
-        </a>
+        {trip.contactMode === "text" ? (
+          // Text-only passenger: the call button becomes "Yozish" (chat).
+          <Link
+            to="/trip/chat"
+            aria-label={t("trip.writeTo", { name: trip.passenger.name })}
+            className="press flex h-12 shrink-0 items-center gap-2 rounded-full bg-accent/15 px-4 text-base font-bold text-accent"
+          >
+            <MessageCircle className="h-5 w-5" />
+            {t("trip.write")}
+          </Link>
+        ) : (
+          <CallButton name={trip.passenger.name} phoneMasked={trip.passenger.phoneMasked} />
+        )}
       </div>
 
       <div className="mt-3">
@@ -134,6 +136,24 @@ export function ActiveTripCard({ trip, confirming, onAction, onCancel, className
         {t("trip.cancel")}
       </button>
     </section>
+  );
+}
+
+/** Masked number: the demo shows it instead of dialling. */
+export function CallButton({ name, phoneMasked, size = 48 }: { name: string; phoneMasked: string; size?: 40 | 48 }) {
+  const { t } = useT();
+  return (
+    <a
+      href={`tel:${phoneMasked.replace(/[^\d+]/g, "")}`}
+      onClick={(e) => {
+        e.preventDefault();
+        toast(t("trip.callMasked", { phone: phoneMasked }));
+      }}
+      aria-label={t("trip.call", { name })}
+      className={cn("press flex shrink-0 items-center justify-center rounded-full bg-success/15 text-success", size === 48 ? "h-12 w-12" : "h-10 w-10")}
+    >
+      <Phone className="h-5 w-5" />
+    </a>
   );
 }
 

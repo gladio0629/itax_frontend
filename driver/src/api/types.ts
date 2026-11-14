@@ -150,6 +150,21 @@ export type ActiveTrip = OrderExtras<TripPlace> & {
   acceptedAt: number;
 };
 
+/** Mock chat with the passenger (text-only orders). Passenger lines and
+ * quick replies arrive as translation keys; the driver's own text as text. */
+export type ChatMessage = { id: string; from: "driver" | "passenger"; at: number; textKey?: string; text?: string };
+export type TripChat = {
+  tripId: string;
+  peerName: string;
+  /** True when the passenger asked for text only (shows the "don't call" note). */
+  textOnly: boolean;
+  messages: ChatMessage[];
+  /** Translation keys, already picked for the current trip stage. */
+  quickReplies: string[];
+  maxLength: number;
+};
+export type ChatSend = { replyKey: string } | { text: string };
+
 export type TripSummary = {
   tripId: string;
   gross: number;

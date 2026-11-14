@@ -110,7 +110,11 @@ export type OfferRecord = {
   expiresAt: number;
 };
 
+export type ChatRecord = { id: string; from: "driver" | "passenger"; at: number; textKey?: string; text?: string };
+
 export type LiveTrip = OfferRecord & {
+  /** Messages with the passenger; passenger replies may carry a future `at` (still "typing"). */
+  chat?: ChatRecord[];
   stage: Exclude<TripStage, "completed">;
   stageStartedAt: number;
   acceptedAt: number;

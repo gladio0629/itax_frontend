@@ -1,7 +1,7 @@
 import type {
   ActiveTrip, BonusInfo, CancelReason, DemoOrderVariant, DemoPreset, DriverProfile, HelpRequest, HelpTopic, HistoryFilter,
   HistoryPage, HomeSummary, LedgerPage, LedgerQuery, NotificationItem, NotificationPrefs, Offer, PayProvider,
-  RegistrationOptions, ReviewRequest, Session, TopupOptions, TripDetail, TripStage, TripSummary, WalletSummary,
+  RegistrationOptions, ReviewRequest, Session, ChatSend, TripChat, TopupOptions, TripDetail, TripStage, TripSummary, WalletSummary,
   Car,
 } from "./types";
 
@@ -35,6 +35,9 @@ export interface ApiAdapter {
   getCancelReasons(): Promise<CancelReason[]>;
   cancelTrip(tripId: string, reasonKey: string): Promise<void>;
   getTripSummary(tripId: string): Promise<TripSummary>;
+  /** Chat with the passenger of the active trip (null when there is none). */
+  getTripChat(): Promise<TripChat | null>;
+  sendTripMessage(tripId: string, message: ChatSend): Promise<TripChat>;
 
   // Orders history
   getHistory(filter: HistoryFilter): Promise<HistoryPage>;

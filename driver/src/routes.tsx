@@ -16,6 +16,7 @@ const BonusScreen = lazy(() => import("@/features/profile/BonusScreen"));
 const NotificationPrefsScreen = lazy(() => import("@/features/profile/NotificationPrefsScreen"));
 const HelpScreen = lazy(() => import("@/features/profile/HelpScreen"));
 const AboutScreen = lazy(() => import("@/features/profile/AboutScreen"));
+const TripChatScreen = lazy(() => import("@/features/chat/TripChatScreen"));
 const DemoScreen = lazy(() => import("@/features/demo/DemoScreen"));
 const RegistrationFlow = lazy(() => import("@/features/registration/RegistrationFlow"));
 
@@ -27,6 +28,7 @@ export function AppRoutes() {
       <Route path="/demo" element={<DemoScreen />} />
       <Route element={<AppShell />}>
         <Route path="/" element={<HomeScreen />} />
+        <Route path="/trip/chat" element={<TripChatScreen />} />
         <Route path="/history" element={<HistoryScreen />} />
         <Route path="/history/:tripId" element={<TripDetailScreen />} />
         {/* Old "Buyurtmalar" links. */}

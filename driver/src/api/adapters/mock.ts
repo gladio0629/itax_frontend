@@ -13,7 +13,7 @@ import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   ActiveTrip, BonusInfo, DebtState, DemoOrderVariant, OfferPlace, OrderExtras, OrderOption, Place, TripPlace, DriverProfile, HistoryItem, HistoryPage, HomeSummary, LedgerPage, Offer,
-  PassengerInfo, ReviewKind, ReviewRequest, TopupOptions, TripDetail, TripStage, TripStep, TripSummary, WalletSummary,
+  PassengerInfo, ReviewKind, ReviewRequest, TopupOptions, TripChat, TripDetail, TripStage, TripStep, TripSummary, WalletSummary,
 } from "../types";
 
 const DEMO_OTP = "0000";
@@ -39,6 +39,13 @@ const COMMENTS = [
   "Konditsionerni yoqib qo'ying, iltimos.",
   "Telefonim o'chib qolishi mumkin, podyezd oldida turaman.",
 ];
+
+const CHAT_MAX = 300;
+const QUICK_REPLIES: Record<LiveTrip["stage"], string[]> = {
+  to_pickup: ["chat.quick.onMyWay", "chat.quick.fiveMin", "chat.quick.whichEntrance", "chat.quick.ok"],
+  waiting: ["chat.quick.arrived", "chat.quick.whichEntrance", "chat.quick.ok"],
+  in_progress: ["chat.quick.almostThere", "chat.quick.ok"],
+};
 
 const rand = makeRng(Date.now() % 1_000_000);
 
@@ -268,6 +275,29 @@ function makeOffer(s: DriverState, variant: DemoOrderVariant = "random"): OfferR
 
 function scheduleNextOffer(s: DriverState, minMs = 6000, maxMs = 11000) {
   s.nextOfferAt = Date.now() + minMs + Math.random() * (maxMs - minMs);
+}
+
+// ---------- chat ----------
+
+function chatOf(t: LiveTrip) {
+  if (!t.chat) {
+    const textOnly = t.options.some((o) => o.kind === "text_only");
+    t.chat = textOnly ? [{ id: genId("msg"), from: "passenger", at: t.acceptedAt + 15_000, textKey: "chat.pax.hello" }] : [];
+  }
+  return t.chat;
+}
+
+function toChat(t: LiveTrip): TripChat {
+  const now = Date.now();
+  return {
+    tripId: t.id,
+    peerName: passengerInfo(t.passengerId).name,
+    textOnly: t.options.some((o) => o.kind === "text_only"),
+    // A scheduled reply stays hidden until its time comes.
+    messages: chatOf(t).filter((m) => m.at <= now).map((m) => ({ ...m })),
+    quickReplies: QUICK_REPLIES[t.stage],
+    maxLength: CHAT_MAX,
+  };
 }
 
 // ---------- review mechanism ----------
@@ -649,6 +679,38 @@ export const mockAdapter: ApiAdapter = {
       if (!sum) throw new ApiError("TRIP_NOT_FOUND");
       return sum;
     }, { noFail: true }),
+
+  getTripChat: () =>
+    withLatency(() => {
+      const t = state().trip;
+      if (!t) return null;
+      const chat = toChat(t);
+      persist();
+      return chat;
+    }, { minMs: 80, maxMs: 160 }),
+
+  sendTripMessage: (tripId, message) =>
+    withLatency(() => {
+      const t = state().trip;
+      if (!t || t.id !== tripId) throw new ApiError("TRIP_NOT_FOUND");
+      const now = Date.now();
+      const chat = chatOf(t);
+      if ("replyKey" in message) {
+        if (!QUICK_REPLIES[t.stage].includes(message.replyKey)) throw new ApiError("VALUE_REQUIRED");
+        chat.push({ id: genId("msg"), from: "driver", at: now, textKey: message.replyKey });
+      } else {
+        const text = message.text.trim().slice(0, CHAT_MAX);
+        if (!text) throw new ApiError("VALUE_REQUIRED");
+        chat.push({ id: genId("msg"), from: "driver", at: now, text });
+      }
+      // The passenger answers a moment later (one pending answer at a time).
+      if (!chat.some((m) => m.from === "passenger" && m.at > now)) {
+        const askedEntrance = "replyKey" in message && message.replyKey === "chat.quick.whichEntrance";
+        chat.push({ id: genId("msg"), from: "passenger", at: now + 2500, textKey: askedEntrance ? "chat.pax.entrance" : "chat.pax.ok" });
+      }
+      persist();
+      return toChat(t);
+    }, { minMs: 150, maxMs: 300 }),
 
   getHistory: (filter) =>
     withLatency<HistoryPage>(() => {
