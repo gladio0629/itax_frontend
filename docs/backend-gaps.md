@@ -94,15 +94,39 @@ capabilities need to be switched on per item.
 - [ ] Admin realtime (`/ws` accepts passenger/driver tokens only)
 - [ ] Refresh token as an `HttpOnly` cookie for web
 
-## 1. What is hidden in http mode today
+### Frontend verification (2026-11-16)
 
-| App | Works against the contract | Hidden / "Tez orada" until the backend adds it |
+Checked in headless Chrome against the local stack through the Vite dev proxy, with the dev test accounts:
+client login → address search → quote (lines and per-class prices from the server) → seats → order with
+`quote_id` (charged exactly the quoted price) → the offer appears live in the driver feed → accept → arrived →
+start → complete, each step shown live in the client → rating (5, polite). Admin: the 2-step login for
+superadmin, owner, manager, marketer and operator, each seeing only its sections; complaints, audit log, orders,
+stats; logout, after which the old token gets 401. Client and driver logout return 204. The WebSocket opens
+`/ws` with no token in the URL; the token travels only in `Sec-WebSocket-Protocol: izgo.v1, bearer.…`.
+
+### Found while wiring the frontend (asks for the backend)
+
+- `Order.driver` carries only `id`: the client shows "Haydovchi" without name, car, plate or rating.
+- No `GET /api/v1/trips/{id}`; `Trip` has no accepted-at time; active trips carry no commission.
+- `GET /api/v1/cities` answers `Cache-Control: no-store`; the contract says `public, max-age=300`.
+- Matching doesn't use the driver's routes or capabilities yet; the driver screens say they are saved, not that
+  requests are filtered by them.
+- Order expiry has no WebSocket event; the client notices it on its own search timer.
+- Prices are not whole so'm (e.g. 2 246 080 tiyin); the UI rounds each line, so a breakdown can be 1 so'm off
+  the total it shows (the total itself is the server's price).
+- Undocumented in the contract: 422 key `routes: arrayMaxSize`; 403 reasons `self_approval`, `complaint_closed`,
+  `invalid_state`, `staff_inactive`; the audit action and entity names; `passenger_id` on admin order responses
+  (typed `Order`, not `AdminOrder`); `Complaint.category` comes back as a free string.
+
+## 1. What is hidden in http mode today (frontend updated 2026-11-16)
+
+| App | Works against the contract | Still hidden (no endpoint or field yet) |
 |---|---|---|
-| Client | OTP login, session resume, logout, profile name, notification settings (push/promo), order tracking (get, cancel, rate, search again), history, notifications, realtime order updates | **Ordering itself** (no places/geocoding, cities, quote, class list, seat map; Home shows "Tez orada"), the order details sheet (so `orderUpdate` isn't reachable), stops, options, address details, cargo, scheduling ranges, tips, safety tools, trip share, promo, bonuses, help/support, cards screens (no saved-cards list, so `walletCardLink` isn't reachable), account switching, phone change, account deletion, history status filter. The passenger wallet screen isn't routed in the client app at all (this predates the http work), so `walletBalance` and `walletLedger` are wired in the adapter only |
-| Driver | OTP login, registration steps 1–4 with document upload, status (review / rejected / blocked / active), offers + accept, trip start/complete, GPS, wallet balance/ledger/top-up/card link, profile name, notifications, push/promo settings, realtime refresh | Routes ("Yo'nalishlarim"), offer reject, feed filters and seat summary, "arrived" step, trip cancel, chat, trip summary, trip history, accepted-trips list after reload, bonus, help, capabilities ("Imkoniyatlarim"), phone/car change, request alerts, ledger filters, per-topic notification switches |
-| Admin | Email→SMS→verify login and phone-only operator login, `/me` sections, staff, drivers, passengers, orders (view), ledger, two-person corrections and tariffs, operator queue/history, stats (contract figures) | Complaints, audit log, section badges, supervisor views, export audit, staff search/state filter/restore/email edit, order create/edit/cancel, pending-corrections list, proposed tariff values, ledger/queue/history filters, most stats charts |
+| Client | OTP login (box count from `code_length`), session resume, logout, profile, notification settings, **ordering**: cities, server-side address search near the pickup, "where am I" (device position + `places/reverse` for the name), saved places, popular routes with `price_from`, Taksi per seat (seat map with real positions → `seat_ids`) or whole car per class, Kargo vehicle sizes S…3XL, time now / exact / range, quote with the server's price lines, order with `quote_id` (a refused quote → fresh quote, new price must be confirmed), tracking with live searching → accepted → arrived → in progress → completed / cancelled / no driver, `editable`/`can_cancel` verdicts, edit while searching, cancel, rate, search again, history with price lines | Pick on the drawn map (not a real map), stops, options, luggage, rider, address details (entrance/floor…) on the order, Kargo tabs/loaders/hourly/ride-along/contacts, pickup ETA, editing the pickup, promo, tips, safety tools and trip share, support, help, bonus, saved cards, account switching/deletion, phone change, history status filter, recent addresses/routes |
+| Driver | OTP login (`code_length`), registration 1–4 (cities from `/cities`), status, live feed (`offer.created`) with pickup time/range, payment, comment, posted time and seat positions, reject with reason, accept, the step button from `next_actions` (arrive → start → complete), cancel before start with reason, active trips that survive reload, trip history, Yo'nalishlarim, Imkoniyatlarim, GPS, wallet, profile, notifications, live refresh (`trip.cancelled`, `wallet.limit_reached`, `driver.approved`) | Trip chat, trip summary (commission %, bonus), feed filters and seat summary, request alerts, history/ledger filters, bonus, help, phone/car change, saved cards, per-topic notification switches, passenger name/phone/rating on a trip |
+| Admin | Email→SMS→verify login (`code_length`) and phone-only operator login, logout that revokes the token, `/me` sections incl. complaints and audit, staff, drivers, passengers, orders (real data) with edit (while searching) and cancel with reason, ledger, pending corrections list, two-person corrections and tariffs, operator queue/history, complaints (filters, assign, notes, resolve/reject with the server's transition rules), audit log with filters, stats cards and charts (income and orders per day, orders by status, top routes) | Create order for a passenger, staff search/state filter/restore/email edit, `driver_state` filter, wallet id/online on drivers, masked phones with audited reveal, ledger filters, proposed tariff values, queue/history filters, supervisor views, export, section badges, complaint creation form, passenger/driver totals and the other stats the API lacks. Drivers, passengers and the ledger are still **sample data on the server** |
 
-## 2. Operation coverage (all 70)
+## 2. Operation coverage (the original 70; the 30 added in 0.2.0 are listed in §0)
 
 | Area | operationIds | Used by |
 |---|---|---|
@@ -141,7 +165,7 @@ capabilities need to be switched on per item.
 
 ## 4. Security notes
 
-1. **WebSocket token in the query string.** `/ws?token=<access_token>` lands in the Kong access
+1. **Resolved (2026-11-16):** the client and driver apps now authenticate `/ws` with the subprotocol `izgo.v1, bearer.<token>`; no token in the URL. The backend can set `WS_ALLOW_QUERY_TOKEN=false` once these builds are deployed everywhere. Original note: **WebSocket token in the query string.** `/ws?token=<access_token>` lands in the Kong access
    log, which writes the request line with the query (the contract says so), as well as in proxy and
    CDN logs, browser history tools, and `Referer`-like diagnostics. Suggest one of:
    - **First-message auth:** open `/ws` without a token, and the client sends
@@ -184,6 +208,7 @@ capabilities need to be switched on per item.
 - Requests time out after 15 s (signed uploads: 120 s).
 - Driver GPS goes to `POST /api/v1/location/update`, only while a trip is active or the request
   feed is open, at most every 10 s. `LOCATION_TTL` (2 min) is comfortably above that.
-- The WebSocket keeps one connection per tab, reconnects with backoff from 1 s up to 30 s, and
-  reconnects after every token refresh. It handles `4401 token_expired` with a refresh and
-  `4401 session_revoked` with a logout. It never sends frames.
+- The WebSocket keeps one connection per tab, authenticates with the subprotocol `izgo.v1, bearer.<token>`,
+  reconnects with backoff from 1 s up to 30 s, and reconnects after every token refresh. It handles
+  `4401 token_expired` / `token_invalid` with a refresh, `4401 session_revoked` with a logout and `4403` with
+  the longest backoff. It never sends frames.
