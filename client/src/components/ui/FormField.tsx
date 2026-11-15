@@ -20,7 +20,7 @@ export const FormField = forwardRef<
         <label
           htmlFor={inputId}
           className={cn(
-            "pointer-events-none absolute left-0 origin-left text-ink/55 transition-all duration-150",
+            "pointer-events-none absolute left-0 origin-left text-ink/60 transition-all duration-150",
             up ? "top-1.5 text-sub" : "top-1/2 -translate-y-1/2 text-body"
           )}
         >

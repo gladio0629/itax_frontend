@@ -155,7 +155,7 @@ export function WheelPicker({
   const activeIdx = options.indexOf(value);
 
   return (
-    <div className="relative select-none" style={{ height: ITEM_HEIGHT * VISIBLE_COUNT }}>
+    <div className="relative min-w-0 select-none" style={{ height: ITEM_HEIGHT * VISIBLE_COUNT }}>
       {/* Highlight band behind the centre row */}
       <div
         // Gray selection band (measured: #f4f4f4, radius 16), one design everywhere.
@@ -193,7 +193,8 @@ export function WheelPicker({
               aria-disabled={dimmed || undefined}
               onClick={() => scrollToIndex(i, true)}
               className={cn(
-                "flex cursor-pointer items-center justify-center whitespace-nowrap px-1 text-lead tabular will-change-transform",
+                // Selected row 15.5px in photo 1 → the control size (16).
+                "flex cursor-pointer items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap px-1 text-control tabular will-change-transform",
                 selected ? "font-medium text-ink" : dimmed ? "text-ink/20" : "text-ink/55"
               )}
               // 288 rows: let the browser skip off-screen ones (fixed height, so

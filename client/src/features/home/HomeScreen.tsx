@@ -213,7 +213,14 @@ export function HomeScreen() {
         </div>
       </div>
 
-      <MapButton aria-label={t("home.locateMe")} className="absolute right-3" style={{ bottom: panelH + 12 }}>
+      <MapButton
+        aria-label={t("home.locateMe")}
+        className="absolute right-3"
+        style={{ bottom: panelH + 12 }}
+        // "Where am I": the adapter resolves the device position (the map's
+        // centre in the demo) to a pickup point.
+        onClick={() => api.reverseGeocode(50, 50).then((a) => setPoint("from", a)).catch(() => {})}
+      >
         <LocateFixed className="h-5 w-5" />
       </MapButton>
 

@@ -53,7 +53,7 @@ function PointButton({
         {showLabel && <span className="block text-sub text-ink/60">{label}</span>}
         <span className={cn("text-control text-ink", wrap ? "line-clamp-2" : "block truncate")}>
           {value}
-          {trailing && <span className="text-ink/55"> · {trailing}</span>}
+          {trailing && <span className="text-ink/60"> · {trailing}</span>}
         </span>
         {detailsLine && <span className={cn("text-sub text-ink/60", wrap ? "line-clamp-2" : "block truncate")}>{detailsLine}</span>}
       </span>

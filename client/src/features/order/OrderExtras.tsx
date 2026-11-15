@@ -76,7 +76,7 @@ export function DriverComment({
           maxLength={maxLength}
           onChange={(e) => onChange(e.target.value)}
           placeholder={t("comment.placeholder")}
-          className="block w-full resize-none rounded-control bg-fill px-4 py-3 text-control text-ink outline-none transition-shadow placeholder:text-ink/55 focus:ring-2 focus:ring-accent/40"
+          className="block w-full resize-none rounded-control bg-fill px-4 py-3 text-control text-ink outline-none transition-shadow placeholder:text-ink/60 focus:ring-2 focus:ring-accent/40"
         />
         {maxLength != null && (
           <p className="mt-1 text-right text-xs text-ink/60 tabular" aria-hidden={value.length < maxLength * 0.9}>

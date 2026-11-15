@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useIsIOS } from "@/lib/platform";
 import { cn } from "@/lib/cn";
+import { FloatingClose } from "@/components/ui/CloseButton";
 
 /**
  * UIScrollView-style rubber band: past an edge the sheet follows the finger
@@ -56,13 +57,15 @@ type SheetProps = {
   ariaLabel: string;
   /** Extra classes for the panel (e.g. the iOS grouped background). */
   panelClassName?: string;
+  /** White round X floating above the sheet's top edge (reference). */
+  floatingCloseLabel?: string;
 };
 
 /**
  * Modal bottom sheet — height fits content (max 88%), swipe the handle down,
  * tap the backdrop or press Escape to dismiss.
  */
-export function Sheet({ open, onClose, children, ariaLabel, panelClassName }: SheetProps) {
+export function Sheet({ open, onClose, children, ariaLabel, panelClassName, floatingCloseLabel }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
   const dragLast = useRef({ y: 0, t: 0, v: 0 });
@@ -110,6 +113,7 @@ export function Sheet({ open, onClose, children, ariaLabel, panelClassName }: Sh
         )}
         style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
       >
+        {floatingCloseLabel && <FloatingClose onClick={onClose} label={floatingCloseLabel} className="absolute -top-[60px] right-3" />}
         <div
           className="flex shrink-0 cursor-grab touch-none justify-center pt-2"
           onPointerDown={onPointerDown}

@@ -173,7 +173,7 @@ export function SearchScreen({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t("address.searchPlaceholder")}
-                className="w-full bg-transparent text-body text-ink outline-none placeholder:text-ink/40 [&::-webkit-search-cancel-button]:hidden"
+                className="w-full bg-transparent text-body text-ink outline-none placeholder:text-ink/60 [&::-webkit-search-cancel-button]:hidden"
               />
             </label>
             {query && (

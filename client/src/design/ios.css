@@ -1,18 +1,12 @@
-/* IZGO — iOS token set.
+/* IZGO — iOS layer.
    Applies only under <html data-platform="ios"> (set once by lib/platform.ts).
-   Brand stays IZGO (navy #264A9F, yellow #F6BF0E); surfaces, separators,
-   fills, type and radii follow the iOS system values. Every other device
-   keeps design/tokens.css untouched. */
+   Since the reference redesign there is one design on every device: iOS
+   no longer changes surfaces, type, shadows, radii or the button. What stays
+   here is behaviour (safe areas, no-zoom inputs, page chrome) and the
+   --ios-* values the remaining iOS components (NavBar, List, ActionSheet,
+   Alert) read. */
 
 html[data-platform="ios"] {
-  /* Surfaces — iOS grouped backgrounds. */
-  --color-bg: #f2f2f7; /* systemGroupedBackground */
-  --color-card: #ffffff; /* secondarySystemGroupedBackground */
-  --color-text-rgb: 0 0 0; /* label; ink/60 ≈ secondaryLabel */
-  --color-border: rgba(60, 60, 67, 0.29); /* separator */
-  --shadow-color: rgba(0, 0, 0, 0.1);
-  --color-danger-rgb: 255 59 48; /* systemRed */
-
   /* iOS system fills and chrome. */
   --ios-fill: rgba(120, 120, 128, 0.2);
   --ios-fill-secondary: rgba(120, 120, 128, 0.16);
@@ -31,31 +25,6 @@ html[data-platform="ios"] {
   --ios-backdrop: rgba(0, 0, 0, 0.32);
   --ios-icon-gray: #8e8e93;
   --ios-elevated: #ffffff; /* action-sheet cancel, elevated grouped cells */
-
-  /* Flat grouped content; floating chrome keeps a soft lift. */
-  --shadow-softer: 0 0 #0000;
-  --shadow-soft: 0 2px 10px -2px var(--shadow-color);
-
-  /* Type — system font (SF Pro on iPhone; never bundled) and the iOS text
-     styles: xs Caption 12, sm Subheadline 15, base Body 17, lg Title 3 20,
-     xl Title 1 28, 4xl Large Title 34. Tracking is set per step below. */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  --text-xs: 12px;
-  --text-xs-lh: 16px;
-  --text-sm: 15px;
-  --text-sm-lh: 20px;
-  --text-base: 17px;
-  --text-base-lh: 22px;
-  --text-lg: 20px;
-  --text-lg-lh: 25px;
-  --text-xl: 28px;
-  --text-xl-lh: 34px;
-  --text-4xl: 34px;
-  --text-4xl-lh: 41px;
-
-  /* Large filled button: 50pt, Headline 17 semibold. */
-  --button-md-height: 50px;
-  --button-md-text: 17px;
 
   /* Hairline separators: 1 device pixel. */
   --hairline: 1px;
@@ -80,13 +49,6 @@ html[data-platform="ios"] {
 }
 
 html[data-platform="ios"][data-theme="dark"] {
-  --color-bg: #000000;
-  --color-card: #1c1c1e;
-  --color-text-rgb: 255 255 255;
-  --color-border: rgba(84, 84, 88, 0.65);
-  --shadow-color: rgba(0, 0, 0, 0.5);
-  --color-danger-rgb: 255 69 58;
-
   --ios-fill: rgba(120, 120, 128, 0.36);
   --ios-fill-secondary: rgba(120, 120, 128, 0.32);
   --ios-fill-tertiary: rgba(118, 118, 128, 0.24);
@@ -104,15 +66,6 @@ html[data-platform="ios"][data-theme="dark"] {
   --ios-backdrop: rgba(0, 0, 0, 0.48);
   --ios-elevated: #2c2c2e;
 }
-
-/* Apple text-style tracking. `:where()` keeps the specificity of a single
-   class so an explicit tracking-* utility (emitted later) still wins. */
-:where(html[data-platform="ios"]) .text-xs { letter-spacing: 0; }
-:where(html[data-platform="ios"]) .text-sm { letter-spacing: -0.23px; }
-:where(html[data-platform="ios"]) .text-base { letter-spacing: -0.43px; }
-:where(html[data-platform="ios"]) .text-lg { letter-spacing: -0.45px; }
-:where(html[data-platform="ios"]) .text-xl { letter-spacing: 0.38px; }
-:where(html[data-platform="ios"]) .text-4xl { letter-spacing: 0.4px; }
 
 /* Text-style helpers for iOS-only components. */
 .ios-large-title { font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: 0.4px; }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Banknote, CreditCard, LocateFixed, Package, SlidersHorizontal } from "@/lib/icons";
+import { ArrowLeft, Banknote, CreditCard, Package, SlidersHorizontal } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, AddressDetails, CargoCheck, CargoInfoTopic, CargoInput, CarClass, OrderDetailsRules, OrderOption, Seat } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
@@ -724,9 +724,6 @@ export function OrderSheet({
         <MapButton onClick={onClose} aria-label={t("order.back")} className="absolute bottom-8 left-3">
           <ArrowLeft className="h-5 w-5" />
         </MapButton>
-        <MapButton aria-label={t("home.locateMe")} className="absolute bottom-8 right-3">
-          <LocateFixed className="h-5 w-5" />
-        </MapButton>
       </div>
 
       <div className="relative -mt-5 flex max-h-[78%] flex-col rounded-t-sheet bg-card shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
@@ -809,12 +806,10 @@ export function OrderSheet({
     return (
       <>
         {sheet === "options" && (
-          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.settings")}>
+          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.settings")} floatingCloseLabel={t("common.close")}>
             <div className="space-y-6 px-4 pb-2 pt-1">
-              <div className="flex items-start gap-2">
-                <h2 className="min-w-0 flex-1 pt-1 text-display font-bold text-ink">{t("order.settings")}</h2>
-                <CloseButton label={t("common.close")} onClick={() => setSheet(null)} className="-mr-2" />
-              </div>
+              {/* Title over a hairline; the close X floats above the sheet (photo 1). */}
+              <h2 className="border-b border-hairline pb-3 pt-2 text-display font-bold text-ink">{t("order.settings")}</h2>
               <TimeSelector value={draft.timing} onChange={(timing) => setField("timing", timing)} />
               {options.status === "error" ? (
                 <button onClick={options.refetch} className="inline-flex min-h-[44px] items-center text-sub font-semibold text-danger underline">
@@ -863,12 +858,10 @@ export function OrderSheet({
         )}
 
         {sheet === "seats" && (
-          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.seatsTitle")}>
+          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.seatsTitle")} floatingCloseLabel={t("common.close")}>
             <div className="space-y-4 px-4 pb-2 pt-1">
-              <div className="flex items-start gap-2">
-                <h2 className="min-w-0 flex-1 pt-1 text-display font-bold text-ink">{t("order.seatsTitle")}</h2>
-                <CloseButton label={t("common.close")} onClick={() => setSheet(null)} className="-mr-2" />
-              </div>
+              {/* Title over a hairline; the close X floats above the sheet (photo 1). */}
+              <h2 className="border-b border-hairline pb-3 pt-2 text-display font-bold text-ink">{t("order.seatsTitle")}</h2>
               <SeatMap
                 seats={seats}
                 mode={draft.mode}
@@ -890,14 +883,12 @@ export function OrderSheet({
         )}
 
         {(sheet === "price" || sheet === "cargoSummary") && (
-          <Sheet open onClose={() => setSheet(null)} ariaLabel={sheet === "price" ? t("order.priceDetails") : t("kargo.summaryTitle")}>
+          <Sheet open onClose={() => setSheet(null)} ariaLabel={sheet === "price" ? t("order.priceDetails") : t("kargo.summaryTitle")} floatingCloseLabel={t("common.close")}>
             <div className="space-y-5 px-4 pb-2 pt-1">
-              <div className="flex items-start gap-2">
-                <h2 className="min-w-0 flex-1 pt-1 text-display font-bold text-ink">
+              {/* Title over a hairline; the close X floats above the sheet (photo 1). */}
+              <h2 className="border-b border-hairline pb-3 pt-2 text-display font-bold text-ink">
                   {sheet === "price" ? t("order.priceDetails") : t("kargo.summaryTitle")}
                 </h2>
-                <CloseButton label={t("common.close")} onClick={() => setSheet(null)} className="-mr-2" />
-              </div>
               {summaryBlock}
               {priceLines}
               {sheet === "cargoSummary" && (
@@ -927,12 +918,10 @@ export function OrderSheet({
         )}
 
         {sheet === "payment" && (
-          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.step.payment")}>
+          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.step.payment")} floatingCloseLabel={t("common.close")}>
             <div className="space-y-4 px-4 pb-2 pt-1">
-              <div className="flex items-start gap-2">
-                <h2 className="min-w-0 flex-1 pt-1 text-display font-bold text-ink">{t("order.step.payment")}</h2>
-                <CloseButton label={t("common.close")} onClick={() => setSheet(null)} className="-mr-2" />
-              </div>
+              {/* Title over a hairline; the close X floats above the sheet (photo 1). */}
+              <h2 className="border-b border-hairline pb-3 pt-2 text-display font-bold text-ink">{t("order.step.payment")}</h2>
               <PaymentMethodSection value={draft.paymentMethod} onChange={(m) => setField("paymentMethod", m)} />
               <div className="sticky bottom-0 -mx-4 bg-card px-2 pt-2">
                 <Button fullWidth onClick={() => setSheet(null)}>

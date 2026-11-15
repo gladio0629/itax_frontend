@@ -1,5 +1,4 @@
 import { cn } from "@/lib/cn";
-import { useIsIOS } from "@/lib/platform";
 
 /**
  * 44×24 visual track inside a 56×44 hit area. The negative margins keep the
@@ -19,35 +18,7 @@ export function Switch({
   label: string;
   disabled?: boolean;
 }) {
-  const ios = useIsIOS();
-  if (ios) {
-    // iOS UISwitch: 51×31 track, 27px knob, spring travel. "On" is brand
-    // navy (the theme's accent — lighter in dark mode for contrast); yellow
-    // would fail contrast against white. The 44px-tall hit area is pulled
-    // into the row with negative margins so a 44pt row stays 44pt.
-    return (
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        disabled={disabled}
-        onClick={onChange}
-        className="-my-[11px] flex h-11 w-[51px] shrink-0 items-center disabled:opacity-50"
-      >
-        <span
-          className={cn("relative h-[31px] w-[51px] rounded-full transition-colors duration-300 ease-out", checked ? "bg-accent" : "bg-[var(--ios-switch-off)]")}
-        >
-          <span
-            className={cn(
-              "absolute left-[2px] top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.15),0_3px_1px_rgba(0,0,0,0.06)] transition-transform duration-[380ms] ease-[cubic-bezier(0.34,1.45,0.64,1)]",
-              checked ? "translate-x-5" : "translate-x-0"
-            )}
-          />
-        </span>
-      </button>
-    );
-  }
+
   return (
     <button
       type="button"

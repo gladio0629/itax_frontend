@@ -112,7 +112,7 @@ export function AddressDetailsSheet({
               maxLength={noteMax}
               onChange={(e) => set("note", e.target.value)}
               placeholder={t("details.note")}
-              className="block w-full resize-none border-b border-hairline bg-transparent py-4 text-body text-ink outline-none placeholder:text-ink/55 focus:border-accent"
+              className="block w-full resize-none border-b border-hairline bg-transparent py-4 text-body text-ink outline-none placeholder:text-ink/60 focus:border-accent"
             />
             <div className="mt-1.5 flex justify-between gap-3 text-sub text-ink/60">
               <span>{t("details.optional")}</span>

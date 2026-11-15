@@ -2,7 +2,8 @@ import { useRef, type KeyboardEvent } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Text tabs with a thick underline under the active one ("Shahar ichi /
+ * Single-choice text tabs (a radiogroup: they pick a value, no panels)
+ * with a thick underline under the active one ("Shahar ichi /
  * Shaharlararo / Marketpleysga"). Underline 3px navy, as wide as the label;
  * 16px between tabs (measured 16.6, photo 5).
  */
@@ -34,7 +35,7 @@ export function TextTabs<T extends string>({
     refs.current.get(next.id)?.focus();
   }
   return (
-    <div role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown} className={cn("no-scrollbar flex gap-4 overflow-x-auto", className)}>
+    <div role="radiogroup" aria-label={ariaLabel} onKeyDown={onKeyDown} className={cn("no-scrollbar flex gap-4 overflow-x-auto", className)}>
       {options.map((o) => {
         const on = o.id === value;
         return (
@@ -45,14 +46,14 @@ export function TextTabs<T extends string>({
               else refs.current.delete(o.id);
             }}
             type="button"
-            role="tab"
-            aria-selected={on}
+            role="radio"
+            aria-checked={on}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.id)}
             className={cn(
               "relative flex min-h-[44px] shrink-0 flex-col items-stretch justify-center whitespace-nowrap pb-2 pt-1 text-control transition-colors",
               uppercase ? "font-extrabold uppercase tracking-[0.02em]" : "font-semibold",
-              on ? "text-ink" : uppercase ? "text-ink/35 hover:text-ink/60" : "text-ink/45 hover:text-ink/70"
+              on ? "text-ink" : "text-ink/60 hover:text-ink/80"
             )}
           >
             {o.label}

@@ -278,7 +278,7 @@ function ScheduledFields({
       {/* Date first */}
         <div>
           <p className="mb-1 text-xs font-semibold text-ink/60">{t("when.date")}</p>
-          <div className={cn(end && "grid grid-cols-2 gap-3")}>
+          <div className={cn(end && "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3")}>
             <div>
               {end && <p className="mb-1 text-center text-xs font-semibold text-ink/60">{t("order.timeFrom")}</p>}
               <WheelPicker options={days} value={start} onChange={setStartDay} format={dayText} ariaLabel={t("when.date")} />
@@ -330,7 +330,7 @@ function ScheduledFields({
             />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
             <div>
               <p className="mb-1 text-center text-xs font-semibold text-ink/60">{t("order.timeFrom")}</p>
               <WheelPicker

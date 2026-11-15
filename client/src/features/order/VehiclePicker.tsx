@@ -122,7 +122,7 @@ export function VehiclePicker({
           name="cargo-note"
           autoComplete="off"
           rows={3}
-          className="block w-full resize-none rounded-control bg-fill px-4 py-3 text-control text-ink outline-none transition-colors placeholder:text-ink/55 focus:ring-2 focus:ring-accent/40"
+          className="block w-full resize-none rounded-control bg-fill px-4 py-3 text-control text-ink outline-none transition-colors placeholder:text-ink/60 focus:ring-2 focus:ring-accent/40"
         />
       </div>
     </div>
