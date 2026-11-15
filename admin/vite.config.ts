@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import { DEFAULT_DEV_PROXY_TARGET, izgoBackendProbe, izgoDevProxy } from "../shared/vite/izgo";
+import { DEFAULT_DEV_PROXY_TARGET, izgoBackendProbe, izgoDevProxy, izgoSecurity } from "../shared/vite/izgo";
 
 export default defineConfig(({ mode }) => {
   const src = (p: string) => fileURLToPath(new URL(p, import.meta.url));
@@ -11,7 +11,13 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_DEV_PROXY_TARGET || DEFAULT_DEV_PROXY_TARGET;
 
   return {
-    plugins: [react(), izgoBackendProbe(proxyTarget)],
+    plugins: [
+      react(),
+      izgoBackendProbe(proxyTarget),
+      // CSP <meta> + dist/_headers: connect-src 'self' plus the API origin
+      // (none in demo mode); dev also allows ws:/wss: for hot reload.
+      izgoSecurity(demoMode ? "" : env.VITE_API_URL),
+    ],
     server: {
       port: 5175,
       proxy: izgoDevProxy(proxyTarget),
@@ -19,6 +25,9 @@ export default defineConfig(({ mode }) => {
       fs: { allow: [src("."), src("../shared")] },
     },
     preview: { port: 5175 },
+    // No modulepreload polyfill: it is a fetch() in the bundle, and the demo
+    // build must contain none. Browsers without modulepreload just skip it.
+    build: { modulePreload: { polyfill: false } },
     resolve: {
       alias: {
         // Picked at build time, so the http build never contains the mock
