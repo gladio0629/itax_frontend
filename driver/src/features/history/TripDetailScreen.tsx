@@ -46,14 +46,24 @@ export default function TripDetailScreen() {
                 <span className="tabular">
                   {formatDate(d.createdAt, t)}, {formatTime(d.createdAt)}
                 </span>
-                <span className="tabular">{t("detail.distance", { km: d.distanceKm, duration: formatDuration(d.durationMin, t) })}</span>
+                {d.durationMin > 0 ? (
+                  <span className="tabular">{t("detail.distance", { km: d.distanceKm, duration: formatDuration(d.durationMin, t) })}</span>
+                ) : (
+                  d.distanceKm > 0 && (
+                    <span className="tabular">
+                      {d.distanceKm}&nbsp;{t("common.km")}
+                    </span>
+                  )
+                )}
               </div>
               <RouteLine pickup={d.pickup} dropoff={d.dropoff} pickupLabel={t("offer.pickup")} dropoffLabel={t("offer.dropoff")} size="md" />
               <div className="mt-4 flex flex-wrap gap-2 text-sm">
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-button bg-raised px-3 text-ink">
-                  {d.payment === "cash" ? <Banknote className="h-4 w-4 text-muted" /> : <CreditCard className="h-4 w-4 text-muted" />}
-                  {d.payment === "cash" ? t("pay.cash") : t("pay.card")}
-                </span>
+                {d.payment && (
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-button bg-raised px-3 text-ink">
+                    {d.payment === "cash" ? <Banknote className="h-4 w-4 text-muted" /> : <CreditCard className="h-4 w-4 text-muted" />}
+                    {d.payment === "cash" ? t("pay.cash") : t("pay.card")}
+                  </span>
+                )}
                 <span className="inline-flex h-8 items-center gap-1.5 rounded-button bg-raised px-3 text-ink">
                   {d.kind === "delivery" ? <Package className="h-4 w-4 text-muted" /> : <Users className="h-4 w-4 text-muted" />}
                   {d.kind === "delivery" && d.cargo && isKey(d.cargo.labelKey)
@@ -73,7 +83,10 @@ export default function TripDetailScreen() {
                 ) : (
                   <dl className="space-y-3 text-base">
                     <Row label={t("detail.base")} value={formatAmount(d.breakdown.base)} />
-                    <Row label={t("detail.commission", { pct: d.breakdown.commissionPct })} value={formatAmount(-d.breakdown.commission)} />
+                    <Row
+                      label={d.breakdown.commissionPct == null ? t("detail.commissionAmount") : t("detail.commission", { pct: d.breakdown.commissionPct })}
+                      value={formatAmount(-d.breakdown.commission)}
+                    />
                     {d.breakdown.bonusDiscount > 0 && <Row label={t("detail.bonusDiscount")} value={formatAmount(d.breakdown.bonusDiscount, { signed: true })} tone="gold" />}
                     <div className="flex items-center justify-between border-t border-line pt-3">
                       <dt className="font-bold text-ink">{t("detail.net")}</dt>
@@ -86,6 +99,7 @@ export default function TripDetailScreen() {
               </Card>
             </section>
 
+            {d.timeline.length > 0 && (
             <section aria-labelledby="tl">
               <SectionLabel id="tl">{t("detail.timeline")}</SectionLabel>
               <Card className="p-4">
@@ -106,21 +120,25 @@ export default function TripDetailScreen() {
                 </ol>
               </Card>
             </section>
+            )}
 
-            <section aria-labelledby="ps">
-              <SectionLabel id="ps">{t("detail.passenger")}</SectionLabel>
-              <Card className="flex items-center gap-3 p-4">
-                <Avatar seed={d.passenger.avatarSeed} name={d.passenger.name} size={48} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-bold text-ink">{d.passenger.name}</p>
-                  <p className="tabular text-sm text-muted">{d.passenger.phoneMasked}</p>
-                </div>
-              </Card>
-              <Card className="mt-3 flex items-center justify-between p-4">
-                <span className="text-base text-ink">{t("detail.ratingGiven")}</span>
-                {d.ratingReceived != null ? <Stars value={d.ratingReceived} /> : <span className="text-sm text-muted">{t("detail.noRating")}</span>}
-              </Card>
-            </section>
+            {/* The real backend shares neither the passenger nor the rating with the driver. */}
+            {d.passenger && (
+              <section aria-labelledby="ps">
+                <SectionLabel id="ps">{t("detail.passenger")}</SectionLabel>
+                <Card className="flex items-center gap-3 p-4">
+                  <Avatar seed={d.passenger.avatarSeed} name={d.passenger.name} size={48} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold text-ink">{d.passenger.name}</p>
+                    <p className="tabular text-sm text-muted">{d.passenger.phoneMasked}</p>
+                  </div>
+                </Card>
+                <Card className="mt-3 flex items-center justify-between p-4">
+                  <span className="text-base text-ink">{t("detail.ratingGiven")}</span>
+                  {d.ratingReceived != null ? <Stars value={d.ratingReceived} /> : <span className="text-sm text-muted">{t("detail.noRating")}</span>}
+                </Card>
+              </section>
+            )}
           </div>
         )}
       </div>

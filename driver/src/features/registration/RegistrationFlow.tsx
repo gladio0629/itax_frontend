@@ -136,16 +136,18 @@ function BottomAction({ children }: { children: React.ReactNode }) {
 
 // ---------- Step 1: phone + OTP ----------
 
-// SMS code length: fixed 4 with sample data; 4–6 with the real backend (the
+// SMS code length: the server's `code_length` for the code just sent; without
+// it, api.otpLength (fixed 4 with sample data; 4–6 with the real backend: the
 // confirm button works from CODE_MIN, typing all CODE_MAX digits submits).
-const { min: CODE_MIN, max: CODE_MAX } = api.otpLength;
-const emptyCode = () => Array<string>(CODE_MAX).fill("");
+const codeRange = (codeLength?: number) => (codeLength ? { min: codeLength, max: codeLength } : api.otpLength);
+const emptyCode = (n: number) => Array<string>(n).fill("");
 
 function PhoneStep({ onVerified }: { onVerified: () => void }) {
   const { t } = useT();
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState<{ requestId: string; testCode?: string; resendInSec: number } | null>(null);
-  const [code, setCode] = useState<string[]>(emptyCode);
+  const [otp, setOtp] = useState<{ requestId: string; testCode?: string; resendInSec: number; codeLength?: number } | null>(null);
+  const { min: CODE_MIN, max: CODE_MAX } = codeRange(otp?.codeLength);
+  const [code, setCode] = useState<string[]>(() => emptyCode(CODE_MAX));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -171,7 +173,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
       const r = await api.requestOtp(digits);
       setOtp(r);
       setResendIn(r.resendInSec);
-      setCode(emptyCode());
+      setCode(emptyCode(codeRange(r.codeLength).max));
       setTimeout(() => boxes.current[0]?.focus(), 50);
     } catch (e) {
       setError(errorMessage(e, t));
@@ -189,7 +191,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
       setReviewId(r.id);
     } catch (e) {
       setError(errorMessage(e, t));
-      setCode(emptyCode());
+      setCode(emptyCode(CODE_MAX));
       boxes.current[0]?.focus();
     } finally {
       setBusy(false);

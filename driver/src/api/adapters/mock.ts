@@ -854,6 +854,7 @@ export const mockAdapter: ApiAdapter = {
     tripChat: true,
     tripSummary: true,
     history: true,
+    historyFilters: true,
     bonus: true,
     help: true,
     driverCapabilities: true,

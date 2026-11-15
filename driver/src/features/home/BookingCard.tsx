@@ -11,6 +11,7 @@ import { TripSteps } from "./TripSteps";
 import { PlaceDetails } from "./RouteLine";
 import { CallButton, CommentNote, ContactList, FreightGrid, FreightTags, OptionChips, OrderTags, Tag } from "./OrderDetails";
 import { dayText, timeText } from "./whenText";
+import { SeatsTag } from "./SeatsTag";
 
 type Props = { booking: Booking; confirming: boolean; onAction: () => void; onCancel: () => void };
 
@@ -55,6 +56,7 @@ export function BookingCard({ booking: b, confirming, onAction, onCancel }: Prop
         <Tag icon={cargo ? Truck : b.wholeCar ? Car : Users} tone="yellow">
           {cargo ? t("feed.kind.cargo") : b.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: b.seats })}
         </Tag>
+        {b.seatIds && <SeatsTag seatIds={b.seatIds} />}
         {b.when && (
           <Tag icon={CalendarDays}>
             {dayText(b.when, t)}, {timeText(b.when, t)}
@@ -142,16 +144,20 @@ export function BookingCard({ booking: b, confirming, onAction, onCancel }: Prop
           <span className="tabular block text-lg font-bold text-gold">
             {formatAmount(b.price)} <span className="text-xs font-medium text-muted">{t("common.som")}</span>
           </span>
-          <span className="tabular block text-xs text-muted">
-            {b.earnings.commissionPct == null
-              ? t("feed.netOnly", { amount: formatAmount(b.earnings.net) })
-              : t("feed.net", { amount: formatAmount(b.earnings.net), pct: b.earnings.commissionPct })}
-          </span>
+          {/* Hidden until the server gives the commission (real backend: on completion). */}
+          {b.earnings && (
+            <span className="tabular block text-xs text-muted">
+              {b.earnings.commissionPct == null
+                ? t("feed.netOnly", { amount: formatAmount(b.earnings.net) })
+                : t("feed.net", { amount: formatAmount(b.earnings.net), pct: b.earnings.commissionPct })}
+            </span>
+          )}
         </span>
       </div>
 
       <StepButton action={b.nextAction} confirming={confirming} onClick={onAction} />
-      {api.capabilities.cancelBooking && (
+      {/* Cancel only while the server allows it (canCancel undefined: sample data, always). */}
+      {api.capabilities.cancelBooking && b.canCancel !== false && (
         <button
           type="button"
           onClick={onCancel}

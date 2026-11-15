@@ -51,19 +51,30 @@ function useHistoryFilter(): [HistoryFilter, (next: HistoryFilter | ((f: History
   return [filter, set];
 }
 
+/** Filters only when the backend can filter (capabilities.historyFilters). */
+const FILTERS = api.capabilities.historyFilters;
+
 function HistoryPanel() {
   const { t } = useT();
-  const [filter, setFilter] = useHistoryFilter();
+  const [filter, setFilterRaw] = useHistoryFilter();
   const [cityInput, setCityInput] = useState(filter.city);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // "Load more" page; any filter change starts again from page 1.
+  const [page, setPage] = useState(1);
+  const setFilter: typeof setFilterRaw = (next) => {
+    setPage(1);
+    setFilterRaw(next);
+  };
   const debounce = useRef<number>();
   useEffect(() => () => window.clearTimeout(debounce.current), []);
-  const history = useQuery(() => api.getHistory(filter), [filter.range, filter.minEarnings, filter.city]);
+  const history = useQuery(() => api.getHistory({ ...filter, page }), [filter.range, filter.minEarnings, filter.city, page]);
   const activeFilters = (filter.range !== "all" ? 1 : 0) + (filter.minEarnings > 0 ? 1 : 0);
   const dirty = activeFilters > 0 || filter.city !== "";
 
   return (
     <div className="px-4 pb-6 pt-2">
+      {FILTERS && (
+      <>
       <div className="flex gap-2">
         <form
           role="search"
@@ -125,9 +136,11 @@ function HistoryPanel() {
           </Chip>
         ))}
       </div>
+      </>
+      )}
 
-      <div className="mt-4" aria-live="polite" aria-busy={history.loading}>
-        {history.error ? (
+      <div className={FILTERS ? "mt-4" : "mt-2"} aria-live="polite" aria-busy={history.loading}>
+        {history.error && (page === 1 || !history.data) ? (
           <ErrorState error={history.error} onRetry={() => history.reload()} />
         ) : !history.data ? (
           <SkeletonList rows={5} label={t("common.loading")} />
@@ -153,7 +166,7 @@ function HistoryPanel() {
           />
         ) : (
           <>
-            <p className="tabular mb-2 px-1 text-sm text-muted">{t("orders.found", { n: history.data.total })}</p>
+            {history.data.total != null && <p className="tabular mb-2 px-1 text-sm text-muted">{t("orders.found", { n: history.data.total })}</p>}
             <ul className="space-y-3">
               {history.data.items.map((item) => (
                 <li key={item.id}>
@@ -161,6 +174,12 @@ function HistoryPanel() {
                 </li>
               ))}
             </ul>
+            {history.data.hasMore && (
+              <Button variant="secondary" fullWidth className="mt-3" loading={history.loading} onClick={() => setPage((p) => p + 1)}>
+                {t("common.loadMore")}
+              </Button>
+            )}
+            {history.error != null && page > 1 && <ErrorState error={history.error} onRetry={() => history.reload()} />}
           </>
         )}
       </div>

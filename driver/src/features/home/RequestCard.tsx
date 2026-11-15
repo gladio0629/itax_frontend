@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { RouteLine } from "./RouteLine";
 import { CommentNote, FreightGrid, FreightTags, OptionChips, OrderTags, Tag } from "./OrderDetails";
 import { dayText, timeText } from "./whenText";
+import { SeatsTag } from "./SeatsTag";
 
 type Props = {
   request: RideRequest;
@@ -57,9 +58,12 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
       )}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
-        <Tag icon={cargo ? Truck : r.wholeCar ? Car : Users} tone="yellow">
-          {cargo ? t("feed.kind.cargo") : r.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: r.seats })}
-        </Tag>
+        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <Tag icon={cargo ? Truck : r.wholeCar ? Car : Users} tone="yellow">
+            {cargo ? t("feed.kind.cargo") : r.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: r.seats })}
+          </Tag>
+          {r.seatIds && <SeatsTag seatIds={r.seatIds} />}
+        </span>
         {r.postedAt != null && <span className="tabular shrink-0 text-xs text-muted">{sinceTime(r.postedAt, t)}</span>}
       </div>
 

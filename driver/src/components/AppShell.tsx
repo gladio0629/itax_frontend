@@ -7,7 +7,8 @@ import { useQuery } from "@/lib/useQuery";
 import { api } from "@/api/client";
 import { RouteFallback } from "./RouteFallback";
 import { ChunkBoundary } from "./ChunkBoundary";
-import { useT } from "@/lib/i18n/provider";
+import { isKey, useT } from "@/lib/i18n/provider";
+import { toast } from "@/lib/toast";
 import { useFeedSignal } from "@/stores/feedSignal";
 import { RequestBanner } from "./RequestBanner";
 
@@ -26,14 +27,15 @@ export function AppShell() {
     document.getElementById("app-main")?.focus({ preventScroll: true });
   }, [location.pathname]);
 
-  // Server pushes (WebSocket): refetch what changed.
+  // Server pushes (WebSocket): refetch what changed; some come with a notice.
   useEffect(
     () =>
       api.subscribe((e) => {
         if (e.type === "session") refreshSession().catch(() => {});
         else bump();
+        if (e.noticeKey && isKey(e.noticeKey)) toast(t(e.noticeKey), "danger");
       }),
-    [bump, refreshSession]
+    [bump, refreshSession, t]
   );
 
   // GPS only while the request feed is open or a trip is underway.

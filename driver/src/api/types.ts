@@ -10,8 +10,11 @@ export type Cargo = { labelKey: string; weightKg: number };
 
 /** Class the order was placed in (matches the driver's car class). */
 export type CarClass = "economy" | "comfort" | "business" | "minivan";
-/** Child-seat age groups: 0–1, 1–4, 4–12 years. */
-export type ChildSeatAge = "infant" | "toddler" | "booster";
+/** Child-seat age groups. Sample data: infant 0–1, toddler 1–4, booster 4–12.
+ * The real backend (DriverCapabilities.child_seat_ages): "0-1" | "1-3" | "3-7" | "7-12". */
+export type ChildSeatAge = "infant" | "toddler" | "booster" | "0-1" | "1-3" | "3-7" | "7-12";
+/** Seat positions in a passenger car (Offer/Order.seat_ids). */
+export type SeatPosition = "front" | "back-left" | "back-mid" | "back-right";
 
 /** Podyezd / qavat / kvartira, as the passenger typed them. */
 export type AddressDetails = { entrance?: string; floor?: string; apartment?: string };
@@ -63,6 +66,8 @@ export type OrderExtras<P extends Place> = {
   contactMode: ContactMode;
   /** Set on cargo orders only. */
   freight: Freight | null;
+  /** Which seats the passenger booked, when the server says (real backend). */
+  seatIds?: SeatPosition[];
 };
 
 export type ReviewKind =
@@ -119,9 +124,11 @@ export type DriverCapabilities = {
   ageGroups: ChildSeatAge[];
   pets: boolean;
   bigLuggage: boolean;
-  carModel: string;
-  carClass: CarClass;
-  cargoBody: CargoBody;
+  /** From the driver's car; absent when the server has none. */
+  carModel?: string;
+  carClass?: CarClass;
+  /** Absent when the backend doesn't describe the car's cargo body. */
+  cargoBody?: CargoBody;
 };
 export type CapabilitiesInput = Pick<DriverCapabilities, "childSeat" | "childSeatAges" | "pets" | "bigLuggage">;
 
@@ -220,7 +227,10 @@ export type Booking = OrderExtras<TripPlace> & {
   directionId: string;
   stage: TripStage;
   steps: TripStep[];
+  /** The step button: the server's next step (real backend: Trip.next_actions). */
   nextAction: TripAction | null;
+  /** Server verdict that the trip can still be cancelled. Undefined = allowed (sample data). */
+  canCancel?: boolean;
   pendingReviewId: string | null;
   /** Absent when the server doesn't share the passenger (real API: no field yet). */
   passenger?: PassengerInfo;
@@ -232,7 +242,8 @@ export type Booking = OrderExtras<TripPlace> & {
   wholeCar: boolean;
   cargo?: Cargo;
   price: number;
-  earnings: { net: number; commissionPct?: number };
+  /** Absent when the server hasn't given the commission yet (real backend before completion). */
+  earnings?: { net: number; commissionPct?: number };
   payment?: PaymentType;
   acceptedAt: number;
 };
@@ -279,23 +290,29 @@ export type TripSummary = {
 };
 
 export type HistoryRange = "all" | "today" | "week" | "month";
-export type HistoryFilter = { range: HistoryRange; minEarnings: number; city: string };
+/** `page`: 1-based "load more" page (cursor pages behind it in http mode). */
+export type HistoryFilter = { range: HistoryRange; minEarnings: number; city: string; page?: number };
 export type HistoryItem = {
   id: string;
   createdAt: number;
   from: CityRef;
   to: CityRef;
+  /** Empty when the server doesn't share the passenger. */
   passengerName: string;
   earnings: number;
-  payment: PaymentType;
+  /** Absent for payment methods without a label (e.g. wallet). */
+  payment?: PaymentType;
   ratingReceived: number | null;
   status: "completed" | "cancelled";
   kind: OrderKind;
 };
 export type HistoryPage = {
   items: HistoryItem[];
-  total: number;
+  /** Absent when the server doesn't count (cursor pages). */
+  total?: number;
   filterOptions: { minEarnings: number[]; ranges: HistoryRange[] };
+  /** Another page can be loaded. */
+  hasMore?: boolean;
 };
 
 export type TimelineEvent = { stage: "accepted" | "arrived" | "started" | "completed" | "cancelled"; at: number };
@@ -303,12 +320,15 @@ export type TripDetail = HistoryItem & {
   pickup: Place;
   dropoff: Place;
   distanceKm: number;
+  /** 0 = unknown (not shown). */
   durationMin: number;
-  passenger: PassengerInfo;
+  /** Absent when the server doesn't share the passenger. */
+  passenger?: PassengerInfo;
   passengers?: number;
   cargo?: Cargo;
   timeline: TimelineEvent[];
-  breakdown: { base: number; commission: number; commissionPct: number; bonusDiscount: number; net: number };
+  /** commissionPct absent when the server gives only the amount. */
+  breakdown: { base: number; commission: number; commissionPct?: number; bonusDiscount: number; net: number };
   cancelReasonKey?: string;
 };
 

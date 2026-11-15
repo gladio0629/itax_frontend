@@ -21,7 +21,7 @@ export function HistoryCard({ item }: { item: HistoryItem }) {
         </span>
         <span className="flex items-center gap-2">
           {item.kind === "delivery" && <Package className="h-4 w-4" aria-label={t("offer.delivery")} />}
-          <PayIcon className="h-4 w-4" aria-label={item.payment === "cash" ? t("pay.cash") : t("pay.card")} />
+          {item.payment && <PayIcon className="h-4 w-4" aria-label={item.payment === "cash" ? t("pay.cash") : t("pay.card")} />}
         </span>
       </div>
       <p className="mt-2 truncate text-lg font-bold text-ink">
@@ -30,7 +30,7 @@ export function HistoryCard({ item }: { item: HistoryItem }) {
       </p>
       <div className="mt-1 flex items-center justify-between gap-3">
         <p className="flex min-w-0 items-center gap-2 text-sm text-muted">
-          <span className="truncate">{item.passengerName}</span>
+          {item.passengerName && <span className="truncate">{item.passengerName}</span>}
           {item.ratingReceived != null && (
             <span className="tabular inline-flex shrink-0 items-center gap-1 text-ink">
               <Star className="h-4 w-4 fill-yellow text-yellow" />

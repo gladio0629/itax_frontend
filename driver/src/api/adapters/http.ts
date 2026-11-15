@@ -2,45 +2,59 @@
 // as the mock adapter; field conversions live in ../httpMapper.ts.
 // Features with no endpoint in the contract are switched off in
 // `capabilities` and reject with NOT_SUPPORTED instead of being faked
-// (docs/backend-gaps/driver.md).
+// (docs/backend-gaps/driver.md). Every verdict (next trip step, cancel
+// allowed, prices, commission) is the server's; nothing is inferred here.
 import { API_PATHS } from "@shared/api/openapi";
 import type * as Api from "@shared/api/openapi";
 import { ApiError } from "@shared/http/errors";
 import type { ApiAdapter, ApiCapabilities, ServerEvent } from "../adapterTypes";
 import type {
   AcceptedPage,
-  Booking,
+  CityRef,
   DocSlot,
+  DriverRoute,
   HomeSummary,
   LedgerEntry,
   NotificationItem,
   NotificationPrefs,
   ReviewKind,
   ReviewRequest,
-  RideRequest,
+  RoutesPage,
   Session,
   SessionStage,
 } from "../types";
 import { session } from "../httpSession";
 import {
+  CANCEL_REASON_KEY,
+  type CityNames,
   mapFieldError,
+  mapRoutesError,
   offerToRequest,
+  reasonFromKey,
   REG_CAR_CLASSES,
   REG_CAR_COLORS,
   REG_CAR_MODELS,
   REG_CITIES,
   REG_SEAT_COUNTS,
+  REJECT_REASON_KEY,
   safeRedirect,
   splitCarModel,
   splitName,
+  toApiCapabilities,
   toApiPhone,
   toApiPlate,
+  toCapabilities,
   toDebtState,
   toDriverProfile,
   toLedgerEntry,
   toNotification,
+  toRoutesInput,
+  toRoutesPage,
   toTiyin,
+  stepActionOf,
   tripToBooking,
+  tripToDetail,
+  tripToHistoryItem,
 } from "../httpMapper";
 import { version as appVersion } from "../../../package.json";
 
@@ -49,18 +63,22 @@ const { http } = session;
 const notSupported = (): Promise<never> => Promise.reject(new ApiError("NOT_SUPPORTED"));
 
 const capabilities: ApiCapabilities = {
-  routes: false,
-  rejectRequest: false,
+  routes: true,
+  rejectRequest: true,
+  // GET /trips/offers has no query params.
   feedFilters: false,
   seatSummary: false,
-  arrivedStep: false,
-  cancelBooking: false,
+  arrivedStep: true,
+  cancelBooking: true,
   tripChat: false,
+  // Trip has final_price and commission, but no commission % or bonus.
   tripSummary: false,
-  history: false,
+  history: true,
+  // GET /trips/history has only cursor/limit and no total.
+  historyFilters: false,
   bonus: false,
   help: false,
-  driverCapabilities: false,
+  driverCapabilities: true,
   profileChangePhone: false,
   profileChangeCar: false,
   requestAlerts: false,
@@ -87,63 +105,145 @@ function settled(kind: ReviewKind, status: ReviewRequest["status"], extra: Parti
 // -------------------------------------------------------------- tab state
 // Kept in memory for this tab only (cleared on logout / session end).
 const otpPhones = new Map<string, string>();
-/** Trips accepted in this tab: the contract has no "my trips" list. */
-const trips = new Map<string, { booking: Booking; offer: RideRequest }>();
-/** Last offers seen, so an accepted trip can show where it goes. */
-const lastOffers = new Map<string, RideRequest>();
+/** The last GET /trips answer (active trips with their order). A read cache
+ * only: the step a button sends is the one the screen showed from it. */
+let activeTrips = new Map<string, Api.TripWithOrder>();
+/** Per trip id, the server action behind the step button getAccepted last returned. */
+let shownSteps = new Map<string, Api.TripAction>();
 /** Registration step reached in this tab (no GET for progress). */
 let registrationStage: SessionStage | null = null;
 let lastNotifications: NotificationItem[] = [];
 let statusCache: { at: number; value: Api.DriverStatus } | null = null;
 let ledgerPages: { cursors: (string | null)[]; items: LedgerEntry[][] } = { cursors: [], items: [] };
+let historyPages: { cursors: (string | null)[]; items: Api.TripWithOrder[][] } = { cursors: [], items: [] };
+let summaryCache: { at: number; value: HomeSummary } | null = null;
+/** The driver's car from the last GET /drivers/me (shown read-only in "Imkoniyatlarim"). */
+let lastCar: Api.Car | undefined;
 
 function clearTabState() {
   otpPhones.clear();
-  trips.clear();
-  lastOffers.clear();
+  activeTrips = new Map();
+  shownSteps = new Map();
   reviews.clear();
   registrationStage = null;
   lastNotifications = [];
   statusCache = null;
+  summaryCache = null;
   ledgerPages = { cursors: [], items: [] };
+  historyPages = { cursors: [], items: [] };
+  lastCar = undefined;
 }
 
 // ----------------------------------------------------- events & session end
 const eventListeners = new Set<(e: ServerEvent) => void>();
 const endListeners = new Set<() => void>();
-const emit = (type: ServerEvent["type"]) => eventListeners.forEach((l) => l({ type }));
+const emit = (e: ServerEvent) => eventListeners.forEach((l) => l(e));
 
 session.onEnd((reason) => {
   clearTabState();
   if (reason !== "logout") endListeners.forEach((l) => l());
 });
 
+// onlyback/docs/websocket-events.md, "What the app should do" (driver rows).
+// Order status events go to the passenger only; unknown types are ignored.
 session.realtime?.subscribe((event) => {
   switch (event.type) {
     case "offer.created":
-      emit("feed");
+      emit({ type: "feed" });
       break;
-    case "order.accepted":
-      emit("trips");
+    case "trip.cancelled":
+      // An operator cancelled the order this driver had: re-read GET /trips.
+      activeTrips.delete(event.id);
+      shownSteps.delete(event.id);
+      historyPages = { cursors: [], items: [] };
+      summaryCache = null;
+      emit({ type: "trips", noticeKey: "trip.cancelledByOperator" });
       break;
-    case "trip.completed": {
-      const t = trips.get(event.id);
-      if (t) trips.delete(event.id);
-      emit("trips");
-      emit("wallet");
-      break;
-    }
     case "wallet.limit_reached":
-      emit("wallet");
+      summaryCache = null;
+      emit({ type: "wallet" });
       break;
     case "driver.approved":
       statusCache = null;
-      emit("session");
+      emit({ type: "session" });
       break;
     default:
       break;
   }
 });
+
+// ------------------------------------------------------------------ cities
+// GET /api/v1/cities is public; read once per tab (a failed read is retried next time).
+let citiesPromise: Promise<Api.City[]> | null = null;
+function cityCatalogue(): Promise<Api.City[]> {
+  citiesPromise ??= http.request<Api.CityList>("GET", API_PATHS.cities, { auth: false }).then(
+    (r) => r.data,
+    (err) => {
+      citiesPromise = null;
+      throw err;
+    }
+  );
+  return citiesPromise;
+}
+const cityRefs = async (): Promise<CityRef[]> => (await cityCatalogue()).map((c) => ({ id: c.id, name: c.name }));
+/** For display only: without the catalogue, places fall back to their address line. */
+async function cityNames(): Promise<CityNames> {
+  try {
+    return new Map((await cityCatalogue()).map((c) => [c.id, c.name]));
+  } catch {
+    return new Map();
+  }
+}
+
+// ------------------------------------------------------------------- trips
+async function readActiveTrips(): Promise<Api.TripWithOrder[]> {
+  const page = await http.get<Api.TripPage>(API_PATHS.trips, { status: "assigned,in_progress", limit: 50 });
+  activeTrips = new Map(page.data.map((t) => [t.id, t]));
+  return page.data;
+}
+
+/** 403 `trip_started` gets its own message; other errors pass through. */
+function mapTripError(err: unknown): unknown {
+  if (err instanceof ApiError && err.code === "FORBIDDEN" && err.params.reason === "trip_started") {
+    return new ApiError("TRIP_STARTED", "TRIP_STARTED", { params: err.params, status: err.status });
+  }
+  return mapFieldError(err);
+}
+
+/** Cursor pages of GET /trips/history behind "load more". */
+async function loadHistory(pages: number): Promise<void> {
+  for (let i = historyPages.items.length; i < pages; i++) {
+    const cursor = i === 0 ? undefined : historyPages.cursors[i - 1];
+    if (i > 0 && !cursor) break;
+    const res = await http.get<Api.TripPage>(API_PATHS.tripsHistory, { cursor, limit: 20 });
+    historyPages.items[i] = res.data;
+    historyPages.cursors[i] = res.cursor;
+  }
+}
+const historyMore = () => !!historyPages.cursors[historyPages.items.length - 1];
+
+// ------------------------------------------------------------------ routes
+async function readRoutes(): Promise<RoutesPage> {
+  const [r, cities] = await Promise.all([http.get<Api.DriverRoutes>(API_PATHS.driverRoutes), cityRefs()]);
+  return toRoutesPage(r, cities);
+}
+
+/** PUT replaces the whole set and issues new ids: always answer with its response. */
+async function putRoutes(routes: DriverRoute[], cities: CityRef[]): Promise<RoutesPage> {
+  try {
+    return toRoutesPage(await http.put<Api.DriverRoutes>(API_PATHS.driverRoutes, toRoutesInput(routes)), cities);
+  } catch (err) {
+    throw mapRoutesError(err);
+  }
+}
+
+/** Fresh list, then the route the screen pointed at (ids change on every PUT). */
+async function routesWith(routeId: string): Promise<{ page: RoutesPage; index: number }> {
+  const page = await readRoutes();
+  const index = page.routes.findIndex((r) => r.id === routeId);
+  if (index < 0) throw new ApiError("ROUTE_NOT_FOUND");
+  return { page, index };
+}
 
 // ----------------------------------------------------------------- session
 async function driverStatus(maxAgeMs = 0): Promise<Api.DriverStatus> {
@@ -174,6 +274,8 @@ async function currentSession(): Promise<Session> {
   const status = await driverStatus();
   switch (status.state) {
     case "active":
+      // Routes are optional on the server (0..10), so an active driver goes straight in;
+      // Yo'nalishlarim is edited from the profile.
       return { stage: "active" };
     case "pending_review":
       return { stage: "review", documentsReviewId: REGISTRATION_REVIEW_ID };
@@ -202,13 +304,14 @@ const DOC_KIND: Record<DocSlot, Api.DocumentKind> = { license: "license_front", 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // UploadUrlRequest.size_bytes maximum
 
 // -------------------------------------------------------------- summaries
-let summaryCache: { at: number; value: HomeSummary } | null = null;
 
 async function homeSummary(): Promise<HomeSummary> {
   if (summaryCache && Date.now() - summaryCache.at < 5000) return summaryCache.value;
   const [balance, notifications] = await Promise.all([
     http.get<Api.WalletBalance>(API_PATHS.walletBalance),
     http.get<Api.NotificationPage>(API_PATHS.notifications, { limit: 50 }),
+    // Active trips drive GPS reporting; a failed read keeps the last answer.
+    readActiveTrips().catch(() => null),
   ]);
   const value: HomeSummary = {
     // Not in the contract; not shown in http mode.
@@ -220,7 +323,7 @@ async function homeSummary(): Promise<HomeSummary> {
     unreadNotifications: notifications.data.filter((n) => !n.read).length,
     debt: toDebtState(balance),
     canAcceptOrders: !balance.limit_reached,
-    tripActive: [...trips.values()].some((t) => t.booking.stage !== "completed"),
+    tripActive: activeTrips.size > 0,
   };
   summaryCache = { at: Date.now(), value };
   return value;
@@ -269,7 +372,11 @@ export const httpAdapter: ApiAdapter = {
   getSession: () => currentSession(),
 
   getRegistrationOptions: async () => ({
-    cities: REG_CITIES,
+    // Step 1 `city` is a free string: the catalogue's names (static list if it can't be read).
+    cities: await cityCatalogue().then(
+      (list) => list.map((c) => ({ id: c.name, name: c.name })),
+      () => REG_CITIES
+    ),
     carModels: REG_CAR_MODELS,
     carColors: REG_CAR_COLORS,
     years: Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - i),
@@ -286,7 +393,8 @@ export const httpAdapter: ApiAdapter = {
       const res = await http.post<Api.OtpRequestResult>(API_PATHS.otpRequest, { phone: apiPhone }, { auth: false });
       const requestId = `otp${++reviewSeq}`;
       otpPhones.set(requestId, apiPhone);
-      return { requestId, resendInSec: res.resend_after };
+      const len = res.code_length;
+      return { requestId, resendInSec: res.resend_after, codeLength: Number.isInteger(len) && len! > 0 && len! <= 12 ? len : undefined };
     } catch (err) {
       throw mapFieldError(err);
     }
@@ -307,7 +415,8 @@ export const httpAdapter: ApiAdapter = {
   },
 
   async savePersonal({ name, cityId, birthDate }) {
-    const city = REG_CITIES.find((c) => c.id === cityId)?.name;
+    // Option ids are the city names (RegistrationStep1.city is a string).
+    const city = cityId.trim();
     if (!city) throw new ApiError("CITY_REQUIRED");
     return registrationStep(1, { ...splitName(name), birth_date: birthDate || undefined, city });
   },
@@ -360,49 +469,83 @@ export const httpAdapter: ApiAdapter = {
 
   reportLocation: (lat, lng) => http.post<void>(API_PATHS.locationUpdate, { lat, lng }),
 
-  // ---------- routes: no endpoint ----------
-  getRoutes: notSupported,
-  addRoute: notSupported,
-  setRouteBothWays: notSupported,
-  removeRoute: notSupported,
-  completeRoutesSetup: async () => currentSession(),
+  // ---------- Yo'nalishlarim: GET/PUT /drivers/me/routes (whole set) ----------
+  getRoutes: () => readRoutes(),
+
+  async addRoute(aCityId, bCityId) {
+    const page = await readRoutes();
+    const ref = (id: string): CityRef => page.cities.find((c) => c.id === id) ?? { id, name: "" };
+    // A new pair starts as "both ways", like the sample data; the switch changes it.
+    return putRoutes([...page.routes, { id: "", a: ref(aCityId), b: ref(bCityId), bothWays: true }], page.cities);
+  },
+
+  async setRouteBothWays(routeId, bothWays) {
+    const { page, index } = await routesWith(routeId);
+    return putRoutes(
+      page.routes.map((r, i) => (i === index ? { ...r, bothWays } : r)),
+      page.cities
+    );
+  },
+
+  async removeRoute(routeId) {
+    const { page, index } = await routesWith(routeId);
+    return putRoutes(
+      page.routes.filter((_, i) => i !== index),
+      page.cities
+    );
+  },
+
+  async completeRoutesSetup() {
+    return currentSession();
+  },
 
   // ---------- home ----------
-  getProfile: async () => toDriverProfile(await http.get<Api.DriverProfile>(API_PATHS.driverMe)),
+  async getProfile() {
+    const me = await http.get<Api.DriverProfile>(API_PATHS.driverMe);
+    lastCar = me.car;
+    return toDriverProfile(me);
+  },
   getHomeSummary: () => homeSummary(),
 
   async getFeed() {
-    const page = await http.get<Api.OfferPage>(API_PATHS.tripOffers, { limit: 50 });
-    const items = page.data.map(offerToRequest);
-    lastOffers.clear();
-    for (const r of items) lastOffers.set(r.id, r);
-    return { items, seats: null, directions: [], dates: [] };
+    const [page, cities] = await Promise.all([http.get<Api.OfferPage>(API_PATHS.tripOffers, { limit: 50 }), cityNames()]);
+    return { items: page.data.map((o) => offerToRequest(o, cities)), seats: null, directions: [], dates: [] };
   },
   markFeedSeen: async () => {},
-  getRejectReasons: async () => [],
-  rejectRequest: notSupported,
+  getRejectReasons: async () => Object.values(REJECT_REASON_KEY).map((key) => ({ key })),
+
+  async rejectRequest(requestId, reasonKey) {
+    const reason = reasonFromKey(REJECT_REASON_KEY, reasonKey);
+    if (reasonKey && !reason) throw new ApiError("VALUE_REQUIRED");
+    const body: Api.OfferReject = reason ? { reason } : {};
+    try {
+      await http.post<void>(API_PATHS.tripOfferReject(requestId), body);
+    } catch (err) {
+      throw mapFieldError(err);
+    }
+  },
 
   async acceptRequest(requestId) {
-    let trip: Api.Trip;
     try {
-      trip = await http.post<Api.Trip>(API_PATHS.tripOfferAccept(requestId));
+      await http.post<Api.Trip>(API_PATHS.tripOfferAccept(requestId));
     } catch (err) {
       if (err instanceof ApiError && err.code === "ORDER_ALREADY_TAKEN") return settled("request_accept", "rejected", { resultKey: "request.taken" });
       throw err;
-    }
-    const offer = lastOffers.get(requestId);
-    if (offer) {
-      const acceptedAt = Date.now();
-      trips.set(trip.id, { booking: tripToBooking(trip, offer, acceptedAt), offer });
     }
     summaryCache = null;
     return settled("request_accept", "approved");
   },
   takeRequestAlerts: async () => [],
 
-  // ---------- accepted trips (this tab only) ----------
+  // ---------- accepted trips: GET /trips (assigned, in_progress) ----------
   async getAccepted(): Promise<AcceptedPage> {
-    const bookings = [...trips.values()].map((t) => t.booking).filter((b) => b.stage !== "completed");
+    const [trips, cities] = await Promise.all([readActiveTrips(), cityNames()]);
+    const bookings = trips.map((t) => tripToBooking(t, cities));
+    shownSteps = new Map();
+    for (const t of trips) {
+      const step = stepActionOf(t);
+      if (step) shownSteps.set(t.id, step);
+    }
     return {
       count: bookings.length,
       days: bookings.length
@@ -424,26 +567,71 @@ export const httpAdapter: ApiAdapter = {
   },
 
   async advanceBooking(bookingId) {
-    const entry = trips.get(bookingId);
-    if (!entry) throw new ApiError("TRIP_NOT_FOUND");
-    const action = entry.booking.nextAction;
-    if (action !== "start" && action !== "finish") throw new ApiError("FORBIDDEN");
-    const trip = await http.post<Api.Trip>(action === "start" ? API_PATHS.tripStart(bookingId) : API_PATHS.tripComplete(bookingId));
-    const booking = tripToBooking(trip, entry.offer, entry.booking.acceptedAt);
-    if (booking.stage === "completed") trips.delete(bookingId);
-    else trips.set(bookingId, { ...entry, booking });
+    // Exactly the step the card showed (from the last getAccepted), never a newer guess.
+    const action = shownSteps.get(bookingId);
+    const trip = activeTrips.get(bookingId);
+    if (!action || !trip) throw new ApiError("TRIP_NOT_FOUND");
+    const path =
+      action === "arrive" ? API_PATHS.tripArrive : action === "start" ? API_PATHS.tripStart : action === "complete" ? API_PATHS.tripComplete : null;
+    if (!path) throw new ApiError("FORBIDDEN");
+    let next: Api.Trip;
+    try {
+      next = await http.post<Api.Trip>(path(bookingId));
+    } catch (err) {
+      throw mapTripError(err);
+    }
+    // Sent once: the next step comes from the re-read list.
+    shownSteps.delete(bookingId);
+    if (next.status === "assigned" || next.status === "in_progress") activeTrips.set(bookingId, { ...trip, ...next, order: trip.order });
+    else activeTrips.delete(bookingId);
+    if (next.status === "completed") historyPages = { cursors: [], items: [] };
     summaryCache = null;
     return settled("trip_step", "approved");
   },
-  getCancelReasons: async () => [],
-  cancelBooking: notSupported,
+
+  getCancelReasons: async () => Object.values(CANCEL_REASON_KEY).map((key) => ({ key })),
+
+  async cancelBooking(bookingId, reasonKey) {
+    const reason = reasonFromKey(CANCEL_REASON_KEY, reasonKey);
+    if (!reason) throw new ApiError("VALUE_REQUIRED");
+    const body: Api.TripCancel = { reason };
+    try {
+      await http.post<Api.Trip>(API_PATHS.tripCancel(bookingId), body);
+    } catch (err) {
+      throw mapTripError(err);
+    }
+    activeTrips.delete(bookingId);
+    shownSteps.delete(bookingId);
+    historyPages = { cursors: [], items: [] };
+    summaryCache = null;
+  },
   getTripSummary: notSupported,
   getTripChat: notSupported,
   sendTripMessage: notSupported,
 
-  // ---------- history: no driver endpoint ----------
-  getHistory: notSupported,
-  getTripDetail: notSupported,
+  // ---------- history: GET /trips/history (cursor) ----------
+  async getHistory({ page = 1 }) {
+    if (page <= 1) historyPages = { cursors: [], items: [] };
+    const [, cities] = await Promise.all([loadHistory(Math.max(1, page)), cityNames()]);
+    return {
+      items: historyPages.items.flat().map((t) => tripToHistoryItem(t, cities)),
+      filterOptions: { minEarnings: [], ranges: [] },
+      hasMore: historyMore(),
+    };
+  },
+
+  async getTripDetail(id) {
+    // No GET /trips/{id}: look in the loaded history pages, then page on (bounded).
+    const MAX_PAGES = 10;
+    const find = () => historyPages.items.flat().find((t) => t.id === id);
+    let trip = find();
+    while (!trip && (historyPages.items.length === 0 || historyMore()) && historyPages.items.length < MAX_PAGES) {
+      await loadHistory(historyPages.items.length + 1);
+      trip = find();
+    }
+    if (!trip) throw new ApiError("TRIP_NOT_FOUND");
+    return tripToDetail(trip, await cityNames());
+  },
 
   // ---------- wallet ----------
   async getWallet() {
@@ -525,8 +713,24 @@ export const httpAdapter: ApiAdapter = {
   getHelpRequests: notSupported,
   submitHelpRequest: notSupported,
   getAppInfo: async () => ({ version: appVersion, build: "web" }),
-  getCapabilities: notSupported,
-  setCapabilities: notSupported,
+  async getCapabilities() {
+    const [caps, me] = await Promise.all([
+      http.get<Api.DriverCapabilities>(API_PATHS.driverCapabilities),
+      http.get<Api.DriverProfile>(API_PATHS.driverMe),
+    ]);
+    lastCar = me.car;
+    return toCapabilities(caps, me.car);
+  },
+
+  async setCapabilities(input) {
+    let saved: Api.DriverCapabilities;
+    try {
+      saved = await http.put<Api.DriverCapabilities>(API_PATHS.driverCapabilities, toApiCapabilities(input));
+    } catch (err) {
+      throw mapFieldError(err);
+    }
+    return toCapabilities(saved, lastCar);
+  },
 
   async getReviewStatus(reviewId) {
     if (reviewId === REGISTRATION_REVIEW_ID) {

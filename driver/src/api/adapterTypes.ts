@@ -23,6 +23,8 @@ export type ApiCapabilities = {
   tripChat: boolean;
   tripSummary: boolean;
   history: boolean;
+  /** Range / min-earnings / city filters and the total count on the history list. */
+  historyFilters: boolean;
   bonus: boolean;
   help: boolean;
   /** "Imkoniyatlarim". */
@@ -40,8 +42,9 @@ export type ApiCapabilities = {
   locationReporting: boolean;
 };
 
-/** Server-pushed events (WebSocket), already reduced to what screens refresh on. */
-export type ServerEvent = { type: "feed" | "trips" | "wallet" | "session" };
+/** Server-pushed events (WebSocket), already reduced to what screens refresh on.
+ * `noticeKey`: a translation key the shell shows as a toast (e.g. a trip was cancelled by an operator). */
+export type ServerEvent = { type: "feed" | "trips" | "wallet" | "session"; noticeKey?: string };
 
 /**
  * Every screen talks to the app only through this interface.
@@ -50,7 +53,7 @@ export type ServerEvent = { type: "feed" | "trips" | "wallet" | "session" };
  */
 export interface ApiAdapter {
   readonly capabilities: ApiCapabilities;
-  /** How many digits an SMS code can have (the contract allows 4–6). */
+  /** How many digits an SMS code can have when requestOtp doesn't say (the contract allows 4–6). */
   readonly otpLength: { min: number; max: number };
   /** Server events; the sample-data adapter never emits any. */
   subscribe(listener: (event: ServerEvent) => void): () => void;
@@ -61,7 +64,8 @@ export interface ApiAdapter {
   getSession(): Promise<Session>;
   getRegistrationOptions(): Promise<RegistrationOptions>;
   /** `testCode` is set only by the sample-data adapter (the screen autofills it). */
-  requestOtp(phone: string): Promise<{ requestId: string; testCode?: string; resendInSec: number }>;
+  /** `codeLength`: digits in the code just sent, when the server says (overrides otpLength). */
+  requestOtp(phone: string): Promise<{ requestId: string; testCode?: string; resendInSec: number; codeLength?: number }>;
   verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;
   savePersonal(input: { name: string; cityId: string; birthDate?: string }): Promise<Session>;
   saveCar(input: { model: string; colorKey: string; plate: string; year: number; carClass?: CarClass; seats?: number }): Promise<Session>;

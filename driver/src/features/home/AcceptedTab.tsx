@@ -56,6 +56,10 @@ export function AcceptedTab({ accepted, onChanged, onSummary, onShowNew }: { acc
       onChanged();
     } catch (e) {
       toast(errorMessage(e, t), "danger");
+      // The server refused (e.g. the trip has started): close and show its current state.
+      const code = (e as { code?: string } | null)?.code;
+      if (code === "TRIP_STARTED" || code === "FORBIDDEN" || code === "ORDER_NOT_FOUND" || code === "TRIP_NOT_FOUND") setCancelling(null);
+      accepted.reload(true);
     } finally {
       setCancelBusy(false);
     }

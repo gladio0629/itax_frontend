@@ -13,6 +13,7 @@ import { Switch } from "@/components/Switch";
 import { Chip } from "@/components/Chip";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonList } from "@/components/Skeleton";
+import { cn } from "@/lib/cn";
 
 /** "Imkoniyatlarim": child seat (with age groups), pets, big luggage; car class and cargo body read-only. */
 export default function CapabilitiesScreen() {
@@ -57,7 +58,7 @@ export default function CapabilitiesScreen() {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
         {q.error && !caps ? (
           <ErrorState error={q.error} onRetry={() => q.reload()} />
-        ) : !caps || !body ? (
+        ) : !caps ? (
           <SkeletonList rows={4} label={t("common.loading")} />
         ) : (
           <>
@@ -75,7 +76,7 @@ export default function CapabilitiesScreen() {
                   <p id={agesId} className="mb-2 text-sm text-muted">
                     {t("caps.ages")}
                   </p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className={cn("grid gap-2", caps.ageGroups.length > 3 ? "grid-cols-2" : "grid-cols-3")}>
                     {caps.ageGroups.map((a) => {
                       const on = caps.childSeatAges.includes(a);
                       return (
@@ -101,18 +102,27 @@ export default function CapabilitiesScreen() {
               />
             </SettingsGroup>
 
-            <SectionLabel className="mt-6">{t("caps.car")}</SectionLabel>
-            <SettingsGroup label={t("caps.car")}>
-              <SettingsRow icon={Car} tile="slate" label={t("caps.carClass")} description={caps.carModel} value={t(`carClass.${caps.carClass}`)} />
-              <SettingsRow
-                icon={Truck}
-                tile="teal"
-                label={t("caps.cargoBody")}
-                description={`${t("freight.dims", { w: body.dimensionsCm.width, d: body.dimensionsCm.depth, h: body.dimensionsCm.height })} · ${t("freight.maxKg", { kg: body.maxWeightKg })}`}
-                value={body.sizeLabel}
-              />
-            </SettingsGroup>
-            <p className="px-1 text-sm text-muted">{t("caps.readOnly")}</p>
+            {/* Read-only car facts, each only when the server describes it. */}
+            {(caps.carClass || body) && (
+              <>
+                <SectionLabel className="mt-6">{t("caps.car")}</SectionLabel>
+                <SettingsGroup label={t("caps.car")}>
+                  {caps.carClass && (
+                    <SettingsRow icon={Car} tile="slate" label={t("caps.carClass")} description={caps.carModel} value={t(`carClass.${caps.carClass}`)} />
+                  )}
+                  {body && (
+                    <SettingsRow
+                      icon={Truck}
+                      tile="teal"
+                      label={t("caps.cargoBody")}
+                      description={`${t("freight.dims", { w: body.dimensionsCm.width, d: body.dimensionsCm.depth, h: body.dimensionsCm.height })} · ${t("freight.maxKg", { kg: body.maxWeightKg })}`}
+                      value={body.sizeLabel}
+                    />
+                  )}
+                </SettingsGroup>
+                <p className="px-1 text-sm text-muted">{t("caps.readOnly")}</p>
+              </>
+            )}
           </>
         )}
       </div>

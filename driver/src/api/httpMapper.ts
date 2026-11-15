@@ -6,19 +6,30 @@ import type * as Api from "@shared/api/openapi";
 import { ApiError } from "@shared/http/errors";
 import type {
   Booking,
+  CapabilitiesInput,
   CarClass,
   CityRef,
   DebtLevel,
   DebtState,
+  DriverCapabilities,
   DriverProfile,
+  HistoryItem,
   LedgerEntry,
   LedgerType,
   NotificationItem,
   NotificationKind,
   OfferPlace,
+  PaymentType,
   RideRequest,
+  RideTime,
+  RoutesPage,
+  SeatPosition,
+  TimelineEvent,
+  TripAction,
+  TripDetail,
   TripStage,
   TripStep,
+  TripWhen,
 } from "./types";
 
 // ------------------------------------------------------------------ units
@@ -48,9 +59,9 @@ export function safeRedirect(url: string): string {
 }
 
 // ------------------------------------------------- registration references
-// No endpoint serves these yet (docs/backend-gaps/driver.md): static form
-// choices so the registration form can be filled in. They are sent as-is;
-// the server validates them.
+// No endpoint serves car models/colors (docs/backend-gaps/driver.md): static
+// form choices, sent as-is; the server validates them. Cities come from
+// GET /api/v1/cities; REG_CITIES is only the fallback when that fails.
 export const REG_CITIES: CityRef[] = [
   "Toshkent", "Samarqand", "Buxoro", "Andijon", "Namangan", "Farg'ona", "Qarshi", "Nukus", "Xiva",
   "Jizzax", "Navoiy", "Termiz", "Guliston", "Urganch",
@@ -117,76 +128,273 @@ export function mapFieldError(err: unknown): unknown {
 }
 
 // ---------------------------------------------------------------- places
-/** A contract GeoPoint has only an address line: shown as the place name. */
-export function placeOf(p: Api.GeoPoint): OfferPlace {
-  const name = p.address?.trim() || `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`;
-  return { city: { id: "", name }, address: "" };
+/** City id → name, from GET /api/v1/cities. Empty when the catalogue couldn't be read. */
+export type CityNames = ReadonlyMap<string, string>;
+
+/** A contract GeoPoint: the city comes from the catalogue (`*_city_id`) when known,
+ * the address line from the point. Without a city the address is the place name. */
+export function placeOf(p: Api.GeoPoint, cityId: string | null | undefined, cities: CityNames): OfferPlace {
+  const address = p.address?.trim() ?? "";
+  const cityName = cityId ? cities.get(cityId) : undefined;
+  if (cityName && cityId) return { city: { id: cityId, name: cityName }, address: address === cityName ? "" : address };
+  return { city: { id: "", name: address || `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}` }, address: "" };
+}
+
+// ------------------------------------------------------------------ times
+const DAY_MS = 86_400_000;
+const startOfDay = (ms: number) => {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+const isoDay = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/** Pickup time as the server sent it: `scheduled_at` (exact) or
+ * `scheduled_from`–`scheduled_to` (window). None = "now": no `when`. */
+export function whenOf(at?: string | null, from?: string | null, to?: string | null): TripWhen | undefined {
+  const exact = at ? Date.parse(at) : NaN;
+  const a = from ? Date.parse(from) : NaN;
+  const b = to ? Date.parse(to) : NaN;
+  const time: RideTime | null = !Number.isNaN(exact)
+    ? { kind: "exact", at: exact }
+    : !Number.isNaN(a) && !Number.isNaN(b)
+      ? { kind: "interval", from: a, to: b }
+      : null;
+  if (!time) return undefined;
+  const dayStart = startOfDay(time.kind === "exact" ? time.at : time.from);
+  return { date: isoDay(dayStart), dayOffset: Math.round((dayStart - startOfDay(Date.now())) / DAY_MS), dayStart, time };
+}
+
+const parseTime = (s: string | null | undefined) => {
+  const v = s ? Date.parse(s) : NaN;
+  return Number.isNaN(v) ? undefined : v;
+};
+
+// ----------------------------------------------------------------- orders
+/** Only cash and card have a label in the driver UI; wallet etc. stay unlabelled. */
+export function paymentOf(m: Api.PaymentMethod | undefined): PaymentType | undefined {
+  if (m === "cash") return "cash";
+  if (m === "card" || m === "payme" || m === "click") return "card";
+  return undefined;
+}
+
+const SEAT_POSITIONS: readonly SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
+const seatIdsOf = (ids: Api.SeatId[] | undefined): SeatPosition[] | undefined => {
+  const out = (ids ?? []).filter((s): s is SeatPosition => SEAT_POSITIONS.includes(s as SeatPosition));
+  return out.length ? out : undefined;
+};
+
+/** The parts shared by an offer and an accepted order. */
+function orderFields(o: Api.Offer | Api.Order, cities: CityNames) {
+  const seats = o.seats ?? o.seat_ids?.length ?? 0;
+  return {
+    pickup: placeOf(o.from, o.from_city_id, cities),
+    dropoff: placeOf(o.to, o.to_city_id, cities),
+    kind: o.type === "delivery" ? ("delivery" as const) : ("passengers" as const),
+    seats,
+    wholeCar: o.type === "passenger" && !seats && !!o.car_class,
+    when: whenOf(o.scheduled_at, o.scheduled_from, o.scheduled_to),
+    payment: paymentOf(o.payment_method),
+    carClass: o.car_class,
+    seatIds: seatIdsOf(o.seat_ids),
+    stops: [],
+    comment: o.comment?.trim() || null,
+    options: [],
+    luggageCount: 0,
+    forOther: null,
+    contactMode: "call" as const,
+    freight: null,
+  };
 }
 
 // ----------------------------------------------------------------- offers
-export function offerToRequest(o: Api.Offer): RideRequest {
+export function offerToRequest(o: Api.Offer, cities: CityNames): RideRequest {
   const price = toSom(o.price);
   const net = o.commission == null ? price : toSom(o.price - o.commission);
-  const wholeCar = o.type === "passenger" && !o.seats && !!o.car_class;
   return {
+    ...orderFields(o, cities),
     id: o.id,
     directionId: "",
-    pickup: placeOf(o.from),
-    dropoff: placeOf(o.to),
-    kind: o.type === "delivery" ? "delivery" : "passengers",
-    seats: o.seats ?? 0,
-    wholeCar,
     price,
     earnings: { net },
     distanceKm: km(o.distance_m),
     durationMin: 0,
     pickupEtaMin: o.pickup_eta_s == null ? undefined : Math.max(1, Math.round(o.pickup_eta_s / 60)),
+    postedAt: parseTime(o.created_at),
     status: "open",
     acceptBlock: null,
-    carClass: o.car_class,
-    stops: [],
-    comment: null,
-    options: [],
-    luggageCount: 0,
-    forOther: null,
-    contactMode: "call",
-    freight: null,
   };
 }
 
-// ------------------------------------------------------------------ trips
-const STAGE_OF: Record<Api.TripStatus, TripStage> = {
-  assigned: "to_pickup",
-  in_progress: "in_progress",
-  completed: "completed",
-  cancelled: "completed",
+/** UI reject reasons (i18n keys) ↔ OfferReject.reason. */
+export const REJECT_REASON_KEY: Record<Api.OfferRejectReason, string> = {
+  too_far: "reject.reason.far",
+  bad_price: "reject.reason.price",
+  busy: "reject.reason.busy",
+  other: "reject.reason.other",
 };
-// The contract has no "arrived" call: three steps.
-const STEP_ORDER: TripStage[] = ["to_pickup", "in_progress", "completed"];
 
-/** A trip the driver accepted, shown with the offer it came from. The only
- * calls the contract has are start (assigned) and complete (in_progress);
- * the server answers 403 if the trip isn't in that state. */
-export function tripToBooking(trip: Api.Trip, offer: RideRequest, acceptedAt: number): Booking {
-  const stage = STAGE_OF[trip.status];
+/** UI cancel reasons (i18n keys) ↔ TripCancel.reason. */
+export const CANCEL_REASON_KEY: Record<Api.TripCancelReason, string> = {
+  passenger_no_show: "cancel.reason.passengerNoShow",
+  passenger_asked: "cancel.reason.passengerAsked",
+  car_problem: "cancel.reason.carIssue",
+  emergency: "cancel.reason.emergency",
+  other: "cancel.reason.other",
+};
+
+export const reasonFromKey = <R extends string>(table: Record<R, string>, key: string | undefined): R | undefined =>
+  (Object.keys(table) as R[]).find((r) => table[r] === key);
+
+// ------------------------------------------------------------------ trips
+// Progress display only: which of the four steps the trip has reached,
+// from the server's status and timestamps. The button is next_actions'.
+const STEP_ORDER: TripStage[] = ["to_pickup", "waiting", "in_progress", "completed"];
+const ACTION_OF: Partial<Record<Api.TripAction, TripAction>> = { arrive: "arrived", start: "start", complete: "finish" };
+
+/** The server action behind the step button: the first step action in `next_actions`, in its order. */
+export const stepActionOf = (t: Api.Trip): Api.TripAction | undefined => (t.next_actions ?? []).find((a) => !!ACTION_OF[a]);
+
+function stageOf(t: Api.Trip): TripStage {
+  if (t.status === "completed" || t.status === "cancelled") return "completed";
+  if (t.status === "in_progress") return "in_progress";
+  return t.arrived_at ? "waiting" : "to_pickup";
+}
+
+/** A trip with its order. The step button is the first step the server lists in
+ * `next_actions` (in its order); cancel only when the server lists it. */
+export function tripToBooking(t: Api.TripWithOrder, cities: CityNames): Booking {
+  const stage = stageOf(t);
   const at = STEP_ORDER.indexOf(stage);
   const steps: TripStep[] = STEP_ORDER.map((s, i) => ({ stage: s, state: i < at || stage === "completed" ? "done" : i === at ? "active" : "upcoming" }));
+  const actions = t.next_actions ?? [];
+  const serverStep = stepActionOf(t);
+  const step = (serverStep && ACTION_OF[serverStep]) ?? null;
+  const price = toSom(t.final_price ?? t.order.price);
   return {
-    ...offer,
-    id: trip.id,
+    ...orderFields(t.order, cities),
+    id: t.id,
+    directionId: "",
     stage,
     steps,
-    nextAction: trip.status === "assigned" ? "start" : trip.status === "in_progress" ? "finish" : null,
+    nextAction: step,
+    canCancel: actions.includes("cancel"),
     pendingReviewId: null,
+    // Not in the contract: no passenger row, no call button.
     passenger: undefined,
-    pickup: offer.pickup,
-    dropoff: offer.dropoff,
-    stops: [],
-    price: trip.final_price == null ? offer.price : toSom(trip.final_price),
-    earnings:
-      trip.final_price != null && trip.commission != null ? { net: toSom(trip.final_price - trip.commission) } : offer.earnings,
-    acceptedAt,
+    price,
+    // The order carries no commission; the server gives it on completion.
+    earnings: t.final_price != null && t.commission != null ? { net: toSom(t.final_price - t.commission) } : undefined,
+    acceptedAt: Date.parse(t.order.created_at) || 0,
   };
+}
+
+const CANCEL_KEY_OF: Record<string, string> = CANCEL_REASON_KEY;
+
+function historyBase(t: Api.TripWithOrder, cities: CityNames): HistoryItem {
+  const o = t.order;
+  const cancelled = t.status === "cancelled";
+  return {
+    id: t.id,
+    // When the trip ended (or the order was placed, if the server gives no end time).
+    createdAt: parseTime(t.completed_at) ?? parseTime(t.cancelled_at) ?? parseTime(t.started_at) ?? (Date.parse(o.created_at) || 0),
+    from: placeOf(o.from, o.from_city_id, cities).city,
+    to: placeOf(o.to, o.to_city_id, cities).city,
+    passengerName: "",
+    earnings: !cancelled && t.final_price != null ? toSom(t.final_price - (t.commission ?? 0)) : 0,
+    payment: paymentOf(o.payment_method),
+    ratingReceived: null,
+    status: cancelled ? "cancelled" : "completed",
+    kind: o.type === "delivery" ? "delivery" : "passengers",
+  };
+}
+
+export const tripToHistoryItem = (t: Api.TripWithOrder, cities: CityNames): HistoryItem => historyBase(t, cities);
+
+export function tripToDetail(t: Api.TripWithOrder, cities: CityNames): TripDetail {
+  const o = t.order;
+  // Trip has no accepted-at time: the timeline starts at "arrived" when there is one.
+  const timeline: TimelineEvent[] = [];
+  const events: [TimelineEvent["stage"], string | null | undefined][] = [
+    ["arrived", t.arrived_at],
+    ["started", t.started_at],
+    ["completed", t.completed_at],
+    ["cancelled", t.cancelled_at],
+  ];
+  for (const [stage, iso] of events) {
+    const at = parseTime(iso);
+    if (at != null) timeline.push({ stage, at });
+  }
+  timeline.sort((x, y) => x.at - y.at);
+  const gross = toSom(t.final_price ?? o.price);
+  const commission = t.commission == null ? 0 : toSom(t.commission);
+  return {
+    ...historyBase(t, cities),
+    pickup: placeOf(o.from, o.from_city_id, cities),
+    dropoff: placeOf(o.to, o.to_city_id, cities),
+    distanceKm: km(t.distance_m ?? o.distance_m),
+    durationMin: o.duration_s ? Math.max(1, Math.round(o.duration_s / 60)) : 0,
+    passenger: undefined,
+    passengers: o.type === "passenger" ? o.seats ?? o.seat_ids?.length : undefined,
+    timeline,
+    breakdown: { base: gross, commission, bonusDiscount: 0, net: t.final_price == null ? 0 : toSom(t.final_price - (t.commission ?? 0)) },
+    // Admin cancels use the admin reason list: shown as "cancelled by an operator".
+    cancelReasonKey: t.cancelled_by === "admin" ? "cancel.byAdmin" : t.cancel_reason ? CANCEL_KEY_OF[t.cancel_reason] : undefined,
+  };
+}
+
+// ----------------------------------------------------------------- routes
+export function toRoutesPage(r: Api.DriverRoutes, cities: CityRef[]): RoutesPage {
+  const names = new Map(cities.map((c) => [c.id, c.name]));
+  const ref = (id: string): CityRef => ({ id, name: names.get(id) ?? "—" });
+  return {
+    routes: r.routes.map((x, i) => ({ id: x.id ?? `route-${i}`, a: ref(x.a_city_id), b: ref(x.b_city_id), bothWays: x.both_ways })),
+    cities,
+  };
+}
+
+export const toRoutesInput = (routes: RoutesPage["routes"]): Api.DriverRoutesInput => ({
+  routes: routes.map((r) => ({ a_city_id: r.a.id, b_city_id: r.b.id, both_ways: r.bothWays })),
+});
+
+/** 422 on PUT /drivers/me/routes: `routes.N.b_city_id: same_as_a`, `routes.N: duplicate`. */
+export function mapRoutesError(err: unknown): unknown {
+  if (!(err instanceof ApiError) || err.code !== "VALIDATION_ERROR") return err;
+  const fields = (err.params.fields as Record<string, unknown> | undefined) ?? {};
+  const init = { params: err.params, status: err.status };
+  for (const [k, v] of Object.entries(fields)) {
+    if (/^routes\.\d+\.b_city_id$/.test(k) && v === "same_as_a") return new ApiError("ROUTE_SAME_CITY", "ROUTE_SAME_CITY", init);
+    if (/^routes\.\d+$/.test(k) && v === "duplicate") return new ApiError("ROUTE_EXISTS", "ROUTE_EXISTS", init);
+    // maxItems 10 (the server's array-size error on the list itself).
+    if (k === "routes") return new ApiError("ROUTES_TOO_MANY", "ROUTES_TOO_MANY", init);
+  }
+  return err;
+}
+
+// ----------------------------------------------------------- capabilities
+/** The contract's child-seat age groups, in its enum order. */
+export const API_CHILD_SEAT_AGES: Api.ChildSeatAge[] = ["0-1", "1-3", "3-7", "7-12"];
+
+export function toCapabilities(c: Api.DriverCapabilities, car: Api.Car | undefined): DriverCapabilities {
+  return {
+    childSeat: c.child_seat,
+    childSeatAges: API_CHILD_SEAT_AGES.filter((a) => c.child_seat_ages.includes(a)),
+    ageGroups: [...API_CHILD_SEAT_AGES],
+    pets: c.pets,
+    bigLuggage: c.big_luggage,
+    carModel: car ? `${car.brand} ${car.model}`.trim() : undefined,
+    carClass: car?.car_class,
+    cargoBody: undefined,
+  };
+}
+
+/** Ages must be empty while child_seat is off (`requires_child_seat`). */
+export function toApiCapabilities(input: CapabilitiesInput): Api.DriverCapabilities {
+  const ages = API_CHILD_SEAT_AGES.filter((a) => (input.childSeatAges as string[]).includes(a));
+  return { child_seat: input.childSeat, child_seat_ages: input.childSeat ? ages : [], pets: input.pets, big_luggage: input.bigLuggage };
 }
 
 // ----------------------------------------------------------------- driver
