@@ -1,17 +1,24 @@
-// WebSocket client for GET /ws?token=<access token> (client and driver
-// only; the contract's /ws takes identity tokens, not admin tokens).
+// WebSocket client for GET /ws (client and driver only; the contract's /ws
+// takes identity tokens, not admin tokens). Events: onlyback/docs/websocket-events.md.
+// - Auth by subprotocol: new WebSocket(url, ["izgo.v1", "bearer.<token>"]).
+//   The token is never in the URL (URLs end up in proxy and access logs);
+//   the server checks it before the upgrade and echoes only "izgo.v1".
 // - One socket at a time (the server allows 3 per user): the old one is
 //   closed before a new one opens.
 // - Reconnects with exponential backoff, 1 s doubling up to 30 s.
-// - Close 4401 token_expired → refresh, then reconnect; 4401
-//   session_revoked → session over. Reconnects after every token refresh.
+// - Close 4401 token_expired / token_invalid → refresh, then reconnect;
+//   4401 session_revoked → session over. 4403 ws_connection_limit (too many
+//   tabs) → slow backoff. Reconnects after every token refresh.
 // - Server → client only: this never sends a frame (the server closes with
 //   1008 if the client sends data).
-// - The URL carries the token, so it is never logged or put in errors.
+// - The protocol list carries the token, so it is never logged or put in errors.
 import type { RealtimeEvent } from "../api/openapi.ts";
 import { websocketUrl } from "./config.ts";
 
 export type RealtimeListener = (event: RealtimeEvent) => void;
+
+/** Subprotocol the server echoes; the bearer entry carries the access token. */
+export const WS_PROTOCOL = "izgo.v1";
 
 type SocketLike = {
   onopen: ((ev: unknown) => void) | null;
@@ -30,7 +37,7 @@ export type RealtimeOptions = {
   onSessionEnded: () => void;
   minDelayMs?: number;
   maxDelayMs?: number;
-  WebSocketImpl?: new (url: string) => SocketLike;
+  WebSocketImpl?: new (url: string, protocols?: string[]) => SocketLike;
 };
 
 export type Realtime = {
@@ -55,7 +62,8 @@ export function createRealtime(opts: RealtimeOptions): Realtime {
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   const Impl =
-    opts.WebSocketImpl ?? (typeof WebSocket !== "undefined" ? (WebSocket as unknown as new (url: string) => SocketLike) : null);
+    opts.WebSocketImpl ??
+    (typeof WebSocket !== "undefined" ? (WebSocket as unknown as new (url: string, protocols?: string[]) => SocketLike) : null);
 
   function clearTimer() {
     if (timer) clearTimeout(timer);
@@ -102,7 +110,7 @@ export function createRealtime(opts: RealtimeOptions): Realtime {
     closeSocket();
     let s: SocketLike;
     try {
-      s = new Impl(`${websocketUrl(opts.baseUrl, "/ws")}?token=${encodeURIComponent(token)}`);
+      s = new Impl(websocketUrl(opts.baseUrl, "/ws"), [WS_PROTOCOL, `bearer.${token}`]);
     } catch {
       return scheduleReconnect();
     }
@@ -137,6 +145,11 @@ export function createRealtime(opts: RealtimeOptions): Realtime {
       open = false;
       if (!wanted) return;
       if (ev.code === 4401 && ev.reason === "session_revoked") return end();
+      if (ev.code === 4403) {
+        // Too many open connections for this user: wait the longest delay.
+        attempt = Math.max(attempt, 30);
+        return scheduleReconnect();
+      }
       if (ev.code === 4401) {
         // token_expired: refresh, then reconnect right away.
         opts.refresh().then(

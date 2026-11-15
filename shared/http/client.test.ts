@@ -220,9 +220,11 @@ test("realtime: one socket, backoff 1s→2s→…≤30s, token_expired refreshes
     onclose: ((ev: { code: number; reason: string }) => void) | null = null;
     onerror: ((ev: unknown) => void) | null = null;
     url: string;
+    protocols: string[];
     closed = false;
-    constructor(url: string) {
+    constructor(url: string, protocols: string[] = []) {
       this.url = url;
+      this.protocols = protocols;
       sockets.push(this);
     }
     close() {
@@ -253,7 +255,9 @@ test("realtime: one socket, backoff 1s→2s→…≤30s, token_expired refreshes
   rt.connect();
   rt.connect(); // second call must not open a second socket
   assert.equal(sockets.length, 1);
-  assert.equal(sockets[0].url, "wss://api.example.com/ws?token=AT1");
+  // token in the subprotocol, never in the URL
+  assert.equal(sockets[0].url, "wss://api.example.com/ws");
+  assert.deepEqual(sockets[0].protocols, ["izgo.v1", "bearer.AT1"]);
   sockets[0].onopen?.({});
   sockets[0].onmessage?.({ data: JSON.stringify({ type: "order.accepted", id: "o1", status: "accepted", order_id: "o1" }) });
   assert.deepEqual(got, ["order.accepted"]);
@@ -262,7 +266,8 @@ test("realtime: one socket, backoff 1s→2s→…≤30s, token_expired refreshes
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(refreshes, 1);
   assert.equal(sockets.length, 2);
-  assert.ok(sockets[1].url.endsWith("token=AT2"));
+  assert.deepEqual(sockets[1].protocols, ["izgo.v1", "bearer.AT2"]);
+  assert.ok(!sockets[1].url.includes("token"));
 
   sockets[1].onclose?.({ code: 1006, reason: "" }); // drop → backoff
   assert.equal(sockets.length, 2);
