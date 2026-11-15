@@ -14,6 +14,7 @@ import { formatSom, formatKm, formatRelativeDay, formatTime } from "@/lib/format
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { RatingReasonsSheet } from "./RatingReasonsSheet";
+import { TipCard } from "@/features/order/TipCard";
 
 const STATUS_LABEL_KEY: Record<string, TranslationKey> = {
   completed: "history.status.completed",
@@ -140,6 +141,8 @@ export function HistoryDetailScreen() {
             {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t("order.submitError")}</p>}
           </Card>
         )}
+
+        {order.status === "completed" && order.driver && <TipCard orderId={orderId} className="mt-4" />}
 
         <Link
           to="/help"

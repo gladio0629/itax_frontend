@@ -131,7 +131,8 @@ export function IstaklarSheet({
   if (ios) {
     return (
       <Sheet open onClose={onClose} ariaLabel={t("options.title")} panelClassName="ios:bg-bg">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-3 pt-1">
+        {/* Pinned like a navigation bar, so "Tayyor" stays reachable while the list scrolls. */}
+        <div className="sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center bg-bg px-4 pb-3 pt-1">
           <span />
           <h2 className="ios-headline text-ink">{t("options.title")}</h2>
           <button type="button" onClick={onClose} className="ios-headline min-h-[44px] justify-self-end text-accent">
@@ -147,11 +148,14 @@ export function IstaklarSheet({
                   <IconTile icon={ICONS[o.id]} tone={o.id === "child_seat" ? "yellow" : "accent"} />
                   <span className="min-w-0 flex-1">
                     <span className="ios-body block text-ink">{title}</span>
+                    {/* Price sits with the description: at Body size a separate
+                        price column would squeeze the text into a sliver. */}
                     <span className="ios-subheadline block text-[color:var(--ios-label-secondary)]">
+                      <span className="tabular text-ink/80">{price(o)}</span>
+                      {" \u00b7 "}
                       {o.available ? t(o.descKey as TranslationKey) : t(o.reasonKey as TranslationKey)}
                     </span>
                   </span>
-                  <span className="ios-subheadline shrink-0 text-[color:var(--ios-label-secondary)] tabular">{price(o)}</span>
                   <Switch checked={selected.includes(o.id)} disabled={!o.available} onChange={() => onToggle(o)} label={title} />
                 </div>
                 {variantPicker(o)}

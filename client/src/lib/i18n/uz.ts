@@ -183,6 +183,7 @@ export const uz = {
   "luggage.decrease": "Sumkalarni kamaytirish",
   "luggage.increase": "Sumkalarni ko'paytirish",
   "luggage.error": "Bagaj soni noto'g'ri",
+  "rider.summary": "Kim ketadi",
   "rider.title": "Kim ketadi?",
   "rider.me": "Men",
   "rider.other": "Boshqa odam",

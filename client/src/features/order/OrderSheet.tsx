@@ -574,7 +574,7 @@ export function OrderSheet({
                     />
                   )}
                   {draft.rider.kind === "other" && (
-                    <SummaryRow label={t("rider.title")} value={`${draft.rider.name.trim()}, +998 ${draft.rider.phone}`} />
+                    <SummaryRow label={t("rider.summary")} value={`${draft.rider.name.trim()}, +998 ${draft.rider.phone}`} />
                   )}
                 </dl>
               )}

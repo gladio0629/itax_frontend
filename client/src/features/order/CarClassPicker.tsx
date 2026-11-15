@@ -57,7 +57,7 @@ export function CarClassPicker({
           className="no-scrollbar -mx-5 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-5 pb-1"
         >
           {status === "loading" && classes.length === 0
-            ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-[108px] w-[112px] shrink-0" />)
+            ? Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-[108px] w-[124px] shrink-0 ios:w-[140px]" />)
             : classes.map((c) => {
                 const selected = c.id === value;
                 const Icon = c.id === "miniven" ? Bus : Car;
@@ -75,7 +75,7 @@ export function CarClassPicker({
                     tabIndex={selected ? 0 : -1}
                     onClick={() => c.available && onChange(c.id)}
                     className={cn(
-                      "flex w-[112px] shrink-0 snap-start flex-col items-start gap-1 rounded-xl border-2 p-3 text-left transition-colors",
+                      "flex w-[124px] shrink-0 snap-start flex-col items-start gap-1 rounded-xl border-2 p-3 text-left transition-colors ios:w-[140px]",
                       selected ? "border-accent bg-accent-5" : "border-border hover:border-accent/40",
                       !c.available && "cursor-not-allowed opacity-50 hover:border-border",
                       "ios:border-0 ios:bg-[var(--ios-fill-quaternary)]",

@@ -183,6 +183,7 @@ export const ru: Dictionary = {
   "luggage.decrease": "Меньше сумок",
   "luggage.increase": "Больше сумок",
   "luggage.error": "Неверное количество багажа",
+  "rider.summary": "Кто поедет",
   "rider.title": "Кто поедет?",
   "rider.me": "Я",
   "rider.other": "Другой человек",

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Search, SearchX, Check, Clock3, Navigation } from "@/lib/icons";
+import { Search, SearchX, Check, Clock3, Navigation, ShieldCheck } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderWithDetails } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -17,6 +17,7 @@ import { useT } from "@/lib/i18n/provider";
 import { DriverCard } from "./DriverCard";
 import { CancelSheet } from "./CancelSheet";
 import { TafsilotlarSheet } from "./TafsilotlarSheet";
+import { SafetySheet } from "./SafetySheet";
 
 const SEARCH_TIMEOUT_S = 300; // 5 minutes, per spec — server usually resolves far sooner
 
@@ -36,6 +37,7 @@ export function OrderTrackScreen() {
   const [elapsed, setElapsed] = useState(0);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -134,7 +136,22 @@ export function OrderTrackScreen() {
 
   return (
     <div className="relative flex h-full flex-col bg-bg">
-      <ScreenHeader title={showNoDriver ? t("track.notFound") : t("track.title")} />
+      <ScreenHeader
+        title={showNoDriver ? t("track.notFound") : t("track.title")}
+        right={
+          // Safety tools while a driver is assigned or the trip is on.
+          (order.status === "accepted" || order.status === "in_progress") && (
+            <button
+              type="button"
+              onClick={() => setSafetyOpen(true)}
+              aria-label={t("safety.button")}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-bg shadow-softer transition-opacity hover:opacity-90 ios:h-9 ios:w-9"
+            >
+              <ShieldCheck className="h-5 w-5" />
+            </button>
+          )
+        }
+      />
 
       <div className="scroll-pb-bar flex-1 overflow-y-auto overscroll-contain px-4">
         <div className="relative mb-4 h-48 overflow-hidden rounded-2xl">
@@ -249,6 +266,7 @@ export function OrderTrackScreen() {
           }}
         />
       )}
+      {safetyOpen && <SafetySheet orderId={orderId} onClose={() => setSafetyOpen(false)} onToast={setToast} />}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );

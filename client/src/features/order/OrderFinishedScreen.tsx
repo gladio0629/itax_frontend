@@ -12,6 +12,7 @@ import { formatSom, formatKm } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
 import { useT } from "@/lib/i18n/provider";
 import { RatingReasonsSheet } from "@/features/history/RatingReasonsSheet";
+import { TipCard } from "./TipCard";
 
 export function OrderFinishedScreen() {
   const { t, intlTag } = useT();
@@ -91,6 +92,8 @@ export function OrderFinishedScreen() {
         {submitted && <p className="mt-3 text-center text-xs font-normal text-accent">{t("finished.ratingThanks")}</p>}
         {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t("order.submitError")}</p>}
       </Card>
+
+      <TipCard orderId={orderId} className="mb-4" />
 
       <Card className="mb-4 space-y-3 p-5">
         <p className="text-xs font-semibold text-ink/60">{t("finished.receiptTitle")}</p>

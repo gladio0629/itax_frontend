@@ -18,6 +18,7 @@ import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { AccountScreen } from "@/features/settings/AccountScreen";
 import { NotificationsSettingsScreen } from "@/features/settings/NotificationsSettingsScreen";
 import { AboutScreen } from "@/features/settings/AboutScreen";
+import { SafetySettingsScreen } from "@/features/settings/SafetySettingsScreen";
 import { HelpScreen } from "@/features/help/HelpScreen";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -61,6 +62,7 @@ export const router = createBrowserRouter(
         <Route path="/settings/account" element={<AccountScreen />} />
         <Route path="/settings/notifications" element={<NotificationsSettingsScreen />} />
         <Route path="/settings/about" element={<AboutScreen />} />
+        <Route path="/settings/safety" element={<SafetySettingsScreen />} />
         <Route path="/help" element={<HelpScreen />} />
       </Route>
 

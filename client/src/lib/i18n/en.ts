@@ -183,6 +183,7 @@ export const en: Dictionary = {
   "luggage.decrease": "Fewer bags",
   "luggage.increase": "More bags",
   "luggage.error": "Invalid number of bags",
+  "rider.summary": "Rider",
   "rider.title": "Who's riding?",
   "rider.me": "Me",
   "rider.other": "Someone else",
