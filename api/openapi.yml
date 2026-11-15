@@ -1,0 +1,3872 @@
+openapi: 3.1.0
+info:
+  title: IZGO Taxi Platform API
+  version: 0.2.0
+  description: |
+    IZGO taksi platformasi uchun yagona API shartnomasi (Etap 1 — skelet).
+    Barcha so'rovlar Kong gateway (http://localhost:8000) orqali o'tadi.
+
+    **Umumiy qoidalar**
+    - Barcha ID lar — UUID.
+    - Ro'yxatlar cursor pagination bilan: `{ "data": [...], "cursor": "..." }`.
+      `cursor` = `null` bo'lsa, keyingi sahifa yo'q. Keyingi sahifa uchun `?cursor=` yuboriladi.
+    - Narx, masofa, status, komissiya, qarz — FAQAT server hisoblaydi va qaytaradi.
+      Ular javob sxemalarida `readOnly: true`, so'rov sxemalarida umuman yo'q.
+    - Xato formati: `{ "error": { "key": "STRING", "params": {} } }`
+      (kalitlar ro'yxati — `shared/errors/errors.json`).
+    - Pul summalari — butun son, tiyinda (1 UZS = 100 tiyin).
+    - Har qanday endpoint `500 INTERNAL_ERROR` qaytarishi mumkin (`default` javob).
+    - "Ikki kishi tasdig'i" (wallet correction, tariffs) — yozuv `approval_status`
+      bilan `pending_approval` holatida yaratiladi; ikkinchi xodim `POST .../{id}/approve` bilan
+      tasdiqlaguncha (`pending_approval` → `approved`) kuchga kirmaydi. `POST .../{id}/reject`
+      bilan rad etiladi (`pending_approval` → `rejected`).
+servers:
+  - url: http://localhost:8000
+    description: Lokal Kong gateway
+
+tags:
+  - name: Auth
+  - name: Admin Auth
+  - name: Driver
+  - name: Orders
+  - name: Places
+    description: Shaharlar, manzil qidiruvi (server tomonida), saqlangan manzillar, yo'nalishlar, yuk mashinalari
+  - name: Trips
+  - name: Wallet
+  - name: Ratings
+  - name: Notifications
+  - name: Profile
+  - name: Admin
+
+security:
+  - userBearer: []
+
+paths:
+  # ===================================================================== AUTH
+  /api/v1/auth/otp/request:
+    post:
+      tags: [Auth]
+      summary: OTP so'rash — telefonga SMS kod yuboriladi
+      operationId: authOtpRequest
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtpRequest' }
+      responses:
+        '202':
+          description: SMS yuborildi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpRequestResult' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: OTP tekshirish — access va refresh token qaytadi
+      operationId: authOtpVerify
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtpVerify' }
+      responses:
+        '200':
+          description: Kod to'g'ri, token juftligi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401':
+          description: AUTH_OTP_INVALID yoki AUTH_OTP_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                invalid: { value: { error: { key: AUTH_OTP_INVALID, params: { attempts_left: 2 } } } }
+                expired: { value: { error: { key: AUTH_OTP_EXPIRED, params: {} } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/auth/token/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh token bilan yangi token juftligini olish
+      description: Eski refresh token bekor qilinadi (rotation).
+      operationId: authTokenRefresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: Yangi token juftligi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Chiqish — joriy refresh token bekor qilinadi
+      operationId: authLogout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '204': { description: Token bekor qilindi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # =============================================================== ADMIN AUTH
+  /admin/v1/auth/login/email:
+    post:
+      tags: [Admin Auth]
+      summary: Admin kirish, 1-qadam — email'ga kod yuboriladi
+      operationId: adminLoginEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminLoginEmail' }
+      responses:
+        '202':
+          description: Kod email'ga yuborildi (email mavjud bo'lmasa ham bir xil javob)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLoginChallenge' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/auth/login/sms:
+    post:
+      tags: [Admin Auth]
+      summary: Admin kirish, 2-qadam — email kodi + telefon (yoki email'siz operator — faqat telefon), SMS yuboriladi
+      description: |
+        Ikki ko'rinish:
+        - `{challenge_id, email_code, phone}` — email'i bor xodim, 1-qadamdan keyin (xuddi shu `challenge_id` qaytadi).
+        - `{phone}` — email'siz operator: email qadami o'tkazib yuboriladi, YANGI `challenge_id` qaytadi,
+          keyin `/login/verify`. Email'i bor xodim bu yo'l bilan kira olmaydi.
+        Noma'lum, nofaol yoki email'i bor xodim telefoni uchun ham bir xil `202` (SMS yuborilmaydi) —
+        xodim mavjudligi oshkor qilinmaydi. Telefon ko'rinishida IP va telefon bo'yicha limit bor (`429`).
+      operationId: adminLoginSms
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminLoginSms' }
+      responses:
+        '202':
+          description: SMS yuborildi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLoginChallenge' }
+        '401':
+          description: AUTH_OTP_INVALID yoki AUTH_OTP_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/auth/login/verify:
+    post:
+      tags: [Admin Auth]
+      summary: Admin kirish, 3-qadam — SMS kodi, admin token qaytadi
+      operationId: adminLoginVerify
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminLoginVerify' }
+      responses:
+        '200':
+          description: Admin token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminToken' }
+        '401':
+          description: AUTH_OTP_INVALID yoki AUTH_OTP_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/auth/logout:
+    post:
+      tags: [Admin Auth]
+      summary: Admin chiqishi — token serverda bekor qilinadi
+      description: |
+        `Authorization: Bearer <admin access token>`. Token sessiyasi (`sid`) serverda bekor qilinadi: shundan keyin
+        shu token bilan har qanday `/admin/v1/*` so'rovi `401`. Tana yo'q (yuborilsa e'tiborsiz). Idempotent: bekor
+        qilingan, lekin muddati o'tmagan token bilan qayta chaqiruv ham `204`. Yo'lovchi/haydovchi tokeni va refresh token — `401`.
+      operationId: adminLogout
+      security: [{ adminBearer: [] }]
+      responses:
+        '204': { description: Sessiya bekor qilindi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # =================================================================== DRIVER
+  /api/v1/drivers/me:
+    get:
+      tags: [Driver]
+      summary: Haydovchi profili
+      operationId: driverGetMe
+      responses:
+        '200':
+          description: Profil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DriverProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Driver]
+      summary: Profilni yangilash (faqat ruxsat etilgan maydonlar)
+      description: |
+        Faqat `DriverProfileUpdate` dagi maydonlar qabul qilinadi.
+        Mashina va hujjat ma'lumotlari bu yerda o'zgarmaydi (qayta tekshiruv talab qiladi).
+      operationId: driverUpdateMe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DriverProfileUpdate' }
+      responses:
+        '200':
+          description: Yangilangan profil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DriverProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/drivers/me/routes:
+    get:
+      tags: [Driver]
+      summary: Haydovchi yo'nalishlari ("Yo'nalishlarim")
+      operationId: driverRoutesGet
+      responses:
+        '200':
+          description: Yo'nalishlar (oxirgi PUT tartibida)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DriverRoutes' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Driver]
+      summary: Yo'nalishlarni to'liq almashtirish
+      description: |
+        0..10 ta. `a_city_id ≠ b_city_id` (`routes.N.b_city_id: same_as_a`); takror (bir xil juftlik yoki `both_ways` bo'lganda
+        teskari juftlik) — `routes.N: duplicate`. Shahar ID lari `GET /api/v1/cities` dan; driver servisi faqat formatni tekshiradi.
+        Har PUT yangi `id` lar beradi. Bloklangan haydovchi — `403 DRIVER_BLOCKED`.
+      operationId: driverRoutesPut
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DriverRoutesInput' }
+      responses:
+        '200':
+          description: Saqlangan yo'nalishlar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DriverRoutes' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DriverBlocked' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/drivers/me/capabilities:
+    get:
+      tags: [Driver]
+      summary: Haydovchi imkoniyatlari ("Imkoniyatlarim")
+      operationId: driverCapabilitiesGet
+      responses:
+        '200':
+          description: Imkoniyatlar (default hammasi false / [])
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DriverCapabilities' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Driver]
+      summary: Imkoniyatlarni saqlash (to'rt maydon ham majburiy)
+      description: "`child_seat = false` bo'lsa `child_seat_ages` bo'sh bo'lishi shart (`requires_child_seat`)."
+      operationId: driverCapabilitiesPut
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DriverCapabilities' }
+      responses:
+        '200':
+          description: Saqlangan imkoniyatlar (yoshlar enum tartibida)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DriverCapabilities' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DriverBlocked' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/drivers/registration/step/{step}:
+    post:
+      tags: [Driver]
+      summary: Ro'yxatdan o'tish qadami (1–4)
+      description: |
+        1 — shaxsiy ma'lumotlar, 2 — mashina, 3 — hujjatlar (yuklangan document_id lar),
+        4 — tekshiruvga yuborish (`driver.submitted` hodisasi chiqadi).
+        Qadam raqami va body turi mos kelishi shart, aks holda `VALIDATION_ERROR`.
+
+        **Tartib:** 1–3 qadamlar istalgan tartibda yuboriladi va qayta yuborilsa ustidan yoziladi.
+        `current_step` — birinchi bajarilmagan qadam. 4-qadam faqat 1, 2, 3 bajarilgandan keyin
+        o'tadi, aks holda `422 VALIDATION_ERROR` (`params.fields: { step_2: incomplete, ... }`).
+        Ariza yuborilgach (`pending_review` / `active`) 1–3 qadamlar yopiladi —
+        `409 REGISTRATION_ALREADY_SUBMITTED`. 4-qadamni takrorlash idempotent: `200`, hodisa qayta chiqmaydi.
+        `rejected` holatida qadamlar yana ochiq va ariza qayta yuboriladi.
+      operationId: driverRegistrationStep
+      parameters:
+        - name: step
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 4 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/RegistrationStep1'
+                - $ref: '#/components/schemas/RegistrationStep2'
+                - $ref: '#/components/schemas/RegistrationStep3'
+                - $ref: '#/components/schemas/RegistrationStep4'
+      responses:
+        '200':
+          description: Ro'yxat holati
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrationState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DriverBlocked' }
+        '409': { $ref: '#/components/responses/RegistrationAlreadySubmitted' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/drivers/documents/upload-url:
+    post:
+      tags: [Driver]
+      summary: Hujjat yuklash uchun imzolangan URL olish
+      operationId: driverDocumentUploadUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UploadUrlRequest' }
+      responses:
+        '201':
+          description: Imzolangan URL (qisqa muddatli)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadUrl' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DriverBlocked' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/drivers/documents/{id}/content:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      tags: [Driver]
+      summary: Hujjat faylini yuklash (imzolangan URL)
+      description: |
+        `upload-url` qaytargan `upload_url` aynan shu endpointga ko'rsatadi. Bearer token KERAK EMAS —
+        ruxsat `expires` va `signature` query parametrlaridagi imzo bilan beriladi (S3 presigned URL kabi).
+        Imzo hujjat egasi, turi, hajmi va muddatini bog'laydi.
+
+        - Body — xom fayl baytlari; `Content-Type` `upload-url` so'rovidagi `content_type` bilan,
+          hajm esa `size_bytes` bilan aynan mos bo'lishi shart.
+        - Fayl turi sarlavhadan emas, fayl boshidan (magic bytes) aniqlanadi.
+        - EXIF/GPS va boshqa metadata server tomonida o'chiriladi.
+        - Imzo noto'g'ri yoki hujjat mavjud emas — bir xil `403 FORBIDDEN` (mavjudlik oshkor qilinmaydi);
+          muddati o'tgan — `403 FORBIDDEN` (`params.reason: upload_url_expired`).
+      operationId: driverDocumentUploadContent
+      security: []
+      parameters:
+        - name: expires
+          in: query
+          required: true
+          description: Unix vaqt (soniya) — URL amal qilish muddati
+          schema: { type: integer }
+        - name: signature
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{64}$' }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary, maxLength: 10485760 }
+          image/png:
+            schema: { type: string, format: binary, maxLength: 10485760 }
+      responses:
+        '204': { description: "Fayl qabul qilindi, hujjat holati — uploaded" }
+        '403':
+          description: FORBIDDEN (imzo noto'g'ri / muddati o'tgan) yoki DRIVER_BLOCKED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                invalid: { value: { error: { key: FORBIDDEN, params: {} } } }
+                expired: { value: { error: { key: FORBIDDEN, params: { reason: upload_url_expired } } } }
+                blocked: { value: { error: { key: DRIVER_BLOCKED, params: { reason: blocked } } } }
+        '409': { $ref: '#/components/responses/DocumentAlreadyUploaded' }
+        '413': { $ref: '#/components/responses/FileTooLarge' }
+        '422':
+          description: VALIDATION_ERROR — `content_type` / `size_bytes` mos emas, fayl bo'sh yoki rasm emas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: { key: VALIDATION_ERROR, params: { fields: { file: invalid_image } } } }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/location/update:
+    post:
+      tags: [Driver]
+      summary: Haydovchi joylashuvini yuborish (GPS)
+      description: |
+        Haydovchi ilovasi joriy koordinatani yuboradi (Kong `/api/v1/location`, faqat POST → matching-geo:8013).
+        `/internal/matching/*` Kong'da yo'q. Haydovchi ID si body'da EMAS —
+        access tokendan olinadi (`aud = driver`, `role = driver`); yo'lovchi tokeni — `403 FORBIDDEN` (`reason: role`).
+        Joylashuv Redis'da `LOCATION_TTL` (default 2 daqiqa) saqlanadi — haydovchi undan uzoq yubormasa,
+        qidiruvda ko'rinmaydi. Shubhali tezlik sakrashi (GPS soxtalashtirish) logga va anomaliyaga yoziladi,
+        javobda oshkor qilinmaydi.
+      operationId: driverLocationUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lat, lng]
+              additionalProperties: false
+              properties:
+                lat: { type: number, minimum: -90, maximum: 90 }
+                lng: { type: number, minimum: -180, maximum: 180 }
+      responses:
+        '204': { description: Qabul qilindi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/drivers/me/status:
+    get:
+      tags: [Driver]
+      summary: Haydovchi holati (tekshiruvda, faol, bloklangan)
+      operationId: driverGetStatus
+      responses:
+        '200':
+          description: Holat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DriverStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # =================================================================== ORDERS
+  /api/v1/orders:
+    post:
+      tags: [Orders]
+      summary: Buyurtma yaratish (narx serverdan qaytadi)
+      operationId: orderCreate
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderCreate' }
+      responses:
+        '201':
+          description: Yaratilgan buyurtma (narx, masofa, status — server hisoblagan)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/QuoteNotFound' }
+        '409': { $ref: '#/components/responses/QuoteConflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/orders/quote:
+    post:
+      tags: [Orders]
+      summary: Narx taklifi (buyurtmadan oldin)
+      description: |
+        `POST /api/v1/orders` bilan bir xil kirish (`payment_method` ixtiyoriy, `quote_id` yo'q). Javobdagi
+        `quote_id` bilan yaratilgan buyurtma **aynan shu narx** bilan yoziladi — qayta hisoblanmaydi.
+        Taklif `expires_at` gacha (default 10 daqiqa) va **bir marta** amal qiladi, faqat egasi uchun.
+        Narxga ta'sir qiladigan maydonlar (`type`, `seats`/`seat_ids`, `car_class`, `vehicle_type`, `from`/`to` koordinatalari)
+        buyurtmada taklifdagidek bo'lishi shart, aks holda `409 QUOTE_MISMATCH`. Vaqt, to'lov usuli, izoh va manzil matni
+        narxga ta'sir qilmaydi — ularni o'zgartirish mumkin.
+        `lines` yig'indisi doim `price` ga teng. Kalitlar klient i18n kalitlari: `quote.seatFare {count}`, `quote.carFare`,
+        `quote.class.komfort|biznes|miniven {pct}`, `quote.cargoBase`, `quote.cargoDistance {km}`.
+      operationId: orderQuote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuoteRequest' }
+      responses:
+        '200':
+          description: Narx taklifi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/orders/seat-map:
+    get:
+      tags: [Orders]
+      summary: O'rindiqlar xaritasi (yo'nalish bo'yicha)
+      description: |
+        To'rtta joy: `front`, `back-left`, `back-mid`, `back-right`. Narx o'rindiqlar SONIGA bog'liq, shuning uchun har joy
+        narxi = 1 o'rindiq narxi. Bir mashinaga bir nechta buyurtmani jamlash (pooling) hali yo'q — har buyurtma alohida
+        mashina, shuning uchun `taken` hozircha doim `false`. Tanlangan joylar `OrderCreate.seat_ids` da yuboriladi.
+      operationId: orderSeatMap
+      parameters:
+        - { name: from_lat, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: from_lng, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 } }
+        - { name: to_lat, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: to_lng, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 } }
+      responses:
+        '200':
+          description: O'rindiqlar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SeatMap' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # =================================================================== PLACES
+  /api/v1/cities:
+    get:
+      tags: [Places]
+      summary: Shaharlar katalogi
+      description: "Token shart emas. ID lar barqaror (UUIDv5 `izgo:city:<slug>`). `Cache-Control: public, max-age=300`."
+      operationId: citiesList
+      security: []
+      responses:
+        '200':
+          description: Shaharlar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CityList' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/places/search:
+    get:
+      tags: [Places]
+      summary: Manzil qidiruvi (server tomonida)
+      description: |
+        Shaharlar va platforma manzillar bazasi (gazetteer) bo'yicha qidiradi; tashqi geocoder kaliti klientga chiqmaydi.
+        Qidiruv katta-kichik harf va apostroflarga befarq (`fargona` → Farg'ona). Avval nomi `q` bilan boshlanganlar,
+        so'ng `near_*` berilsa masofa bo'yicha. Yo'lovchi yoki haydovchi tokeni kerak.
+      operationId: placesSearch
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 100 } }
+        - { name: near_lat, in: query, required: false, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: near_lng, in: query, required: false, schema: { type: number, minimum: -180, maximum: 180 } }
+        - { name: city_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        '200':
+          description: Topilgan manzillar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlaceList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/places/reverse:
+    get:
+      tags: [Places]
+      summary: Nuqta → manzil nomi (teskari geocoding)
+      description: |
+        2 km ichidagi eng yaqin bazadagi manzil, bo'lmasa eng yaqin shahar (`kind: city`). `distance_m` — nuqtadan
+        topilgan joygacha. Buyurtmada klient o'zi tanlagan koordinatani yuboradi; bu faqat nom uchun.
+      operationId: placesReverse
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: lng, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 } }
+      responses:
+        '200':
+          description: Eng yaqin joy
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Place' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/places/saved:
+    get:
+      tags: [Places]
+      summary: Saqlangan manzillar (yo'lovchi)
+      operationId: placesSavedList
+      responses:
+        '200':
+          description: Saqlangan manzillar (eskidan yangiga)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SavedPlaceList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Places]
+      summary: Manzilni saqlash
+      description: "Foydalanuvchi boshiga ko'pi bilan 20 ta; ortig'i `403 FORBIDDEN` (`reason: saved_places_limit`)."
+      operationId: placesSavedCreate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SavedPlaceCreate' }
+      responses:
+        '201':
+          description: Saqlangan manzil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SavedPlace' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/places/saved/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    delete:
+      tags: [Places]
+      summary: Saqlangan manzilni o'chirish
+      operationId: placesSavedDelete
+      responses:
+        '204': { description: O'chirildi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/routes/popular:
+    get:
+      tags: [Places]
+      summary: Mashhur shaharlararo yo'nalishlar
+      description: |
+        Token shart emas. `price_from` — shahar markazlari orasida 1 o'rindiq narxi (Pricing hisoblagan, 5 daqiqa kesh;
+        hisoblab bo'lmasa `null`). Bu ko'rsatish uchun; buyurtma narxi faqat `orders/quote` dan.
+      operationId: routesPopular
+      security: []
+      responses:
+        '200':
+          description: Yo'nalishlar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PopularRouteList' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/delivery/vehicles:
+    get:
+      tags: [Places]
+      summary: Yuk mashinalari (S, M, L, XL, XXL, 3XL)
+      description: |
+        Token shart emas. `vehicle_type` — `OrderCreate.vehicle_type` qiymati (enum o'zgarmaydi), `size_label` — klient
+        tugmasi: spark=S, damas=M, labo=L, isuzu=XL, isuzu2=XXL, fura=3XL. O'lchamlar — yuk bo'limi, sm.
+      operationId: deliveryVehicles
+      security: []
+      responses:
+        '200':
+          description: Mashinalar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryVehicleList' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/orders/history:
+    get:
+      tags: [Orders]
+      summary: Buyurtmalar tarixi (cursor pagination)
+      description: Router'da `/orders/{id}` dan OLDIN e'lon qilinishi kerak.
+      operationId: orderHistory
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Buyurtmalar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/orders/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Orders]
+      summary: Bitta buyurtma
+      operationId: orderGet
+      responses:
+        '200':
+          description: Buyurtma
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+    patch:
+      tags: [Orders]
+      summary: Buyurtma parametrlarini o'zgartirish (server ruxsat beradi yoki rad etadi)
+      description: |
+        Server joriy statusga qarab qaror qiladi. Ruxsat berilsa — narx qayta hisoblanadi
+        va yangilangan buyurtma qaytadi. Rad etilsa — `403 FORBIDDEN`
+        (`params.reason` da sabab, masalan `trip_started`).
+      operationId: orderUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderUpdate' }
+      responses:
+        '200':
+          description: Yangilangan buyurtma
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/orders/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Orders]
+      summary: Buyurtmani bekor qilish
+      operationId: orderCancel
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderCancel' }
+      responses:
+        '200':
+          description: Bekor qilingan buyurtma
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # ================================================================== RATINGS
+  /api/v1/orders/{id}/rate:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Ratings]
+      summary: Safarni baholash (1–5 yulduz)
+      operationId: orderRate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RatingInput' }
+      responses:
+        '201':
+          description: Baho saqlandi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rating' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Ratings]
+      summary: Bahoni o'zgartirish
+      operationId: orderRateUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RatingInput' }
+      responses:
+        '200':
+          description: Yangilangan baho
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Rating' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # ==================================================================== TRIPS
+  /api/v1/trips/offers:
+    get:
+      tags: [Trips]
+      summary: Haydovchi uchun takliflar ro'yxati
+      operationId: tripOffersList
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Takliflar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OfferPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/DriverBlocked' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/trips/offers/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Trips]
+      summary: Taklifni rad etish
+      description: Taklif feed'dan yo'qoladi va qayta yuborilmaydi; buyurtma boshqa haydovchilarga ochiq qoladi. Takroriy chaqiruv — `204`.
+      operationId: tripOfferReject
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OfferReject' }
+      responses:
+        '204': { description: Rad etildi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/trips/offers/{id}/accept:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Trips]
+      summary: Taklifni qabul qilish (birinchi qabul qilgan oladi)
+      description: Atomar operatsiya. Boshqa haydovchi oldin olgan bo'lsa — `409 ORDER_ALREADY_TAKEN`.
+      operationId: tripOfferAccept
+      responses:
+        '200':
+          description: Safar yaratildi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Trip' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/WalletLimitReached' }
+        '403': { $ref: '#/components/responses/DriverBlocked' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '409': { $ref: '#/components/responses/OrderAlreadyTaken' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/trips:
+    get:
+      tags: [Trips]
+      summary: Haydovchining safarlari (default — faol, buyurtmasi bilan)
+      description: Sahifa qayta yuklanganda qabul qilingan safarlarni tiklash uchun. `status` — vergul bilan (default `assigned,in_progress`).
+      operationId: tripsList
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, example: 'assigned,in_progress' }
+          description: '`assigned`, `in_progress`, `completed`, `cancelled` (vergul bilan)'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Safarlar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TripPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/trips/history:
+    get:
+      tags: [Trips]
+      summary: Haydovchi safarlari tarixi (yakunlangan va bekor qilingan)
+      operationId: tripsHistory
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Tarix sahifasi (yangidan eskiga)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TripPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/trips/{id}/arrive:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Trips]
+      summary: '"Yetib keldim" (safar boshlanishidan oldin)'
+      description: |
+        Safar `assigned` bo'lishi shart; buyurtma `accepted` → `arrived`, yo'lovchiga `order.arrived`. Takroriy chaqiruv — `200`.
+        Bu qadam ixtiyoriy: `start` to'g'ridan-to'g'ri `assigned` dan ham ishlaydi. Boshlangan safar — `403`.
+      operationId: tripArrive
+      responses:
+        '200':
+          description: Safar (`arrived_at` to'ldirilgan)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Trip' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/trips/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Trips]
+      summary: Haydovchi safarni bekor qiladi (faqat boshlanmagan)
+      description: |
+        Safar `cancelled` (`cancelled_by: driver`); buyurtma qayta `searching` — boshqa haydovchilarga takliflar yuboriladi
+        (bekor qilgan va rad etgan haydovchilarga emas); yo'lovchiga `trip.cancelled`. Boshlangan safar — `403 FORBIDDEN`
+        (`reason: trip_started`, operator orqali hal qilinadi).
+      operationId: tripCancel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TripCancel' }
+      responses:
+        '200':
+          description: Bekor qilingan safar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Trip' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/trips/{id}/start:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Trips]
+      summary: Safarni boshlash
+      operationId: tripStart
+      responses:
+        '200':
+          description: Boshlangan safar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Trip' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/trips/{id}/complete:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Trips]
+      summary: Safarni tugatish
+      description: Yakuniy narx, masofa va komissiyani server hisoblaydi; `trip.completed` hodisasi chiqadi.
+      operationId: tripComplete
+      responses:
+        '200':
+          description: Yakunlangan safar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Trip' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # =================================================================== WALLET
+  /api/v1/wallet/balance:
+    get:
+      tags: [Wallet]
+      summary: Balans va qarz holati
+      operationId: walletBalance
+      responses:
+        '200':
+          description: Balans
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletBalance' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/wallet/ledger:
+    get:
+      tags: [Wallet]
+      summary: Daftar yozuvlari (cursor pagination)
+      operationId: walletLedger
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Daftar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LedgerPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/wallet/topup:
+    post:
+      tags: [Wallet]
+      summary: Hamyonni to'ldirishni boshlash (Payme/Click) — hozir MOCK
+      operationId: walletTopup
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TopupRequest' }
+      responses:
+        '201':
+          description: To'lov sessiyasi yaratildi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopupSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/wallet/card/link:
+    post:
+      tags: [Wallet]
+      summary: Karta ulash — provayder sahifasi URL qaytadi. Hozir MOCK
+      operationId: walletCardLink
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CardLinkRequest' }
+      responses:
+        '201':
+          description: Provayder sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CardLinkSession' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # ============================================================ NOTIFICATIONS
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: Bildirishnomalar ro'yxati (cursor pagination)
+      operationId: notificationsList
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Bildirishnomalar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/notifications/{id}/read:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    put:
+      tags: [Notifications]
+      summary: O'qilgan deb belgilash
+      operationId: notificationMarkRead
+      responses:
+        '204': { description: Belgilandi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /ws:
+    get:
+      tags: [Notifications]
+      summary: Real-vaqt bildirishnomalar (WebSocket)
+      operationId: notificationsWebSocket
+      description: |
+        WebSocket ulanish (`wss://<api>/ws`, Kong → notification:8016). Hodisalar ro'yxati va payload'lari:
+        `docs/websocket-events.md`. Token URL'da yuborilmaydi (Kong access log'i so'rov qatorini yozadi).
+
+        **Autentifikatsiya** (ustuvorlik tartibida)
+        1. **Subprotocol (tavsiya):** `new WebSocket(url, ["izgo.v1", "bearer.<access_token>"])` →
+           `Sec-WebSocket-Protocol: izgo.v1, bearer.<token>`. Token ulanishdan OLDIN tekshiriladi: noto'g'ri/muddati o'tgan/
+           bekor qilingan — `401`, ulanish ochilmaydi. Server faqat `izgo.v1` ni qaytaradi (bearer qismini hech qachon).
+           `izgo.v1` siz `bearer.`, bir nechta yoki bo'sh `bearer.` — `401`.
+        2. **Birinchi xabar:** token subprotocol'da ham, query'da ham bo'lmasa ulanish ochiladi (`izgo.v1` taklif qilingan bo'lsa
+           qaytariladi) va klient `WS_AUTH_TIMEOUT` (default 5s) ichida bitta text frame yuboradi:
+           `{"type":"auth","token":"<access_token>"}` (≤ 8 KiB). Muvaffaqiyat: server `{"type":"auth.ok"}` yuboradi.
+           Yopish kodlari: `4401 auth_timeout`, `4401 token_invalid`, `1008 auth_malformed`, `4403 ws_connection_limit`,
+           `1011 internal_error`.
+        3. **Eskirgan `?token=` (deprecated):** faqat `WS_ALLOW_QUERY_TOKEN=true` (hozircha default) bo'lganda ishlaydi;
+           frontend 1- yoki 2-usulga o'tgach o'chiriladi (`false` → `401`).
+
+        **Origin:** brauzer ulanishlari `WS_ALLOWED_ORIGINS` dagi frontend domenlaridan bo'lishi kerak (aks holda `403`,
+        matnli javob). Origin sarlavhasisiz (mobil ilova) ulanishlar o'tadi.
+
+        **Ulanish limiti:** bitta foydalanuvchiga bir vaqtda `WS_MAX_CONNS` (default 3) tagacha. Ortig'i — `403 FORBIDDEN`
+        (`reason: ws_connection_limit`) yoki birinchi xabar usulida `4403`.
+
+        **Server → klient:** text frame, JSON, faqat foydalanuvchining o'z xabarlari:
+        `{ "type": "order.accepted", "id": "<uuid>", "status": "accepted", "order_id": "<uuid>" }`. Matn uchun
+        `GET /api/v1/notifications`. Ochiq ulanish bo'lmasa — push.
+
+        **Klient → server:** autentifikatsiyadan keyin ma'lumot yuborilmaydi; yuborilsa `1008`. Server har `WS_PING_INTERVAL`
+        (default 25s) da ping yuboradi.
+
+        **Yopish kodlari (ulanishdan keyin)**
+        - `4401 token_expired`: access token muddati tugadi — yangilab qayta ulaning.
+        - `4401 session_revoked`: sessiya bekor qilindi (logout).
+        - `1001 server_shutdown`: server to'xtamoqda, qayta ulaning.
+        - `1008`: klient ma'lumot yubordi.
+      security: []
+      parameters:
+        - name: Sec-WebSocket-Protocol
+          in: header
+          required: false
+          description: '`izgo.v1, bearer.<access_token>` (1-usul)'
+          schema: { type: string }
+        - name: token
+          in: query
+          required: false
+          deprecated: true
+          description: Eskirgan usul (faqat `WS_ALLOW_QUERY_TOKEN=true` da). Yangi klientlar ishlatmaydi
+          schema: { type: string }
+        - name: Upgrade
+          in: header
+          required: true
+          schema: { type: string, enum: [websocket] }
+        - name: Connection
+          in: header
+          required: true
+          schema: { type: string, enum: [Upgrade] }
+      responses:
+        '101':
+          description: Switching Protocols — WebSocket ulanishi ochildi (`Sec-WebSocket-Protocol` = `izgo.v1`, agar taklif qilingan bo'lsa)
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: FORBIDDEN — ulanishlar limiti yoki ruxsat etilmagan Origin
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: { key: FORBIDDEN, params: { reason: ws_connection_limit } } }
+        '426': { description: Upgrade sarlavhalarisiz oddiy HTTP so'rov }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # ================================================================== PROFILE
+  /api/v1/profile:
+    get:
+      tags: [Profile]
+      summary: Foydalanuvchi profili
+      operationId: profileGet
+      responses:
+        '200':
+          description: Profil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Profile]
+      summary: Profilni yangilash (ism, familiya)
+      operationId: profileUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdate' }
+      responses:
+        '200':
+          description: Yangilangan profil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /api/v1/profile/settings:
+    put:
+      tags: [Profile]
+      summary: Sozlamalar (til, bildirishnomalar, tema)
+      operationId: profileSettingsUpdate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Settings' }
+      responses:
+        '200':
+          description: Saqlangan sozlamalar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  # ==================================================================== ADMIN
+  /admin/v1/me:
+    get:
+      tags: [Admin]
+      summary: Joriy xodim — rol, ruxsat etilgan bo'limlar, yarata oladigan rollar
+      operationId: adminMe
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Xodim ma'lumoti
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMe' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/staff:
+    get:
+      tags: [Admin]
+      summary: Xodimlar ro'yxati (rol bo'yicha filtr)
+      operationId: adminStaffList
+      security: [{ adminBearer: [] }]
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/StaffRole' }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Xodimlar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Admin]
+      summary: Xodim yaratish (faqat `creatable_roles` dagi rollar)
+      operationId: adminStaffCreate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffCreate' }
+      responses:
+        '201':
+          description: Yaratilgan xodim
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Staff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/StaffConflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/staff/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Admin]
+      summary: Bitta xodim
+      operationId: adminStaffGet
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Xodim
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Staff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StaffNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Admin]
+      summary: Xodimni yangilash
+      operationId: adminStaffUpdate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StaffUpdate' }
+      responses:
+        '200':
+          description: Yangilangan xodim
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Staff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StaffNotFound' }
+        '409': { $ref: '#/components/responses/StaffPhoneTaken' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Admin]
+      summary: Xodimni o'chirish (soft delete — arxivlanadi)
+      operationId: adminStaffDelete
+      security: [{ adminBearer: [] }]
+      responses:
+        '204': { description: Arxivlandi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/StaffNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/drivers:
+    get:
+      tags: [Admin]
+      summary: Haydovchilar ro'yxati
+      operationId: adminDriversList
+      security: [{ adminBearer: [] }]
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AccountState' }
+        - name: q
+          in: query
+          required: false
+          description: Ism, telefon yoki davlat raqami bo'yicha qidiruv
+          schema: { type: string, maxLength: 100 }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Haydovchilar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDriverPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Admin]
+      summary: Haydovchini qo'lda yaratish (operator orqali)
+      operationId: adminDriversCreate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPersonCreate' }
+      responses:
+        '201':
+          description: Yaratilgan haydovchi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDriver' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/drivers/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Admin]
+      summary: Bitta haydovchi
+      operationId: adminDriversGet
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Haydovchi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDriver' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/DriverNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Admin]
+      summary: Haydovchini yangilash / bloklash / arxivlash
+      operationId: adminDriversUpdate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPersonUpdate' }
+      responses:
+        '200':
+          description: Yangilangan haydovchi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDriver' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/DriverNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Admin]
+      summary: Haydovchini arxivlash (soft delete)
+      operationId: adminDriversDelete
+      security: [{ adminBearer: [] }]
+      responses:
+        '204': { description: Arxivlandi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/DriverNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/passengers:
+    get:
+      tags: [Admin]
+      summary: Yo'lovchilar ro'yxati
+      operationId: adminPassengersList
+      security: [{ adminBearer: [] }]
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/AccountState' }
+        - name: q
+          in: query
+          required: false
+          description: Ism yoki telefon bo'yicha qidiruv
+          schema: { type: string, maxLength: 100 }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Yo'lovchilar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPassengerPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Admin]
+      summary: Yo'lovchini qo'lda yaratish (operator orqali)
+      operationId: adminPassengersCreate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPersonCreate' }
+      responses:
+        '201':
+          description: Yaratilgan yo'lovchi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPassenger' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/passengers/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Admin]
+      summary: Bitta yo'lovchi
+      operationId: adminPassengersGet
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Yo'lovchi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPassenger' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/PassengerNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Admin]
+      summary: Yo'lovchini yangilash / bloklash / arxivlash
+      operationId: adminPassengersUpdate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPersonUpdate' }
+      responses:
+        '200':
+          description: Yangilangan yo'lovchi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPassenger' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/PassengerNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Admin]
+      summary: Yo'lovchini arxivlash (soft delete)
+      operationId: adminPassengersDelete
+      security: [{ adminBearer: [] }]
+      responses:
+        '204': { description: Arxivlandi }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/PassengerNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/orders:
+    get:
+      tags: [Admin]
+      summary: Buyurtmalar ro'yxati
+      description: Ma'lumot Trip & Order'dan (`ORDERS_MODE=http`); `Order` ga qo'shimcha `passenger_id`. `q` hozircha qo'llanmaydi.
+      operationId: adminOrdersList
+      security: [{ adminBearer: [] }]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/OrderStatus' }
+        - name: passenger_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: from_date
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: to_date
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Buyurtmalar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/orders/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Admin]
+      summary: Bitta buyurtma
+      operationId: adminOrdersGet
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Buyurtma
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '502': { $ref: '#/components/responses/TripOrderUnavailable' }
+        default: { $ref: '#/components/responses/InternalError' }
+    patch:
+      tags: [Admin]
+      summary: Buyurtmani tahrirlash (izoh, to'lov usuli, vaqt) — faqat `searching`
+      description: |
+        Narxga ta'sir qilmaydigan maydonlar; narx o'zgarmaydi. Kamida bitta maydon. Haydovchi biriktirilgan/boshlangan —
+        `403 FORBIDDEN` (`reason: driver_assigned | trip_started | order_closed`). Audit qilinadi (`orders:write`).
+      operationId: adminOrdersUpdate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminOrderUpdate' }
+      responses:
+        '200':
+          description: Yangilangan buyurtma
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '502': { $ref: '#/components/responses/TripOrderUnavailable' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/orders/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Buyurtmani bekor qilish (admin)
+      description: |
+        `searching`, `accepted`, `arrived` → `cancelled` (biriktirilgan safar ham bekor, haydovchi bo'shaydi; yo'lovchiga
+        `order.cancelled`, haydovchiga `trip.cancelled`). Takroriy chaqiruv — `200`. Boshlangan safar — `403` (`reason: trip_started`).
+        Audit qilinadi (`orders:write`).
+      operationId: adminOrdersCancel
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminOrderCancel' }
+      responses:
+        '200':
+          description: Bekor qilingan buyurtma
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/OrderNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '502': { $ref: '#/components/responses/TripOrderUnavailable' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/wallet/ledger:
+    get:
+      tags: [Admin]
+      summary: Hamyon daftari (barcha hamyonlar)
+      operationId: adminWalletLedger
+      security: [{ adminBearer: [] }]
+      parameters:
+        - name: wallet_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: driver_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Daftar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LedgerPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/wallet/correction:
+    get:
+      tags: [Admin]
+      summary: Tuzatishlar ro'yxati (tasdiq kutayotganlar)
+      description: Yangilari birinchi. `approval_status` berilmasa — hammasi.
+      operationId: adminWalletCorrectionList
+      security: [{ adminBearer: [] }]
+      parameters:
+        - name: approval_status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ApprovalStatus' }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Tuzatishlar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CorrectionPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Admin]
+      summary: Tuzatish yozuvi (ikki kishi tasdig'i)
+      description: |
+        Yozuv `approval_status: pending_approval` bilan yaratiladi va ikkinchi xodim
+        tasdiqlamaguncha balansga ta'sir qilmaydi. Yaratgan xodim o'zi tasdiqlay olmaydi.
+        Shu xodim xuddi shu `Idempotency-Key` va xuddi shu tana bilan qayta yuborsa — asl yozuv
+        qaytadi (yangisi yaratilmaydi); tana boshqacha bo'lsa — `409 IDEMPOTENCY_KEY_REUSED`.
+      operationId: adminWalletCorrection
+      security: [{ adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CorrectionCreate' }
+      responses:
+        '202':
+          description: Tasdiq kutilmoqda
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Correction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/IdempotencyKeyReused' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/wallet/correction/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Tuzatish yozuvini tasdiqlash (ikkinchi xodim)
+      description: |
+        `approval_status: pending_approval` → `approved`. Shundan keyin yozuv daftarga tushadi
+        va balansga ta'sir qiladi. Yozuvni yaratgan xodim o'zi tasdiqlay olmaydi (`403 FORBIDDEN`).
+        Yozuv `pending_approval` holatida bo'lmasa — `403 FORBIDDEN` (`params.reason: not_pending`).
+      operationId: adminWalletCorrectionApprove
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Tasdiqlangan tuzatish
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Correction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/wallet/correction/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Tuzatish yozuvini rad etish (ikkinchi xodim)
+      description: |
+        `approval_status: pending_approval` → `rejected`. Yozuv daftarga tushmaydi, balans o'zgarmaydi.
+        Yozuvni yaratgan xodim o'zi rad eta olmaydi (`403 FORBIDDEN`).
+        Yozuv `pending_approval` holatida bo'lmasa — `403 FORBIDDEN` (`params.reason: not_pending`).
+      operationId: adminWalletCorrectionReject
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovalReject' }
+      responses:
+        '200':
+          description: Rad etilgan tuzatish
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Correction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/tariffs:
+    get:
+      tags: [Admin]
+      summary: Tariflar ro'yxati
+      operationId: adminTariffsList
+      security: [{ adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Tariflar sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TariffPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Admin]
+      summary: Tarif yaratish (ikki kishi tasdig'i)
+      operationId: adminTariffsCreate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TariffInput' }
+      responses:
+        '202':
+          description: Tasdiq kutilmoqda
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tariff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/tariffs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Admin]
+      summary: Bitta tarif
+      operationId: adminTariffsGet
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Tarif
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tariff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/TariffNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [Admin]
+      summary: Tarifni o'zgartirish (ikki kishi tasdig'i)
+      operationId: adminTariffsUpdate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TariffInput' }
+      responses:
+        '202':
+          description: O'zgarish tasdiq kutmoqda
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tariff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/TariffNotFound' }
+        '409': { $ref: '#/components/responses/TariffChangePending' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Admin]
+      summary: Tarifni o'chirish (ikki kishi tasdig'i)
+      operationId: adminTariffsDelete
+      security: [{ adminBearer: [] }]
+      responses:
+        '202':
+          description: O'chirish tasdiq kutmoqda
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tariff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/TariffNotFound' }
+        '409': { $ref: '#/components/responses/TariffChangePending' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/tariffs/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Tarif o'zgarishini tasdiqlash (ikkinchi xodim)
+      description: |
+        `approval_status: pending_approval` → `approved`. `pending_change` (create/update/delete)
+        kuchga kiradi va `null` bo'ladi. O'zgarishni so'ragan xodim o'zi tasdiqlay olmaydi
+        (`403 FORBIDDEN`). Tasdiq kutayotgan o'zgarish bo'lmasa — `403 FORBIDDEN`
+        (`params.reason: not_pending`).
+      operationId: adminTariffsApprove
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Tasdiqlangan tarif
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tariff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/TariffNotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/tariffs/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Tarif o'zgarishini rad etish (ikkinchi xodim)
+      description: |
+        `approval_status: pending_approval` → `rejected`. `pending_change` bekor qilinadi (`null`),
+        tarifning amaldagi qiymatlari o'zgarmaydi. O'zgarishni so'ragan xodim o'zi rad eta olmaydi
+        (`403 FORBIDDEN`). Tasdiq kutayotgan o'zgarish bo'lmasa — `403 FORBIDDEN`
+        (`params.reason: not_pending`).
+      operationId: adminTariffsReject
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovalReject' }
+      responses:
+        '200':
+          description: Rad etilgan o'zgarish bilan tarif
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tariff' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/TariffNotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/operator/queue:
+    get:
+      tags: [Admin]
+      summary: Operator navbati
+      operationId: adminOperatorQueue
+      security: [{ adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Navbat sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueuePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/operator/queue/{id}/start:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Navbatdagi ishni boshlash (operatorga biriktiriladi)
+      operationId: adminOperatorStart
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Biriktirilgan ish
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/operator/queue/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Navbatdagi ishni rad etish
+      operationId: adminOperatorReject
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QueueReject' }
+      responses:
+        '200':
+          description: Rad etilgan ish
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/operator/queue/{id}/complete:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Navbatdagi ishni yakunlash (natija + izoh)
+      description: |
+        Faqat `in_progress` holatidagi va shu operatorga biriktirilgan ish yakunlanadi:
+        `status: in_progress` → `completed`, `result` va `comment` saqlanadi.
+        Aks holda `403 FORBIDDEN` (`params.reason: not_in_progress` yoki `not_assigned`).
+      operationId: adminOperatorComplete
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QueueComplete' }
+      responses:
+        '200':
+          description: Yakunlangan ish
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/operator/history:
+    get:
+      tags: [Admin]
+      summary: Operator tarixi
+      operationId: adminOperatorHistory
+      security: [{ adminBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Tarix sahifasi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueuePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/complaints:
+    get:
+      tags: [Admin]
+      summary: Shikoyatlar ro'yxati
+      operationId: adminComplaintsList
+      security: [{ adminBearer: [] }]
+      parameters:
+        - { name: status, in: query, required: false, schema: { $ref: '#/components/schemas/ComplaintStatus' } }
+        - { name: assigned_to, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: subject_type, in: query, required: false, schema: { $ref: '#/components/schemas/ComplaintSubjectType' } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Shikoyatlar (yangidan eskiga)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplaintPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Admin]
+      summary: Shikoyat yaratish (operator qabul qilgan murojaat)
+      operationId: adminComplaintsCreate
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ComplaintCreate' }
+      responses:
+        '201':
+          description: Shikoyat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Complaint' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/complaints/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Admin]
+      summary: Shikoyat (izohlari bilan)
+      operationId: adminComplaintsGet
+      security: [{ adminBearer: [] }]
+      responses:
+        '200':
+          description: Shikoyat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplaintDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/complaints/{id}/assign:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Shikoyatni xodimga biriktirish (open → in_progress)
+      description: "`staff_id` faol xodim bo'lishi shart (aks holda 422)."
+      operationId: adminComplaintsAssign
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ComplaintAssign' }
+      responses:
+        '200':
+          description: Shikoyat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Complaint' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/complaints/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Shikoyat holatini o'zgartirish
+      description: |
+        `open → in_progress | rejected`, `in_progress → resolved | rejected`; `resolved`/`rejected` — yakuniy
+        (`403 FORBIDDEN`, `reason: invalid_transition`). `resolved`/`rejected` uchun `resolution` majburiy (3..1000).
+      operationId: adminComplaintsStatus
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ComplaintStatusChange' }
+      responses:
+        '200':
+          description: Shikoyat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Complaint' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/complaints/{id}/notes:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      tags: [Admin]
+      summary: Shikoyatga izoh qo'shish
+      operationId: adminComplaintsNote
+      security: [{ adminBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              additionalProperties: false
+              properties:
+                text: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '201':
+          description: Izoh
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplaintNote' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/audit:
+    get:
+      tags: [Admin]
+      summary: Audit jurnali (faqat o'qish)
+      description: Har bir admin yozish amali shu jurnalga biznes o'zgarishi bilan bir tranzaksiyada yoziladi; jurnal o'zgarmas.
+      operationId: adminAuditList
+      security: [{ adminBearer: [] }]
+      parameters:
+        - { name: entity_type, in: query, required: false, schema: { type: string, maxLength: 30 } }
+        - { name: entity_id, in: query, required: false, schema: { type: string, maxLength: 64 } }
+        - { name: actor_id, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: action, in: query, required: false, schema: { type: string, maxLength: 60 } }
+        - { name: from_date, in: query, required: false, schema: { type: string, format: date } }
+        - { name: to_date, in: query, required: false, schema: { type: string, format: date } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Audit yozuvlari (yangidan eskiga)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+  /admin/v1/stats:
+    get:
+      tags: [Admin]
+      summary: Umumiy statistika
+      operationId: adminStats
+      security: [{ adminBearer: [] }]
+      parameters:
+        - name: from_date
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: to_date
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Statistika
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Stats' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        default: { $ref: '#/components/responses/InternalError' }
+
+# ============================================================================
+components:
+  securitySchemes:
+    userBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Yo'lovchi / haydovchi access token (OTP orqali olingan)
+    adminBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Backoffice xodimi tokeni (email + SMS ikki bosqichli kirish)
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Oldingi javobdagi `cursor` qiymati
+      schema: { type: string, maxLength: 512 }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Takroriy so'rovdan himoya (UUID)
+      schema: { type: string, format: uuid }
+
+  responses:
+    ValidationError:
+      description: VALIDATION_ERROR
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: VALIDATION_ERROR, params: { fields: { phone: invalid_format } } } }
+    Unauthorized:
+      description: AUTH_TOKEN_EXPIRED yoki token yo'q / noto'g'ri
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: AUTH_TOKEN_EXPIRED, params: {} } }
+    RateLimited:
+      description: AUTH_OTP_RATE_LIMITED — OTP limiti (telefon 5/soat, IP 20/soat) yoki qayta so'rash vaqti kelmagan
+      headers:
+        Retry-After:
+          description: Necha soniyadan keyin urinish mumkin
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: AUTH_OTP_RATE_LIMITED, params: { retry_after: 42 } } }
+    Forbidden:
+      description: |
+        FORBIDDEN. `params.reason` — sabab (masalan `trip_started`, `driver_assigned`,
+        `active_orders_limit`, `already_rated`, `order_not_completed`).
+        To'liq ro'yxat — `shared/errors/errors.json` → `codes.FORBIDDEN.reasons`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: FORBIDDEN, params: {} } }
+    DriverBlocked:
+      description: DRIVER_BLOCKED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: DRIVER_BLOCKED, params: { reason: documents_expired } } }
+    NotFound:
+      description: NOT_FOUND — umumiy "topilmadi"
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: NOT_FOUND, params: { id: 3fa85f64-5717-4562-b3fc-2c963f66afa6 } } }
+    DriverNotFound:
+      description: DRIVER_NOT_FOUND
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: DRIVER_NOT_FOUND, params: { driver_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6 } } }
+    PassengerNotFound:
+      description: PASSENGER_NOT_FOUND
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: PASSENGER_NOT_FOUND, params: { passenger_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6 } } }
+    StaffNotFound:
+      description: STAFF_NOT_FOUND
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: STAFF_NOT_FOUND, params: { staff_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6 } } }
+    TariffNotFound:
+      description: TARIFF_NOT_FOUND
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: TARIFF_NOT_FOUND, params: { tariff_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6 } } }
+    QuoteNotFound:
+      description: QUOTE_NOT_FOUND — narx taklifi yo'q yoki boshqa foydalanuvchiniki
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: QUOTE_NOT_FOUND, params: { quote_id: 018f0000-0000-7000-8000-000000000000 } } }
+    QuoteConflict:
+      description: |
+        Narx taklifini ishlatib bo'lmaydi (buyurtma yaratilmaydi, narx jimgina qayta hisoblanmaydi):
+        `QUOTE_EXPIRED` — muddati o'tgan; `QUOTE_ALREADY_USED` — boshqa buyurtmada ishlatilgan;
+        `QUOTE_MISMATCH` — narxga ta'sir qiladigan maydonlar taklifdagidan farq qiladi. Klient yangi `orders/quote` so'raydi.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: QUOTE_EXPIRED, params: { quote_id: 018f0000-0000-7000-8000-000000000000 } } }
+    TripOrderUnavailable:
+      description: TRIP_ORDER_UNAVAILABLE — Trip & Order ichki API javob bermadi
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: TRIP_ORDER_UNAVAILABLE, params: { reason: network } } }
+    OrderNotFound:
+      description: ORDER_NOT_FOUND
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: ORDER_NOT_FOUND, params: { order_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6 } } }
+    RegistrationAlreadySubmitted:
+      description: REGISTRATION_ALREADY_SUBMITTED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: REGISTRATION_ALREADY_SUBMITTED, params: {} } }
+    DocumentAlreadyUploaded:
+      description: DOCUMENT_ALREADY_UPLOADED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: DOCUMENT_ALREADY_UPLOADED, params: {} } }
+    StaffConflict:
+      description: STAFF_EMAIL_TAKEN yoki STAFF_PHONE_TAKEN — email/telefon boshqa xodimda band
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            email: { value: { error: { key: STAFF_EMAIL_TAKEN, params: {} } } }
+            phone: { value: { error: { key: STAFF_PHONE_TAKEN, params: {} } } }
+    StaffPhoneTaken:
+      description: STAFF_PHONE_TAKEN — telefon boshqa xodimda band
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: STAFF_PHONE_TAKEN, params: {} } }
+    TariffChangePending:
+      description: TARIFF_CHANGE_PENDING — tarifda tasdiq kutayotgan o'zgarish bor; avval approve yoki reject qilinishi kerak
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: TARIFF_CHANGE_PENDING, params: {} } }
+    IdempotencyKeyReused:
+      description: IDEMPOTENCY_KEY_REUSED — shu Idempotency-Key boshqa so'rov tanasi bilan ishlatilgan
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: IDEMPOTENCY_KEY_REUSED, params: {} } }
+    FileTooLarge:
+      description: FILE_TOO_LARGE
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: FILE_TOO_LARGE, params: { max_bytes: 10485760 } } }
+    OrderAlreadyTaken:
+      description: ORDER_ALREADY_TAKEN
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: ORDER_ALREADY_TAKEN, params: { order_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6 } } }
+    WalletLimitReached:
+      description: WALLET_LIMIT_REACHED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: WALLET_LIMIT_REACHED, params: { limit: -5000000 } } }
+    InternalError:
+      description: INTERNAL_ERROR
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: { key: INTERNAL_ERROR, params: { request_id: 7f1c2e9a } } }
+
+  schemas:
+    # ----------------------------------------------------------- umumiy
+    Error:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [key, params]
+          additionalProperties: false
+          properties:
+            key:
+              type: string
+              pattern: '^[A-Z][A-Z0-9_]*$'
+              description: |
+                Xato kaliti. Asosiy kodlar katalogi — shared/errors/errors.json
+                (ro'yxat kengayishi mumkin, shuning uchun enum emas).
+              examples:
+                - AUTH_OTP_EXPIRED
+                - AUTH_OTP_INVALID
+                - AUTH_OTP_RATE_LIMITED
+                - AUTH_TOKEN_EXPIRED
+                - ORDER_NOT_FOUND
+                - ORDER_ALREADY_TAKEN
+                - WALLET_LIMIT_REACHED
+                - DRIVER_BLOCKED
+                - FORBIDDEN
+                - VALIDATION_ERROR
+                - INTERNAL_ERROR
+            params:
+              type: object
+              additionalProperties: true
+
+    Uuid:
+      type: string
+      format: uuid
+      readOnly: true
+
+    Money:
+      type: integer
+      description: Summa tiyinda (1 UZS = 100 tiyin)
+
+    Phone:
+      type: string
+      pattern: '^\+998[0-9]{9}$'
+      example: '+998901234567'
+
+    GeoPoint:
+      type: object
+      required: [lat, lng]
+      additionalProperties: false
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        address: { type: string, maxLength: 300 }
+
+    CursorPage:
+      type: object
+      required: [data, cursor]
+      properties:
+        data:
+          type: array
+        cursor:
+          type: [string, 'null']
+          description: Keyingi sahifa uchun; `null` — oxirgi sahifa
+
+    # ------------------------------------------------------------- auth
+    OtpRequest:
+      type: object
+      required: [phone]
+      additionalProperties: false
+      properties:
+        phone: { $ref: '#/components/schemas/Phone' }
+
+    OtpRequestResult:
+      type: object
+      required: [expires_in, resend_after]
+      properties:
+        expires_in: { type: integer, description: Kodning amal qilish muddati (soniya), readOnly: true }
+        resend_after: { type: integer, description: Qayta so'rash mumkin bo'lgan vaqt (soniya), readOnly: true }
+        code_length: { type: integer, readOnly: true, example: 6, description: "Yuborilgan kod uzunligi (raqamlar soni); klient shuncha katak ko'rsatadi" }
+
+    OtpVerify:
+      type: object
+      required: [phone, code]
+      additionalProperties: false
+      properties:
+        phone: { $ref: '#/components/schemas/Phone' }
+        code: { type: string, pattern: '^[0-9]{4,6}$' }
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      additionalProperties: false
+      properties:
+        refresh_token: { type: string, writeOnly: true }
+
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, expires_in, token_type]
+      properties:
+        access_token: { type: string, readOnly: true }
+        refresh_token: { type: string, readOnly: true }
+        expires_in: { type: integer, description: Access token muddati (soniya), readOnly: true }
+        token_type: { type: string, const: Bearer, readOnly: true }
+        is_new_user: { type: boolean, readOnly: true }
+
+    AdminLoginEmail:
+      type: object
+      required: [email]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+
+    AdminLoginChallenge:
+      type: object
+      required: [challenge_id, expires_in]
+      properties:
+        challenge_id: { $ref: '#/components/schemas/Uuid' }
+        expires_in: { type: integer, readOnly: true }
+        code_length: { type: integer, readOnly: true, example: 6, description: Yuborilgan kod uzunligi }
+
+    AdminLoginSms:
+      type: object
+      required: [phone]
+      additionalProperties: false
+      description: "`challenge_id` va `email_code` birga yuboriladi yoki ikkalasi ham yo'q (email'siz operator)."
+      properties:
+        challenge_id: { type: string, format: uuid }
+        email_code: { type: string, pattern: '^[0-9]{6}$' }
+        phone: { $ref: '#/components/schemas/Phone' }
+      dependentRequired:
+        challenge_id: [email_code]
+        email_code: [challenge_id]
+
+    AdminLoginVerify:
+      type: object
+      required: [challenge_id, sms_code]
+      additionalProperties: false
+      properties:
+        challenge_id: { type: string, format: uuid }
+        sms_code: { type: string, pattern: '^[0-9]{4,6}$' }
+
+    AdminToken:
+      type: object
+      required: [access_token, expires_in, token_type]
+      properties:
+        access_token: { type: string, readOnly: true }
+        expires_in: { type: integer, readOnly: true }
+        token_type: { type: string, const: Bearer, readOnly: true }
+
+    # ----------------------------------------------------------- driver
+    DriverState:
+      type: string
+      enum: [draft, pending_review, active, rejected, blocked]
+      description: |
+        draft — ro'yxat tugallanmagan; pending_review — tekshiruvda; active — faol;
+        rejected — rad etilgan; blocked — bloklangan.
+
+    Car:
+      type: object
+      required: [brand, model, year, color, plate_number, car_class, seats]
+      additionalProperties: false
+      properties:
+        brand: { type: string, maxLength: 50 }
+        model: { type: string, maxLength: 50 }
+        year: { type: integer, minimum: 1990, maximum: 2100 }
+        color: { type: string, maxLength: 30 }
+        plate_number: { type: string, maxLength: 15, example: 01A123BC }
+        car_class: { $ref: '#/components/schemas/CarClass' }
+        seats: { type: integer, minimum: 1, maximum: 8 }
+
+    DriverProfile:
+      type: object
+      required: [id, user_id, phone, first_name, last_name, state, rating]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        user_id: { $ref: '#/components/schemas/Uuid' }
+        phone: { allOf: [{ $ref: '#/components/schemas/Phone' }], readOnly: true }
+        first_name: { type: string }
+        last_name: { type: string }
+        avatar_url: { type: [string, 'null'], format: uri, readOnly: true }
+        car: { allOf: [{ $ref: '#/components/schemas/Car' }], readOnly: true }
+        state: { allOf: [{ $ref: '#/components/schemas/DriverState' }], readOnly: true }
+        rating: { type: number, minimum: 0, maximum: 5, readOnly: true }
+        trips_count: { type: integer, readOnly: true }
+
+    DriverProfileUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        first_name: { type: string, minLength: 1, maxLength: 50 }
+        last_name: { type: string, minLength: 1, maxLength: 50 }
+        avatar_document_id: { type: string, format: uuid, description: upload-url orqali yuklangan rasm }
+
+    RegistrationStep1:
+      title: Step 1 — shaxsiy ma'lumotlar
+      type: object
+      required: [first_name, last_name, birth_date, city]
+      additionalProperties: false
+      properties:
+        first_name: { type: string, minLength: 1, maxLength: 50 }
+        last_name: { type: string, minLength: 1, maxLength: 50 }
+        birth_date: { type: string, format: date }
+        city: { type: string, maxLength: 50 }
+
+    RegistrationStep2:
+      title: Step 2 — mashina
+      type: object
+      required: [car]
+      additionalProperties: false
+      properties:
+        car: { $ref: '#/components/schemas/Car' }
+
+    RegistrationStep3:
+      title: Step 3 — hujjatlar
+      type: object
+      required: [documents]
+      additionalProperties: false
+      description: |
+        Majburiy turlar: `license_front`, `selfie`. Har tur va har document_id bir martadan.
+        Hujjat shu haydovchiniki, turi mos va holati `uploaded` bo'lishi shart
+        (aks holda `VALIDATION_ERROR`: `not_found` / `mismatch` / `not_uploaded`).
+        `avatar` bu qadamda qabul qilinmaydi.
+      properties:
+        documents:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: object
+            required: [kind, document_id]
+            additionalProperties: false
+            properties:
+              kind:
+                allOf: [{ $ref: '#/components/schemas/DocumentKind' }]
+                not: { const: avatar }
+              document_id: { type: string, format: uuid }
+
+    RegistrationStep4:
+      title: Step 4 — tekshiruvga yuborish
+      type: object
+      required: [accept_terms]
+      additionalProperties: false
+      properties:
+        accept_terms: { type: boolean, const: true }
+
+    RegistrationState:
+      type: object
+      required: [current_step, completed_steps, state]
+      properties:
+        current_step: { type: integer, minimum: 1, maximum: 4, readOnly: true }
+        completed_steps:
+          type: array
+          readOnly: true
+          items: { type: integer, minimum: 1, maximum: 4 }
+        state: { allOf: [{ $ref: '#/components/schemas/DriverState' }], readOnly: true }
+
+    DocumentKind:
+      type: string
+      enum: [license_front, license_back, tech_passport_front, tech_passport_back, passport, selfie, car_photo, avatar]
+
+    UploadUrlRequest:
+      type: object
+      required: [kind, content_type, size_bytes]
+      additionalProperties: false
+      properties:
+        kind: { $ref: '#/components/schemas/DocumentKind' }
+        content_type: { type: string, enum: [image/jpeg, image/png], description: PDF qabul qilinmaydi }
+        size_bytes: { type: integer, minimum: 1, maximum: 10485760 }
+
+    UploadUrl:
+      type: object
+      required: [document_id, upload_url, method, expires_at]
+      properties:
+        document_id: { $ref: '#/components/schemas/Uuid' }
+        upload_url:
+          type: string
+          format: uri
+          readOnly: true
+          description: "`PUT /api/v1/drivers/documents/{id}/content?expires=...&signature=...`"
+        method: { type: string, const: PUT, readOnly: true }
+        headers:
+          type: object
+          readOnly: true
+          description: "PUT so'roviga qo'yiladigan sarlavhalar (masalan `Content-Type`)"
+          additionalProperties: { type: string }
+        expires_at: { type: string, format: date-time, readOnly: true }
+
+    DriverStatus:
+      type: object
+      required: [state, updated_at]
+      properties:
+        state: { allOf: [{ $ref: '#/components/schemas/DriverState' }], readOnly: true }
+        reason: { type: [string, 'null'], readOnly: true, description: Rad etish yoki bloklash sababi kaliti }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
+    # ----------------------------------------------------------- orders
+    OrderType:
+      type: string
+      enum: [passenger, delivery]
+
+    CarClass:
+      type: string
+      enum: [economy, comfort, business, minivan]
+
+    PaymentMethod:
+      type: string
+      enum: [cash, card, wallet, payme, click]
+
+    VehicleType:
+      type: string
+      enum: [spark, damas, labo, isuzu, isuzu2, fura]
+      description: Yuk mashinasi turi (faqat `type = delivery` uchun)
+
+    OrderStatus:
+      type: string
+      enum: [searching, accepted, arrived, in_progress, completed, cancelled, expired]
+
+    SeatId:
+      type: string
+      enum: [front, back-left, back-mid, back-right]
+      description: Mashinadagi o'rindiq joyi
+
+    OrderCreate:
+      type: object
+      required: [type, from, to, payment_method]
+      additionalProperties: false
+      properties:
+        type: { $ref: '#/components/schemas/OrderType' }
+        seats:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: O'rindiqlar soni (passenger uchun; car_class bilan birga yuborilmaydi). `seat_ids` bilan birga bo'lsa soni teng bo'lishi shart
+        seat_ids:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/SeatId' }
+          description: Tanlangan o'rindiq joylari (passenger). O'rindiqlar soni = elementlar soni; narx soniga bog'liq
+        car_class:
+          allOf: [{ $ref: '#/components/schemas/CarClass' }]
+          description: Butun mashina turi (seats o'rniga)
+        vehicle_type:
+          allOf: [{ $ref: '#/components/schemas/VehicleType' }]
+          description: Yetkazib berish (delivery) uchun majburiy; passenger uchun yuborilmaydi
+        from: { $ref: '#/components/schemas/GeoPoint' }
+        to: { $ref: '#/components/schemas/GeoPoint' }
+        scheduled_at: { type: string, format: date-time, description: "Aniq vaqt. Hech qaysi vaqt maydoni bo'lmasa — hozir" }
+        scheduled_from: { type: string, format: date-time, description: "Oraliq boshi" }
+        scheduled_to: { type: string, format: date-time, description: "Oraliq oxiri" }
+        payment_method: { $ref: '#/components/schemas/PaymentMethod' }
+        comment: { type: string, maxLength: 200 }
+        quote_id:
+          type: string
+          format: uuid
+          description: |
+            `POST /api/v1/orders/quote` natijasi. Berilsa — buyurtma aynan taklifdagi narx bilan yaratiladi (aks holda 404/409,
+            buyurtma yaratilmaydi). Berilmasa — narx hozirgi tarif bo'yicha hisoblanadi (masalan "qayta qidirish").
+      description: |
+        Narx, masofa va status YUBORILMAYDI — server hisoblaydi.
+        `type = passenger` — `seats`/`seat_ids` YOKI `car_class` (bittasi). `type = delivery` — faqat `vehicle_type`.
+
+        Vaqt: hech biri yo'q — hozir ("haydovchi istagan"); `scheduled_at` — aniq vaqt; `scheduled_from` + `scheduled_to` —
+        oraliq (masalan 15-kuni 08:00 dan 17-kuni 12:00 gacha istalgan vaqt). `scheduled_at` oraliq bilan birga yuborilmaydi.
+        Oraliq: `from` kelajakda, `from < to`, kamida 15 daqiqa, ko'pi bilan 7 kun, `to` ko'pi bilan 30 kun oldin.
+      oneOf:
+        - anyOf: [{ required: [seats] }, { required: [seat_ids] }]
+          not: { anyOf: [{ required: [car_class] }, { required: [vehicle_type] }] }
+        - required: [car_class]
+          not: { anyOf: [{ required: [seats] }, { required: [seat_ids] }, { required: [vehicle_type] }] }
+        - required: [vehicle_type]
+          not: { anyOf: [{ required: [seats] }, { required: [seat_ids] }, { required: [car_class] }] }
+
+    QuoteRequest:
+      description: "`OrderCreate` bilan bir xil, faqat `payment_method` ixtiyoriy va `quote_id` yo'q."
+      type: object
+      required: [type, from, to]
+      additionalProperties: false
+      properties:
+        type: { $ref: '#/components/schemas/OrderType' }
+        seats: { type: integer, minimum: 1, maximum: 4 }
+        seat_ids:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/SeatId' }
+        car_class: { $ref: '#/components/schemas/CarClass' }
+        vehicle_type: { $ref: '#/components/schemas/VehicleType' }
+        from: { $ref: '#/components/schemas/GeoPoint' }
+        to: { $ref: '#/components/schemas/GeoPoint' }
+        scheduled_at: { type: string, format: date-time }
+        scheduled_from: { type: string, format: date-time }
+        scheduled_to: { type: string, format: date-time }
+        payment_method: { $ref: '#/components/schemas/PaymentMethod' }
+        comment: { type: string, maxLength: 200 }
+
+    PriceLine:
+      type: object
+      required: [key, amount]
+      properties:
+        key: { type: string, description: 'Klient i18n kaliti, masalan `quote.seatFare`' }
+        params: { type: object, additionalProperties: true, description: 'Matnga qo''yiladigan qiymatlar (`count`, `pct`, `km`)' }
+        amount: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true }
+
+    Quote:
+      type: object
+      readOnly: true
+      required: [quote_id, price, lines, distance_m, duration_s, expires_at]
+      properties:
+        quote_id: { type: string, format: uuid }
+        price: { $ref: '#/components/schemas/Money' }
+        lines:
+          type: array
+          description: Narx tarkibi; yig'indisi doim `price`
+          items: { $ref: '#/components/schemas/PriceLine' }
+        distance_m: { type: integer }
+        duration_s: { type: integer }
+        expires_at: { type: string, format: date-time, description: Shu vaqtgacha buyurtmada ishlatish mumkin (bir marta) }
+
+    SeatMap:
+      type: object
+      readOnly: true
+      required: [seats]
+      properties:
+        seats:
+          type: array
+          items:
+            type: object
+            required: [id, taken, price]
+            properties:
+              id: { $ref: '#/components/schemas/SeatId' }
+              taken: { type: boolean, description: Hozircha doim false (pooling yo'q) }
+              price: { $ref: '#/components/schemas/Money' }
+
+    City:
+      type: object
+      readOnly: true
+      required: [id, name, region, lat, lng]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Toshkent }
+        region: { type: string, example: Toshkent shahri }
+        lat: { type: number }
+        lng: { type: number }
+
+    CityList:
+      type: object
+      readOnly: true
+      required: [data]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/City' } }
+
+    Place:
+      type: object
+      readOnly: true
+      required: [id, city_id, name, area, kind, lat, lng]
+      properties:
+        id: { type: string, format: uuid, description: "kind = city bo'lsa — shahar ID si" }
+        city_id: { type: string, format: uuid }
+        name: { type: string }
+        area: { type: string, description: Pastki qator (tuman/shahar) }
+        kind: { type: string, enum: [city, landmark, station, bus_station, airport, market, district, address] }
+        lat: { type: number }
+        lng: { type: number }
+        entrance: { type: [string, 'null'] }
+        distance_m: { type: [integer, 'null'], description: "near_* (qidiruv) yoki so'ralgan nuqtadan (reverse)" }
+
+    PlaceList:
+      type: object
+      readOnly: true
+      required: [data]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Place' } }
+
+    PlaceDetails:
+      type: object
+      additionalProperties: false
+      description: Hammasi ixtiyoriy matn; bo'shlari saqlanmaydi
+      properties:
+        entrance: { type: string, maxLength: 20 }
+        floor: { type: string, maxLength: 20 }
+        apartment: { type: string, maxLength: 20 }
+        intercom: { type: string, maxLength: 20 }
+        note: { type: string, maxLength: 200 }
+
+    SavedPlaceCreate:
+      type: object
+      required: [name, lat, lng]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, example: Uy }
+        area: { type: string, maxLength: 200 }
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        details: { $ref: '#/components/schemas/PlaceDetails' }
+
+    SavedPlace:
+      type: object
+      readOnly: true
+      required: [id, name, area, lat, lng, details, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        area: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        details:
+          oneOf: [{ type: 'null' }, { $ref: '#/components/schemas/PlaceDetails' }]
+        created_at: { type: string, format: date-time }
+
+    SavedPlaceList:
+      type: object
+      readOnly: true
+      required: [data]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/SavedPlace' } }
+
+    RouteEnd:
+      type: object
+      readOnly: true
+      required: [city_id, lat, lng, address]
+      properties:
+        city_id: { type: string, format: uuid }
+        lat: { type: number }
+        lng: { type: number }
+        address: { type: string, description: Shahar nomi }
+
+    PopularRouteList:
+      type: object
+      readOnly: true
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [from, to, distance_m, price_from]
+            properties:
+              from: { $ref: '#/components/schemas/RouteEnd' }
+              to: { $ref: '#/components/schemas/RouteEnd' }
+              distance_m: { type: [integer, 'null'] }
+              price_from: { type: [integer, 'null'], description: '1 o''rindiq narxi, tiyinda' }
+
+    DeliveryVehicleList:
+      type: object
+      readOnly: true
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [vehicle_type, size_label, dimensions_cm, max_weight_kg]
+            properties:
+              vehicle_type: { $ref: '#/components/schemas/VehicleType' }
+              size_label: { type: string, enum: [S, M, L, XL, XXL, 3XL] }
+              dimensions_cm:
+                type: object
+                required: [width, depth, height]
+                properties:
+                  width: { type: integer }
+                  depth: { type: integer }
+                  height: { type: integer }
+              max_weight_kg: { type: integer }
+
+    OrderUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Faqat shu maydonlarni o'zgartirish so'raladi; server ruxsat beradi yoki rad etadi.
+      properties:
+        seats: { type: integer, minimum: 1, maximum: 4 }
+        seat_ids:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/SeatId' }
+        car_class: { $ref: '#/components/schemas/CarClass' }
+        vehicle_type: { $ref: '#/components/schemas/VehicleType' }
+        to: { $ref: '#/components/schemas/GeoPoint' }
+        scheduled_at: { type: string, format: date-time, description: Oraliq o'rniga aniq vaqt }
+        scheduled_from: { type: string, format: date-time, description: Oraliq (scheduled_to bilan birga; aniq vaqt o'rniga) }
+        scheduled_to: { type: string, format: date-time }
+        payment_method: { $ref: '#/components/schemas/PaymentMethod' }
+        comment: { type: string, maxLength: 200 }
+
+    OrderCancel:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, enum: [changed_plans, long_wait, driver_asked, wrong_address, other] }
+        comment: { type: string, maxLength: 200 }
+
+    Order:
+      type: object
+      required: [id, type, from, to, payment_method, status, price, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        type: { $ref: '#/components/schemas/OrderType' }
+        seats: { type: integer }
+        seat_ids:
+          type: array
+          items: { $ref: '#/components/schemas/SeatId' }
+          description: Faqat joylar tanlangan bo'lsa
+        car_class: { $ref: '#/components/schemas/CarClass' }
+        vehicle_type: { $ref: '#/components/schemas/VehicleType' }
+        from: { $ref: '#/components/schemas/GeoPoint' }
+        to: { $ref: '#/components/schemas/GeoPoint' }
+        from_city_id: { type: [string, 'null'], format: uuid, readOnly: true, description: "Eng yaqin shahar (50 km ichida), aks holda null" }
+        to_city_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        scheduled_at: { type: [string, 'null'], format: date-time }
+        scheduled_from: { type: [string, 'null'], format: date-time }
+        scheduled_to: { type: [string, 'null'], format: date-time }
+        payment_method: { $ref: '#/components/schemas/PaymentMethod' }
+        comment: { type: [string, 'null'] }
+        status: { allOf: [{ $ref: '#/components/schemas/OrderStatus' }], readOnly: true }
+        price: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true }
+        price_lines:
+          type: array
+          readOnly: true
+          description: Narx tarkibi; yig'indisi doim `price` (eski buyurtmalarda bitta qator)
+          items: { $ref: '#/components/schemas/PriceLine' }
+        quote_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        cancel_reason: { type: [string, 'null'], readOnly: true }
+        editable: { type: boolean, readOnly: true, description: "Server qarori: PATCH ruxsat etiladimi" }
+        can_cancel: { type: boolean, readOnly: true, description: "Server qarori: yo'lovchi bekor qila oladimi" }
+        distance_m: { type: integer, readOnly: true }
+        duration_s: { type: integer, readOnly: true, description: Taxminiy davomiylik }
+        driver:
+          readOnly: true
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                id: { $ref: '#/components/schemas/Uuid' }
+                first_name: { type: string }
+                rating: { type: number }
+                car: { $ref: '#/components/schemas/Car' }
+        trip_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    OrderPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/Order' } }
+
+    # ------------------------------------------------------------ trips
+    Offer:
+      type: object
+      required: [id, order_id, type, from, to, price, expires_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        order_id: { $ref: '#/components/schemas/Uuid' }
+        type: { $ref: '#/components/schemas/OrderType' }
+        seats: { type: integer, readOnly: true }
+        seat_ids: { type: array, items: { $ref: '#/components/schemas/SeatId' }, readOnly: true }
+        car_class: { $ref: '#/components/schemas/CarClass' }
+        vehicle_type: { $ref: '#/components/schemas/VehicleType' }
+        from: { $ref: '#/components/schemas/GeoPoint' }
+        to: { $ref: '#/components/schemas/GeoPoint' }
+        from_city_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        to_city_id: { type: [string, 'null'], format: uuid, readOnly: true }
+        scheduled_at: { type: [string, 'null'], format: date-time, readOnly: true, description: Olib ketish vaqti (aniq) }
+        scheduled_from: { type: [string, 'null'], format: date-time, readOnly: true }
+        scheduled_to: { type: [string, 'null'], format: date-time, readOnly: true }
+        payment_method: { $ref: '#/components/schemas/PaymentMethod' }
+        comment: { type: [string, 'null'], readOnly: true }
+        price: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true }
+        commission: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true }
+        distance_m: { type: integer, readOnly: true }
+        pickup_eta_s: { type: integer, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        expires_at: { type: string, format: date-time, readOnly: true }
+
+    OfferPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/Offer' } }
+
+    Trip:
+      type: object
+      required: [id, order_id, driver_id, status]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        order_id: { $ref: '#/components/schemas/Uuid' }
+        driver_id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [assigned, in_progress, completed, cancelled], readOnly: true }
+        arrived_at: { type: [string, 'null'], format: date-time, readOnly: true, description: '"Yetib keldim" vaqti' }
+        started_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        completed_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        cancelled_at: { type: [string, 'null'], format: date-time, readOnly: true }
+        cancelled_by: { type: [string, 'null'], enum: [driver, admin, null], readOnly: true }
+        cancel_reason: { type: [string, 'null'], readOnly: true }
+        final_price: { type: [integer, 'null'], readOnly: true, description: Tiyinda }
+        commission: { type: [integer, 'null'], readOnly: true, description: Tiyinda }
+        distance_m: { type: [integer, 'null'], readOnly: true }
+        next_actions:
+          type: array
+          readOnly: true
+          description: "Server qarori — haydovchi hozir bajara oladigan amallar (klient holatdan xulosa chiqarmaydi)"
+          items: { type: string, enum: [arrive, start, cancel, complete] }
+
+    TripPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data:
+              type: array
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/Trip'
+                  - type: object
+                    required: [order]
+                    properties:
+                      order: { $ref: '#/components/schemas/Order' }
+
+    OfferReject:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, enum: [too_far, bad_price, busy, other] }
+
+    TripCancel:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason: { type: string, enum: [passenger_no_show, passenger_asked, car_problem, emergency, other] }
+        comment: { type: string, maxLength: 200 }
+
+    # ----------------------------------------------------------- wallet
+    WalletBalance:
+      type: object
+      required: [wallet_id, balance, debt, debt_limit, limit_reached, currency]
+      properties:
+        wallet_id: { $ref: '#/components/schemas/Uuid' }
+        balance: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true, description: Manfiy bo'lishi mumkin }
+        debt: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true }
+        debt_limit: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true }
+        limit_reached: { type: boolean, readOnly: true }
+        debt_status: { type: string, enum: [ok, approaching, at_limit], readOnly: true, description: "ok | approaching (limitning 80% i) | at_limit (yangi buyurtma olinmaydi)" }
+        currency: { type: string, const: UZS, readOnly: true }
+
+    LedgerEntry:
+      type: object
+      required: [id, wallet_id, kind, amount, balance_after, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        wallet_id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, enum: [trip_payment, commission, topup, correction, bonus], readOnly: true }
+        amount: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true, description: 'Ishorali (+ kirim, − chiqim)' }
+        balance_after: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true }
+        reference_id: { type: [string, 'null'], format: uuid, readOnly: true, description: trip / payment / correction ID }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    LedgerPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/LedgerEntry' } }
+
+    TopupRequest:
+      type: object
+      required: [amount, provider]
+      additionalProperties: false
+      properties:
+        amount: { type: integer, minimum: 100000, maximum: 1000000000, description: "To'ldiriladigan summa, tiyinda" }
+        provider: { type: string, enum: [payme, click] }
+
+    TopupSession:
+      type: object
+      required: [payment_id, status, redirect_url]
+      properties:
+        payment_id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [pending, paid, failed], readOnly: true }
+        redirect_url: { type: string, format: uri, readOnly: true, description: Provayder to'lov sahifasi (hozir mock) }
+        expires_at: { type: string, format: date-time, readOnly: true }
+
+    CardLinkRequest:
+      type: object
+      required: [provider]
+      additionalProperties: false
+      properties:
+        provider: { type: string, enum: [payme, click] }
+
+    CardLinkSession:
+      type: object
+      required: [link_id, redirect_url, expires_at]
+      properties:
+        link_id: { $ref: '#/components/schemas/Uuid' }
+        redirect_url: { type: string, format: uri, readOnly: true, description: Provayder karta ulash sahifasi (hozir mock) }
+        expires_at: { type: string, format: date-time, readOnly: true }
+
+    # ---------------------------------------------------------- ratings
+    RatingInput:
+      type: object
+      required: [stars]
+      additionalProperties: false
+      properties:
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        reason:
+          type: object
+          required: [kind]
+          additionalProperties: false
+          description: Faqat stars = 5 bo'lganda yuboriladi
+          properties:
+            kind: { type: string, enum: [polite, good_talk, comfort, just_because, custom] }
+            custom_text: { type: string, minLength: 1, maxLength: 200 }
+          if:
+            properties: { kind: { const: custom } }
+          then:
+            required: [custom_text]
+          else:
+            not: { required: [custom_text] }
+      if:
+        properties: { stars: { const: 5 } }
+      then:
+        required: [reason]
+      else:
+        not: { required: [reason] }
+
+    Rating:
+      type: object
+      required: [order_id, stars, created_at]
+      properties:
+        order_id: { $ref: '#/components/schemas/Uuid' }
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        reason:
+          type: [object, 'null']
+          properties:
+            kind: { type: string, enum: [polite, good_talk, comfort, just_because, custom] }
+            custom_text: { type: [string, 'null'], maxLength: 200 }
+        created_at: { type: string, format: date-time, readOnly: true }
+        updated_at: { type: [string, 'null'], format: date-time, readOnly: true }
+
+    # ---------------------------------------------------- notifications
+    Notification:
+      type: object
+      required: [id, kind, title_key, params, read, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, enum: [order, trip, wallet, driver, system, promo], readOnly: true }
+        title_key: { type: string, readOnly: true, description: Lokalizatsiya kaliti }
+        body_key: { type: string, readOnly: true }
+        params: { type: object, additionalProperties: true, readOnly: true }
+        read: { type: boolean, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    NotificationPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+
+    # ---------------------------------------------------------- profile
+    Profile:
+      type: object
+      required: [id, phone, role, settings]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        phone: { allOf: [{ $ref: '#/components/schemas/Phone' }], readOnly: true }
+        first_name: { type: [string, 'null'] }
+        last_name: { type: [string, 'null'] }
+        role: { type: string, enum: [passenger, driver], readOnly: true }
+        rating: { type: [number, 'null'], readOnly: true }
+        settings: { $ref: '#/components/schemas/Settings' }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    ProfileUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        first_name: { type: string, minLength: 1, maxLength: 50 }
+        last_name: { type: string, minLength: 1, maxLength: 50 }
+
+    Settings:
+      type: object
+      additionalProperties: false
+      properties:
+        language: { type: string, enum: [uz, ru, en] }
+        theme: { type: string, enum: [light, dark, system] }
+        notifications:
+          type: object
+          additionalProperties: false
+          properties:
+            push: { type: boolean }
+            sms: { type: boolean }
+            promo: { type: boolean }
+
+    # ------------------------------------------------------------ admin
+    StaffRole:
+      type: string
+      enum: [superadmin, owner, manager, marketer, operator]
+
+    AdminSection:
+      type: string
+      enum: [staff, drivers, passengers, orders, wallet, tariffs, operator, stats, complaints, audit]
+
+    AdminMe:
+      type: object
+      required: [id, email, role, sections, creatable_roles]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        email: { type: string, format: email, readOnly: true }
+        full_name: { type: string, readOnly: true }
+        role: { allOf: [{ $ref: '#/components/schemas/StaffRole' }], readOnly: true }
+        sections:
+          type: array
+          readOnly: true
+          items: { $ref: '#/components/schemas/AdminSection' }
+        creatable_roles:
+          type: array
+          readOnly: true
+          items: { $ref: '#/components/schemas/StaffRole' }
+
+    Staff:
+      type: object
+      required: [id, email, phone, full_name, role, state, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        email: { type: [string, 'null'], format: email, description: "`null` — email'siz operator" }
+        phone: { $ref: '#/components/schemas/Phone' }
+        full_name: { type: string }
+        role: { $ref: '#/components/schemas/StaffRole' }
+        state: { type: string, enum: [active, blocked, archived], readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    StaffCreate:
+      type: object
+      required: [phone, full_name, role]
+      additionalProperties: false
+      description: |
+        `email` majburiy emas: email'siz (yoki `null`) faqat `operator` yaratiladi — u admin panelga
+        telefon + SMS bilan kiradi (email qadamisiz). Boshqa rollar uchun email shart
+        (aks holda `422 VALIDATION_ERROR`, `fields.email: required`).
+      properties:
+        email: { type: [string, 'null'], format: email, maxLength: 254 }
+        phone: { $ref: '#/components/schemas/Phone' }
+        full_name: { type: string, minLength: 1, maxLength: 100 }
+        role: { $ref: '#/components/schemas/StaffRole' }
+      if:
+        not:
+          properties: { role: { const: operator } }
+      then:
+        required: [email]
+        properties:
+          email: { type: string }
+
+    StaffUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        phone: { $ref: '#/components/schemas/Phone' }
+        full_name: { type: string, minLength: 1, maxLength: 100 }
+        role: { $ref: '#/components/schemas/StaffRole' }
+        state: { type: string, enum: [active, blocked] }
+
+    StaffPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/Staff' } }
+
+    AccountState:
+      type: string
+      enum: [active, blocked, archived]
+
+    AdminPersonCreate:
+      type: object
+      required: [phone, first_name, last_name]
+      additionalProperties: false
+      properties:
+        phone: { $ref: '#/components/schemas/Phone' }
+        first_name: { type: string, minLength: 1, maxLength: 50 }
+        last_name: { type: string, minLength: 1, maxLength: 50 }
+
+    AdminPersonUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: "`state: blocked` — bloklash (sabab majburiy), `state: archived` — arxivlash."
+      properties:
+        first_name: { type: string, minLength: 1, maxLength: 50 }
+        last_name: { type: string, minLength: 1, maxLength: 50 }
+        state: { $ref: '#/components/schemas/AccountState' }
+        state_reason: { type: string, maxLength: 200 }
+      if:
+        properties: { state: { const: blocked } }
+        required: [state]
+      then:
+        required: [state_reason]
+
+    AdminDriver:
+      type: object
+      required: [id, phone, first_name, last_name, state, driver_state, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        phone: { $ref: '#/components/schemas/Phone' }
+        first_name: { type: string }
+        last_name: { type: string }
+        state: { allOf: [{ $ref: '#/components/schemas/AccountState' }], readOnly: true }
+        state_reason: { type: [string, 'null'], readOnly: true }
+        driver_state: { allOf: [{ $ref: '#/components/schemas/DriverState' }], readOnly: true }
+        car: { allOf: [{ $ref: '#/components/schemas/Car' }], readOnly: true }
+        rating: { type: number, readOnly: true }
+        trips_count: { type: integer, readOnly: true }
+        wallet_balance: { allOf: [{ $ref: '#/components/schemas/Money' }], readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    AdminDriverPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/AdminDriver' } }
+
+    AdminPassenger:
+      type: object
+      required: [id, phone, state, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        phone: { $ref: '#/components/schemas/Phone' }
+        first_name: { type: [string, 'null'] }
+        last_name: { type: [string, 'null'] }
+        state: { allOf: [{ $ref: '#/components/schemas/AccountState' }], readOnly: true }
+        state_reason: { type: [string, 'null'], readOnly: true }
+        rating: { type: [number, 'null'], readOnly: true }
+        orders_count: { type: integer, readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    AdminPassengerPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/AdminPassenger' } }
+
+    ApprovalStatus:
+      type: string
+      enum: [pending_approval, approved, rejected]
+      description: Ikki kishi tasdig'i holati. Yaratuvchi va tasdiqlovchi turli xodim bo'lishi shart.
+
+    CorrectionCreate:
+      type: object
+      required: [wallet_id, amount, reason]
+      additionalProperties: false
+      properties:
+        wallet_id: { type: string, format: uuid }
+        amount: { type: integer, not: { const: 0 }, description: 'Ishorali tuzatish summasi, tiyinda' }
+        reason: { type: string, minLength: 5, maxLength: 500 }
+
+    Correction:
+      type: object
+      required: [id, wallet_id, amount, reason, approval_status, created_by, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        wallet_id: { $ref: '#/components/schemas/Uuid' }
+        amount: { $ref: '#/components/schemas/Money' }
+        reason: { type: string }
+        approval_status: { allOf: [{ $ref: '#/components/schemas/ApprovalStatus' }], readOnly: true }
+        created_by: { $ref: '#/components/schemas/Uuid' }
+        approved_by: { type: [string, 'null'], format: uuid, readOnly: true, description: Tasdiqlagan yoki rad etgan xodim }
+        reject_reason: { type: [string, 'null'], readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+
+    TariffFields:
+      type: object
+      description: Tarif maydonlari (TariffInput va Tariff uchun umumiy baza)
+      required: [name, car_class, base_fare, per_km, per_min, min_fare, commission_percent]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        car_class: { $ref: '#/components/schemas/CarClass' }
+        base_fare: { type: integer, minimum: 0, description: Tiyinda }
+        per_km: { type: integer, minimum: 0, description: Tiyinda }
+        per_min: { type: integer, minimum: 0, description: Tiyinda }
+        min_fare: { type: integer, minimum: 0, description: Tiyinda }
+        commission_percent: { type: number, minimum: 0, maximum: 100 }
+
+    TariffInput:
+      allOf:
+        - $ref: '#/components/schemas/TariffFields'
+      unevaluatedProperties: false
+
+    Tariff:
+      allOf:
+        - $ref: '#/components/schemas/TariffFields'
+        - type: object
+          required: [id, active, approval_status]
+          properties:
+            id: { $ref: '#/components/schemas/Uuid' }
+            active: { type: boolean, readOnly: true }
+            approval_status: { allOf: [{ $ref: '#/components/schemas/ApprovalStatus' }], readOnly: true }
+            pending_change:
+              readOnly: true
+              description: Tasdiq kutayotgan o'zgarish (yaratish/o'zgartirish/o'chirish)
+              oneOf:
+                - type: 'null'
+                - type: object
+                  properties:
+                    action: { type: string, enum: [create, update, delete] }
+                    requested_by: { type: string, format: uuid }
+                    requested_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time, readOnly: true }
+
+    TariffPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/Tariff' } }
+
+    QueueItem:
+      type: object
+      required: [id, kind, subject_id, status, created_at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        kind: { type: string, enum: [driver_application, document_update, complaint], readOnly: true }
+        subject_id: { $ref: '#/components/schemas/Uuid' }
+        status: { type: string, enum: [waiting, in_progress, completed, rejected], readOnly: true }
+        assigned_to: { type: [string, 'null'], format: uuid, readOnly: true }
+        result:
+          type: [string, 'null']
+          enum: [resolved, unresolved, null]
+          readOnly: true
+          description: Faqat status = completed bo'lganda to'ldiriladi
+        comment: { type: [string, 'null'], readOnly: true, description: Operator izohi (complete paytida) }
+        reject_reason: { type: [string, 'null'], readOnly: true }
+        created_at: { type: string, format: date-time, readOnly: true }
+        finished_at: { type: [string, 'null'], format: date-time, readOnly: true }
+
+    QueueReject:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    QueueComplete:
+      type: object
+      required: [result]
+      additionalProperties: false
+      properties:
+        result: { type: string, enum: [resolved, unresolved] }
+        comment: { type: string, maxLength: 1000 }
+
+    ApprovalReject:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    QueuePage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/QueueItem' } }
+
+    Stats:
+      type: object
+      readOnly: true
+      required: [orders_total, orders_completed, orders_cancelled, active_drivers, online_drivers, new_passengers, revenue, commission]
+      properties:
+        orders_total: { type: integer }
+        orders_completed: { type: integer }
+        orders_cancelled: { type: integer }
+        active_drivers: { type: integer }
+        online_drivers: { type: integer }
+        new_passengers: { type: integer }
+        revenue: { $ref: '#/components/schemas/Money' }
+        commission: { $ref: '#/components/schemas/Money' }
+        drivers_over_limit: { type: integer, description: Qarz limitiga yetgan haydovchilar }
+        orders_expired: { type: integer }
+        average_order_value: { allOf: [{ $ref: '#/components/schemas/Money' }], description: Yakunlangan buyurtma o'rtacha narxi }
+        orders_by_status:
+          type: object
+          description: Har bir OrderStatus bo'yicha soni (hammasi bor, 0 bilan)
+          additionalProperties: { type: integer }
+        daily:
+          type: array
+          description: Kunlar bo'yicha (O'zbekiston vaqti, UTC+5), faqat buyurtmasi bor kunlar
+          items:
+            type: object
+            required: [date, orders, completed, revenue]
+            properties:
+              date: { type: string, format: date }
+              orders: { type: integer }
+              completed: { type: integer }
+              revenue: { $ref: '#/components/schemas/Money' }
+        top_routes:
+          type: array
+          description: Eng ko'p buyurtma qilingan shahar juftliklari (10 tagacha)
+          items:
+            type: object
+            required: [from_city_id, to_city_id, from_name, to_name, orders]
+            properties:
+              from_city_id: { type: string, format: uuid }
+              to_city_id: { type: string, format: uuid }
+              from_name: { type: string }
+              to_name: { type: string }
+              orders: { type: integer }
+
+    AdminOrderUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: "`scheduled_at` oraliq bilan birga emas; `scheduled_from` va `scheduled_to` birga, `from < to`."
+      properties:
+        comment: { type: string, maxLength: 200 }
+        payment_method: { $ref: '#/components/schemas/PaymentMethod' }
+        scheduled_at: { type: string, format: date-time }
+        scheduled_from: { type: string, format: date-time }
+        scheduled_to: { type: string, format: date-time }
+
+    AdminOrderCancel:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason: { type: string, enum: [admin_decision, passenger_request, driver_request, duplicate, fraud, other] }
+        comment: { type: string, maxLength: 500 }
+
+    CorrectionPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data:
+              type: array
+              items:
+                allOf:
+                  - $ref: '#/components/schemas/Correction'
+                  - type: object
+                    properties:
+                      created_by_name: { type: [string, 'null'], description: Yaratgan xodim ismi }
+
+    ComplaintStatus:
+      type: string
+      enum: [open, in_progress, resolved, rejected]
+
+    ComplaintSubjectType:
+      type: string
+      enum: [passenger, driver, order]
+
+    ComplaintCreate:
+      type: object
+      required: [subject_type, subject_id, category, description]
+      additionalProperties: false
+      properties:
+        order_id: { type: string, format: uuid }
+        subject_type: { $ref: '#/components/schemas/ComplaintSubjectType' }
+        subject_id: { type: string, format: uuid }
+        category: { type: string, enum: [driver_behavior, passenger_behavior, payment, safety, lost_item, app_issue, other] }
+        description: { type: string, minLength: 1, maxLength: 2000 }
+
+    Complaint:
+      type: object
+      readOnly: true
+      required: [id, order_id, subject_type, subject_id, category, description, status, assigned_to, resolution, created_by, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        order_id: { type: [string, 'null'], format: uuid }
+        subject_type: { $ref: '#/components/schemas/ComplaintSubjectType' }
+        subject_id: { type: string, format: uuid }
+        category: { type: string }
+        description: { type: string }
+        status: { $ref: '#/components/schemas/ComplaintStatus' }
+        assigned_to: { type: [string, 'null'], format: uuid }
+        resolution: { type: [string, 'null'] }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ComplaintNote:
+      type: object
+      readOnly: true
+      required: [id, complaint_id, author_id, text, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        complaint_id: { type: string, format: uuid }
+        author_id: { type: string, format: uuid }
+        text: { type: string }
+        created_at: { type: string, format: date-time }
+
+    ComplaintDetail:
+      allOf:
+        - $ref: '#/components/schemas/Complaint'
+        - type: object
+          required: [notes]
+          properties:
+            notes: { type: array, items: { $ref: '#/components/schemas/ComplaintNote' }, description: Eskidan yangiga }
+
+    ComplaintPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/Complaint' } }
+
+    ComplaintAssign:
+      type: object
+      required: [staff_id]
+      additionalProperties: false
+      properties:
+        staff_id: { type: string, format: uuid }
+
+    ComplaintStatusChange:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [in_progress, resolved, rejected] }
+        resolution: { type: string, minLength: 3, maxLength: 1000 }
+
+    AuditEntry:
+      type: object
+      readOnly: true
+      required: [id, actor_id, actor_role, action, entity_type, entity_id, before, after, request_id, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        actor_id: { type: [string, 'null'], format: uuid }
+        actor_role: { type: string }
+        action: { type: string, example: staff.create }
+        entity_type: { type: string }
+        entity_id: { type: string }
+        before: { type: [object, 'null'], additionalProperties: true }
+        after: { type: [object, 'null'], additionalProperties: true }
+        request_id: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+
+    AuditPage:
+      allOf:
+        - $ref: '#/components/schemas/CursorPage'
+        - properties:
+            data: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }
+
+    DriverRoute:
+      type: object
+      required: [a_city_id, b_city_id, both_ways]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        a_city_id: { type: string, format: uuid }
+        b_city_id: { type: string, format: uuid }
+        both_ways: { type: boolean }
+
+    DriverRoutes:
+      type: object
+      readOnly: true
+      required: [routes]
+      properties:
+        routes: { type: array, items: { $ref: '#/components/schemas/DriverRoute' } }
+
+    DriverRoutesInput:
+      type: object
+      required: [routes]
+      additionalProperties: false
+      properties:
+        routes:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [a_city_id, b_city_id, both_ways]
+            additionalProperties: false
+            properties:
+              a_city_id: { type: string, format: uuid }
+              b_city_id: { type: string, format: uuid }
+              both_ways: { type: boolean }
+
+    DriverCapabilities:
+      type: object
+      required: [child_seat, child_seat_ages, pets, big_luggage]
+      additionalProperties: false
+      properties:
+        child_seat: { type: boolean }
+        child_seat_ages:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: ['0-1', '1-3', '3-7', '7-12'] }
+        pets: { type: boolean }
+        big_luggage: { type: boolean }

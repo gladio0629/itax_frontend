@@ -1,6 +1,6 @@
 # Backend gaps: what the frontends need vs `api/openapi.yml`
 
-The contract is `api/openapi.yml` (IZGO Taxi Platform API 0.1.0, **70 operations**). The frontends
+The contract is `api/openapi.yml` (IZGO Taxi Platform API 0.2.0, **100 operations**; the analysis below was written against 0.1.0 with 70, see §0 for what has changed). The frontends
 call it through `shared/http` and the per-app `src/api/adapters/http.ts` + `src/api/httpMapper.ts`.
 Every feature the contract lacks reports `api.capabilities.<feature> = false`. The http
 adapter rejects it with `NOT_SUPPORTED`, and the UI hides it or shows "Tez orada". Nothing is faked.
@@ -14,6 +14,85 @@ request/response shapes proposed for each missing feature.
 
 Conventions in all proposals: ids are UUIDs, money is integer tiyin, lists are `{ data, cursor }`,
 and errors are `{ error: { key, params } }`.
+
+## 0. Backend status (updated 2026-11-15)
+
+`api/openapi.yml` is now IZGO Taxi Platform API **0.2.0, 100 operations** (was 0.1.0, 70), copied from
+`onlyback/api/openapi.yml`. `[x]` means the backend has it and it is in the contract, checked end to end through
+Kong against the local stack. The tables below still describe the frontend as it is; the adapters and
+capabilities need to be switched on per item.
+
+**Ordering (client)**
+- [x] Cities: `GET /api/v1/cities` (stable UUIDs, no token)
+- [x] Address search and reverse geocoding, server-side: `GET /api/v1/places/search`, `GET /api/v1/places/reverse`.
+  Covers the city catalogue plus a platform gazetteer; no external geocoder yet (see open items)
+- [x] Saved places: `GET/POST /api/v1/places/saved`, `DELETE /api/v1/places/saved/{id}` (with entrance/floor/apartment/intercom/note)
+- [x] Popular routes with `price_from`: `GET /api/v1/routes/popular`
+- [x] Quote before ordering: `POST /api/v1/orders/quote` → `{ quote_id, price, lines[{key, params, amount}], distance_m, duration_s, expires_at }`.
+  `lines` always sum to `price` and use the client's keys (`quote.seatFare`, `quote.carFare`, `quote.class.*`,
+  `quote.cargoBase`, `quote.cargoDistance`). `orderCreate` with `quote_id` charges exactly the quoted price, or fails
+  with `QUOTE_NOT_FOUND` / `QUOTE_EXPIRED` / `QUOTE_ALREADY_USED` / `QUOTE_MISMATCH`
+- [x] Seat map and seat selection: `GET /api/v1/orders/seat-map`, `seat_ids[]` (`front, back-left, back-mid, back-right`)
+  on create/update/order/offer. `seats` still works
+- [x] Time as exact time or range: `scheduled_at` or `scheduled_from` + `scheduled_to`
+- [x] Vehicle sizes: `GET /api/v1/delivery/vehicles` → `size_label` S, M, L, XL, XXL, 3XL with dimensions and max
+  weight. `vehicle_type` keeps its values `spark…fura`, which the client already uses as ids
+- [x] Order verdicts and details: `editable`, `can_cancel`, `cancel_reason`, `price_lines`, `quote_id`, `from_city_id`, `to_city_id`
+- [x] `code_length` in `OtpRequestResult` and `AdminLoginChallenge`
+
+**Driver**
+- [x] Offer reject: `POST /api/v1/trips/offers/{id}/reject {reason?}`
+- [x] "Arrived" step: `POST /api/v1/trips/{id}/arrive` (order status `arrived`); `start` still works straight from `assigned`
+- [x] `Trip.next_actions` (`arrive | start | cancel | complete`), plus `arrived_at` and the cancel fields
+- [x] Trip cancel (before start): `POST /api/v1/trips/{id}/cancel {reason, comment?}`. The order goes back to search for other drivers
+- [x] Accepted trips after reload: `GET /api/v1/trips?status=assigned,in_progress` (with `order`)
+- [x] Trip history: `GET /api/v1/trips/history` (with `order`)
+- [x] Routes: `GET/PUT /api/v1/drivers/me/routes` (`a_city_id`, `b_city_id`, `both_ways`)
+- [x] Capabilities: `GET/PUT /api/v1/drivers/me/capabilities`
+- [x] Offer now carries `scheduled_at`/`scheduled_from`/`scheduled_to`, `payment_method`, `comment`, `created_at`, `seat_ids`, city ids
+- [x] `offer.created` is now actually sent over WebSocket. Before, no service emitted it, so the feed never refreshed in real time
+
+**Admin**
+- [x] Logout revokes the token on the server: `POST /admin/v1/auth/logout`. The same token gets 401 afterwards
+- [x] Complaints: list/get/create/assign/status/notes under `/admin/v1/complaints`; `AdminSection` gains `complaints`
+- [x] Audit log: `GET /admin/v1/audit`; `AdminSection` gains `audit`
+- [x] Order edit (comment, payment, time; only while searching) and cancel with reason: `PATCH /admin/v1/orders/{id}`,
+  `POST /admin/v1/orders/{id}/cancel`. Admin orders now come from the real order service (before: sample data),
+  plus a `passenger_id` filter
+- [x] Pending corrections list: `GET /admin/v1/wallet/correction?approval_status=pending_approval` (with `created_by_name`)
+- [x] Stats: `orders_expired`, `average_order_value`, `orders_by_status`, `daily`, `top_routes` (real order data)
+
+**Security and hosting**
+- [x] WebSocket token out of the URL: `new WebSocket(url, ["izgo.v1", "bearer." + token])`, or first frame
+  `{"type":"auth","token":…}`. `?token=` is still accepted until the frontends switch (`WS_ALLOW_QUERY_TOKEN`)
+- [x] WebSocket events documented: `onlyback/docs/websocket-events.md`. New events: `order.arrived`,
+  `trip.started`, `trip.cancelled`, `order.cancelled`
+- [x] CORS in Kong: methods `GET, POST, PUT, PATCH, DELETE, OPTIONS`, headers `Authorization, Content-Type, X-App,
+  Idempotency-Key`, no wildcard. **The 3 domains are placeholders** in `onlyback/gateway/kong.yml` and must be filled
+  in, together with `WS_ALLOWED_ORIGINS`
+- [x] HTTPS/WSS: Caddy profile in front of Kong (`onlyback/docs/hosting.md`). Configured, but not verified with a
+  real domain
+- [x] Dev test accounts with a fixed code and seed data: `onlyback/docs/dev-testing.md`
+
+**Still open**
+- [ ] Real geocoder (street addresses). Search covers cities and a small landmark list only
+- [ ] Seat pooling: seat-map `taken` is always `false`. No front-seat surcharge
+- [ ] Order extras: stops, options, address details on the order, luggage, rider, promo code, cargo (loaders, hourly,
+  ride-along, sender/receiver), tips
+- [ ] Safety tools and trip share, support contact, help requests, bonus
+- [ ] Account switching/deletion, phone change, profile `trips_count`/avatar
+- [ ] Order history `status` filter, `rating` on `Order`, driver phone (masked)/avatar on the order
+- [ ] Saved cards list (`GET /api/v1/wallet/cards`), provider return URL
+- [ ] Notifications: `unread_count`, read-all, per-topic switches, i18n key catalogue for the frontends
+- [ ] Driver: registration options endpoint, trip chat, trip summary (commission %, bonus), feed filters and
+  matching by the driver's routes/capabilities (stored but not used by matching yet), ledger filters, phone/car change
+- [ ] Admin: `me.phone`/`actions`; staff search/state filter/restore/email edit; driver `driver_state` filter,
+  `wallet_id`, `online`; masked phones with an audited reveal; ledger filters; proposed tariff values; queue/history
+  filters and supervisor views; export audit; section badges; create order for a passenger
+- [ ] **Admin drivers, passengers and wallet ledger still use sample (mock) data in the backoffice**, as do the
+  driver/passenger figures in stats. Only orders and order stats are wired to the real service
+- [ ] Admin realtime (`/ws` accepts passenger/driver tokens only)
+- [ ] Refresh token as an `HttpOnly` cookie for web
 
 ## 1. What is hidden in http mode today
 
