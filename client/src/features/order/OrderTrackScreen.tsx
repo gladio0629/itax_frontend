@@ -94,6 +94,8 @@ export function OrderTrackScreen() {
         luggage: x?.luggage,
         rider: x?.rider,
         promoCode: x?.promoCode,
+        sender: x?.sender,
+        receiver: x?.receiver,
       });
       navigate(`/order/track/${res.id}`, { replace: true });
     } catch {

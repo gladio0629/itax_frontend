@@ -18,12 +18,15 @@ export function CarClassPicker({
   value,
   onChange,
   onRetry,
+  errorKey,
 }: {
   status: "loading" | "error" | "success";
   classes: CarClass[];
   value: CarClassId;
   onChange: (id: CarClassId) => void;
   onRetry: () => void;
+  /** A rule the person can fix (e.g. a same-city route): shown, no retry. */
+  errorKey?: string | null;
 }) {
   const { t, intlTag } = useT();
   const refs = useRef(new Map<CarClassId, HTMLButtonElement>());
@@ -45,7 +48,11 @@ export function CarClassPicker({
       <p id="class-title" className="text-sm font-semibold text-ink">
         {t("class.title")}
       </p>
-      {status === "error" ? (
+      {status === "error" && errorKey ? (
+        <p role="alert" className="text-xs font-semibold text-danger">
+          {t(errorKey as TranslationKey)}
+        </p>
+      ) : status === "error" ? (
         <button onClick={onRetry} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
           {t("common.loadFailedRetry")}
         </button>

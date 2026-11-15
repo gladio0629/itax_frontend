@@ -111,6 +111,8 @@ export function HomeScreen() {
         carClass: draft.serviceType === "passenger" ? draft.carClass : undefined,
         luggage: draft.serviceType === "passenger" ? draft.luggage : undefined,
         rider: draft.serviceType === "passenger" ? draft.rider : undefined,
+        sender: draft.serviceType === "delivery" ? draft.sender : undefined,
+        receiver: draft.serviceType === "delivery" ? draft.receiver : undefined,
       });
       navigate(`/order/track/${order.id}`);
       reset();

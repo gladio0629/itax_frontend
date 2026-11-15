@@ -10,11 +10,14 @@ import { useT } from "@/lib/i18n/provider";
 export function AddressPickerSheet({
   title,
   excludeCityId,
+  onlyCityId,
   onSelect,
   onClose,
 }: {
   title: string;
   excludeCityId?: string;
+  /** Kargo "Shahar ichi": only points in this city. */
+  onlyCityId?: string;
   onSelect: (address: Address) => void;
   onClose: () => void;
 }) {
@@ -37,7 +40,7 @@ export function AddressPickerSheet({
     const id = setTimeout(() => {
       setSearchError(false);
       api
-        .getAddressSuggestions(query, excludeCityId)
+        .getAddressSuggestions(query, excludeCityId, onlyCityId)
         .then(setResults)
         .catch(() => {
           setResults([]);
@@ -45,12 +48,12 @@ export function AddressPickerSheet({
         });
     }, 200);
     return () => clearTimeout(id);
-  }, [query, excludeCityId, searchReload]);
+  }, [query, excludeCityId, onlyCityId, searchReload]);
 
   async function confirmMapPin() {
     setConfirming(true);
     try {
-      const addr = await api.reverseGeocode(pin.x, pin.y, excludeCityId);
+      const addr = await api.reverseGeocode(pin.x, pin.y, excludeCityId, onlyCityId);
       onSelect(addr);
     } finally {
       setConfirming(false);

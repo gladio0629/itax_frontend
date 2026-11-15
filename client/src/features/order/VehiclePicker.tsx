@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { api } from "@/api/client";
 import { DELIVERY_VEHICLES, type CargoInput, type DeliveryVehicle } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
@@ -20,7 +20,16 @@ const BRAND_NAMED: DeliveryVehicle[] = ["spark", "damas", "labo", "isuzu", "isuz
  * Specs (description, cargo dimensions, max weight) come from the adapter;
  * price comes from the adapter's quote — nothing is computed here.
  */
-export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange: (v: CargoInput) => void }) {
+export function VehiclePicker({
+  value,
+  onChange,
+  belowChips,
+}: {
+  value: CargoInput;
+  onChange: (v: CargoInput) => void;
+  /** Rendered right under the size chips (Kargo: the loaders control). */
+  belowChips?: ReactNode;
+}) {
   const { t, intlTag } = useT();
   const specs = useQuery(() => api.getDeliveryVehicles(), []);
   const chipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -122,6 +131,8 @@ export function VehiclePicker({ value, onChange }: { value: CargoInput; onChange
                   );
                 })}
               </div>
+
+              {belowChips}
 
               {/* What it carries — slides in on change. */}
               <div key={spec.id} className="animate-desc-in rounded-card border border-border bg-card p-4" aria-live="polite">

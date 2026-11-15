@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Armchair, Car as CarIcon, ChevronRight, Package, X } from "@/lib/icons";
 import { api } from "@/api/client";
-import type { Address, AddressDetails, CarClass, OrderDetailsRules, OrderOption, OrderOptionId, Seat } from "@/api/types";
+import type { Address, AddressDetails, CargoCheck, CargoInfoTopic, CargoInput, CarClass, OrderDetailsRules, OrderOption, OrderOptionId, Seat } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
 import { newStopUid, type OrderDraft } from "@/stores/orderStore";
 import { Button } from "@/components/Button";
@@ -17,12 +17,14 @@ import { AddressPickerSheet } from "./AddressPickerSheet";
 import { TimeSelector } from "./TimeSelector";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
-import { RouteFields, type RouteTarget } from "./RouteFields";
+import { RouteFields, type RouteStopLabels, type RouteTarget } from "./RouteFields";
 import { AddressDetailsSheet } from "./AddressDetailsSheet";
 import { DriverComment } from "./OrderExtras";
 import { CarClassPicker } from "./CarClassPicker";
 import { IstaklarRow, IstaklarSheet } from "./IstaklarSheet";
-import { LuggageStepper, PromoRow, RiderSection, type RiderError } from "./TripDetails";
+import { ContactFields, ContactNote, LuggageStepper, PromoRow, RiderSection, type RiderError } from "./TripDetails";
+import { CargoInfoChips, CargoInfoSheet, CargoTabs, LoadersControl, PricingModeControl, RideAlongRow, WarehouseSheet } from "./KargoControls";
+import { ruleErrorKey } from "@/lib/apiError";
 import { detailsSummary } from "./addressDetails";
 import { useIsIOS } from "@/lib/platform";
 import { Segmented } from "@/components/ios/Segmented";
@@ -216,6 +218,8 @@ export function OrderSheet({
   }
 
   const stopsKey = draft.stops.map((st) => st.addressId).join("|");
+  const cargoKey = JSON.stringify({ ...draft.cargo, note: undefined });
+  const contactsKey = JSON.stringify([draft.sender, draft.receiver]);
   const optionsKey = draft.optionIds.join(",");
   const variantsKey = JSON.stringify(draft.optionVariants);
   const [seats, setSeats] = useState<Seat[]>([]);
@@ -264,10 +268,10 @@ export function OrderSheet({
         carClass: passenger ? draft.carClass : undefined,
         promoCode: draft.promoCode || undefined,
       }),
-    // Keyed on the vehicle, not the cargo object — typing a note mustn't
-    // refetch; likewise the comment and Tafsilotlar never re-quote. Every
-    // stop add/remove/reorder/change does.
-    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, draft.cargo.vehicle, optionsKey, variantsKey, draft.carClass, draft.promoCode]
+    // Keyed on the cargo without its note — typing a note mustn't refetch;
+    // likewise the comment and Tafsilotlar never re-quote. Every stop
+    // add/remove/reorder/change does.
+    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, cargoKey, optionsKey, variantsKey, draft.carClass, draft.promoCode]
   );
 
   // Class cards: each price is the adapter's total for this order with that
@@ -309,6 +313,91 @@ export function OrderSheet({
   );
   const luggage = luggageRules.status === "success" ? luggageRules.data : null;
 
+  // ── Kargo ────────────────────────────────────────────────────────────────
+  const delivery = draft.serviceType === "delivery";
+  const cargoRules = useQuery(() => api.getCargoRules(), []);
+  const cr = cargoRules.status === "success" ? cargoRules.data : null;
+  const tab = draft.cargo.tab ?? cr?.defaultTab ?? "intercity";
+  const mode = draft.cargo.pricingMode ?? "route";
+  const [warehouseOpen, setWarehouseOpen] = useState(false);
+  const [infoTopic, setInfoTopic] = useState<CargoInfoTopic | null>(null);
+  function setCargo(patch: Partial<CargoInput>) {
+    setField("cargo", { ...draftRef.current.cargo, ...patch });
+  }
+  // A tab without "Soatbay" falls back to "Marshrut bo'yicha".
+  useEffect(() => {
+    if (!cr) return;
+    const m = cr.pricingModes[tab].find((x) => x.id === mode);
+    if (!m?.available) setCargo({ pricingMode: "route" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cr, tab]);
+  const rideAlong = useQuery(
+    () => (delivery ? api.getRideAlong({ vehicle: draft.cargo.vehicle, loaders: draft.cargo.loaders ?? 0 }) : Promise.resolve(null)),
+    [delivery, draft.cargo.vehicle, draft.cargo.loaders]
+  );
+  const rideAlongData = rideAlong.status === "success" ? rideAlong.data : null;
+  // No free seat (vehicle, or loaders took it): ride-along turns off.
+  useEffect(() => {
+    if (rideAlongData && !rideAlongData.available && draftRef.current.cargo.rideAlong) setCargo({ rideAlong: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rideAlongData]);
+
+  // "Tasdiqlash" readiness comes from the adapter (debounced, latest wins).
+  const [cargoCheck, setCargoCheck] = useState<CargoCheck | null>(null);
+  const checkReq = useRef(0);
+  useEffect(() => {
+    if (!delivery || step !== 1 || !canQuote) return;
+    const req = ++checkReq.current;
+    const timer = window.setTimeout(() => {
+      const d = draftRef.current;
+      api
+        .checkCargo({
+          fromAddressId: d.fromAddressId,
+          toAddressId: d.toAddressId,
+          stops: d.stops.map((st) => st.addressId),
+          cargo: d.cargo,
+          sender: d.sender,
+          receiver: d.receiver,
+        })
+        .then((r) => {
+          if (req === checkReq.current) setCargoCheck(r);
+        })
+        .catch(() => {});
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [delivery, step, canQuote, draft.fromAddressId, draft.toAddressId, stopsKey, cargoKey, contactsKey]);
+  // Field errors show once the person has left that field.
+  const [touched, setTouched] = useState<string[]>([]);
+  const touch = (f: string) => setTouched((x) => (x.includes(f) ? x : [...x, f]));
+  const fieldIssue = (f: string) => {
+    if (!touched.includes(f)) return undefined;
+    const key = cargoCheck?.issues.find((i) => i.field === f)?.messageKey;
+    return key ? t(key as TranslationKey) : undefined;
+  };
+
+  /** Where the address search may look: Kargo follows its tab. */
+  function pickerScope(target: RouteTarget | "newStop"): { excludeCityId?: string; onlyCityId?: string } {
+    const fromCity = addresses.from?.cityId;
+    if (target === "from") return delivery ? {} : { excludeCityId: addresses.to?.cityId };
+    if (delivery) {
+      if (tab === "city") return { onlyCityId: fromCity };
+      if (tab === "intercity" && target === "to") return { excludeCityId: fromCity };
+      return {};
+    }
+    // A stop can be anywhere, including the pickup or drop-off city.
+    return target === "to" ? { excludeCityId: fromCity } : {};
+  }
+  const stopLabels: RouteStopLabels | undefined = delivery
+    ? {
+        add: t("kargo.addDropoff"),
+        item: (n) => t("kargo.dropoff", { n }),
+        remove: (n) => t("kargo.dropoffRemove", { n }),
+        reorder: (n) => t("kargo.dropoffReorder", { n }),
+        limit: (max) => t("kargo.dropoffLimit", { max }),
+      }
+    : undefined;
+  const stopMax = delivery ? (cr ? cr.maxExtraDropoffs[tab] : null) : rules?.maxStops ?? null;
+
   /** Leaving the details step: the adapter checks "Kim ketadi?" while its
    * fields are still on screen. */
   async function nextFromDetails() {
@@ -343,6 +432,60 @@ export function OrderSheet({
   // to the summary — the same step change, not a separate action.
   const cargoConfirm = step === 1 && draft.serviceType === "delivery";
 
+  const routeBlock = (
+      <RouteFields
+        from={addresses.from}
+        to={addresses.to}
+        // Marketpleysga: the drop-off is a warehouse from the list.
+        onPick={(which) => (delivery && tab === "marketplace" && which === "to" ? setWarehouseOpen(true) : setPicker(which))}
+        onSwap={() => {
+          const f = draft.fromAddressId;
+          const fd = draft.fromDetails;
+          setField("fromAddressId", draft.toAddressId);
+          setField("toAddressId", f);
+          setField("fromDetails", draft.toDetails);
+          setField("toDetails", fd);
+          // Swapping reverses the whole route, stops included.
+          setField("stops", [...draft.stops].reverse());
+        }}
+        fromDetailsLine={detailsSummary(draft.fromDetails, t)}
+        toDetailsLine={detailsSummary(draft.toDetails, t)}
+        onDetails={setDetailsFor}
+        stops={draft.stops.map((st) => ({
+          uid: st.uid,
+          address: addressById(st.addressId) ?? null,
+          detailsLine: detailsSummary(st.details, t),
+        }))}
+        maxStops={stopMax}
+        onAddStop={stopMax === 0 ? undefined : () => setPicker("newStop")}
+        labels={stopLabels}
+        toLabel={delivery && tab === "marketplace" ? t("kargo.warehouse") : undefined}
+      canSwap={!(delivery && tab === "marketplace")}
+        onPickStop={(uid) => setPicker({ stop: uid })}
+        onRemoveStop={(uid) => setField("stops", draftRef.current.stops.filter((st) => st.uid !== uid))}
+        onReorderStops={(from, to) => {
+          const next = [...draftRef.current.stops];
+          const [moved] = next.splice(from, 1);
+          next.splice(to, 0, moved);
+          setField("stops", next);
+        }}
+      />
+  );
+
+  /** A rule the person can fix shows the adapter's reason; anything else a retry. */
+  const quoteError = (err: unknown, onRetry: () => void, className?: string) => {
+    const key = ruleErrorKey(err);
+    return key ? (
+      <p role="alert" className={cn("text-xs font-semibold text-danger", className)}>
+        {t(key as TranslationKey)}
+      </p>
+    ) : (
+      <button onClick={onRetry} className={cn("inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline", className)}>
+        {t("order.quoteError")}
+      </button>
+    );
+  };
+
   return (
     <div className="flex h-full flex-col">
       <StepHeader step={step} cargo={step === 1 && draft.serviceType === "delivery"} onClose={onClose} />
@@ -351,48 +494,14 @@ export function OrderSheet({
         <div key={step} className={direction === "fwd" ? "animate-step-fwd" : "animate-step-back"}>
         {step === 0 && (
           <>
-            <RouteFields
-              from={addresses.from}
-              to={addresses.to}
-              onPick={setPicker}
-              onSwap={() => {
-                const f = draft.fromAddressId;
-                const fd = draft.fromDetails;
-                setField("fromAddressId", draft.toAddressId);
-                setField("toAddressId", f);
-                setField("fromDetails", draft.toDetails);
-                setField("toDetails", fd);
-                // Swapping reverses the whole route, stops included.
-                setField("stops", [...draft.stops].reverse());
-              }}
-              fromDetailsLine={detailsSummary(draft.fromDetails, t)}
-              toDetailsLine={detailsSummary(draft.toDetails, t)}
-              onDetails={setDetailsFor}
-              stops={draft.stops.map((st) => ({
-                uid: st.uid,
-                address: addressById(st.addressId) ?? null,
-                detailsLine: detailsSummary(st.details, t),
-              }))}
-              maxStops={rules?.maxStops ?? null}
-              onAddStop={() => setPicker("newStop")}
-              onPickStop={(uid) => setPicker({ stop: uid })}
-              onRemoveStop={(uid) => setField("stops", draftRef.current.stops.filter((st) => st.uid !== uid))}
-              onReorderStops={(from, to) => {
-                const next = [...draftRef.current.stops];
-                const [moved] = next.splice(from, 1);
-                next.splice(to, 0, moved);
-                setField("stops", next);
-              }}
-            />
+            {routeBlock}
             {canQuote && (
               <div className="mt-3 flex min-h-[44px] items-center justify-between gap-3 px-1" aria-live="polite">
                 <span className="text-sm text-ink/60">{t("order.priceEstimate")}</span>
                 {quote.status === "success" ? (
                   <span className="text-base font-semibold text-ink tabular">{formatSom(quote.data.total, intlTag)}</span>
                 ) : quote.status === "error" ? (
-                  <button onClick={quote.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
-                    {t("order.quoteError")}
-                  </button>
+                  quoteError(quote.error, quote.refetch, "text-right")
                 ) : (
                   <Skeleton className="h-5 w-24" />
                 )}
@@ -447,6 +556,7 @@ export function OrderSheet({
                   value={draft.carClass}
                   onChange={(id) => setField("carClass", id)}
                   onRetry={classes.refetch}
+                  errorKey={classes.status === "error" ? ruleErrorKey(classes.error) : null}
                 />
                 <SeatMap
                   seats={seats}
@@ -461,7 +571,68 @@ export function OrderSheet({
                 />
               </>
             ) : (
-              <VehiclePicker value={draft.cargo} onChange={(v) => setField("cargo", v)} />
+              <>
+                {cr ? (
+                  <CargoTabs rules={cr} value={tab} onChange={(v) => setCargo({ tab: v })} />
+                ) : cargoRules.status === "error" ? (
+                  <button onClick={cargoRules.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
+                    {t("common.loadFailedRetry")}
+                  </button>
+                ) : (
+                  <Skeleton className="h-12 w-full" />
+                )}
+                {routeBlock}
+                <VehiclePicker
+                  value={draft.cargo}
+                  onChange={(v) => setField("cargo", v)}
+                  belowChips={cr && <LoadersControl rules={cr} value={draft.cargo.loaders ?? 0} onChange={(n) => setCargo({ loaders: n })} />}
+                />
+                {cr && (
+                  <PricingModeControl
+                    rules={cr}
+                    tab={tab}
+                    mode={mode}
+                    hours={Math.min(cr.hours.max, Math.max(cr.hours.min, draft.cargo.hours ?? cr.hours.min))}
+                    onMode={(m) =>
+                      // Switching to Soatbay starts within the adapter's bounds.
+                      setCargo(m === "hourly" ? { pricingMode: m, hours: Math.min(cr.hours.max, Math.max(cr.hours.min, draftRef.current.cargo.hours ?? cr.hours.min)) } : { pricingMode: m })
+                    }
+                    onHours={(h) => setCargo({ hours: h })}
+                  />
+                )}
+                {cr && <CargoInfoChips rules={cr} onOpen={setInfoTopic} />}
+
+                <section aria-labelledby="cargo-contacts" className="space-y-4">
+                  <p id="cargo-contacts" className="text-sm font-semibold text-ink">
+                    {t("kargo.contacts.title")}
+                  </p>
+                  <RiderSection
+                    title={t("kargo.sender")}
+                    prefix="sender"
+                    note={null}
+                    value={draft.sender}
+                    onChange={(r) => setField("sender", r)}
+                    nameMaxLength={rules?.riderNameMaxLength}
+                    error={null}
+                    errors={{ name: fieldIssue("sender.name"), phone: fieldIssue("sender.phone") }}
+                    onBlurField={(f) => touch(`sender.${f}`)}
+                  />
+                  <div className="space-y-3">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">{t("kargo.receiver")}</p>
+                    <ContactFields
+                      prefix="receiver"
+                      value={draft.receiver}
+                      onChange={(v) => setField("receiver", v)}
+                      nameMaxLength={rules?.riderNameMaxLength}
+                      errors={{ name: fieldIssue("receiver.name"), phone: fieldIssue("receiver.phone") }}
+                      onBlurField={(f) => touch(`receiver.${f}`)}
+                    />
+                    <ContactNote>{t("kargo.receiverNote")}</ContactNote>
+                  </div>
+                </section>
+
+                <RideAlongRow state={rideAlongData} value={!!draft.cargo.rideAlong} onChange={(v) => setCargo({ rideAlong: v })} />
+              </>
             )}
 
             <TimeSelector value={draft.timing} onChange={(timing) => setField("timing", timing)} />
@@ -578,6 +749,29 @@ export function OrderSheet({
                   )}
                 </dl>
               )}
+              {delivery && cr && (
+                <dl className="mt-2 space-y-1 border-t border-border pt-2 text-xs">
+                  <SummaryRow label={t("kargo.summary.type")} value={t(cr.tabs.find((x) => x.id === tab)?.labelKey as TranslationKey)} />
+                  <SummaryRow
+                    label={t("kargo.mode.title")}
+                    value={
+                      mode === "hourly"
+                        ? `${t("kargo.mode.hourly")} · ${t("kargo.hours.value", { n: draft.cargo.hours ?? cr.hours.min })}`
+                        : t("kargo.mode.route")
+                    }
+                  />
+                  <SummaryRow
+                    label={t("kargo.loaders.title")}
+                    value={(draft.cargo.loaders ?? 0) > 0 ? String(draft.cargo.loaders) : t("kargo.loaders.none")}
+                  />
+                  <SummaryRow
+                    label={t("kargo.sender")}
+                    value={draft.sender.kind === "me" ? t("rider.me") : `${draft.sender.name.trim()}, +998 ${draft.sender.phone}`}
+                  />
+                  <SummaryRow label={t("kargo.receiver")} value={`${draft.receiver.name.trim()}, +998 ${draft.receiver.phone}`} />
+                  {draft.cargo.rideAlong && <SummaryRow label={t("kargo.rideAlong")} value={t("kargo.summary.yes")} />}
+                </dl>
+              )}
               {draft.serviceType === "passenger" && draft.comment.trim() && (
                 <p className="mt-2 border-t border-border pt-2 text-xs text-ink/60">
                   <span className="font-semibold">{t("comment.title")}:</span>{" "}
@@ -592,11 +786,7 @@ export function OrderSheet({
                 <Skeleton className="h-5 w-2/3" />
               </div>
             )}
-            {quote.status === "error" && (
-              <button onClick={quote.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
-                {t("order.quoteError")}
-              </button>
-            )}
+            {quote.status === "error" && quoteError(quote.error, quote.refetch)}
             {quote.status === "success" && (
               <div className="space-y-2">
                 {quote.data.lines.map((line, i) => (
@@ -629,13 +819,16 @@ export function OrderSheet({
             {quote.status === "success" ? (
               <span className="text-lg font-bold text-ink tabular">{formatSom(quote.data.total, intlTag)}</span>
             ) : quote.status === "error" ? (
-              <button onClick={quote.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
-                {t("order.quoteError")}
-              </button>
+              quoteError(quote.error, quote.refetch, "max-w-[70%] text-right")
             ) : (
               <Skeleton className="h-6 w-28" />
             )}
           </div>
+        )}
+        {cargoConfirm && cargoCheck && !cargoCheck.ready && (
+          <p id="cargo-fill-hint" className="mb-2 text-xs font-semibold text-ink/70">
+            {t("kargo.fillAll")}
+          </p>
         )}
         {submitError && (
           <p role="alert" aria-live="polite" className="mb-2 text-xs font-normal text-danger">
@@ -649,7 +842,12 @@ export function OrderSheet({
             </Button>
           )}
           {cargoConfirm ? (
-            <Button fullWidth disabled={!canNext} onClick={() => setStep(2)}>
+            <Button
+              fullWidth
+              disabled={!canNext || !cargoCheck?.ready || quote.status !== "success"}
+              aria-describedby={cargoCheck && !cargoCheck.ready ? "cargo-fill-hint" : undefined}
+              onClick={() => setStep(2)}
+            >
               {t("common.confirm")}
             </Button>
           ) : step < 2 ? (
@@ -672,11 +870,10 @@ export function OrderSheet({
               : picker === "to"
               ? t("order.to")
               : picker === "newStop"
-              ? t("stops.add")
-              : t("stops.label", { n: draft.stops.findIndex((st) => st.uid === picker.stop) + 1 })
+              ? stopLabels?.add ?? t("stops.add")
+              : (stopLabels?.item ?? ((n: number) => t("stops.label", { n })))(draft.stops.findIndex((st) => st.uid === picker.stop) + 1)
           }
-          // A stop can be anywhere, including the pickup or drop-off city.
-          excludeCityId={picker === "from" ? addresses.to?.cityId : picker === "to" ? addresses.from?.cityId : undefined}
+          {...pickerScope(picker)}
           onClose={() => setPicker(null)}
           onSelect={(addr) => {
             pickAddress(picker, addr);
@@ -684,6 +881,18 @@ export function OrderSheet({
           }}
         />
       )}
+
+      {warehouseOpen && (
+        <WarehouseSheet
+          fromAddressId={draft.fromAddressId}
+          onClose={() => setWarehouseOpen(false)}
+          onSelect={(w) => {
+            pickAddress("to", w.address);
+            setWarehouseOpen(false);
+          }}
+        />
+      )}
+      {infoTopic && <CargoInfoSheet topic={infoTopic} onClose={() => setInfoTopic(null)} />}
 
       {istaklarOpen && (
         <IstaklarSheet

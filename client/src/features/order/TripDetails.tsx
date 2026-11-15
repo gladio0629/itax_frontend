@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useId, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { Info, Luggage, Minus, Plus, Tag, UserRound, X } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { LuggageRules, Rider } from "@/api/types";
@@ -45,36 +45,112 @@ export function LuggageStepper({ rules, value, onChange }: { rules: NonNullable<
 
 export type RiderError = { field: "name" | "phone" | "form"; message: string } | null;
 
-/**
- * "Kim ketadi?" — Men / Boshqa odam. For someone else: name and a +998
- * phone. The adapter validates (see OrderSheet: on leaving the step).
- */
-export const RiderSection = forwardRef<
+/** Name + +998 phone. `prefix` keeps input names unique when two people sit
+ * on one panel (Kargo sender and receiver). */
+export const ContactFields = forwardRef<
   { focus: (field: "name" | "phone") => void },
-  { value: Rider; onChange: (r: Rider) => void; nameMaxLength?: number; error: RiderError }
->(function RiderSection({ value, onChange, nameMaxLength, error }, ref) {
+  {
+    prefix: string;
+    value: { name: string; phone: string };
+    onChange: (v: { name: string; phone: string }) => void;
+    nameMaxLength?: number;
+    errors?: { name?: string; phone?: string };
+    onBlurField?: (field: "name" | "phone") => void;
+  }
+>(function ContactFields({ prefix, value, onChange, nameMaxLength, errors, onBlurField }, ref) {
   const { t } = useT();
-  const ios = useIsIOS();
-  const other = value.kind === "other" ? value : null;
   const nameRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   useImperativeHandle(ref, () => ({ focus: (f) => (f === "name" ? nameRef : phoneRef).current?.focus() }), []);
+  return (
+    <>
+      <Input
+        ref={nameRef}
+        label={t("rider.name")}
+        name={`${prefix}-name`}
+        autoComplete="off"
+        maxLength={nameMaxLength}
+        placeholder={t("rider.namePlaceholder")}
+        value={value.name}
+        onChange={(e) => onChange({ ...value, name: e.target.value })}
+        onBlur={() => onBlurField?.("name")}
+        error={errors?.name}
+        aria-invalid={!!errors?.name || undefined}
+      />
+      <Input
+        ref={phoneRef}
+        label={t("rider.phone")}
+        type="tel"
+        name={`${prefix}-phone`}
+        autoComplete="off"
+        inputMode="numeric"
+        placeholder="90 123 45 67"
+        value={value.phone}
+        onChange={(e) => onChange({ ...value, phone: formatPhoneInput(e.target.value) })}
+        onBlur={() => onBlurField?.("phone")}
+        leftIcon={<span className="text-sm font-normal text-ink/80">+998</span>}
+        error={errors?.phone}
+        aria-invalid={!!errors?.phone || undefined}
+      />
+    </>
+  );
+});
+
+/** An info note under contact fields (SMS goes to this number…). */
+export function ContactNote({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex gap-2 rounded-xl bg-accent-5 px-3 py-2.5 text-xs text-ink/80 ios:bg-[var(--ios-fill-quaternary)]">
+      <Info className="mt-px h-4 w-4 shrink-0 text-accent" />
+      {children}
+    </p>
+  );
+}
+
+/**
+ * "Kim ketadi?" — Men / Boshqa odam; for someone else, name and a +998
+ * phone. Kargo reuses it as "Jo'natuvchi" (title, prefix and note change).
+ * The adapter validates.
+ */
+export const RiderSection = forwardRef<
+  { focus: (field: "name" | "phone") => void },
+  {
+    value: Rider;
+    onChange: (r: Rider) => void;
+    nameMaxLength?: number;
+    error: RiderError;
+    title?: string;
+    prefix?: string;
+    /** null hides the note. */
+    note?: string | null;
+    errors?: { name?: string; phone?: string };
+    onBlurField?: (field: "name" | "phone") => void;
+  }
+>(function RiderSection({ value, onChange, nameMaxLength, error, title, prefix = "rider", note, errors, onBlurField }, ref) {
+  const { t } = useT();
+  const ios = useIsIOS();
+  const titleId = useId();
+  const other = value.kind === "other" ? value : null;
+  const heading = title ?? t("rider.title");
   const kind = value.kind;
   const setKind = (k: "me" | "other") => onChange(k === "me" ? { kind: "me" } : { kind: "other", name: other?.name ?? "", phone: other?.phone ?? "" });
   const options = [
     { id: "me" as const, label: t("rider.me") },
     { id: "other" as const, label: t("rider.other") },
   ];
+  const fieldErrors = errors ?? {
+    name: error?.field === "name" ? error.message : undefined,
+    phone: error?.field === "phone" ? error.message : undefined,
+  };
 
   return (
-    <section aria-labelledby="rider-title" className="space-y-3">
-      <p id="rider-title" className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-        <UserRound className="h-4 w-4 text-ink/60" /> {t("rider.title")}
+    <section aria-labelledby={titleId} className="space-y-3">
+      <p id={titleId} className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+        <UserRound className="h-4 w-4 text-ink/60" /> {heading}
       </p>
       {ios ? (
-        <Segmented ariaLabel={t("rider.title")} value={kind} onChange={setKind} options={options} />
+        <Segmented ariaLabel={heading} value={kind} onChange={setKind} options={options} />
       ) : (
-        <div role="radiogroup" aria-labelledby="rider-title" className="grid grid-cols-2 gap-2">
+        <div role="radiogroup" aria-labelledby={titleId} className="grid grid-cols-2 gap-2">
           {options.map((o) => (
             <button
               key={o.id}
@@ -94,36 +170,16 @@ export const RiderSection = forwardRef<
       )}
       {other && (
         <div className="space-y-3 animate-fade-in">
-          <Input
-            ref={nameRef}
-            label={t("rider.name")}
-            name="rider-name"
-            autoComplete="off"
-            maxLength={nameMaxLength}
-            placeholder={t("rider.namePlaceholder")}
-            value={other.name}
-            onChange={(e) => onChange({ ...other, name: e.target.value })}
-            error={error?.field === "name" ? error.message : undefined}
-            aria-invalid={error?.field === "name" || undefined}
+          <ContactFields
+            ref={ref}
+            prefix={prefix}
+            value={other}
+            onChange={(v) => onChange({ kind: "other", ...v })}
+            nameMaxLength={nameMaxLength}
+            errors={fieldErrors}
+            onBlurField={onBlurField}
           />
-          <Input
-            ref={phoneRef}
-            label={t("rider.phone")}
-            type="tel"
-            name="rider-phone"
-            autoComplete="off"
-            inputMode="numeric"
-            placeholder="90 123 45 67"
-            value={other.phone}
-            onChange={(e) => onChange({ ...other, phone: formatPhoneInput(e.target.value) })}
-            leftIcon={<span className="text-sm font-normal text-ink/80">+998</span>}
-            error={error?.field === "phone" ? error.message : undefined}
-            aria-invalid={error?.field === "phone" || undefined}
-          />
-          <p className="flex gap-2 rounded-xl bg-accent-5 px-3 py-2.5 text-xs text-ink/80 ios:bg-[var(--ios-fill-quaternary)]">
-            <Info className="mt-px h-4 w-4 shrink-0 text-accent" />
-            {t("rider.note")}
-          </p>
+          {note !== null && <ContactNote>{note ?? t("rider.note")}</ContactNote>}
         </div>
       )}
       {error?.field === "form" && (

@@ -1,5 +1,13 @@
 import type { DeliveryVehicleSpec,
   AddressDetails,
+  CargoCheck,
+  CargoContact,
+  CargoInfo,
+  CargoInfoTopic,
+  CargoInput,
+  CargoRules,
+  RideAlong,
+  Warehouse,
   CarClass,
   CarClassId,
   EmergencyContact,
@@ -52,10 +60,10 @@ export interface ApiAdapter {
   getCities(): Promise<City[]>;
   getPopularRoutes(): Promise<RouteSuggestion[]>;
   getRecentRoutes(): Promise<RouteSuggestion[]>;
-  getAddressSuggestions(query: string, excludeCityId?: string): Promise<Address[]>;
+  getAddressSuggestions(query: string, excludeCityId?: string, onlyCityId?: string): Promise<Address[]>;
   getRecentAddresses(): Promise<Address[]>;
   getSavedAddresses(fromAddressId: string): Promise<SavedAddressInfo[]>;
-  reverseGeocode(x: number, y: number, excludeCityId?: string): Promise<Address>;
+  reverseGeocode(x: number, y: number, excludeCityId?: string, onlyCityId?: string): Promise<Address>;
   getPickupEta(): Promise<{ minutes: number }>;
   getSeatMap(input: { fromAddressId: string; toAddressId: string }): Promise<Seat[]>;
   getQuote(input: QuoteInput): Promise<Quote>;
@@ -85,6 +93,22 @@ export interface ApiAdapter {
   addEmergencyContact(contact: { name: string; phone: string }): Promise<EmergencyContact>;
   removeEmergencyContact(id: string): Promise<void>;
   getSupportContact(): Promise<{ phone: string }>;
+
+  getCargoRules(): Promise<CargoRules>;
+  /** Warehouses for "Marketpleysga", nearest to the pickup first. */
+  getMarketplaceWarehouses(fromAddressId: string): Promise<Warehouse[]>;
+  getCargoInfo(topic: CargoInfoTopic): Promise<CargoInfo>;
+  /** Whether "Men ham birga ketaman" fits: free cab seats after loaders. */
+  getRideAlong(input: { vehicle: CargoInput["vehicle"]; loaders: number }): Promise<RideAlong>;
+  /** Whether a Kargo order can be confirmed, and what's missing. */
+  checkCargo(input: {
+    fromAddressId: string;
+    toAddressId: string;
+    stops: string[];
+    cargo: CargoInput;
+    sender: Rider;
+    receiver: CargoContact;
+  }): Promise<CargoCheck>;
   /** Details remembered for a saved address, or null. */
   getSavedAddressDetails(addressId: string): Promise<AddressDetails | null>;
   /** Validates and normalizes Tafsilotlar; a saved address remembers them. */

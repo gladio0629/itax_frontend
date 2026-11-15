@@ -88,5 +88,6 @@ export const UserPlus = decorative(L.UserPlus);
 export const UserRound = decorative(L.UserRound);
 export const Users = decorative(L.Users);
 export const Wallet = decorative(L.Wallet);
+export const Warehouse = decorative(L.Warehouse);
 export const WifiOff = decorative(L.WifiOff);
 export const X = decorative(L.X);

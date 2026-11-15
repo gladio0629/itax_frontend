@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { OrderMode, PaymentMethod } from "@/seed/generate";
-import type { AddressDetails, CargoInput, CarClassId, OptionVariants, OrderOptionId, OrderTiming, Rider, ServiceType } from "@/api/types";
+import type { AddressDetails, CargoContact, CargoInput, CarClassId, OptionVariants, OrderOptionId, OrderTiming, Rider, ServiceType } from "@/api/types";
 import { ADDRESSES } from "@/clientData/addresses";
 
 const DEFAULT_FROM_ADDRESS = ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "";
@@ -28,6 +28,9 @@ export type OrderDraft = {
   carClass: CarClassId;
   luggage: number;
   rider: Rider;
+  /** Kargo contacts. */
+  sender: Rider;
+  receiver: CargoContact;
   mode: OrderMode;
   seatIds: string[];
   cargo: CargoInput;
@@ -57,9 +60,12 @@ const initialDraft: OrderDraft = {
   carClass: "standart",
   luggage: 0,
   rider: { kind: "me" },
+  sender: { kind: "me" },
+  receiver: { name: "", phone: "" },
   mode: "car",
   seatIds: [],
-  cargo: { vehicle: "spark" },
+  // Kargo starts on Shaharlararo: step 1's route is always between cities.
+  cargo: { vehicle: "spark", tab: "intercity", loaders: 0, pricingMode: "route", rideAlong: false },
   paymentMethod: "cash",
   timing: { timeMode: "now" },
   promoCode: "",

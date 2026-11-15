@@ -6,6 +6,14 @@ import { cn } from "@/lib/cn";
 
 export type RouteTarget = "from" | "to" | { stop: string };
 
+export type RouteStopLabels = {
+  add: string;
+  item: (n: number) => string;
+  remove: (n: number) => string;
+  reorder: (n: number) => string;
+  limit: (max: number) => string;
+};
+
 export type RouteStopItem = {
   uid: string;
   address: Address | null;
@@ -97,6 +105,9 @@ export function RouteFields({
   onPickStop,
   onRemoveStop,
   onReorderStops,
+  labels,
+  toLabel,
+  canSwap = true,
 }: {
   from: Address | null;
   to: Address | null;
@@ -113,10 +124,23 @@ export function RouteFields({
   onPickStop?: (uid: string) => void;
   onRemoveStop?: (uid: string) => void;
   onReorderStops?: (fromIndex: number, toIndex: number) => void;
+  /** Wording for the in-between points (Kargo calls them drop-offs). */
+  labels?: RouteStopLabels;
+  /** Replaces "Qayerga" (e.g. "Ombor" for a marketplace drop-off). */
+  toLabel?: string;
+  /** False where reversing makes no sense (a warehouse can't be the pickup). */
+  canSwap?: boolean;
 }) {
   const { t } = useT();
   const hintId = useId();
   const list = stops ?? [];
+  const L: RouteStopLabels = labels ?? {
+    add: t("stops.add"),
+    item: (n) => t("stops.label", { n }),
+    remove: (n) => t("stops.remove", { n }),
+    reorder: (n) => t("stops.reorder", { n }),
+    limit: (max) => t("stops.limit", { max }),
+  };
   const [announce, setAnnounce] = useState("");
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const [drag, setDrag] = useState<{ index: number; startY: number; dy: number; heights: number[] } | null>(null);
@@ -181,6 +205,7 @@ export function RouteFields({
               }}
               stop={stop}
               n={i + 1}
+              labels={L}
               hintId={hintId}
               translateY={dragging ? drag.dy : shift}
               dragging={dragging}
@@ -220,7 +245,7 @@ export function RouteFields({
             {atLimit ? (
               <p className="flex min-h-[48px] flex-1 items-center gap-3 px-2 text-xs text-ink/60">
                 <span className="w-2.5 shrink-0" aria-hidden="true" />
-                {t("stops.limit", { max: maxStops ?? 0 })}
+                {L.limit(maxStops ?? 0)}
               </p>
             ) : (
               <button
@@ -233,7 +258,7 @@ export function RouteFields({
                 <span className="-mx-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-dashed border-accent" aria-hidden="true">
                   <Plus className="h-3 w-3" />
                 </span>
-                <span className="min-w-0 flex-1 truncate">{t("stops.add")}</span>
+                <span className="min-w-0 flex-1 truncate">{L.add}</span>
                 {maxStops != null && (
                   <span className="text-xs font-normal text-ink/60 tabular">
                     {list.length}/{maxStops}
@@ -241,16 +266,16 @@ export function RouteFields({
                 )}
               </button>
             )}
-            {swapButton}
+            {canSwap && swapButton}
           </div>
         )}
 
         <div className="flex items-center gap-1">
-          <PointButton dot={toDot} label={t("order.to")} value={to?.label ?? t("order.choosePlace")} detailsLine={toDetailsLine} wrap={!!onDetails} onClick={() => onPick("to")} />
-          {onDetails && to && <DetailsButton filled={!!toDetailsLine} place={t("order.to")} onClick={() => onDetails("to")} />}
+          <PointButton dot={toDot} label={toLabel ?? t("order.to")} value={to?.label ?? t("order.choosePlace")} detailsLine={toDetailsLine} wrap={!!onDetails} onClick={() => onPick("to")} />
+          {onDetails && to && <DetailsButton filled={!!toDetailsLine} place={toLabel ?? t("order.to")} onClick={() => onDetails("to")} />}
         </div>
       </div>
-      {!withStops && swapButton}
+      {!withStops && canSwap && swapButton}
       {list.length > 0 && (
         <>
           <span id={hintId} className="sr-only">
@@ -269,6 +294,7 @@ function StopRow({
   rowRef,
   stop,
   n,
+  labels,
   hintId,
   translateY,
   dragging,
@@ -284,6 +310,7 @@ function StopRow({
   rowRef: (el: HTMLDivElement | null) => void;
   stop: RouteStopItem;
   n: number;
+  labels: RouteStopLabels;
   hintId: string;
   translateY: number;
   dragging: boolean;
@@ -297,7 +324,7 @@ function StopRow({
   onGripUp: () => void;
 }) {
   const { t } = useT();
-  const label = t("stops.label", { n });
+  const label = labels.item(n);
   // Swipe-left to remove: horizontal intent is decided after a few px, so a
   // vertical scroll through the sheet is left alone (touch-action: pan-y).
   const swipe = useRef<{ x: number; y: number; id: number; active: boolean; dead: boolean } | null>(null);
@@ -381,7 +408,7 @@ function StopRow({
       >
         <button
           type="button"
-          aria-label={t("stops.reorder", { n })}
+          aria-label={labels.reorder(n)}
           aria-describedby={hintId}
           onPointerDown={(e) => {
             e.stopPropagation();
@@ -417,7 +444,7 @@ function StopRow({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={t("stops.remove", { n })}
+          aria-label={labels.remove(n)}
           className="flex h-11 w-8 shrink-0 items-center justify-center text-ink/60 hover:text-ink"
         >
           <X className="h-4 w-4" />

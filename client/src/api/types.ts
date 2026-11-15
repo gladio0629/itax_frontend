@@ -25,10 +25,43 @@ export type DeliveryVehicleSpec = {
   dimensionsCm: { width: number; depth: number; height: number };
   maxWeightKg: number;
 };
+export type CargoTab = "city" | "intercity" | "marketplace";
+export type CargoPricingMode = "route" | "hourly";
+/** Everything Kargo prices on. Loaders, mode, hours and ride-along are
+ * validated and priced by the adapter. */
 export type CargoInput = {
   vehicle: DeliveryVehicle;
   note?: string;
+  /** "Shahar ichi" / "Shaharlararo" / "Marketpleysga". */
+  tab?: CargoTab;
+  loaders?: number;
+  pricingMode?: CargoPricingMode;
+  /** Soatbay only. */
+  hours?: number;
+  /** "Men ham birga ketaman". */
+  rideAlong?: boolean;
 };
+
+export type CargoInfoTopic = "delivery" | "loaders" | "body" | "insurance";
+/** Kargo limits and choices; the UI only renders them. */
+export type CargoRules = {
+  tabs: { id: CargoTab; labelKey: string }[];
+  defaultTab: CargoTab;
+  loaders: { counts: number[]; pricePerLoader: number; infoLines: { key: string; params?: Record<string, string | number> }[] };
+  hours: { min: number; max: number };
+  /** Pricing modes per tab, with a reason when one isn't offered. */
+  pricingModes: Record<CargoTab, { id: CargoPricingMode; labelKey: string; available: boolean; reasonKey?: string }[]>;
+  /** Extra drop-offs ("Yana manzil qo'shish") per tab. */
+  maxExtraDropoffs: Record<CargoTab, number>;
+  infoTopics: { id: CargoInfoTopic; labelKey: string }[];
+};
+export type CargoInfo = { titleKey: string; paragraphKeys: string[] };
+export type RideAlong = { available: boolean; reasonKey?: string };
+/** A person on a Kargo order: the sender may be "me". */
+export type CargoContact = { name: string; phone: string };
+/** Result of the adapter's readiness check for "Tasdiqlash". */
+export type CargoCheck = { ready: boolean; issues: { field: string; messageKey: string }[] };
+export type Warehouse = { address: Address; marketplace: string; distanceKm: number };
 
 export type SeatPosition = "front" | "back-left" | "back-mid" | "back-right";
 export type Seat = {
@@ -233,6 +266,9 @@ export type CreateOrderInput = {
   /** Bags, within getLuggageRules(). */
   luggage?: number;
   rider?: Rider;
+  /** Kargo: "Jo'natuvchi" (default me) and "Qabul qiluvchi". */
+  sender?: Rider;
+  receiver?: CargoContact;
 };
 
 /** Everything about an order that isn't on the shared Order type (which
@@ -254,6 +290,8 @@ export type OrderExtras = {
   luggage?: number;
   rider?: Rider;
   promoCode?: string;
+  sender?: Rider;
+  receiver?: CargoContact;
 };
 
 export type UpdateOrderInput = Partial<{
