@@ -18,7 +18,8 @@ export function TextTabs<T extends string>({
   value: T;
   onChange: (v: T) => void;
   ariaLabel: string;
-  /** The route screen's service tabs are set in caps, like the reference. */
+  /** The route screen's service tabs: caps, bold, no underline (reference);
+   * the Kargo tabs keep the underline. */
   uppercase?: boolean;
   className?: string;
 }) {
@@ -49,15 +50,15 @@ export function TextTabs<T extends string>({
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(o.id)}
             className={cn(
-              "relative flex min-h-[44px] shrink-0 flex-col items-stretch justify-center whitespace-nowrap pb-2 pt-1 text-control font-semibold transition-colors",
-              uppercase && "font-bold uppercase tracking-[0.02em]",
-              on ? "text-ink" : "text-ink/45 hover:text-ink/70"
+              "relative flex min-h-[44px] shrink-0 flex-col items-stretch justify-center whitespace-nowrap pb-2 pt-1 text-control transition-colors",
+              uppercase ? "font-extrabold uppercase tracking-[0.02em]" : "font-semibold",
+              on ? "text-ink" : uppercase ? "text-ink/35 hover:text-ink/60" : "text-ink/45 hover:text-ink/70"
             )}
           >
             {o.label}
             <span
               aria-hidden="true"
-              className={cn("absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-accent transition-opacity", on ? "opacity-100" : "opacity-0")}
+              className={cn("absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-accent transition-opacity", on && !uppercase ? "opacity-100" : "opacity-0")}
             />
           </button>
         );

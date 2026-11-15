@@ -145,12 +145,13 @@ export function SearchScreen({
     <div className="absolute inset-0 z-50 flex flex-col" role="dialog" aria-modal="true" aria-label={title}>
       <MapCanvas className="absolute inset-0" />
       <div className="absolute inset-0 bg-black/30" aria-hidden="true" onClick={onClose} />
-      <div className="relative mt-[calc(var(--safe-top)+24px)] flex min-h-0 flex-1 flex-col rounded-t-sheet bg-card">
+      {/* Sheet top 13px below the inset, card 16px into the sheet (measured, photo 9). */}
+      <div className="relative mt-[calc(var(--safe-top)+13px)] flex min-h-0 flex-1 flex-col rounded-t-sheet bg-card">
         <div className="flex justify-center pt-2" aria-hidden="true">
           <span className="h-[5px] w-9 rounded-full bg-ink/15" />
         </div>
         {/* Top card: pickup row, then the field being searched. */}
-        <div className="mx-2 mt-2 rounded-card bg-card shadow-[0_4px_20px_rgba(0,0,0,0.12)]">
+        <div className="mx-2 mt-1 rounded-card bg-card shadow-[0_4px_20px_rgba(0,0,0,0.12)]">
           {fromLabel && (
             <div className="flex min-h-[var(--size-row)] items-center gap-3 px-4">
               <PersonStanding className="h-5 w-5 shrink-0 text-ink" />

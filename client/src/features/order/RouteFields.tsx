@@ -61,7 +61,20 @@ function PointButton({
   );
 }
 
-function DetailsButton({ filled, place, onClick, text }: { filled: boolean; place: string; onClick: () => void; text?: string }) {
+function DetailsButton({
+  filled,
+  place,
+  onClick,
+  text,
+  solid,
+}: {
+  filled: boolean;
+  place: string;
+  onClick: () => void;
+  text?: string;
+  /** Gray-filled capsule (taxi "Podyezd") instead of the outlined one (Kargo). */
+  solid?: boolean;
+}) {
   const { t } = useT();
   return (
     <button
@@ -73,8 +86,14 @@ function DetailsButton({ filled, place, onClick, text }: { filled: boolean; plac
       {/* Outlined capsule (reference "details" button, 35px). */}
       <span
         className={cn(
-          "flex h-9 items-center rounded-chip border px-3.5 text-sub font-medium transition-colors",
-          filled ? "border-accent/40 bg-accent-5 text-accent" : "border-hairline bg-card text-ink/70 group-hover:border-ink/25"
+          // Solid "Podyezd" 32px (photo 8: 31.9); outlined "Tafsilotlar" 35px (photo 4: 35.2).
+          "flex items-center rounded-chip border px-3.5 text-sub font-medium transition-colors",
+          solid ? "h-8" : "h-9",
+          solid
+            ? cn("border-transparent", filled ? "bg-accent-10 text-accent" : "bg-fill text-ink group-hover:bg-ink/10")
+            : filled
+            ? "border-accent/40 bg-accent-5 text-accent"
+            : "border-hairline bg-card text-ink/70 group-hover:border-ink/25"
         )}
       >
         {text ?? t("details.button")}
@@ -212,7 +231,8 @@ export function RouteFields({
       title={atLimit ? L.limit(maxStops ?? 0) : undefined}
       className="flex h-11 w-11 shrink-0 items-center justify-center disabled:opacity-40"
     >
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-fill text-ink">
+      {/* 25px gray circle (measured 24.6, photo 8). */}
+      <span className="flex h-[25px] w-[25px] items-center justify-center rounded-full bg-fill text-ink">
         <Plus className="h-4 w-4" />
       </span>
     </button>
@@ -232,7 +252,7 @@ export function RouteFields({
             onClick={() => onPick("from")}
           />
           {onDetails && from && (
-            <DetailsButton filled={!!fromDetailsLine} place={t("order.from")} text={fromDetailsText} onClick={() => onDetails("from")} />
+            <DetailsButton filled={!!fromDetailsLine} place={t("order.from")} text={fromDetailsText} solid={!showLabels} onClick={() => onDetails("from")} />
           )}
         </div>
       </div>
@@ -302,7 +322,7 @@ export function RouteFields({
             onClick={() => onPick("to")}
           />
           {onDetails && to && (
-            <DetailsButton filled={!!toDetailsLine} place={toLabel ?? t("order.to")} text={toDetailsText} onClick={() => onDetails("to")} />
+            <DetailsButton filled={!!toDetailsLine} place={toLabel ?? t("order.to")} text={toDetailsText} solid={!showLabels} onClick={() => onDetails("to")} />
           )}
           {addPlus}
         </div>

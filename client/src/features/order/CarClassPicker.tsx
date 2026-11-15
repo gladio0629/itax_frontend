@@ -80,20 +80,21 @@ export function CarClassPicker({
                     tabIndex={selected ? 0 : -1}
                     onClick={() => c.available && onChange(c.id)}
                     className={cn(
-                      "flex min-h-[88px] min-w-[106px] shrink-0 snap-start flex-col items-start rounded-thumb px-2.5 pb-2 pt-1.5 text-left transition-colors",
+                      // 105×87 (photo 8): tight padding, the car slightly overhangs the top.
+                      "flex min-h-[87px] min-w-[105px] shrink-0 snap-start flex-col items-start rounded-thumb px-2 pb-1.5 pt-1 text-left transition-colors",
                       selected ? "bg-selected" : "hover:bg-ink/[0.03]",
                       !c.available && "cursor-not-allowed opacity-45"
                     )}
                   >
-                    <ClassCarArt id={c.id} className="h-7 w-[72px]" />
+                    <ClassCarArt id={c.id} className="h-[26px] w-[66px]" />
                     {c.etaMinutes != null && c.available && (
                       <span className="text-[11px] leading-[14px] text-ink/60 tabular">{t("order.etaMin", { n: c.etaMinutes })}</span>
                     )}
-                    <span className="text-sub text-ink">{t(c.nameKey as TranslationKey)}</span>
+                    <span className="text-sub leading-4 text-ink">{t(c.nameKey as TranslationKey)}</span>
                     {c.available ? (
                       // Number bold, currency small (reference "21000 сум").
                       <span className={cn("whitespace-nowrap tabular", status === "loading" ? "text-ink/40" : "text-ink")}>
-                        <span className="text-control font-semibold">{formatNumber(c.price, intlTag)}</span>
+                        <span className="text-control font-semibold leading-5">{formatNumber(c.price, intlTag)}</span>
                         <span className="text-[11px] font-medium"> so'm</span>
                       </span>
                     ) : (
