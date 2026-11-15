@@ -115,7 +115,8 @@ function homeSummary(s: DriverState): HomeSummary {
     debt,
     canAcceptOrders: debt.level !== "blocked",
     bonusActive: commissionPctNow(s) < BASE_COMMISSION_PCT,
-    newRequests: s.requests.filter((r) => r.postedAt > s.feedSeenAt && isVisible(s, r, now) && !isTaken(r, now)).length,
+    // Muting "Yangi buyurtmalar" silences the badge too.
+    newRequests: s.prefs.master && s.prefs.newOrders ? s.requests.filter((r) => r.postedAt > s.feedSeenAt && isVisible(s, r, now) && !isTaken(r, now)).length : 0,
   };
 }
 

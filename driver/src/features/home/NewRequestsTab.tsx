@@ -50,7 +50,12 @@ export function NewRequestsTab({ feed, date, type, highlightId, summary, onFilte
   // Opened from a banner: bring the card into view.
   useEffect(() => {
     if (!highlightId || !page) return;
-    document.getElementById(`req-${highlightId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    // Scroll only the list: scrollIntoView would also move the swipeable tab track.
+    const el = document.getElementById(`req-${highlightId}`);
+    const sc = scroller.current;
+    if (!el || !sc) return;
+    const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 12;
+    sc.scrollTo({ top, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [highlightId, page]);
 
   async function accept(r: RideRequest) {
