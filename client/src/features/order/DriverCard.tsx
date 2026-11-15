@@ -12,16 +12,22 @@ export function DriverCard({ driver }: { driver: Driver }) {
 
   return (
     <Card className="flex items-center gap-3 p-4">
-      <Avatar seed={driver.avatarSeed} name={driver.name} size={52} />
+      <Avatar seed={driver.avatarSeed} name={driver.name || t("driver.unnamed")} size={52} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-ink">{driver.name}</p>
-        <p className="text-xs text-ink/60">
-          {driver.carModel.replace(/ (?=\S+$)/, "\u00a0")} <span className="whitespace-nowrap">&middot; {driver.carColor}</span>
-        </p>
-        <p className="mt-0.5 whitespace-nowrap text-xs font-semibold tabular text-ink/80">{driver.plate}</p>
-        <p className="mt-0.5 flex items-center gap-1 text-xs font-normal text-ink/80">
-          <Star className="h-3 w-3 fill-brand-yellow text-brand-yellow" /> {driver.rating.toFixed(1)}
-        </p>
+        {/* The server may send only the driver's id: each line shows only when it has data. */}
+        <p className="truncate text-sm font-semibold text-ink">{driver.name || t("driver.unnamed")}</p>
+        {(driver.carModel || driver.carColor) && (
+          <p className="text-xs text-ink/60">
+            {driver.carModel.replace(/ (?=\S+$)/, "\u00a0")}
+            {driver.carColor && <span className="whitespace-nowrap"> &middot; {driver.carColor}</span>}
+          </p>
+        )}
+        {driver.plate && <p className="mt-0.5 whitespace-nowrap text-xs font-semibold tabular text-ink/80">{driver.plate}</p>}
+        {driver.rating > 0 && (
+          <p className="mt-0.5 flex items-center gap-1 text-xs font-normal text-ink/80">
+            <Star className="h-3 w-3 fill-brand-yellow text-brand-yellow" /> {driver.rating.toFixed(1)}
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 gap-2">
         <button

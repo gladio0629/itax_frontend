@@ -62,7 +62,7 @@ export default function CapabilitiesScreen() {
           <SkeletonList rows={4} label={t("common.loading")} />
         ) : (
           <>
-            <p className="mb-4 px-1 text-sm text-muted">{t("caps.intro")}</p>
+            <p className="mb-4 px-1 text-sm text-muted">{t(api.capabilities.profileMatching ? "caps.intro" : "caps.introSaved")}</p>
             <SettingsGroup>
               <SettingsRow
                 icon={Baby}

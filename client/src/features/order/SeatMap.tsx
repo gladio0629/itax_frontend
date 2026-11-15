@@ -219,6 +219,13 @@ export function SeatMap({
 }) {
   const { t, intlTag } = useT();
   const byId = Object.fromEntries(seats.map((s) => [s.id, s]));
+  // The front-seat surcharge note only when the prices given actually differ
+  // by position (the real backend prices every seat the same today).
+  const frontCostsMore = (() => {
+    const front = byId["front"]?.price;
+    const rear = seats.filter((x) => x.id !== "front" && x.price != null).map((x) => x.price);
+    return front != null && rear.length > 0 && rear.some((r) => front > r);
+  })();
   const wholeCar = mode === "car";
   const isAvailable = (id: string) => !byId[id]?.taken || seatIds.includes(id);
   const available = SEAT_PRIORITY.filter(isAvailable);
@@ -397,7 +404,7 @@ export function SeatMap({
           <p className="text-sm font-semibold text-ink" aria-live="polite">
             {summary}
           </p>
-          {!wholeCar && <p className="mt-0.5 text-xs text-ink/60 text-pretty">{t("seat.frontSurchargeNote")}</p>}
+          {!wholeCar && frontCostsMore && <p className="mt-0.5 text-xs text-ink/60 text-pretty">{t("seat.frontSurchargeNote")}</p>}
         </div>
       </div>
     </div>

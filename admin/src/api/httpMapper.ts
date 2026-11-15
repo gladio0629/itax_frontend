@@ -532,7 +532,8 @@ export function statsFromApi(s: Api.Stats, period: StatsPeriod, range: Api.Stats
     ordersCancelled: s.orders_cancelled,
     ordersExpired: s.orders_expired ?? null,
     ordersByStatus: byStatus
-      ? ORDER_STATUS_ORDER.filter((st) => byStatus[st] !== undefined).map((st) => ({ status: st, count: byStatus[st] ?? 0 }))
+      ? // Only statuses that have orders: seven bars don't fit, and empty ones lose their labels.
+        ORDER_STATUS_ORDER.filter((st) => (byStatus[st] ?? 0) > 0).map((st) => ({ status: st, count: byStatus[st] ?? 0 }))
       : null,
     ordersByRoute: s.top_routes ? s.top_routes.map((r) => ({ from: r.from_name, to: r.to_name, count: r.orders })) : null,
     incomeOverTime: daily ? daily.map((d) => ({ date: dayLabel(d.date), income: toSom(d.revenue) })) : null,

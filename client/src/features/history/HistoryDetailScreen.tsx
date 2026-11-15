@@ -93,12 +93,14 @@ export function HistoryDetailScreen() {
 
         {order.driver && (
           <Card className="mb-4 flex items-center gap-3 p-4">
-            <Avatar seed={order.driver.avatarSeed} name={order.driver.name} size={44} />
+            <Avatar seed={order.driver.avatarSeed} name={order.driver.name || t("driver.unnamed")} size={44} />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-ink">{order.driver.name}</p>
-              <p className="text-xs text-ink/60">
-                {order.driver.carModel} &middot; {order.driver.plate}
-              </p>
+              <p className="text-sm font-semibold text-ink">{order.driver.name || t("driver.unnamed")}</p>
+              {(order.driver.carModel || order.driver.plate) && (
+                <p className="text-xs text-ink/60">
+                  {[order.driver.carModel, order.driver.plate].filter(Boolean).join(" · ")}
+                </p>
+              )}
             </div>
           </Card>
         )}

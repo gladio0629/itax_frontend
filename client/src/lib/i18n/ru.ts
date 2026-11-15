@@ -557,7 +557,7 @@ export const ru: Dictionary = {
   "auth.otpError": "Неверный код. Попробуйте снова.",
   "auth.confirmTitle": "Подтверждение",
   "auth.enterCodeTitle": "Введите код",
-  "auth.enterCodeDesc": "Введите 4-значный код, отправленный на номер {{phone}}.",
+  "auth.enterCodeDesc": "Введите {{count}}-значный код, отправленный на номер {{phone}}.",
   "auth.resendIn": "Отправить снова ({{seconds}}с)",
   "auth.resend": "Отправить код снова",
   "auth.otpSendError": "Код не отправлен. Проверьте интернет и попробуйте снова.",
@@ -637,6 +637,7 @@ export const ru: Dictionary = {
   "cardLink.error": "Карта не привязана. Попробуйте снова.",
   "cardLink.submit": "Перейти к провайдеру",
 
+  "driver.unnamed": "Водитель",
   "driver.call": "Позвонить",
   "driver.message": "Написать сообщение",
   "driver.callUnavailable": "Звонок пока недоступен",

@@ -25,6 +25,9 @@ export type ApiCapabilities = {
   history: boolean;
   /** Range / min-earnings / city filters and the total count on the history list. */
   historyFilters: boolean;
+  /** Requests are matched against Yo'nalishlarim / Imkoniyatlarim (the screens may
+   * promise it). The real backend stores both but doesn't match on them yet. */
+  profileMatching: boolean;
   bonus: boolean;
   help: boolean;
   /** "Imkoniyatlarim". */

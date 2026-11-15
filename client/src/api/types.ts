@@ -487,6 +487,8 @@ export type OtpRequestResult = {
   testCode?: string;
   /** Seconds until "resend" is allowed (server's resend_after). */
   resendAfterSec?: number;
+  /** Digits in the code the server sent (server's code_length), when it says. */
+  codeLength?: number;
 };
 
 export type NotificationPrefs = {

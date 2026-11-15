@@ -34,7 +34,7 @@ export function PhoneScreen() {
       const res = await api.requestOtp(fullPhone);
       setPhone(fullPhone);
       navigate("/auth/otp", {
-        state: { requestId: res.requestId, testCode: res.testCode, resendAfterSec: res.resendAfterSec, phone: fullPhone },
+        state: { requestId: res.requestId, testCode: res.testCode, resendAfterSec: res.resendAfterSec, codeLength: res.codeLength, phone: fullPhone },
       });
     } catch (e) {
       const key = serverErrorKey(e);

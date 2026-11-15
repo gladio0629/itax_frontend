@@ -558,7 +558,7 @@ export const uz = {
   "auth.otpError": "Kod noto'g'ri. Qaytadan urinib ko'ring.",
   "auth.confirmTitle": "Tasdiqlash",
   "auth.enterCodeTitle": "Kodni kiriting",
-  "auth.enterCodeDesc": "{{phone}} raqamiga yuborilgan 4 xonali kodni kiriting.",
+  "auth.enterCodeDesc": "{{phone}} raqamiga yuborilgan {{count}} xonali kodni kiriting.",
   "auth.resendIn": "Qayta yuborish ({{seconds}}s)",
   "auth.resend": "Kodni qayta yuborish",
   "auth.otpSendError": "Kod yuborilmadi. Internetni tekshirib, qayta urinib ko'ring.",
@@ -638,6 +638,7 @@ export const uz = {
   "cardLink.error": "Karta bog'lanmadi. Qaytadan urining.",
   "cardLink.submit": "Provayderga o'tish",
 
+  "driver.unnamed": "Haydovchi",
   "driver.call": "Qo'ng'iroq qilish",
   "driver.message": "Xabar yozish",
   "driver.callUnavailable": "Qo'ng'iroq qilish hozircha mavjud emas",

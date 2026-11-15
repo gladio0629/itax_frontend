@@ -76,6 +76,7 @@ const capabilities: ApiCapabilities = {
   history: true,
   // GET /trips/history has only cursor/limit and no total.
   historyFilters: false,
+  profileMatching: false,
   bonus: false,
   help: false,
   driverCapabilities: true,

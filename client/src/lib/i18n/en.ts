@@ -557,7 +557,7 @@ export const en: Dictionary = {
   "auth.otpError": "Wrong code. Please try again.",
   "auth.confirmTitle": "Confirmation",
   "auth.enterCodeTitle": "Enter the code",
-  "auth.enterCodeDesc": "Enter the 4-digit code sent to {{phone}}.",
+  "auth.enterCodeDesc": "Enter the {{count}}-digit code sent to {{phone}}.",
   "auth.resendIn": "Resend ({{seconds}}s)",
   "auth.resend": "Resend code",
   "auth.otpSendError": "The code wasn't sent. Check your connection and try again.",
@@ -637,6 +637,7 @@ export const en: Dictionary = {
   "cardLink.error": "The card wasn't linked. Please try again.",
   "cardLink.submit": "Go to provider",
 
+  "driver.unnamed": "Driver",
   "driver.call": "Call",
   "driver.message": "Message",
   "driver.callUnavailable": "Calling isn't available yet",

@@ -386,7 +386,7 @@ export const httpAdapter: ApiAdapter = {
     const res = await http.post<Api.OtpRequestResult>(API_PATHS.otpRequest, { phone: apiPhone }, { auth: false });
     const requestId = uuidV4();
     otpPhones.set(requestId, apiPhone);
-    return { requestId, resendAfterSec: res.resend_after };
+    return { requestId, resendAfterSec: res.resend_after, codeLength: res.code_length };
   },
   verifyOtp: async (requestId, code) => {
     const phone = otpPhones.get(requestId);

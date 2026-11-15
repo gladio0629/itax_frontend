@@ -855,6 +855,7 @@ export const mockAdapter: ApiAdapter = {
     tripSummary: true,
     history: true,
     historyFilters: true,
+    profileMatching: true,
     bonus: true,
     help: true,
     driverCapabilities: true,

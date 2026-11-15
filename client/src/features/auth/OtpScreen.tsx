@@ -13,14 +13,16 @@ import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import { cn } from "@/lib/cn";
 
 /** `testCode` comes only from the sample-data adapter; a real backend sends the code by SMS. */
-type LocationState = { requestId: string; testCode?: string; resendAfterSec?: number; phone: string };
+type LocationState = { requestId: string; testCode?: string; resendAfterSec?: number; codeLength?: number; phone: string };
 
 const DEFAULT_RESEND_SEC = 30;
-// SMS code length: fixed 4 with sample data; 4–6 with the real backend (the
-// confirm button works from `min`, typing all `max` digits submits at once).
-const { min: CODE_MIN, max: CODE_MAX } = api.otpLength;
-const emptyCode = () => Array<string>(CODE_MAX).fill("");
-const toDigits = (code: string) => [...code.slice(0, CODE_MAX).split(""), ...emptyCode()].slice(0, CODE_MAX);
+// SMS code length: the server's code_length when it sends one; otherwise the
+// adapter's range (fixed 4 with sample data, 4–6 with a backend that doesn't
+// say). The confirm button works from `min`; typing all `max` digits submits.
+function codeLengths(fromServer?: number) {
+  if (fromServer && fromServer >= 4 && fromServer <= 8) return { min: fromServer, max: fromServer };
+  return api.otpLength;
+}
 
 export function OtpScreen() {
   const footerRef = useRef<HTMLDivElement>(null);
@@ -30,6 +32,10 @@ export function OtpScreen() {
   const navigate = useNavigate();
   const completeAuth = useAuthStore((s) => s.completeAuth);
   const state = (location.state as LocationState) ?? null;
+  const [lengths, setLengths] = useState(() => codeLengths(state?.codeLength));
+  const { min: CODE_MIN, max: CODE_MAX } = lengths;
+  const emptyCode = () => Array<string>(CODE_MAX).fill("");
+  const toDigits = (code: string) => [...code.slice(0, CODE_MAX).split(""), ...emptyCode()].slice(0, CODE_MAX);
 
   const [digits, setDigits] = useState<string[]>(emptyCode);
   const [phase, setPhase] = useState<"enter" | "review">("enter");
@@ -87,6 +93,7 @@ export function OtpScreen() {
     try {
       const res = await api.requestOtp(state.phone);
       setRequestId(res.requestId);
+      if (res.codeLength) setLengths(codeLengths(res.codeLength));
       setSeconds(res.resendAfterSec ?? DEFAULT_RESEND_SEC);
       if (res.testCode) setDigits(toDigits(res.testCode));
     } catch (e) {
@@ -135,7 +142,7 @@ export function OtpScreen() {
           <ShieldCheck className="h-7 w-7" />
         </div>
         <h1 className="mb-2 text-xl font-semibold text-ink">{t("auth.enterCodeTitle")}</h1>
-        <p className="mb-8 text-sm text-ink/60">{t("auth.enterCodeDesc", { phone: state.phone })}</p>
+        <p className="mb-8 text-sm text-ink/60">{t("auth.enterCodeDesc", { phone: state.phone, count: CODE_MAX })}</p>
 
         <div className={CODE_MAX > 4 ? "flex gap-2" : "flex gap-3"}>
           {digits.map((d, i) => (
