@@ -10,7 +10,7 @@ and the UI hides it or shows "Tez orada". Nothing is faked.
 |---|---|---|
 | `getSession` | `authTokenRefresh` (resume), `driverGetStatus`, `driverGetMe` | `draft` has no GET for registration progress, so the app restarts at step 1 (steps overwrite). `pending_review` shows the review screen, `rejected` reopens registration with a notice, `blocked` shows a blocked screen. There is no `routes` stage (no routes endpoint). |
 | `getRegistrationOptions` | **NONE** | Cities, car models, colors, years, classes and seat counts are static UI lists in the http adapter. **Needed:** `GET /api/v1/drivers/registration/options` → `{ cities: string[], car_brands: {brand, models[]}[], colors: string[], years: int[], car_classes: CarClass[], seats: int[] }` |
-| `requestOtp` | `authOtpRequest` | `resend_after` becomes `resendInSec`. The UI has 4 code boxes; the contract allows 4–6 digits. |
+| `requestOtp` | `authOtpRequest` | `resend_after` becomes `resendInSec`. The contract allows 4–6 digits, so http mode shows 6 boxes and accepts 4–6 (`api.otpLength`). |
 | `verifyOtp` | `authOtpVerify` | Returns an already-settled review (no timers). `is_new_user` is unused. |
 | `savePersonal` | `driverRegistrationStep` (1) | The UI's single "Ism Familiya" field is split at the first space into `first_name` / `last_name`. A birth-date input was added for `birth_date`. `city` is sent as the city name (free string). |
 | `saveCar` | `driverRegistrationStep` (2) | The model list is "Brand Model" and is split into `brand` / `model`. `color` sends the color key. Car-class and seat inputs were added for `car_class` / `seats`. |
@@ -58,8 +58,8 @@ all `/admin/v1/*`.
 - `Trip` has no passenger or order data. The accepted card shows the offer snapshot taken at accept time.
 - `DriverStatus.reason` is a free key with no catalogue. The UI shows a generic "rejected" / "blocked" text.
 - The trip step button follows `Trip.status`: `assigned` shows "Safarni boshlash", `in_progress` shows "Yakunlash". The server still decides; a 403 is shown as an error. **Needed:** `Trip.next_actions: ("start"|"complete"|"cancel")[]` so the client never infers the next step from a status.
-- The OTP input has 4 boxes, but the contract allows 4–6 digits. **Needed:** `code_length` in `OtpRequestResult`.
+- The contract allows 4–6 OTP digits without saying which, so http mode accepts 4–6. **Needed:** `code_length` in `OtpRequestResult` to show the exact number of boxes.
 - The WebSocket only triggers refetches. `offer.created` carries no offer payload, so the feed is re-read (`GET /trips/offers`, first page, limit 50).
 - `GET /trips/offers` has no filters. **Needed:** `?direction=&date=&type=`, or server-side matching against the driver's routes.
-- Server-sent `title_key` / `body_key` show as raw text when the app has no translation for them.
+- A server-sent `title_key` the app can't translate falls back to a generic title for its kind, and an unknown `body_key` is hidden. Please share the key catalogue.
 - `walletTopup` / `walletCardLink` return a provider `redirect_url`. The app opens it (http(s) only) and expects the provider to return to the app. There is no return URL parameter in the contract.

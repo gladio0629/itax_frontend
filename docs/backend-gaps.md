@@ -19,7 +19,7 @@ and errors are `{ error: { key, params } }`.
 
 | App | Works against the contract | Hidden / "Tez orada" until the backend adds it |
 |---|---|---|
-| Client | OTP login, session resume, logout, profile name, notification settings (push/promo), order tracking (get, cancel, rate, comment/payment/time patch, search again), history, notifications, realtime order updates | **Ordering itself** (no places/geocoding, cities, quote, class list, seat map; Home shows "Tez orada"), stops, options, address details, cargo, scheduling ranges, tips, safety tools, trip share, promo, bonuses, help/support, saved cards list, account switching, phone change, account deletion, history status filter |
+| Client | OTP login, session resume, logout, profile name, notification settings (push/promo), order tracking (get, cancel, rate, search again), history, notifications, realtime order updates | **Ordering itself** (no places/geocoding, cities, quote, class list, seat map; Home shows "Tez orada"), the order details sheet (so `orderUpdate` isn't reachable), stops, options, address details, cargo, scheduling ranges, tips, safety tools, trip share, promo, bonuses, help/support, cards screens (no saved-cards list, so `walletCardLink` isn't reachable), account switching, phone change, account deletion, history status filter. The passenger wallet screen isn't routed in the client app at all (this predates the http work), so `walletBalance` and `walletLedger` are wired in the adapter only |
 | Driver | OTP login, registration steps 1–4 with document upload, status (review / rejected / blocked / active), offers + accept, trip start/complete, GPS, wallet balance/ledger/top-up/card link, profile name, notifications, push/promo settings, realtime refresh | Routes ("Yo'nalishlarim"), offer reject, feed filters and seat summary, "arrived" step, trip cancel, chat, trip summary, trip history, accepted-trips list after reload, bonus, help, capabilities ("Imkoniyatlarim"), phone/car change, request alerts, ledger filters, per-topic notification switches |
 | Admin | Email→SMS→verify login and phone-only operator login, `/me` sections, staff, drivers, passengers, orders (view), ledger, two-person corrections and tariffs, operator queue/history, stats (contract figures) | Complaints, audit log, section badges, supervisor views, export audit, staff search/state filter/restore/email edit, order create/edit/cancel, pending-corrections list, proposed tariff values, ledger/queue/history filters, most stats charts |
 
@@ -30,9 +30,9 @@ and errors are `{ error: { key, params } }`.
 | Auth | authOtpRequest, authOtpVerify, authTokenRefresh, authLogout | client, driver (refresh and logout in `shared/http/session.ts`) |
 | Admin auth | adminLoginEmail, adminLoginSms, adminLoginVerify | admin |
 | Driver | driverGetMe, driverUpdateMe, driverRegistrationStep, driverDocumentUploadUrl, driverDocumentUploadContent (signed PUT), driverLocationUpdate, driverGetStatus | driver |
-| Orders, ratings | orderCreate, orderHistory, orderGet, orderUpdate, orderCancel, orderRate, orderRateUpdate | client (`orderCreate` only for "search again"; see §3) |
+| Orders, ratings | orderCreate, orderHistory, orderGet, orderUpdate, orderCancel, orderRate, orderRateUpdate | client (`orderCreate` only for "search again", see §3; `orderUpdate` is wired but its UI, the details sheet, is hidden in http mode) |
 | Trips | tripOffersList, tripOfferAccept, tripStart, tripComplete | driver |
-| Wallet | walletBalance, walletLedger, walletTopup, walletCardLink | driver; client uses balance, ledger and card link |
+| Wallet | walletBalance, walletLedger, walletTopup, walletCardLink | driver (all 4). The client adapter wires balance, ledger and card link, but no client screen reaches them in http mode (see §1) |
 | Notifications | notificationsList, notificationMarkRead, notificationsWebSocket | client, driver |
 | Profile | profileGet, profileUpdate, profileSettingsUpdate | client (all 3), driver (get + settings) |
 | Admin | adminMe, adminStaff* (5), adminDrivers* (5), adminPassengers* (5), adminOrdersList, adminOrdersGet, adminWalletLedger, adminWalletCorrection (+approve/reject), adminTariffs* (7), adminOperator* (5), adminStats | admin, except **adminDriversCreate** (drivers self-register; no admin screen for it) and **adminOrdersGet** (the list already returns full orders) |
@@ -53,7 +53,7 @@ and errors are `{ error: { key, params } }`.
 | Rating reasons | Multi-select, any star count | One `reason`, only and always for 5 stars | First reason sent; `Order` has no `rating` field to read back |
 | Server verdicts | `editable`, `ratingEditable`, `lockedReasonKey`, `canCancel`, `canEdit`, `Me.actions`, `Trip.next_actions` | Not in the contract | The UI doesn't derive them from status. It uses neutral values and lets the server's 403 decide; please add them |
 | Lists | Driver/admin screens page by number with totals and filters | Cursor only, few filters | "Load more" / at most 5 pages × 100 rows; filters the API lacks are hidden |
-| OTP length | 4 boxes | `^[0-9]{4,6}$` | Needs `code_length` in `OtpRequestResult` |
+| OTP length | Code boxes | `^[0-9]{4,6}$`, length not stated | In http mode client and driver show 6 boxes: confirm works from 4 digits, and a full 6 submits at once. A `code_length` in `OtpRequestResult` would let the UI show the exact count |
 | i18n keys | Notification `title_key`/`body_key`, `DriverStatus.reason`, `FORBIDDEN.params.reason` | Free strings; catalogue is `shared/errors/errors.json`, which isn't in this repo | Unknown keys fall back to generic text. Please share the key catalogue |
 | Money | so'm in the UI | tiyin | Converted ×100 / ÷100 in each httpMapper only |
 | Admin session | Logout, idle timeout | No admin refresh token, no admin logout endpoint | Logout only clears memory; the token stays valid until `expires_in`. Needs `POST /admin/v1/auth/logout` |

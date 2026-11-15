@@ -16,6 +16,11 @@ import { cn } from "@/lib/cn";
 type LocationState = { requestId: string; testCode?: string; resendAfterSec?: number; phone: string };
 
 const DEFAULT_RESEND_SEC = 30;
+// SMS code length: fixed 4 with sample data; 4–6 with the real backend (the
+// confirm button works from `min`, typing all `max` digits submits at once).
+const { min: CODE_MIN, max: CODE_MAX } = api.otpLength;
+const emptyCode = () => Array<string>(CODE_MAX).fill("");
+const toDigits = (code: string) => [...code.slice(0, CODE_MAX).split(""), ...emptyCode()].slice(0, CODE_MAX);
 
 export function OtpScreen() {
   const footerRef = useRef<HTMLDivElement>(null);
@@ -26,7 +31,7 @@ export function OtpScreen() {
   const completeAuth = useAuthStore((s) => s.completeAuth);
   const state = (location.state as LocationState) ?? null;
 
-  const [digits, setDigits] = useState<string[]>(["", "", "", ""]);
+  const [digits, setDigits] = useState<string[]>(emptyCode);
   const [phase, setPhase] = useState<"enter" | "review">("enter");
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +50,7 @@ export function OtpScreen() {
     const code = state.testCode;
     if (!code) return;
     const t = setTimeout(() => {
-      setDigits(code.split(""));
+      setDigits(toDigits(code));
     }, 900);
     return () => clearTimeout(t);
   }, [state, navigate]);
@@ -68,7 +73,7 @@ export function OtpScreen() {
     } catch (e) {
       const key = serverErrorKey(e);
       setError(key ? t(key as TranslationKey) : t("auth.otpError"));
-      setDigits(["", "", "", ""]);
+      setDigits(emptyCode());
       inputsRef.current[0]?.focus();
     } finally {
       setSubmitting(false);
@@ -83,7 +88,7 @@ export function OtpScreen() {
       const res = await api.requestOtp(state.phone);
       setRequestId(res.requestId);
       setSeconds(res.resendAfterSec ?? DEFAULT_RESEND_SEC);
-      if (res.testCode) setDigits(res.testCode.split(""));
+      if (res.testCode) setDigits(toDigits(res.testCode));
     } catch (e) {
       const key = serverErrorKey(e);
       setError(key ? t(key as TranslationKey) : t("auth.otpSendError"));
@@ -97,11 +102,14 @@ export function OtpScreen() {
     const next = [...digits];
     next[i] = v;
     setDigits(next);
-    if (v && i < 3) inputsRef.current[i + 1]?.focus();
-    if (next.every((d) => d) && next.join("").length === 4) {
-      handleVerify(next.join(""));
-    }
+    if (v && i < CODE_MAX - 1) inputsRef.current[i + 1]?.focus();
+    if (next.every((d) => d)) handleVerify(next.join(""));
   }
+
+  const entered = digits.join("");
+  // Valid when the filled boxes are an unbroken prefix of at least CODE_MIN digits.
+  const firstEmpty = digits.indexOf("");
+  const codeReady = entered.length >= CODE_MIN && (firstEmpty === -1 || entered.length === firstEmpty);
 
   if (phase === "review" && reviewId) {
     return (
@@ -129,7 +137,7 @@ export function OtpScreen() {
         <h1 className="mb-2 text-xl font-semibold text-ink">{t("auth.enterCodeTitle")}</h1>
         <p className="mb-8 text-sm text-ink/60">{t("auth.enterCodeDesc", { phone: state.phone })}</p>
 
-        <div className="flex gap-3">
+        <div className={CODE_MAX > 4 ? "flex gap-2" : "flex gap-3"}>
           {digits.map((d, i) => (
             <input
               key={i}
@@ -145,7 +153,8 @@ export function OtpScreen() {
               inputMode="numeric"
               maxLength={1}
               className={cn(
-                "h-14 w-14 rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40",
+                CODE_MAX > 4 ? "h-14 w-11" : "h-14 w-14",
+                "rounded-xl border bg-card text-center text-lg font-semibold tabular text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40",
                 error ? "border-danger" : "border-border focus:border-accent"
               )}
             />
@@ -170,8 +179,8 @@ export function OtpScreen() {
         <Button
           fullWidth
           loading={submitting}
-          disabled={digits.some((d) => !d)}
-          onClick={() => handleVerify(digits.join(""))}
+          disabled={!codeReady}
+          onClick={() => handleVerify(entered)}
         >
           {t("common.confirm")}
         </Button>

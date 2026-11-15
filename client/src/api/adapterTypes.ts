@@ -62,6 +62,8 @@ import type { DeliveryVehicleSpec,
  */
 export interface ApiAdapter {
   readonly capabilities: ClientCapabilities;
+  /** How many digits an SMS code can have (the contract allows 4–6). */
+  readonly otpLength: { min: number; max: number };
 
   // --- session (the sample-data adapter keeps no session: null / no-ops) ---
   /** null when the adapter doesn't track sessions (the store's flag decides). */

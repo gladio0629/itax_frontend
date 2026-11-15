@@ -50,6 +50,8 @@ export type ServerEvent = { type: "feed" | "trips" | "wallet" | "session" };
  */
 export interface ApiAdapter {
   readonly capabilities: ApiCapabilities;
+  /** How many digits an SMS code can have (the contract allows 4–6). */
+  readonly otpLength: { min: number; max: number };
   /** Server events; the sample-data adapter never emits any. */
   subscribe(listener: (event: ServerEvent) => void): () => void;
   /** The session ended outside the app's control (expired / revoked). */

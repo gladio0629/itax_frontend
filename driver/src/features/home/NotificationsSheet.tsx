@@ -19,6 +19,16 @@ const ICON: Record<NotificationKind, { icon: typeof Gift; tile: keyof typeof TIL
   news: { icon: Megaphone, tile: "purple" },
 };
 
+// Server notifications carry a title_key the app may not know yet: show a
+// generic title for the kind instead of the raw key.
+const GENERIC_TITLE = {
+  order: "notif.generic.order",
+  wallet: "notif.generic.wallet",
+  docs: "notif.generic.docs",
+  bonus: "notif.generic.bonus",
+  news: "notif.generic.news",
+} as const satisfies Record<NotificationKind, string>;
+
 export function NotificationsSheet({ open, onClose, onRead }: { open: boolean; onClose: () => void; onRead: () => void }) {
   const { t } = useT();
   const list = useQuery(() => api.getNotifications(), [open]);
@@ -51,10 +61,10 @@ export function NotificationsSheet({ open, onClose, onRead }: { open: boolean; o
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-base font-bold text-ink">{isKey(n.titleKey) ? t(n.titleKey, n.params) : n.titleKey}</p>
+                      <p className="text-base font-bold text-ink">{isKey(n.titleKey) ? t(n.titleKey, n.params) : t(GENERIC_TITLE[n.kind])}</p>
                       {!n.read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-yellow" aria-label="•" />}
                     </div>
-                    <p className="text-sm text-muted">{isKey(n.bodyKey) ? t(n.bodyKey, n.params) : n.bodyKey}</p>
+                    {isKey(n.bodyKey) && <p className="text-sm text-muted">{t(n.bodyKey, n.params)}</p>}
                     <p className="tabular mt-1 text-xs text-muted">{relativeTime(n.createdAt, t)}</p>
                   </div>
                 </li>

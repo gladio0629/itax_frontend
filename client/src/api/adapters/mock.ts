@@ -703,6 +703,7 @@ function routeSuggestion(fromId: string, toId: string): RouteSuggestion {
 }
 
 export const mockAdapter: ApiAdapter = {
+  otpLength: { min: 4, max: 4 },
   capabilities: {
     ordering: true,
     orderDetails: true,

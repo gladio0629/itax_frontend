@@ -9,7 +9,7 @@ and the UI uses so'm (÷100 / ×100 in the mapper).
 | Adapter method | operationId | Notes / mismatches |
 |---|---|---|
 | requestOtp(phone) | authOtpRequest | UI phone `+998 90 123 45 67` → `+998901234567`. `resend_after` drives the resend timer. No `requestId` in the API: the adapter keeps the phone in memory under a local id. |
-| verifyOtp(requestId, code) | authOtpVerify | Returns TokenPair. The UI expects a ReviewRequest, so the adapter returns one that is already approved (no timers). The UI has 4 code boxes; the contract allows 4–6 digits. |
+| verifyOtp(requestId, code) | authOtpVerify | Returns TokenPair. The UI expects a ReviewRequest, so the adapter returns one that is already approved (no timers). The contract allows 4–6 digits, so http mode shows 6 boxes and accepts 4–6 (`api.otpLength`). **Needed:** `code_length` in `OtpRequestResult`. |
 | getReviewStatus(id) | — (local) | Returns results that are already settled. |
 | logout() | authLogout | Shared session: revoke, then clear tokens, storage and the socket. |
 | (refresh) | authTokenRefresh | Shared HTTP client (single flight). |

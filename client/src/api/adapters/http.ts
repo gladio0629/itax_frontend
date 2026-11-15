@@ -100,6 +100,8 @@ async function createOrderBody(body: Api.OrderCreate) {
 
 export const httpAdapter: ApiAdapter = {
   capabilities,
+  // OtpVerify.code: ^[0-9]{4,6}$ — the contract doesn't say which length the SMS uses.
+  otpLength: { min: 4, max: 6 },
 
   // -------------------------------------------------------------- session
   hasSession: () => session.hasSession(),

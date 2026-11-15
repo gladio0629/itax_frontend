@@ -843,6 +843,7 @@ function findBooking(s: DriverState, id: string) {
 const noop = () => {};
 
 export const mockAdapter: ApiAdapter = {
+  otpLength: { min: 4, max: 4 },
   capabilities: {
     routes: true,
     rejectRequest: true,

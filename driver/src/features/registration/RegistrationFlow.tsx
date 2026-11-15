@@ -136,11 +136,16 @@ function BottomAction({ children }: { children: React.ReactNode }) {
 
 // ---------- Step 1: phone + OTP ----------
 
+// SMS code length: fixed 4 with sample data; 4–6 with the real backend (the
+// confirm button works from CODE_MIN, typing all CODE_MAX digits submits).
+const { min: CODE_MIN, max: CODE_MAX } = api.otpLength;
+const emptyCode = () => Array<string>(CODE_MAX).fill("");
+
 function PhoneStep({ onVerified }: { onVerified: () => void }) {
   const { t } = useT();
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState<{ requestId: string; testCode?: string; resendInSec: number } | null>(null);
-  const [code, setCode] = useState(["", "", "", ""]);
+  const [code, setCode] = useState<string[]>(emptyCode);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -166,7 +171,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
       const r = await api.requestOtp(digits);
       setOtp(r);
       setResendIn(r.resendInSec);
-      setCode(["", "", "", ""]);
+      setCode(emptyCode());
       setTimeout(() => boxes.current[0]?.focus(), 50);
     } catch (e) {
       setError(errorMessage(e, t));
@@ -184,7 +189,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
       setReviewId(r.id);
     } catch (e) {
       setError(errorMessage(e, t));
-      setCode(["", "", "", ""]);
+      setCode(emptyCode());
       boxes.current[0]?.focus();
     } finally {
       setBusy(false);
@@ -195,8 +200,8 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
     const clean = v.replace(/\D/g, "");
     if (clean.length > 1) {
       // Paste: spread across boxes.
-      const next = clean.slice(0, 4).split("");
-      while (next.length < 4) next.push("");
+      const next = clean.slice(0, CODE_MAX).split("");
+      while (next.length < CODE_MAX) next.push("");
       setCode(next);
       if (next.every(Boolean)) verify(next.join(""));
       return;
@@ -204,9 +209,14 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
     const next = [...code];
     next[i] = clean;
     setCode(next);
-    if (clean && i < 3) boxes.current[i + 1]?.focus();
+    if (clean && i < CODE_MAX - 1) boxes.current[i + 1]?.focus();
     if (next.every(Boolean)) verify(next.join(""));
   }
+
+  const entered = code.join("");
+  // Valid when the filled boxes are an unbroken prefix of at least CODE_MIN digits.
+  const firstEmpty = code.indexOf("");
+  const codeReady = entered.length >= CODE_MIN && (firstEmpty === -1 || entered.length === firstEmpty);
 
   if (reviewId) {
     return (
@@ -224,7 +234,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
           {t("reg.changePhone")}
         </button>
         <StepTitle title={t("reg.codeTitle")} desc={t("reg.codeDesc", { phone: formatPhone(digits) })} />
-        <div className="flex justify-center gap-3" role="group" aria-label={t("reg.codeTitle")}>
+        <div className={cn("flex justify-center", CODE_MAX > 4 ? "gap-2" : "gap-3")} role="group" aria-label={t("reg.codeTitle")}>
           {code.map((d, i) => (
             <input
               key={i}
@@ -232,7 +242,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
               value={d}
               inputMode="numeric"
               autoComplete={i === 0 ? "one-time-code" : "off"}
-              maxLength={4}
+              maxLength={CODE_MAX}
               spellCheck={false}
               aria-label={t("reg.codeDigit", { n: i + 1 })}
               aria-invalid={error ? true : undefined}
@@ -242,7 +252,8 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
                 if (e.key === "Backspace" && !code[i] && i > 0) boxes.current[i - 1]?.focus();
               }}
               className={cn(
-                "tabular h-16 w-14 rounded-button bg-raised text-center text-2xl font-bold text-ink outline-none focus-visible:outline-none focus:ring-2 focus:ring-inset",
+                CODE_MAX > 4 ? "w-11" : "w-14",
+                "tabular h-16 rounded-button bg-raised text-center text-2xl font-bold text-ink outline-none focus-visible:outline-none focus:ring-2 focus:ring-inset",
                 error ? "ring-2 ring-inset ring-danger" : "focus:ring-yellow"
               )}
             />
@@ -255,6 +266,11 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
         )}
         {otp.testCode && <p className="tabular mt-6 text-center text-sm text-gold">{t("reg.testCode", { code: otp.testCode })}</p>}
         <BottomAction>
+          {CODE_MIN < CODE_MAX && (
+            <Button fullWidth className="mb-2" loading={busy} disabled={!codeReady} onClick={() => verify(entered)}>
+              {t("common.confirm")}
+            </Button>
+          )}
           <Button variant="ghost" fullWidth disabled={resendIn > 0 || busy} onClick={send}>
             {resendIn > 0 ? t("reg.resendIn", { n: resendIn }) : t("reg.resend")}
           </Button>
