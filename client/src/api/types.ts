@@ -7,9 +7,23 @@ import type {
   PaymentMethod,
 } from "@/seed/generate";
 import type { ReviewKind, ReviewRequest } from "@/mockDb/db";
-import type { Address } from "@/clientData/addresses";
 
-export type { City, Driver, Order, OrderMode, OrderStatus, PaymentMethod, ReviewKind, ReviewRequest, Address };
+export type { City, Driver, Order, OrderMode, OrderStatus, PaymentMethod, ReviewKind, ReviewRequest };
+
+/** A route point the adapter handed out (search, saved, reverse, an order).
+ * Screens keep only its id and look it up with api.addressById(). */
+export type Address = {
+  id: string;
+  /** "" when the point isn't in a known city. */
+  cityId: string;
+  label: string;
+  /** 0-100 position on the stylized map (sample data only: the map isn't
+   * geographic, so a real point has none). */
+  x?: number;
+  y?: number;
+  /** Marketplace warehouse (Kargo "Marketpleysga" drop-offs only). */
+  warehouse?: { marketplace: string };
+};
 
 export type ServiceType = "passenger" | "delivery";
 /** Delivery is priced by the vehicle the client picks — no weight or volume. */
@@ -83,7 +97,8 @@ export type RouteSuggestion = {
   fromCityId: string;
   toCityId: string;
   distanceKm: number;
-  fromPrice: number;
+  /** One seat, from the server; null when it couldn't be priced. */
+  fromPrice: number | null;
   label: string;
 };
 
@@ -236,6 +251,8 @@ export type QuoteInput = {
   carClass?: CarClassId;
   /** Only a code applyPromoCode() accepted. */
   promoCode?: string;
+  /** The requested time (the real backend prices with it). */
+  timing?: OrderTiming;
 };
 
 export type Quote = {
@@ -243,7 +260,8 @@ export type Quote = {
   lines: QuoteLine[];
   total: number;
   currency: "som";
-  etaMinutes: number;
+  /** Pickup ETA, when the adapter knows one. */
+  etaMinutes?: number;
   durationMinutes: number;
   /** When the trip would end (ms): pickup ETA + trip duration from now. */
   arrivalAt?: number;
@@ -319,7 +337,8 @@ export type UpdateOrderInput = Partial<{
 export type AddressSearchResult = {
   address: Address;
   area: string;
-  distanceKm: number;
+  /** From the pickup, when known. */
+  distanceKm?: number;
   entrance?: string;
 };
 
@@ -329,8 +348,9 @@ export type SavedAddressInfo = {
   area?: string;
   /** Tafsilotlar remembered for this saved address. */
   details?: AddressDetails;
-  distanceKm: number;
-  etaMinutes: number;
+  /** From the pickup, when the adapter knows them. */
+  distanceKm?: number;
+  etaMinutes?: number;
 };
 
 export type OrderWithDetails = Order & {
@@ -343,6 +363,13 @@ export type OrderWithDetails = Order & {
   /** Whether updateOrder() will currently accept changes (false once the
    * trip is in_progress or later). */
   editable: boolean;
+  /** Server verdict: the passenger may cancel now. Unset = no verdict
+   * (sample data: cancel is offered while searching or accepted). */
+  canCancel?: boolean;
+  /** The driver pressed "arrived" (status stays "accepted" in the UI). */
+  driverArrived?: boolean;
+  /** The server's price breakdown (sums to `price`), when it sends one. */
+  priceLines?: QuoteLine[];
 };
 
 export type OrderHistoryPage = {
@@ -431,6 +458,23 @@ export type ClientCapabilities = {
   accountDeletion: boolean;
   /** Separate "order status" and "bonus" notification switches. */
   notificationTopics: boolean;
+  /** Intermediate stops (Taksi) and extra drop-offs (Kargo). */
+  stops: boolean;
+  /** "Istaklar" add-ons, comment hints and the luggage stepper. */
+  orderOptions: boolean;
+  /** "Kim ketadi?" — ordering for someone else. */
+  rider: boolean;
+  /** Tafsilotlar (Podyezd, Qavat…) on a route point of the order. */
+  addressDetails: boolean;
+  /** Kargo tabs, loaders, hourly mode, ride-along, sender/receiver,
+   * marketplace warehouses and the info sheets. */
+  cargoExtras: boolean;
+  /** Picking a point on the map (the map must be geographic for that). */
+  mapPick: boolean;
+  /** Pickup ETA on Home and per class. */
+  pickupEta: boolean;
+  /** Tafsilotlar may change the pickup of a live order (else only the drop-off). */
+  editPickup: boolean;
 };
 
 /** A live order change pushed by the server (WebSocket) — screens refetch. */

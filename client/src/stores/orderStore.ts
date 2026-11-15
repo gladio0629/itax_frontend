@@ -77,7 +77,8 @@ export const useOrderStore = create<OrderDraftState>((set, get) => ({
   draft: { ...initialDraft },
   activeOrderId: null,
   setField: (key, value) => set({ draft: { ...get().draft, [key]: value } }),
-  reset: () => set({ draft: { ...initialDraft, fromAddressId: defaultFromAddress } }),
+  // Without a default pickup (real backend), a new draft keeps the last one.
+  reset: () => set({ draft: { ...initialDraft, fromAddressId: defaultFromAddress || get().draft.fromAddressId } }),
   setActiveOrderId: (id) => set({ activeOrderId: id }),
 }));
 

@@ -356,6 +356,20 @@ const SEEDED_SAVED_DETAILS: Record<string, AddressDetails> = {
   "smq-1": { entrance: "2", floor: "5", apartment: "18", intercom: "18K4927", note: "Sariq darvoza, bekat ro'parasida" },
 };
 
+/** The seeded saved addresses plus/minus what saveAddress /
+ * removeSavedAddress changed (nothing, until a screen calls them). */
+const SAVED_CHANGES_KEY = "saved_address_changes";
+type SavedChanges = { added: string[]; removed: string[] };
+function savedChanges(): SavedChanges {
+  return readJSON<SavedChanges>(SAVED_CHANGES_KEY, { added: [], removed: [] });
+}
+function mySavedAddresses(): Address[] {
+  const { added, removed } = savedChanges();
+  const seeded = savedAddresses().filter((a) => !removed.includes(a.id));
+  const extra = added.map((id) => addressById(id)).filter((a): a is Address => !!a && !seeded.some((s) => s.id === a.id));
+  return [...seeded, ...extra];
+}
+
 function savedAddressDetails(): Record<string, AddressDetails> {
   return readJSON<Record<string, AddressDetails>>(SAVED_DETAILS_KEY, SEEDED_SAVED_DETAILS);
 }
@@ -720,6 +734,14 @@ export const mockAdapter: ApiAdapter = {
     phoneChange: true,
     accountDeletion: true,
     notificationTopics: true,
+    stops: true,
+    orderOptions: true,
+    rider: true,
+    addressDetails: true,
+    cargoExtras: true,
+    mapPick: true,
+    pickupEta: true,
+    editPickup: true,
   },
 
   // The sample data keeps no server session: the auth store's own flag
@@ -759,6 +781,12 @@ export const mockAdapter: ApiAdapter = {
       receiver: x?.receiver,
     });
   },
+
+  addressById: (id) => addressById(id),
+  // New drafts start from Toshkent.
+  defaultPickupId: () => ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "",
+  // The device position is the map's centre in the sample data.
+  locateMe: () => mockAdapter.reverseGeocode(50, 50),
 
   getCities: () => withLatency(() => db.cities()),
 
@@ -827,13 +855,33 @@ export const mockAdapter: ApiAdapter = {
 
   getSavedAddresses: (fromAddressId: string) =>
     withLatency<SavedAddressInfo[]>(() => {
-      const fromCityId = addressOf(fromAddressId).cityId;
+      // No pickup yet: distances come out as 0 (roadDistanceKm of an unknown city).
+      const fromCityId = fromAddressId ? addressOf(fromAddressId).cityId : "";
       const details = savedAddressDetails();
-      return savedAddresses().map((address) => {
+      return mySavedAddresses().map((address) => {
         const distanceKm = roadDistanceKm(fromCityId, address.cityId);
         return { address, area: cityOf(address.cityId).region, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
       });
     }, { minMs: 150, maxMs: 350 }),
+
+  saveAddress: ({ addressId, details }) =>
+    withLatency<SavedAddressInfo>(() => {
+      const address = addressOf(addressId);
+      const c = savedChanges();
+      writeJSON(SAVED_CHANGES_KEY, { added: [...c.added.filter((id) => id !== addressId), addressId], removed: c.removed.filter((id) => id !== addressId) });
+      const normalized = normalizeDetails(details);
+      const all = savedAddressDetails();
+      if (normalized) all[addressId] = normalized;
+      else delete all[addressId];
+      writeJSON(SAVED_DETAILS_KEY, all);
+      return { address, area: cityOf(address.cityId).region, details: normalized };
+    }),
+
+  removeSavedAddress: (addressId) =>
+    withLatency<void>(() => {
+      const c = savedChanges();
+      writeJSON(SAVED_CHANGES_KEY, { added: c.added.filter((id) => id !== addressId), removed: [...c.removed.filter((id) => id !== addressId), addressId] });
+    }),
 
   reverseGeocode: (x: number, y: number, excludeCityId?: string, onlyCityId?: string) =>
     withLatency(() => nearestAddress(x, y, excludeCityId, onlyCityId), { minMs: 200, maxMs: 450 }),
@@ -910,7 +958,7 @@ export const mockAdapter: ApiAdapter = {
 
   getSavedAddressDetails: (addressId) =>
     withLatency<AddressDetails | null>(() => {
-      if (!savedAddresses().some((a) => a.id === addressId)) return null;
+      if (!mySavedAddresses().some((a) => a.id === addressId)) return null;
       return savedAddressDetails()[addressId] ?? null;
     }, { minMs: 80, maxMs: 200 }),
 
@@ -918,7 +966,7 @@ export const mockAdapter: ApiAdapter = {
     withLatency<AddressDetails>(() => {
       addressOf(addressId);
       const normalized = normalizeDetails(details) ?? {};
-      if (savedAddresses().some((a) => a.id === addressId)) {
+      if (mySavedAddresses().some((a) => a.id === addressId)) {
         const all = savedAddressDetails();
         if (Object.keys(normalized).length) all[addressId] = normalized;
         else delete all[addressId];

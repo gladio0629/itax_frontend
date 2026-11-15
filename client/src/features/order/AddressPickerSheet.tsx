@@ -132,12 +132,14 @@ export function AddressPickerSheet({
         </div>
       </div>
 
-      <button
-        onClick={() => setPickingOnMap(true)}
-        className="mx-5 mt-3 flex min-h-[48px] items-center gap-2 rounded-xl bg-accent-5 px-4 py-3 text-sm font-semibold text-accent"
-      >
-        <MapIcon className="h-4 w-4" /> {t("address.pickOnMap")}
-      </button>
+      {api.capabilities.mapPick && (
+        <button
+          onClick={() => setPickingOnMap(true)}
+          className="mx-5 mt-3 flex min-h-[48px] items-center gap-2 rounded-xl bg-accent-5 px-4 py-3 text-sm font-semibold text-accent"
+        >
+          <MapIcon className="h-4 w-4" /> {t("address.pickOnMap")}
+        </button>
+      )}
 
       <div className="mt-2 max-h-72 flex-1 divide-y divide-border overflow-y-auto overscroll-contain px-4 pb-2">
         {results.map((addr) => (

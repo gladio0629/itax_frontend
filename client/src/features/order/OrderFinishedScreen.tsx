@@ -120,7 +120,10 @@ export function OrderFinishedScreen() {
             <div>
               <p className="text-xs text-ink/60">{t("finished.suggestionLabel")}</p>
               <p className="text-sm font-semibold text-ink">{suggestion.label}</p>
-              <p className="mt-0.5 whitespace-nowrap text-xs font-semibold tabular text-accent">{t("finished.suggestionFrom", { price: formatSom(suggestion.fromPrice, intlTag) })}</p>
+              {/* null = the server couldn't price it: no price shown. */}
+              {suggestion.fromPrice != null && (
+                <p className="mt-0.5 whitespace-nowrap text-xs font-semibold tabular text-accent">{t("finished.suggestionFrom", { price: formatSom(suggestion.fromPrice, intlTag) })}</p>
+              )}
             </div>
           </div>
         </button>

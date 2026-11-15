@@ -84,6 +84,15 @@ export interface ApiAdapter {
     fallback: Pick<CreateOrderInput, "serviceType" | "mode" | "seatIds" | "cargo" | "paymentMethod" | "timing">
   ): Promise<OrderWithDetails>;
 
+  /** A route point this adapter handed out (search, saved, reverse, an
+   * order it returned), by id — synchronous: the adapter keeps them. */
+  addressById(id: string): Address | undefined;
+  /** Where a new draft starts; "" when there is no default (the passenger
+   * picks the pickup or uses "where am I"). */
+  defaultPickupId(): string;
+  /** "Where am I": the device position as a pickup point. */
+  locateMe(): Promise<Address>;
+
   getCities(): Promise<City[]>;
   getPopularRoutes(): Promise<RouteSuggestion[]>;
   getRecentRoutes(): Promise<RouteSuggestion[]>;
@@ -91,7 +100,12 @@ export interface ApiAdapter {
   /** Search with area, distance from the pickup and entrance variants. */
   searchAddresses(input: { query: string; fromAddressId?: string; excludeCityId?: string; onlyCityId?: string }): Promise<AddressSearchResult[]>;
   getRecentAddresses(): Promise<Address[]>;
+  /** `fromAddressId` ("" = no pickup yet) only adds distances where known. */
   getSavedAddresses(fromAddressId: string): Promise<SavedAddressInfo[]>;
+  /** Keep a picked point as a saved address (name defaults to its label). */
+  saveAddress(input: { addressId: string; name?: string; details?: AddressDetails }): Promise<SavedAddressInfo>;
+  /** Forget a saved address (an id getSavedAddresses returned). */
+  removeSavedAddress(addressId: string): Promise<void>;
   reverseGeocode(x: number, y: number, excludeCityId?: string, onlyCityId?: string): Promise<Address>;
   getPickupEta(): Promise<{ minutes: number }>;
   getSeatMap(input: { fromAddressId: string; toAddressId: string }): Promise<Seat[]>;

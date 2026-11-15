@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Search, SearchX, Check, Clock3, Navigation, ShieldCheck } from "@/lib/icons";
+import { Search, SearchX, Check, Clock3, Navigation, ShieldCheck, X } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderWithDetails } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -20,10 +20,9 @@ import { DriverCard } from "./DriverCard";
 import { CancelSheet } from "./CancelSheet";
 import { SafetySheet } from "./SafetySheet";
 
-// "Tafsilotlar" edits addresses, stops and seats from the sample address
-// book; the contract can't express those changes yet, so only the
-// sample-data build loads it (see features/home/Home.tsx).
-const TafsilotlarSheet = DEMO_MODE ? lazy(() => import("./TafsilotlarSheet").then((m) => ({ default: m.TafsilotlarSheet }))) : null;
+// "Tafsilotlar" (edit a live order): shown where the adapter supports it
+// and the order's own verdicts allow it.
+const TafsilotlarSheet = lazy(() => import("./TafsilotlarSheet").then((m) => ({ default: m.TafsilotlarSheet })));
 
 const SEARCH_TIMEOUT_S = 300; // 5 minutes, per spec — server usually resolves far sooner
 
@@ -157,6 +156,7 @@ export function OrderTrackScreen() {
         </div>
 
         {order.status === "searching" && !showNoDriver && (
+          <>
           <div className="flex flex-col items-center gap-4 py-6 text-center animate-fade-in">
             <div className="relative flex h-20 w-20 items-center justify-center">
               <span className="absolute inset-0 rounded-full bg-accent-10 animate-pulse-ring" />
@@ -168,6 +168,25 @@ export function OrderTrackScreen() {
             <div>
               <p className="text-lg font-semibold text-ink">{t("track.searching")}</p>
               <p className="mt-1 text-sm text-ink/60 tabular">{formatClock(elapsed)}</p>
+            </div>
+          </div>
+          {/* The real backend allows edits while the order is searching. */}
+          {api.capabilities.orderDetails && order.editable && (
+            <Button fullWidth variant="secondary" onClick={() => setDetailsOpen(true)}>
+              {t("track.details")}
+            </Button>
+          )}
+          </>
+        )}
+
+        {order.status === "cancelled" && (
+          <div className="flex flex-col items-center gap-4 py-6 text-center animate-fade-in">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-danger/10 text-danger">
+              <X className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-ink">{t("track.cancelledTitle")}</p>
+              {order.cancelReason && <p className="mt-1 max-w-[260px] text-sm text-ink/60">{t(order.cancelReason as TranslationKey)}</p>}
             </div>
           </div>
         )}
@@ -187,16 +206,24 @@ export function OrderTrackScreen() {
         {(order.status === "accepted" || order.status === "in_progress") && order.driver && (
           <div className="space-y-4 animate-slide-up">
             <DriverCard driver={order.driver} />
-            {TafsilotlarSheet && api.capabilities.orderDetails && (
+            {/* Unset verdicts (sample data) keep the button; a server that
+                allows neither editing nor cancelling hides it. */}
+            {api.capabilities.orderDetails && (order.editable || order.canCancel !== false) && (
               <Button fullWidth variant="secondary" onClick={() => setDetailsOpen(true)}>
                 {t("track.details")}
               </Button>
             )}
             <Card className="p-4">
               <p className="mb-3 text-xs font-semibold text-ink/60">{t("track.statusTitle")}</p>
+              {order.driverArrived && (
+                <p className="mb-3 text-sm font-semibold text-ink" role="status">
+                  {t("track.arrived")}
+                </p>
+              )}
               <ol className="flex items-start">
                 {STATUS_STEPS.map((step, i) => {
-                  const activeIdx = order.status === "accepted" ? 0 : 2;
+                  // "Arrived" completes the "on the way" step.
+                  const activeIdx = order.status === "accepted" ? (order.driverArrived ? 1 : 0) : 2;
                   const done = i <= activeIdx;
                   const Icon = step.icon;
                   return (
@@ -236,16 +263,27 @@ export function OrderTrackScreen() {
               {t("common.back")}
             </Button>
           )
-        ) : order.status === "searching" ? (
-          <Button fullWidth variant="secondary" onClick={() => setCancelOpen(true)}>
-            {t("cancel.confirmAction")}
+        ) : order.status === "cancelled" ? (
+          <Button fullWidth variant="secondary" onClick={() => navigate("/home", { replace: true })}>
+            {t("common.back")}
           </Button>
+        ) : order.status === "searching" ? (
+          order.canCancel !== false ? (
+            <Button fullWidth variant="secondary" onClick={() => setCancelOpen(true)}>
+              {t("cancel.confirmAction")}
+            </Button>
+          ) : (
+            <span className="block text-center text-sm font-semibold tabular text-ink">{formatSom(order.price, intlTag)}</span>
+          )
         ) : order.status === "accepted" ? (
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-semibold tabular text-ink">{formatSom(order.price, intlTag)}</span>
-            <Button variant="secondary" size="sm" onClick={() => setCancelOpen(true)}>
-              {t("cancel.confirmAction")}
-            </Button>
+            {/* The server's verdict; unset (sample data) = cancel allowed here. */}
+            {order.canCancel !== false && (
+              <Button variant="secondary" size="sm" onClick={() => setCancelOpen(true)}>
+                {t("cancel.confirmAction")}
+              </Button>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-between">
@@ -258,7 +296,7 @@ export function OrderTrackScreen() {
       {cancelOpen && (
         <CancelSheet loading={cancelling} onClose={() => setCancelOpen(false)} onConfirm={confirmCancel} />
       )}
-      {detailsOpen && TafsilotlarSheet && (
+      {detailsOpen && (
         <Suspense fallback={null}>
           <TafsilotlarSheet
             order={order}

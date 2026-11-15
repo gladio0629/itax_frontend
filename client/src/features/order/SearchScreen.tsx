@@ -181,13 +181,17 @@ export function SearchScreen({
                 <X className="h-5 w-5" />
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setMapMode(true)}
-              className="flex h-[var(--size-chip)] shrink-0 items-center gap-1.5 rounded-chip bg-fill px-3.5 text-sub font-medium text-ink hover:bg-ink/10"
-            >
-              <MapIcon className="h-4 w-4" /> {t("address.map")}
-            </button>
+            {/* Pin picking needs a geographic map; the sample data's map is a
+                stylized plane, which only its own adapter can resolve. */}
+            {api.capabilities.mapPick && (
+              <button
+                type="button"
+                onClick={() => setMapMode(true)}
+                className="flex h-[var(--size-chip)] shrink-0 items-center gap-1.5 rounded-chip bg-fill px-3.5 text-sub font-medium text-ink hover:bg-ink/10"
+              >
+                <MapIcon className="h-4 w-4" /> {t("address.map")}
+              </button>
+            )}
           </div>
         </div>
 
@@ -209,7 +213,7 @@ export function SearchScreen({
                     </span>
                     <span className="block truncate text-sub text-ink/60">{r.area}</span>
                   </span>
-                  {fromAddressId && <span className="shrink-0 text-sub text-ink/60 tabular">{formatKm(r.distanceKm, intlTag)}</span>}
+                  {fromAddressId && r.distanceKm != null && <span className="shrink-0 text-sub text-ink/60 tabular">{formatKm(r.distanceKm, intlTag)}</span>}
                 </span>
               </button>
             );

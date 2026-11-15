@@ -2,21 +2,19 @@ import { lazy, Suspense } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, Car } from "@/lib/icons";
 import { api } from "@/api/client";
-import { DEMO_MODE } from "@/config";
 import { EmptyState } from "@/components/EmptyState";
 import { Logo } from "@/components/Logo";
 import { useT } from "@/lib/i18n/provider";
 
-// The order-building flow (map, address search, quote, classes, seats…) is
-// built on the sample address book: the contract has no cities, geocoding or
-// quote endpoints yet (docs/backend-gaps.md). It's loaded only in the
-// sample-data build, so the http build doesn't carry that data. When the
-// backend gains those endpoints, drop the DEMO_MODE check and rely on
-// api.capabilities.ordering alone.
-const OrderingHome = DEMO_MODE ? lazy(() => import("./HomeScreen")) : null;
+// The order-building flow (map, address search, quote, classes, seats…).
+// Both adapters can run it now (http: cities, places, quote, seat map and
+// vehicle sizes are in the contract); features the backend still lacks are
+// hidden inside the flow by their own capability flags. Loaded lazily so
+// the first screen stays small.
+const OrderingHome = lazy(() => import("./HomeScreen"));
 
 export function HomeScreen() {
-  if (OrderingHome && api.capabilities.ordering) {
+  if (api.capabilities.ordering) {
     return (
       <Suspense fallback={<div className="h-full bg-bg" />}>
         <OrderingHome />

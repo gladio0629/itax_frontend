@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Banknote, CreditCard, Package, SlidersHorizontal } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, AddressDetails, CargoCheck, CargoInfoTopic, CargoInput, CarClass, OrderDetailsRules, OrderOption, Seat } from "@/api/types";
-import { addressById } from "@/clientData/addresses";
 import { newStopUid, type OrderDraft } from "@/stores/orderStore";
 import { Button } from "@/components/Button";
 import { Sheet } from "@/components/Sheet";
+import { Alert } from "@/components/ios/Alert";
 import { Skeleton } from "@/components/Skeleton";
 import { MapCanvas, ROUTE } from "@/components/MapCanvas";
 import { MapButton } from "@/components/ui/MapButton";
@@ -34,6 +34,12 @@ import { SearchScreen } from "./SearchScreen";
 import { detailsSummary } from "./addressDetails";
 import { formatDuration } from "./duration";
 
+/** The quoted price couldn't be used on submit; `total` is the new quote's. */
+export type QuoteRenewal = { messageKey: string; total: number };
+
+const caps = api.capabilities;
+const addressById = (id: string) => api.addressById(id);
+
 /**
  * The route screen (reference structure): the map with the route line and
  * its bubbles, and a sheet — route rows (Podyezd capsules, round +), TAKSI /
@@ -50,6 +56,8 @@ export function OrderSheet({
   onSubmit,
   submitting,
   submitError,
+  quoteRenewal = null,
+  onQuoteRenewalCancel,
   onClose,
 }: {
   draft: OrderDraft;
@@ -58,7 +66,11 @@ export function OrderSheet({
   onAddressChange: (which: "from" | "to", addr: Address) => void;
   onSubmit: () => void;
   submitting: boolean;
-  submitError: boolean;
+  /** Translation key of the last submit failure, or null. */
+  submitError: string | null;
+  /** A new price to confirm before the order is sent again. */
+  quoteRenewal?: QuoteRenewal | null;
+  onQuoteRenewalCancel?: () => void;
   /** Back to the home screen. */
   onClose: () => void;
 }) {
@@ -164,6 +176,8 @@ export function OrderSheet({
       );
       target = which;
     }
+    // Where the order can't carry Tafsilotlar, the draft holds none.
+    if (!caps.addressDetails) return;
     const picked: AddressDetails = entrance ? { entrance } : {};
     if (entrance) setPointDetails(target, picked);
     api
@@ -179,10 +193,12 @@ export function OrderSheet({
   const contactsKey = JSON.stringify([draft.sender, draft.receiver]);
   const optionsKey = draft.optionIds.join(",");
   const variantsKey = JSON.stringify(draft.optionVariants);
+  const timingKey = JSON.stringify(draft.timing);
   const [seats, setSeats] = useState<Seat[]>([]);
   const [seatsError, setSeatsError] = useState(false);
   const [seatsReload, setSeatsReload] = useState(0);
   const autoOpenedPicker = useRef(false);
+  const renewalTotal = quoteRenewal?.total;
 
   // Spec: expanding into the route step without a "to" address yet should
   // jump straight into the search sheet, keyboard up.
@@ -190,8 +206,12 @@ export function OrderSheet({
     if (!autoOpenedPicker.current && !addresses.to) {
       autoOpenedPicker.current = true;
       setPicker("to");
+    } else if (!autoOpenedPicker.current && !addresses.from) {
+      // No pickup yet (no default one on a real backend).
+      autoOpenedPicker.current = true;
+      setPicker("from");
     }
-  }, [addresses.to]);
+  }, [addresses.to, addresses.from]);
 
   const canQuote = !!draft.fromAddressId && !!draft.toAddressId && draft.fromAddressId !== addresses.to?.id;
 
@@ -224,11 +244,13 @@ export function OrderSheet({
         optionVariants: draft.optionVariants,
         carClass: passenger ? draft.carClass : undefined,
         promoCode: draft.promoCode || undefined,
+        timing: draft.timing,
       }),
     // Keyed on the cargo without its note — typing a note mustn't refetch;
     // likewise the comment and Tafsilotlar never re-quote. Every stop
-    // add/remove/reorder/change does.
-    [draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, cargoKey, optionsKey, variantsKey, draft.carClass, draft.promoCode]
+    // add/remove/reorder/change does, and so does the time (the real
+    // backend prices with it).
+    [draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, cargoKey, optionsKey, variantsKey, draft.carClass, draft.promoCode, timingKey]
   );
 
   // Class cards: each price is the adapter's total for this order with that
@@ -246,10 +268,19 @@ export function OrderSheet({
             optionIds: draft.optionIds,
             optionVariants: draft.optionVariants,
             promoCode: draft.promoCode || undefined,
+            timing: draft.timing,
           })
         : Promise.resolve([] as CarClass[]),
-    [passenger, canQuote, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, optionsKey, variantsKey, draft.promoCode]
+    [passenger, canQuote, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, optionsKey, variantsKey, draft.promoCode, timingKey]
   );
+  // A renewed quote (submit found the old one unusable): show its price.
+  useEffect(() => {
+    if (renewalTotal == null) return;
+    quote.refetch();
+    classes.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteRenewal]);
+
   // Keep the last cards on screen while they re-price.
   const lastClasses = useRef<CarClass[]>([]);
   if (classes.status === "success") lastClasses.current = classes.data;
@@ -272,7 +303,8 @@ export function OrderSheet({
 
   // ── Kargo ────────────────────────────────────────────────────────────────
   const delivery = draft.serviceType === "delivery";
-  const cargoRules = useQuery(() => api.getCargoRules(), []);
+  // Tabs, loaders, hourly, ride-along, contacts: only where the adapter has them.
+  const cargoRules = useQuery(() => (caps.cargoExtras ? api.getCargoRules() : Promise.resolve(null)), []);
   const cr = cargoRules.status === "success" ? cargoRules.data : null;
   const tab = draft.cargo.tab ?? cr?.defaultTab ?? "intercity";
   const mode = draft.cargo.pricingMode ?? "route";
@@ -289,7 +321,7 @@ export function OrderSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cr, tab]);
   const rideAlong = useQuery(
-    () => (delivery ? api.getRideAlong({ vehicle: draft.cargo.vehicle, loaders: draft.cargo.loaders ?? 0 }) : Promise.resolve(null)),
+    () => (delivery && caps.cargoExtras ? api.getRideAlong({ vehicle: draft.cargo.vehicle, loaders: draft.cargo.loaders ?? 0 }) : Promise.resolve(null)),
     [delivery, draft.cargo.vehicle, draft.cargo.loaders]
   );
   const rideAlongData = rideAlong.status === "success" ? rideAlong.data : null;
@@ -303,7 +335,7 @@ export function OrderSheet({
   const [cargoCheck, setCargoCheck] = useState<CargoCheck | null>(null);
   const checkReq = useRef(0);
   useEffect(() => {
-    if (!delivery || !canQuote) return;
+    if (!delivery || !canQuote || !caps.cargoExtras) return;
     const req = ++checkReq.current;
     let timer = 0;
     const run = () => {
@@ -341,6 +373,8 @@ export function OrderSheet({
   function pickerScope(target: RouteTarget | "newStop"): { excludeCityId?: string; onlyCityId?: string } {
     const fromCity = addresses.from?.cityId;
     if (target === "from") return delivery ? {} : { excludeCityId: addresses.to?.cityId };
+    // Without Kargo tabs a drop-off can be anywhere.
+    if (delivery && !caps.cargoExtras) return {};
     if (delivery) {
       if (tab === "city") return { onlyCityId: fromCity };
       if (tab === "intercity" && target === "to") return { excludeCityId: fromCity };
@@ -358,7 +392,7 @@ export function OrderSheet({
         limit: (max) => t("kargo.dropoffLimit", { max }),
       }
     : undefined;
-  const stopMax = delivery ? (cr ? cr.maxExtraDropoffs[tab] : null) : rules?.maxStops ?? null;
+  const stopMax = !caps.stops ? 0 : delivery ? (cr ? cr.maxExtraDropoffs[tab] : null) : rules?.maxStops ?? null;
 
   // ── Sheets of the route screen ──────────────────────────────────────────
   const [sheet, setSheet] = useState<null | "options" | "seats" | "price" | "payment" | "cargoSummary">(null);
@@ -366,7 +400,7 @@ export function OrderSheet({
   /** "Buyurtma berish": the adapter checks "Kim ketadi?" first; a problem
    * opens the options sheet with the field focused (nothing is guessed here). */
   async function submitTaxi() {
-    if (passenger && draft.rider.kind === "other") {
+    if (passenger && caps.rider && draft.rider.kind === "other") {
       setValidating(true);
       setRiderError(null);
       try {
@@ -410,7 +444,7 @@ export function OrderSheet({
       }}
       fromDetailsLine={detailsSummary(draft.fromDetails, t)}
       toDetailsLine={detailsSummary(draft.toDetails, t)}
-      onDetails={setDetailsFor}
+      onDetails={caps.addressDetails ? setDetailsFor : undefined}
       stops={draft.stops.map((st) => ({
         uid: st.uid,
         address: addressById(st.addressId) ?? null,
@@ -580,7 +614,7 @@ export function OrderSheet({
 
             {/* Tabs, body, loaders, info chips */}
             <div className="space-y-4 rounded-card bg-card px-4 pb-5 pt-2">
-              {cr ? (
+              {!caps.cargoExtras ? null : cr ? (
                 <CargoTabs rules={cr} value={tab} onChange={(v) => setCargo({ tab: v })} />
               ) : cargoRules.status === "error" ? (
                 <button onClick={cargoRules.refetch} className="inline-flex min-h-[44px] items-center text-sub font-semibold text-danger underline">
@@ -616,6 +650,7 @@ export function OrderSheet({
             </div>
 
             {/* Contacts */}
+            {caps.cargoExtras && (
             <section aria-labelledby="cargo-contacts" className="space-y-4 rounded-card bg-card px-4 pb-5 pt-5">
               <h3 id="cargo-contacts" className="text-section font-bold text-ink">
                 {t("kargo.contacts.title")}
@@ -650,6 +685,7 @@ export function OrderSheet({
                 onRetry={rideAlong.status === "error" ? rideAlong.refetch : undefined}
               />
             </section>
+            )}
 
             {/* Pickup time (radio rows) */}
             <div className="rounded-card bg-card px-4 pb-5 pt-5">
@@ -673,15 +709,16 @@ export function OrderSheet({
               <Skeleton className="h-7 w-32" />
             )}
           </div>
-          {cargoCheck && !cargoCheck.ready && (
+          {caps.cargoExtras && cargoCheck && !cargoCheck.ready && (
             <p id="cargo-fill-hint" className="px-2 pb-2 text-sub font-semibold text-ink/70">
               {t("kargo.fillAll")}
             </p>
           )}
           <Button
             fullWidth
-            disabled={!cargoCheck?.ready || quote.status !== "success"}
-            aria-describedby={cargoCheck && !cargoCheck.ready ? "cargo-fill-hint" : undefined}
+            // Without Kargo contacts/extras nothing else needs filling in.
+            disabled={(caps.cargoExtras && !cargoCheck?.ready) || quote.status !== "success"}
+            aria-describedby={caps.cargoExtras && cargoCheck && !cargoCheck.ready ? "cargo-fill-hint" : undefined}
             onClick={() => setSheet("cargoSummary")}
           >
             {t("common.confirm")}
@@ -748,14 +785,14 @@ export function OrderSheet({
             <Chip onClick={() => setSheet("options")}>{timingSummary(draft.timing, t, intlTag)}</Chip>
             <Chip onClick={() => setSheet("price")}>{t("order.priceDetails")}</Chip>
           </div>
-          {quote.status === "error" && quoteError(quote.error, quote.refetch)}
+          {quote.status === "error" && !needSeats && quoteError(quote.error, quote.refetch)}
         </div>
 
         {/* Bottom bar: payment · Buyurtma berish · options (radius 23, measured). */}
         <div className="rounded-t-[23px] border-t border-hairline bg-card px-2 pt-2" style={{ paddingBottom: "calc(var(--safe-bottom) + 8px)" }}>
           {(submitError || riderError?.field === "form") && (
             <p role="alert" className="px-2 pb-2 text-sub text-danger">
-              {riderError?.field === "form" ? riderError.message : t("order.submitError")}
+              {riderError?.field === "form" ? riderError.message : t((submitError ?? "order.submitError") as TranslationKey)}
             </p>
           )}
           {needSeats && (
@@ -834,6 +871,7 @@ export function OrderSheet({
                 }}
               />
               {luggage && <LuggageStepper rules={luggage} value={Math.min(draft.luggage, luggage.max)} onChange={(n) => setField("luggage", n)} />}
+              {caps.rider && (
               <RiderSection
                 ref={riderRef}
                 value={draft.rider}
@@ -844,10 +882,13 @@ export function OrderSheet({
                 nameMaxLength={rules?.riderNameMaxLength}
                 error={riderError}
               />
-              <section className="space-y-2">
-                <h3 className="text-control font-semibold text-ink">{t("promo.title")}</h3>
-                <PromoRow value={draft.promoCode} onChange={(code) => setField("promoCode", code)} />
-              </section>
+              )}
+              {caps.promo && (
+                <section className="space-y-2">
+                  <h3 className="text-control font-semibold text-ink">{t("promo.title")}</h3>
+                  <PromoRow value={draft.promoCode} onChange={(code) => setField("promoCode", code)} />
+                </section>
+              )}
               <div className="sticky bottom-0 -mx-4 bg-card px-2 pt-2">
                 <Button fullWidth onClick={() => setSheet(null)}>
                   {t("options.done")}
@@ -897,13 +938,15 @@ export function OrderSheet({
                     <h3 className="text-control font-semibold text-ink">{t("order.step.payment")}</h3>
                     <PaymentMethodSection value={draft.paymentMethod} onChange={(m) => setField("paymentMethod", m)} />
                   </section>
-                  <section className="space-y-2">
-                    <h3 className="text-control font-semibold text-ink">{t("promo.title")}</h3>
-                    <PromoRow value={draft.promoCode} onChange={(code) => setField("promoCode", code)} />
-                  </section>
+                  {caps.promo && (
+                    <section className="space-y-2">
+                      <h3 className="text-control font-semibold text-ink">{t("promo.title")}</h3>
+                      <PromoRow value={draft.promoCode} onChange={(code) => setField("promoCode", code)} />
+                    </section>
+                  )}
                   {submitError && (
                     <p role="alert" className="text-sub text-danger">
-                      {t("order.submitError")}
+                      {t(submitError as TranslationKey)}
                     </p>
                   )}
                   <div className="sticky bottom-0 -mx-4 bg-card px-2 pt-2">
@@ -965,6 +1008,23 @@ export function OrderSheet({
           />
         )}
         {infoTopic && <CargoInfoSheet topic={infoTopic} onClose={() => setInfoTopic(null)} />}
+
+        <Alert
+          open={!!quoteRenewal}
+          title={t("order.quoteRenewal.title")}
+          message={
+            quoteRenewal && (
+              <>
+                {t(quoteRenewal.messageKey as TranslationKey)} {t("order.quoteRenewal.newPrice", { price: formatSom(quoteRenewal.total, intlTag) })}
+              </>
+            )
+          }
+          onCancel={() => onQuoteRenewalCancel?.()}
+          actions={[
+            { label: t("common.cancel"), style: "cancel", onPress: () => onQuoteRenewalCancel?.() },
+            { label: t("common.confirm"), loading: submitting, onPress: onSubmit },
+          ]}
+        />
 
         {istaklarOpen && (
           <IstaklarSheet

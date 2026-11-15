@@ -3,39 +3,69 @@
 // (shared/http); every method without one rejects with NOT_SUPPORTED and
 // `capabilities` tells the screens to hide that feature. Shapes are
 // converted in ../httpMapper.ts. Nothing here logs: no tokens, phones,
-// codes or URLs ever reach the console.
+// codes, coordinates or URLs ever reach the console.
 import { API_PATHS } from "@shared/api/openapi";
 import type * as Api from "@shared/api/openapi";
 import { ApiError } from "@shared/http/errors";
 import { uuidV4 } from "@shared/http/uuid";
 import type { ApiAdapter } from "../adapterTypes";
-import type { ClientCapabilities, OrderEvent, OrderHistoryPage, ReviewKind, ReviewRequest } from "../types";
+import type {
+  Address,
+  AddressDetails,
+  AddressSearchResult,
+  CarClass,
+  CarClassId,
+  ClientCapabilities,
+  CreateOrderInput,
+  OrderEvent,
+  OrderHistoryPage,
+  OrderTiming,
+  QuoteInput,
+  ReviewKind,
+  ReviewRequest,
+  SavedAddressInfo,
+  ServiceType,
+  OrderMode,
+  CargoInput,
+} from "../types";
 import { errorMessageKey, session } from "../httpSession";
 import {
   orderCreateFrom,
+  somFromTiyin,
   toApiCancel,
+  toApiCarClass,
+  toApiDetails,
+  toApiPayment,
   toApiPhone,
   toApiRating,
   toApiSettings,
+  toApiTiming,
+  toUiCity,
+  toUiDetails,
   toUiNotification,
   toUiOrder,
+  toUiPopularRoute,
   toUiPrefs,
   toUiProfile,
+  toUiQuote,
+  toUiSeat,
+  toUiVehicle,
   toUiWallet,
 } from "../httpMapper";
 
 const { http } = session;
 
 const capabilities: ClientCapabilities = {
-  // No cities, address search / reverse geocoding, quote, classes, seat map,
-  // options, stops or cargo endpoints: the order-building flow can't run.
-  ordering: false,
-  orderDetails: false,
+  // Cities, place search / reverse, saved places, quote, seat map, vehicle
+  // sizes and time ranges are in the contract: the order flow runs.
+  ordering: true,
+  // PATCH takes `to`, seats, time, payment and comment (not the pickup).
+  orderDetails: true,
   repeatOrder: true,
   historyStatusFilter: false,
   tips: false,
   safety: false,
-  popularRoutes: false,
+  popularRoutes: true,
   promo: false,
   bonuses: false,
   help: false,
@@ -44,6 +74,18 @@ const capabilities: ClientCapabilities = {
   phoneChange: false,
   accountDeletion: false,
   notificationTopics: false,
+  // Still open in the backend (docs/backend-gaps.md §0): the order can't
+  // carry stops, options, luggage, a rider, route-point details or the
+  // Kargo extras; no pickup ETA; and the map is stylized, not geographic.
+  stops: false,
+  orderOptions: false,
+  rider: false,
+  addressDetails: false,
+  cargoExtras: false,
+  mapPick: false,
+  pickupEta: false,
+  // OrderUpdate has `to` but no `from`.
+  editPickup: false,
 };
 
 function unsupported(): Promise<never> {
@@ -71,12 +113,198 @@ const ratings = new Map<string, number>();
 const historyCursors = new Map<number, string>();
 const HISTORY_LIMIT = 20;
 
+// ------------------------------------------------------- address registry
+// The screens work with local address ids; the API with coordinates. Every
+// point this adapter hands out (search, reverse, saved, an order's ends) is
+// kept here, so a later quote/create/update can turn an id back into a
+// GeoPoint. Ids: city:<uuid>, place:<uuid>, saved:<uuid>, pt:<lat>,<lng>.
+// In memory only (a reload starts a new draft anyway).
+type Point = { address: Address; lat: number; lng: number; area: string; details?: AddressDetails; savedId?: string };
+const points = new Map<string, Point>();
+
+function remember(p: Point): Address {
+  points.set(p.address.id, p);
+  return p.address;
+}
+function pointOf(id: string): Point {
+  // No point picked yet: a rule the passenger fixes by picking one.
+  if (!id) throw new ApiError("INVALID_ROUTE", "order.choosePlace");
+  const p = points.get(id);
+  if (!p) throw new ApiError("NOT_FOUND", errorMessageKey("NOT_FOUND"));
+  return p;
+}
+const coordId = (lat: number, lng: number) => `pt:${lat.toFixed(6)},${lng.toFixed(6)}`;
+
+function rememberPlace(pl: Api.Place): Address {
+  return remember({
+    address: { id: pl.kind === "city" ? `city:${pl.id}` : `place:${pl.id}`, cityId: pl.city_id, label: pl.name },
+    lat: pl.lat,
+    lng: pl.lng,
+    area: pl.area,
+  });
+}
+function rememberSaved(sp: Api.SavedPlace): Point {
+  const p: Point = {
+    // SavedPlace has no city id.
+    address: { id: `saved:${sp.id}`, cityId: "", label: sp.name },
+    lat: sp.lat,
+    lng: sp.lng,
+    area: sp.area,
+    details: toUiDetails(sp.details),
+    savedId: sp.id,
+  };
+  remember(p);
+  return p;
+}
+/** An order's end, so tracking and Tafsilotlar can show and reuse it. */
+function rememberGeo(g: Api.GeoPoint, cityId: string | null | undefined): string {
+  const id = coordId(g.lat, g.lng);
+  const label = g.address?.trim() || `${g.lat.toFixed(4)}, ${g.lng.toFixed(4)}`;
+  remember({ address: { id, cityId: cityId ?? "", label }, lat: g.lat, lng: g.lng, area: "" });
+  return id;
+}
+function geoPoint(addressId: string): Api.GeoPoint {
+  const p = pointOf(addressId);
+  return { lat: p.lat, lng: p.lng, address: p.address.label.slice(0, 300) };
+}
+
+function mapOrder(o: Api.Order) {
+  return toUiOrder(o, {
+    rating: ratings.get(o.id),
+    fromAddressId: rememberGeo(o.from, o.from_city_id),
+    toAddressId: rememberGeo(o.to, o.to_city_id),
+  });
+}
+
+// ---------------------------------------------------------------- errors
+const TIMING_FIELD_KEY: Record<string, string> = {
+  in_past: "order.timing.pastTime",
+  too_far: "order.timing.tooFar",
+  range_too_short: "order.timing.invalidRange",
+  range_too_long: "order.timing.rangeTooLong",
+  before_from: "order.timing.invalidRange",
+};
+/** Server refusals the passenger can fix → the UI's rule errors (code in
+ * lib/apiError RULE_CODES + a translation key). Anything else unchanged. */
+function ruleError(err: unknown): unknown {
+  if (!(err instanceof ApiError)) return err;
+  const init = { params: err.params, status: err.status };
+  if (err.code === "VALIDATION_ERROR") {
+    const fields = (err.params.fields ?? {}) as Record<string, unknown>;
+    if (fields.to === "same_as_from") return new ApiError("INVALID_ROUTE", "order.error.samePoint", init);
+    for (const f of ["scheduled_at", "scheduled_from", "scheduled_to"]) {
+      const v = fields[f];
+      if (typeof v === "string") return new ApiError("INVALID_TIMING", TIMING_FIELD_KEY[v] ?? "order.timing.invalidRange", init);
+    }
+  }
+  if (err.code === "FORBIDDEN" && err.params.reason === "active_orders_limit") {
+    return new ApiError("ACTIVE_ORDERS_LIMIT", "order.error.activeLimit", init);
+  }
+  return err;
+}
+
+const QUOTE_ERRORS = new Set(["QUOTE_NOT_FOUND", "QUOTE_EXPIRED", "QUOTE_ALREADY_USED", "QUOTE_MISMATCH"]);
+
+// ----------------------------------------------------------------- quotes
+const SEAT_IDS: readonly Api.SeatId[] = ["front", "back-left", "back-mid", "back-right"];
+const isSeatId = (s: string): s is Api.SeatId => (SEAT_IDS as readonly string[]).includes(s);
+
+type OrderShape = {
+  serviceType: ServiceType;
+  fromAddressId: string;
+  toAddressId: string;
+  mode: OrderMode;
+  seatIds: string[];
+  carClass?: CarClassId;
+  cargo?: CargoInput;
+  timing?: OrderTiming;
+};
+
+/** The one body builder for quote and create (create adds payment, comment
+ * and quote_id), so a quote and its order always match. */
+function quoteBody(input: OrderShape): Api.QuoteRequest {
+  const body: Api.QuoteRequest = { type: input.serviceType, from: geoPoint(input.fromAddressId), to: geoPoint(input.toAddressId) };
+  if (input.serviceType === "delivery") {
+    if (!input.cargo) throw new ApiError("VALIDATION_ERROR", errorMessageKey("VALIDATION_ERROR"));
+    body.vehicle_type = input.cargo.vehicle;
+  } else if (input.mode === "seat") {
+    // Per seat: the contract needs at least one seat (and no class).
+    const ids = SEAT_IDS.filter((id) => input.seatIds.includes(id));
+    if (ids.length === 0) throw new ApiError("SEATS_REQUIRED", "order.seatsHint");
+    body.seat_ids = ids;
+  } else {
+    body.car_class = toApiCarClass(input.carClass ?? "standart");
+  }
+  return { ...body, ...toApiTiming(input.timing) };
+}
+
+/** Quotes by request body. Reused while comfortably valid (class cards and
+ * the main quote ask for the same thing), so the server isn't asked for a
+ * new persisted quote on every render; concurrent asks share one call. */
+type CachedQuote = { quote: Api.Quote; expiresAt: number };
+const quotes = new Map<string, CachedQuote>();
+const quoteCalls = new Map<string, Promise<Api.Quote>>();
+const QUOTE_REUSE_MS = 60_000;
+/** The quote whose price getQuote last returned for a body — the price on
+ * screen. createOrder uses exactly this one (a class card's re-fetch of the
+ * same body can't swap the price behind the passenger's back). */
+const shownQuotes = new Map<string, Api.Quote>();
+
+function fetchQuote(body: Api.QuoteRequest, fresh = false): Promise<Api.Quote> {
+  const key = JSON.stringify(body);
+  const hit = quotes.get(key);
+  if (!fresh && hit && hit.expiresAt - Date.now() > QUOTE_REUSE_MS) return Promise.resolve(hit.quote);
+  const pending = quoteCalls.get(key);
+  if (!fresh && pending) return pending;
+  const call = http
+    .post<Api.Quote>(API_PATHS.orderQuote, body)
+    .then((q) => {
+      quotes.set(key, { quote: q, expiresAt: Date.parse(q.expires_at) || 0 });
+      return q;
+    })
+    .catch((err) => {
+      throw ruleError(err);
+    })
+    .finally(() => {
+      if (quoteCalls.get(key) === call) quoteCalls.delete(key);
+    });
+  quoteCalls.set(key, call);
+  return call;
+}
+
+/** The quoted price can't be used (expired, used, changed): fetch a fresh
+ * quote and reject with the new total, so the screen shows it and asks the
+ * passenger to confirm. An order is never created at a price they haven't seen. */
+async function renewQuote(body: Api.QuoteRequest, code: string, status: number): Promise<never> {
+  const key = JSON.stringify(body);
+  quotes.delete(key);
+  shownQuotes.delete(key);
+  const fresh = await fetchQuote(body, true);
+  // The price the passenger is now asked to confirm.
+  shownQuotes.set(key, fresh);
+  throw new ApiError(code, errorMessageKey(code), { params: { total: somFromTiyin(fresh.price) }, status });
+}
+
+const CLASS_IDS: CarClassId[] = ["standart", "komfort", "biznes", "miniven"];
+
+// -------------------------------------------------------------- realtime
+// websocket-events.md: every passenger frame that names an order means
+// "re-read GET /orders/{order_id}". Unknown types are ignored.
+const ORDER_EVENTS = new Set<string>([
+  "order.created",
+  "order.accepted",
+  "order.arrived",
+  "trip.started",
+  "trip.completed",
+  // Driver backed out: the order is searching again.
+  "trip.cancelled",
+  // Cancelled by an admin.
+  "order.cancelled",
+]);
 const orderListeners = new Set<(e: OrderEvent) => void>();
 session.realtime?.subscribe((event) => {
-  if (!event.type.startsWith("order.") && !event.type.startsWith("trip.")) return;
-  const orderId = event.order_id ?? (event.type.startsWith("order.") ? event.id : "");
-  if (!orderId) return;
-  for (const l of orderListeners) l({ orderId });
+  if (!ORDER_EVENTS.has(event.type) || !event.order_id) return;
+  for (const l of orderListeners) l({ orderId: event.order_id });
 });
 
 /** Only http(s) redirects to a payment provider page. */
@@ -86,16 +314,49 @@ function redirectTo(url: string) {
   window.location.assign(target.toString());
 }
 
+/** The device position (asked only when the passenger taps "where am I"). */
+function devicePosition(): Promise<{ lat: number; lng: number }> {
+  const unavailable = () => new ApiError("LOCATION_UNAVAILABLE", errorMessageKey("LOCATION_UNAVAILABLE"));
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return reject(unavailable());
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => reject(unavailable()),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }
+    );
+  });
+}
+
 async function getOrder(orderId: string) {
-  const order = await http.get<Api.Order>(API_PATHS.order(orderId));
-  return toUiOrder(order, { rating: ratings.get(orderId) });
+  return mapOrder(await http.get<Api.Order>(API_PATHS.order(orderId)));
 }
 
 async function createOrderBody(body: Api.OrderCreate) {
   const order = await session.idempotency.run("orderCreate", body, (key) =>
     http.post<Api.Order>(API_PATHS.orders, body, { idempotencyKey: key })
   );
-  return toUiOrder(order);
+  return mapOrder(order);
+}
+
+// `excludeCityId` (the sample data's "drop-off in another city" rule) isn't
+// applied: the backend accepts in-city trips and decides itself (it rejects
+// only from = to, shown as order.error.samePoint).
+async function searchPlaces(query: string, near: Point | undefined, onlyCityId?: string): Promise<Api.Place[]> {
+  const q = query.trim();
+  // The contract's minimum query length.
+  if (q.length < 2) return [];
+  const res = await http.get<Api.PlaceList>(API_PATHS.placesSearch, {
+    q: q.slice(0, 100),
+    near_lat: near?.lat,
+    near_lng: near?.lng,
+    city_id: onlyCityId || undefined,
+  });
+  return res.data;
+}
+
+function savedInfo(p: Point): SavedAddressInfo {
+  // No distance / ETA for saved places in the contract.
+  return { address: p.address, area: p.area || undefined, details: p.details };
 }
 
 export const httpAdapter: ApiAdapter = {
@@ -141,28 +402,178 @@ export const httpAdapter: ApiAdapter = {
     return review;
   },
 
+  // -------------------------------------------------------------- places
+  addressById: (id) => points.get(id)?.address,
+  // No default pickup: the passenger picks one or taps "where am I".
+  defaultPickupId: () => "",
+  locateMe: async () => {
+    const pos = await devicePosition();
+    const place = await http.get<Api.Place>(API_PATHS.placesReverse, { lat: pos.lat, lng: pos.lng });
+    // Reverse is for the name only: the order keeps the device's coordinates.
+    return remember({ address: { id: coordId(pos.lat, pos.lng), cityId: place.city_id, label: place.name }, lat: pos.lat, lng: pos.lng, area: place.area });
+  },
+  getCities: async () => (await http.get<Api.CityList>(API_PATHS.cities)).data.map(toUiCity),
+  getPopularRoutes: async () => (await http.get<Api.PopularRouteList>(API_PATHS.routesPopular)).data.map(toUiPopularRoute),
+  searchAddresses: async ({ query, fromAddressId, onlyCityId }) => {
+    const near = fromAddressId ? points.get(fromAddressId) : undefined;
+    const found = await searchPlaces(query, near, onlyCityId);
+    return found.map(
+      (pl): AddressSearchResult => ({
+        address: rememberPlace(pl),
+        area: pl.area,
+        distanceKm: near && pl.distance_m != null ? Math.round(pl.distance_m / 100) / 10 : undefined,
+        entrance: pl.entrance ?? undefined,
+      })
+    );
+  },
+  getAddressSuggestions: async (query, _excludeCityId, onlyCityId) => (await searchPlaces(query, undefined, onlyCityId)).map(rememberPlace),
+  getSavedAddresses: async () => {
+    const res = await http.get<Api.SavedPlaceList>(API_PATHS.placesSaved);
+    return res.data.map((sp) => savedInfo(rememberSaved(sp)));
+  },
+  getSavedAddressDetails: async (addressId) => points.get(addressId)?.details ?? null,
+  saveAddress: async ({ addressId, name, details }) => {
+    const p = pointOf(addressId);
+    const body: Api.SavedPlaceCreate = { name: (name ?? p.address.label).trim().slice(0, 100), lat: p.lat, lng: p.lng };
+    if (p.area) body.area = p.area.slice(0, 200);
+    const d = toApiDetails(details);
+    if (d) body.details = d;
+    return savedInfo(rememberSaved(await http.post<Api.SavedPlace>(API_PATHS.placesSaved, body)));
+  },
+  removeSavedAddress: async (addressId) => {
+    const savedId = points.get(addressId)?.savedId;
+    if (!savedId) throw new ApiError("NOT_FOUND", errorMessageKey("NOT_FOUND"));
+    await http.delete<void>(API_PATHS.placeSaved(savedId));
+    points.delete(addressId);
+  },
+  getDeliveryVehicles: async () => (await http.get<Api.DeliveryVehicleList>(API_PATHS.deliveryVehicles)).data.map(toUiVehicle),
+
+  // ---------------------------------------------------------- order flow
+  getSeatMap: async ({ fromAddressId, toAddressId }) => {
+    const from = pointOf(fromAddressId);
+    const to = pointOf(toAddressId);
+    const res = await http.get<Api.SeatMap>(API_PATHS.orderSeatMap, { from_lat: from.lat, from_lng: from.lng, to_lat: to.lat, to_lng: to.lng });
+    return res.seats.map(toUiSeat);
+  },
+  getQuote: async (input: QuoteInput) => {
+    if (input.stops?.length || input.optionIds?.length || input.promoCode) return unsupported();
+    const body = quoteBody(input);
+    const q = await fetchQuote(body);
+    shownQuotes.set(JSON.stringify(body), q);
+    return toUiQuote(q);
+  },
+  // One server quote per class (whole car). Per seat the contract takes no
+  // class: only Standart is offered, at the seat price.
+  getCarClasses: async (input) => {
+    if (input.mode === "seat") {
+      let price: number;
+      if (input.seatIds.some(isSeatId)) {
+        price = somFromTiyin((await fetchQuote(quoteBody({ ...input, serviceType: "passenger" }))).price);
+      } else {
+        // No seat picked yet: the server's price of one seat (seat map).
+        const seats = await httpAdapter.getSeatMap(input);
+        price = seats[0]?.price ?? 0;
+      }
+      return CLASS_IDS.map(
+        (id): CarClass =>
+          id === "standart"
+            ? { id, nameKey: `class.${id}`, seats: 0, price, available: true }
+            : { id, nameKey: `class.${id}`, seats: 0, price: 0, available: false, reasonKey: "class.reason.wholeCarOnly" }
+      );
+    }
+    const results = await Promise.allSettled(
+      CLASS_IDS.map((id) => fetchQuote(quoteBody({ ...input, serviceType: "passenger", mode: "car", carClass: id })))
+    );
+    if (results.every((r) => r.status === "rejected")) throw (results[0] as PromiseRejectedResult).reason;
+    // `seats` isn't in the contract (and isn't shown on the card).
+    return CLASS_IDS.map((id, i): CarClass => {
+      const r = results[i];
+      return r.status === "fulfilled"
+        ? { id, nameKey: `class.${id}`, seats: 0, price: somFromTiyin(r.value.price), available: true }
+        : { id, nameKey: `class.${id}`, seats: 0, price: 0, available: false, reasonKey: "class.reason.unavailable" };
+    });
+  },
+  // Inside the server's limits (from in the future, window ≥ 15 min and
+  // ≤ 7 days, end ≤ 30 days ahead) and the same numbers the UI texts name.
+  getSchedulingRules: async () => ({ bookableDays: 21, maxRangeDays: 3, minRangeMinutes: 30, stepMinutes: 5 }),
+  // The contract's lengths (comment 200, PlaceDetails 20/200); no stops.
+  getOrderDetailsRules: async () => ({
+    maxStops: 0,
+    commentMaxLength: 200,
+    addressFieldMaxLength: 20,
+    intercomMaxLength: 20,
+    addressNoteMaxLength: 200,
+    riderNameMaxLength: 100,
+  }),
+  // The order can't carry options, so none are offered.
+  getOrderOptions: async () => [],
+  getCommentHints: async () => [],
+  getLuggageRules: async () => null,
+
   // --------------------------------------------------------------- orders
-  // createOrder needs GeoPoints; the UI only has local address ids and the
-  // contract has no geocoding to turn a picked place into lat/lng.
-  createOrder: () => unsupported(),
+  createOrder: async (input: CreateOrderInput) => {
+    // Extras the order can't carry yet are never dropped silently.
+    const hasDetails = [input.fromDetails, input.toDetails].some((d) => d && Object.values(d).some((v) => v?.trim()));
+    if (input.stops?.length || input.optionIds?.length || input.promoCode || input.rider?.kind === "other" || (input.luggage ?? 0) > 0 || hasDetails) {
+      return unsupported();
+    }
+    const q = quoteBody(input);
+    const key = JSON.stringify(q);
+    const shown = shownQuotes.get(key);
+    // The price on screen came from this quote; without it, ask again.
+    if (!shown || (Date.parse(shown.expires_at) || 0) <= Date.now()) return renewQuote(q, "QUOTE_EXPIRED", 409);
+    const body: Api.OrderCreate = { ...q, payment_method: toApiPayment(input.paymentMethod), quote_id: shown.quote_id };
+    // Dostavka's "Izoh" is the cargo note.
+    const comment = (input.serviceType === "delivery" ? input.cargo?.note : input.comment)?.trim();
+    if (comment) body.comment = comment.slice(0, 200);
+    try {
+      const order = await createOrderBody(body);
+      quotes.delete(key);
+      shownQuotes.delete(key);
+      return order;
+    } catch (err) {
+      if (err instanceof ApiError && QUOTE_ERRORS.has(err.code)) return renewQuote(q, err.code, err.status);
+      throw ruleError(err);
+    }
+  },
+  // "Search again": the server prices it at the current tariff (no quote).
   repeatOrder: async (orderId) => {
     const previous = await http.get<Api.Order>(API_PATHS.order(orderId));
-    return createOrderBody(orderCreateFrom(previous));
+    try {
+      return await createOrderBody(orderCreateFrom(previous));
+    } catch (err) {
+      throw ruleError(err);
+    }
   },
   getOrder,
   updateOrder: async (orderId, patch) => {
+    const supported = new Set(["comment", "paymentMethod", "toAddressId", "mode", "seatIds", "timing"]);
+    if (Object.keys(patch).some((k) => !supported.has(k))) return unsupported();
     const body: Api.OrderUpdate = {};
-    if (patch.comment !== undefined) body.comment = patch.comment;
-    if (patch.paymentMethod !== undefined) body.payment_method = patch.paymentMethod;
-    const other = Object.keys(patch).filter((k) => k !== "comment" && k !== "paymentMethod");
-    if (other.length > 0 || Object.keys(body).length === 0) return unsupported();
-    const order = await http.patch<Api.Order>(API_PATHS.order(orderId), body);
-    return toUiOrder(order, { rating: ratings.get(orderId) });
+    if (patch.comment !== undefined) body.comment = patch.comment.trim().slice(0, 200);
+    if (patch.paymentMethod !== undefined) body.payment_method = toApiPayment(patch.paymentMethod);
+    if (patch.toAddressId !== undefined) body.to = geoPoint(patch.toAddressId);
+    if (patch.mode === "seat" || (patch.mode === undefined && patch.seatIds)) {
+      const ids = SEAT_IDS.filter((id) => (patch.seatIds ?? []).includes(id));
+      if (ids.length === 0) throw new ApiError("SEATS_REQUIRED", "order.seatsHint");
+      body.seat_ids = ids;
+    } else if (patch.mode === "car") {
+      const current = await http.get<Api.Order>(API_PATHS.order(orderId));
+      body.car_class = current.car_class ?? toApiCarClass("standart");
+    }
+    if (patch.timing) {
+      // OrderUpdate can't clear a time back to "now".
+      if (patch.timing.timeMode !== "scheduled") return unsupported();
+      Object.assign(body, toApiTiming(patch.timing));
+    }
+    if (Object.keys(body).length === 0) return getOrder(orderId);
+    try {
+      return mapOrder(await http.patch<Api.Order>(API_PATHS.order(orderId), body));
+    } catch (err) {
+      throw ruleError(err);
+    }
   },
-  cancelOrder: async (orderId, reason) => {
-    const order = await http.post<Api.Order>(API_PATHS.orderCancel(orderId), toApiCancel(reason));
-    return toUiOrder(order, { rating: ratings.get(orderId) });
-  },
+  cancelOrder: async (orderId, reason) => mapOrder(await http.post<Api.Order>(API_PATHS.orderCancel(orderId), toApiCancel(reason))),
   rateOrder: async (orderId, stars, reasons, note) => {
     const body = toApiRating(stars, reasons, note);
     try {
@@ -187,7 +598,7 @@ export const httpAdapter: ApiAdapter = {
       historyCursors.set(page + 1, res.cursor);
       nextCursor = page + 1;
     }
-    return { orders: res.data.map((o) => toUiOrder(o, { rating: ratings.get(o.id) })), nextCursor };
+    return { orders: res.data.map(mapOrder), nextCursor };
   },
 
   // -------------------------------------------------------- notifications
@@ -230,26 +641,14 @@ export const httpAdapter: ApiAdapter = {
   },
 
   // ------------------------------------- no endpoint in api/openapi.yml
-  getCities: unsupported,
-  getPopularRoutes: unsupported,
+  // Not used by any screen; no endpoint for recent addresses/routes.
   getRecentRoutes: unsupported,
-  getAddressSuggestions: unsupported,
-  searchAddresses: unsupported,
   getRecentAddresses: unsupported,
-  getSavedAddresses: unsupported,
+  // The map is stylized (no geography): no pin picking (capabilities.mapPick).
   reverseGeocode: unsupported,
   getPickupEta: unsupported,
-  getSeatMap: unsupported,
-  getQuote: unsupported,
-  getDeliveryVehicles: unsupported,
-  getSchedulingRules: unsupported,
-  getOrderDetailsRules: unsupported,
-  getOrderOptions: unsupported,
-  getCommentHints: unsupported,
-  getSavedAddressDetails: unsupported,
+  // Route-point details aren't on the order (capabilities.addressDetails).
   saveAddressDetails: unsupported,
-  getCarClasses: unsupported,
-  getLuggageRules: unsupported,
   validateRider: unsupported,
   getTipOptions: unsupported,
   sendTip: unsupported,

@@ -28,7 +28,8 @@ export function PaymentMethodSection({
   const [cardsReload, setCardsReload] = useState(0);
 
   useEffect(() => {
-    if (value !== "card") return;
+    // No saved-cards list on the real backend yet (capabilities.savedCards).
+    if (value !== "card" || !api.capabilities.savedCards) return;
     setCardsError(false);
     api.getSavedCards().then(setCards).catch(() => setCardsError(true));
   }, [value, cardsReload]);
@@ -52,7 +53,7 @@ export function PaymentMethodSection({
         />
       </div>
 
-      {value === "card" && (
+      {value === "card" && api.capabilities.savedCards && (
         <div className="ml-4 space-y-2">
           {cardsError && (
             <button onClick={() => setCardsReload((n) => n + 1)} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">

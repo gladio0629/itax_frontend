@@ -16,6 +16,10 @@ const RULE_CODES = new Set([
   "CARGO_HOURS",
   "CARGO_LOADERS",
   "CARGO_RIDE_ALONG",
+  // http adapter: server refusals mapped to a fixable rule (adapters/http.ts).
+  "INVALID_TIMING",
+  "SEATS_REQUIRED",
+  "ACTIVE_ORDERS_LIMIT",
 ]);
 
 /** The translation key for a server error (api/openapi.yml keys mapped by

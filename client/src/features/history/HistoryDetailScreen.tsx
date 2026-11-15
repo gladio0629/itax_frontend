@@ -111,6 +111,10 @@ export function HistoryDetailScreen() {
             <Row label={t("history.cancelReason")} value={t(order.cancelReason as TranslationKey)} />
           )}
           <div className="h-px bg-border" />
+          {/* The server's breakdown (sums to the total), when it sends one. */}
+          {order.priceLines?.map((line, i) => (
+            <Row key={i} label={t(line.key as TranslationKey, line.params)} value={formatSom(line.amount, intlTag)} />
+          ))}
           <Row label={t("order.total")} value={formatSom(order.price, intlTag)} bold />
         </Card>
 

@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Bell, ChevronRight, LocateFixed, MapPin, PersonStanding } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, AddressDetails, SavedAddressInfo } from "@/api/types";
-import { ADDRESSES, addressById } from "@/clientData/addresses";
 import { MapCanvas } from "@/components/MapCanvas";
 import { Skeleton } from "@/components/Skeleton";
 import { Logo } from "@/components/Logo";
@@ -15,14 +14,21 @@ import { PinBubble } from "@/components/ui/PinBubble";
 import { setDefaultFromAddress, useOrderStore } from "@/stores/orderStore";
 import { useFloatingControl } from "@/stores/floatingControlStore";
 import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
 import { OrderSheet } from "@/features/order/OrderSheet";
+import { Toast } from "@/components/Toast";
 import { SearchScreen } from "@/features/order/SearchScreen";
 import { detailsSummary } from "@/features/order/addressDetails";
 import { formatDuration } from "@/features/order/duration";
+import { isApiError } from "@shared/http/errors";
+import { ruleErrorKey, serverErrorKey } from "@/lib/apiError";
+import type { QuoteRenewal } from "@/features/order/OrderSheet";
 
-// New drafts start from Toshkent. This module only loads where the ordering
-// flow exists (see ./Home.tsx), so http builds don't carry the address book.
-setDefaultFromAddress(ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "");
+// Where new drafts start: the adapter's default pickup (sample data:
+// Toshkent; real backend: none until the passenger picks or locates one).
+setDefaultFromAddress(api.defaultPickupId());
+
+const QUOTE_ERRORS = new Set(["QUOTE_NOT_FOUND", "QUOTE_EXPIRED", "QUOTE_ALREADY_USED", "QUOTE_MISMATCH"]);
 
 /**
  * Home (reference structure): full-screen map, the pickup caption at the top,
@@ -46,18 +52,22 @@ export default function OrderingHome() {
   const [savedError, setSavedError] = useState(false);
   const [savedReload, setSavedReload] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(false);
+  /** Translation key of the last submit failure. */
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  /** The quoted price couldn't be used: the new one, awaiting confirmation. */
+  const [renewal, setRenewal] = useState<QuoteRenewal | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [panelH, setPanelH] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const setFabPlacement = useFloatingControl((s) => s.setFabPlacement);
 
-  const fromAddress = addressById(draft.fromAddressId) ?? null;
-  const toAddress = addressById(draft.toAddressId) ?? null;
+  const fromAddress = api.addressById(draft.fromAddressId) ?? null;
+  const toAddress = api.addressById(draft.toAddressId) ?? null;
   // A route needs a drop-off; a stale ?flow=route falls back to home.
   const view = flow === "search" ? "search" : flow === "route" && toAddress ? "route" : "home";
 
   useEffect(() => {
-    api.getPickupEta().then((r) => setEta(r.minutes)).catch(() => {});
+    if (api.capabilities.pickupEta) api.getPickupEta().then((r) => setEta(r.minutes)).catch(() => {});
   }, []);
 
   // Back on Home after the order flow: refetch saved addresses, since the
@@ -72,7 +82,6 @@ export default function OrderingHome() {
   }, [view]);
 
   useEffect(() => {
-    if (!draft.fromAddressId) return;
     if (saved.length === 0) setSavedLoading(true);
     setSavedError(false);
     api
@@ -110,6 +119,12 @@ export default function OrderingHome() {
    * in search fills Podyezd; a saved address brings its details back. */
   function setPoint(which: "from" | "to", addr: Address, details?: AddressDetails, entrance?: string) {
     setField(which === "from" ? "fromAddressId" : "toAddressId", addr.id);
+    // Where the order can't carry Tafsilotlar, the draft holds none (they
+    // would be shown and then dropped).
+    if (!api.capabilities.addressDetails) {
+      setField(which === "from" ? "fromDetails" : "toDetails", {});
+      return;
+    }
     const picked: AddressDetails = { ...(details ?? {}), ...(entrance ? { entrance } : {}) };
     setField(which === "from" ? "fromDetails" : "toDetails", picked);
     if (!details) {
@@ -125,7 +140,8 @@ export default function OrderingHome() {
 
   async function submit() {
     setSubmitting(true);
-    setSubmitError(false);
+    setSubmitError(null);
+    setRenewal(null);
     try {
       const order = await api.createOrder({
         serviceType: draft.serviceType,
@@ -147,14 +163,21 @@ export default function OrderingHome() {
         // Class, bags and "Kim ketadi?" are Yo'lovchi-only fields.
         carClass: draft.serviceType === "passenger" ? draft.carClass : undefined,
         luggage: draft.serviceType === "passenger" ? draft.luggage : undefined,
-        rider: draft.serviceType === "passenger" ? draft.rider : undefined,
-        sender: draft.serviceType === "delivery" ? draft.sender : undefined,
-        receiver: draft.serviceType === "delivery" ? draft.receiver : undefined,
+        sender: draft.serviceType === "delivery" && api.capabilities.cargoExtras ? draft.sender : undefined,
+        receiver: draft.serviceType === "delivery" && api.capabilities.cargoExtras ? draft.receiver : undefined,
+        rider: draft.serviceType === "passenger" && api.capabilities.rider ? draft.rider : undefined,
       });
       navigate(`/order/track/${order.id}`, { replace: true });
       reset();
-    } catch {
-      setSubmitError(true);
+    } catch (e) {
+      // The quote behind the shown price is gone (expired, used, changed):
+      // the adapter fetched a new one; show it and wait for a confirmation.
+      const total = isApiError(e) ? e.params.total : undefined;
+      if (isApiError(e) && QUOTE_ERRORS.has(e.code) && typeof total === "number") {
+        setRenewal({ messageKey: e.message, total });
+      } else {
+        setSubmitError(ruleErrorKey(e) ?? serverErrorKey(e) ?? "order.submitError");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -171,6 +194,8 @@ export default function OrderingHome() {
           onSubmit={submit}
           submitting={submitting}
           submitError={submitError}
+          quoteRenewal={renewal}
+          onQuoteRenewalCancel={() => setRenewal(null)}
           onClose={back}
         />
       </div>
@@ -192,7 +217,7 @@ export default function OrderingHome() {
         <span className="flex items-center justify-center gap-0.5 text-sub text-ink/70">
           {t("order.pickupCaption")} <ChevronRight className="h-3.5 w-3.5" />
         </span>
-        <span className="block truncate text-control font-semibold text-ink">{fromAddress?.label}</span>
+        <span className="block truncate text-control font-semibold text-ink">{fromAddress?.label ?? t("order.choosePlace")}</span>
       </button>
 
       <Link
@@ -211,7 +236,9 @@ export default function OrderingHome() {
       {/* Pickup pin and its bubble, centred on the visible map. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center" style={{ height: `calc(100% - ${panelH}px)` }}>
         <div className="mt-auto mb-auto flex flex-col items-center">
-          <PinBubble icon={<PersonStanding className="h-5 w-5" />} caption={t("pin.pickup")} value={eta != null ? t("pin.eta", { n: eta }) : "…"} />
+          {api.capabilities.pickupEta && (
+            <PinBubble icon={<PersonStanding className="h-5 w-5" />} caption={t("pin.pickup")} value={eta != null ? t("pin.eta", { n: eta }) : "…"} />
+          )}
           <span className="mt-1 h-5 w-[3px] rounded-full bg-ink" aria-hidden="true" />
           <span className="-mt-1 h-3 w-3 rounded-full border-[3px] border-ink bg-card" aria-hidden="true" />
         </div>
@@ -223,7 +250,12 @@ export default function OrderingHome() {
         style={{ bottom: panelH + 12 }}
         // "Where am I": the adapter resolves the device position (the map's
         // centre in the demo) to a pickup point.
-        onClick={() => api.reverseGeocode(50, 50).then((a) => setPoint("from", a)).catch(() => {})}
+        onClick={() =>
+          api
+            .locateMe()
+            .then((a) => setPoint("from", a))
+            .catch((e) => setToast(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey)))
+        }
       >
         <LocateFixed className="h-5 w-5" />
       </MapButton>
@@ -270,7 +302,7 @@ export default function OrderingHome() {
                   icon={<MapPin className="h-5 w-5" />}
                   title={address.label}
                   subtitle={(details && detailsSummary(details, t)) || area}
-                  trailing={formatDuration(etaMinutes, t)}
+                  trailing={etaMinutes != null ? formatDuration(etaMinutes, t) : undefined}
                   last={i === saved.length - 1}
                   onClick={() => {
                     setPoint("to", address, details ?? {});
@@ -298,6 +330,7 @@ export default function OrderingHome() {
           }}
         />
       )}
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }

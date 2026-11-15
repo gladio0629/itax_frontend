@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import type { OrderMode, OrderTiming, OrderWithDetails, PaymentMethod, Seat } from "@/api/types";
-import { addressById } from "@/clientData/addresses";
 import { Sheet } from "@/components/Sheet";
 import { Button } from "@/components/Button";
 import { useT } from "@/lib/i18n/provider";
@@ -57,19 +56,22 @@ export function TafsilotlarSheet({
     }
   }, [fromAddressId, toAddressId, seatsReload]);
 
-  const fromAddress = addressById(fromAddressId) ?? null;
-  const toAddress = addressById(toAddressId) ?? null;
+  const fromAddress = api.addressById(fromAddressId) ?? null;
+  const toAddress = api.addressById(toAddressId) ?? null;
+  const delivery = order.extras?.serviceType === "delivery";
 
   async function save() {
     setSaving(true);
     setError(false);
     try {
+      // Only what changed: the server re-prices on every accepted change,
+      // and an unchanged field mustn't be re-sent in another shape.
+      const sameSeats = [...seatIds].sort().join() === [...order.seatIds].sort().join();
       const updated = await api.updateOrder(order.id, {
-        fromAddressId,
-        toAddressId,
-        mode,
-        seatIds,
-        paymentMethod,
+        ...(fromAddressId !== (order.extras?.fromAddressId ?? "") ? { fromAddressId } : {}),
+        ...(toAddressId !== (order.extras?.toAddressId ?? "") ? { toAddressId } : {}),
+        ...(mode !== order.mode || !sameSeats ? { mode, seatIds } : {}),
+        ...(paymentMethod !== order.paymentMethod ? { paymentMethod } : {}),
         ...(timingTouched ? { timing } : {}),
       });
       onUpdated(updated);
@@ -87,9 +89,11 @@ export function TafsilotlarSheet({
         <div className="px-5 pb-6 pt-3">
           <h2 className="mb-2 text-sm font-semibold text-ink">{t("track.details")}</h2>
           <p className="mb-5 text-sm text-ink/60">{t("order.locked.notEditable")}</p>
-          <Button variant="danger" fullWidth onClick={onCancel}>
-            {t("cancel.confirmAction")}
-          </Button>
+          {order.canCancel !== false && (
+            <Button variant="danger" fullWidth onClick={onCancel}>
+              {t("cancel.confirmAction")}
+            </Button>
+          )}
         </div>
       </Sheet>
     );
@@ -104,7 +108,9 @@ export function TafsilotlarSheet({
           <RouteFields
             from={fromAddress}
             to={toAddress}
-            onPick={setPicker}
+            // The pickup is fixed where the adapter can't change it.
+            onPick={(which) => (which === "from" && !api.capabilities.editPickup ? undefined : setPicker(which))}
+            canSwap={api.capabilities.editPickup}
             onSwap={() => {
               const f = fromAddressId;
               setFromAddressId(toAddressId);
@@ -113,6 +119,7 @@ export function TafsilotlarSheet({
           />
         </div>
 
+        {!delivery && (
         <div className="mb-4">
           <SeatMap
             seats={seats}
@@ -126,6 +133,7 @@ export function TafsilotlarSheet({
             onRetry={() => setSeatsReload((n) => n + 1)}
           />
         </div>
+        )}
 
         <div className="mb-5">
           <TimeSelector
@@ -146,7 +154,7 @@ export function TafsilotlarSheet({
         )}
 
         <div className="sticky bottom-0 -mx-5 mt-5 grid grid-cols-2 gap-3 border-t border-border bg-card px-5 pt-3">
-          <Button variant="dangerSoft" fullWidth onClick={onCancel}>
+          <Button variant="dangerSoft" fullWidth disabled={order.canCancel === false} onClick={onCancel}>
             {t("cancel.confirmAction")}
           </Button>
           <Button fullWidth loading={saving} disabled={mode === "seat" && seatIds.length === 0} onClick={save}>
