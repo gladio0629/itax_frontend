@@ -81,3 +81,6 @@ export const httpAdapter: ApiAdapter = {
   getHelpRequests: notImplemented("getHelpRequests"),
   submitSupportTicket: notImplemented("submitSupportTicket"),
 };
+
+/** Picked by the `@active-adapter` alias unless VITE_DEMO_MODE=true. */
+export const adapter = httpAdapter;

@@ -1,4 +1,5 @@
 import { useLayoutEffect, type RefObject } from "react";
+import { DEMO_MODE } from "@/config";
 import { create } from "zustand";
 import { clearAppStorage } from "@/mockDb/storage";
 
@@ -44,7 +45,7 @@ type DemoState = {
 };
 
 export const useDemoStore = create<DemoState>((set, get) => ({
-  isDemo: import.meta.env.VITE_DEMO_MODE !== "false",
+  isDemo: DEMO_MODE,
   scenarios: loadScenarios(),
   toggle: (key) => {
     const next = { ...get().scenarios, [key]: !get().scenarios[key] };

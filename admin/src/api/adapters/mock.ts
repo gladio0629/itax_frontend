@@ -1330,3 +1330,6 @@ export const mockAdapter: ApiAdapter = {
       addAuditEntry({ actorId: actor.id, actorName: actor.name, action: "export", targetType: "section", targetId: section, detail: `${section} eksport qilindi` });
     }),
 };
+
+/** Picked by the `@active-adapter` alias when VITE_DEMO_MODE=true. */
+export const adapter = mockAdapter;

@@ -90,3 +90,6 @@ export const httpAdapter: ApiAdapter = {
 
   recordExport: notImplemented("recordExport"),
 };
+
+/** Picked by the `@active-adapter` alias unless VITE_DEMO_MODE=true. */
+export const adapter = httpAdapter;

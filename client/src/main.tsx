@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { LanguageProvider } from "@/lib/i18n/provider";
 import { initPlatform } from "@/lib/platform";
 import { installIOSTransitions } from "@/lib/navigation";
+import { ServerGate } from "@/components/ServerGate";
 import "./index.css";
 
 // Platform attributes go on <html> before the first paint (the CSP blocks an
@@ -18,7 +19,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider>
       <LanguageProvider>
-        <RouterProvider router={router} />
+        <ServerGate>
+          <RouterProvider router={router} />
+        </ServerGate>
       </LanguageProvider>
     </ThemeProvider>
   </React.StrictMode>

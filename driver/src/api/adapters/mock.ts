@@ -1357,3 +1357,6 @@ export const mockAdapter: ApiAdapter = {
       persist();
     }, { noFail: true, minMs: 80, maxMs: 120 }),
 };
+
+/** Picked by the `@active-adapter` alias when VITE_DEMO_MODE=true. */
+export const adapter = mockAdapter;

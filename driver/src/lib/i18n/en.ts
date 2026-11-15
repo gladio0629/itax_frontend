@@ -10,6 +10,7 @@ export const en: Dictionary = {
   "common.continue": "Continue",
   "common.save": "Save",
   "common.retry": "Try again",
+  "noServer.message": "No connection to the server. Please try again later.",
   "common.loading": "Loading…",
   "common.som": "som",
   "common.km": "km",

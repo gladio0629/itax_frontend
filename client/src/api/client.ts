@@ -1,11 +1,9 @@
 import type { ApiAdapter } from "./adapterTypes";
-import { mockAdapter } from "./adapters/mock";
-import { httpAdapter } from "./adapters/http";
+// Resolved at build time (vite.config.ts): adapters/mock.ts when
+// VITE_DEMO_MODE=true, adapters/http.ts otherwise. Screens only ever see
+// this `api` object, so no screen or component changes between the two.
+import { adapter } from "@active-adapter";
+import { DEMO_MODE } from "@/config";
 
-// In demo mode we always talk to the mock adapter. To connect a real
-// backend, implement every method in adapters/http.ts and flip this flag
-// (VITE_DEMO_MODE=false) — no screen or component needs to change.
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE !== "false";
-
-export const api: ApiAdapter = DEMO_MODE ? mockAdapter : httpAdapter;
+export const api: ApiAdapter = adapter;
 export const FEATURE_BONUS = DEMO_MODE; // promo/referral stage, easy to flip off

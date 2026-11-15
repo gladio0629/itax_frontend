@@ -7,3 +7,6 @@ export const httpAdapter = new Proxy({} as ApiAdapter, {
     return () => Promise.reject(new NotImplementedError(String(prop)));
   },
 });
+
+/** Picked by the `@active-adapter` alias unless VITE_DEMO_MODE=true. */
+export const adapter = httpAdapter;

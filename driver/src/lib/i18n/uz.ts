@@ -10,6 +10,7 @@ export const uz = {
   "common.continue": "Davom etish",
   "common.save": "Saqlash",
   "common.retry": "Qayta urinish",
+  "noServer.message": "Server bilan aloqa yo'q. Keyinroq urinib ko'ring.",
   "common.loading": "Yuklanmoqda…",
   "common.som": "so'm",
   "common.km": "km",

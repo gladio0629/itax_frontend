@@ -1534,3 +1534,6 @@ export const mockAdapter: ApiAdapter = {
   submitSupportTicket: (message: string) =>
     withLatency(() => submitForReview("support_ticket", { message }), { minMs: 300, maxMs: 600 }),
 };
+
+/** Picked by the `@active-adapter` alias when VITE_DEMO_MODE=true. */
+export const adapter = mockAdapter;

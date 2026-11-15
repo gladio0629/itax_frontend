@@ -20,6 +20,7 @@ export const ru: Dictionary = {
   "common.confirm": "Подтвердить",
   "common.save": "Сохранить",
   "common.retry": "Повторить",
+  "noServer.message": "Нет связи с сервером. Попробуйте позже.",
   "common.comingSoon": "Скоро",
   "common.errorTitle": "Что-то пошло не так",
   "common.errorMessage": "Произошла ошибка соединения",

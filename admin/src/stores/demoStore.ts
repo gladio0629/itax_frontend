@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEMO_MODE } from "@/config";
 import { clearAppStorage } from "@/mockDb/storage";
 
 export type DemoScenarios = {
@@ -39,7 +40,7 @@ type DemoState = {
 };
 
 export const useDemoStore = create<DemoState>((set, get) => ({
-  isDemo: import.meta.env.VITE_DEMO_MODE !== "false",
+  isDemo: DEMO_MODE,
   scenarios: loadScenarios(),
   toggle: (key) => {
     const next = { ...get().scenarios, [key]: !get().scenarios[key] };

@@ -20,6 +20,7 @@ export const uz = {
   "common.confirm": "Tasdiqlash",
   "common.save": "Saqlash",
   "common.retry": "Qayta urinish",
+  "noServer.message": "Server bilan aloqa yo'q. Keyinroq urinib ko'ring.",
   "common.comingSoon": "Tez kunda",
   "common.errorTitle": "Nimadir xato ketdi",
   "common.errorMessage": "Ulanishda xatolik yuz berdi",

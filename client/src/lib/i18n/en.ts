@@ -20,6 +20,7 @@ export const en: Dictionary = {
   "common.confirm": "Confirm",
   "common.save": "Save",
   "common.retry": "Retry",
+  "noServer.message": "No connection to the server. Please try again later.",
   "common.comingSoon": "Coming soon",
   "common.errorTitle": "Something went wrong",
   "common.errorMessage": "A connection error occurred",

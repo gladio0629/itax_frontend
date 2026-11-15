@@ -10,6 +10,7 @@ export const ru: Dictionary = {
   "common.continue": "Продолжить",
   "common.save": "Сохранить",
   "common.retry": "Повторить",
+  "noServer.message": "Нет связи с сервером. Попробуйте позже.",
   "common.loading": "Загрузка…",
   "common.som": "сум",
   "common.km": "км",
