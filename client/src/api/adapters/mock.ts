@@ -1,7 +1,7 @@
 import { db, getReviewRequest } from "@/mockDb/db";
 import { withLatency, ApiError } from "@/mockDb/latency";
 import { submitForReview, pollReview } from "@/lib/reviewMechanism";
-import { getDemoScenarios } from "@/stores/demoStore";
+import { getTestScenarios } from "@/stores/testScenariosStore";
 import { computePrice, roadDistanceKm, DEFAULT_TARIFF, type City, type Order } from "@/seed/generate";
 import { readJSON, writeJSON } from "@/mockDb/storage";
 import {
@@ -73,7 +73,7 @@ import type {
 } from "../types";
 import { DELIVERY_VEHICLES } from "../types";
 
-const DEMO_OTP_CODE = "0000";
+const TEST_OTP_CODE = "0000";
 // Delivery vehicles: what the picker shows and what each one costs, in one record
 // so the two can't drift. Price bands (base + per km) rise strictly from Spark to
 // Fura on any route. Price lives here only — the client never computes it.
@@ -910,12 +910,12 @@ export const mockAdapter: ApiAdapter = {
   requestOtp: (_phone: string) =>
     withLatency<OtpRequestResult>(() => ({
       requestId: genId("otp"),
-      demoCode: DEMO_OTP_CODE,
+      testCode: TEST_OTP_CODE,
     }), { minMs: 250, maxMs: 500 }),
 
   verifyOtp: (_requestId: string, code: string) =>
     withLatency(() => {
-      if (code !== DEMO_OTP_CODE) {
+      if (code !== TEST_OTP_CODE) {
         throw new ApiError("INVALID_CODE", "Kod noto'g'ri. Qaytadan urinib ko'ring.");
       }
       return submitForReview("otp_verify", { phone: _requestId });
@@ -926,7 +926,7 @@ export const mockAdapter: ApiAdapter = {
   createOrder: (input: CreateOrderInput) =>
     withLatency<OrderWithDetails>(() => {
       validateTiming(input.timing);
-      const scenarios = getDemoScenarios();
+      const scenarios = getTestScenarios();
       const fromCityId = addressOf(input.fromAddressId).cityId;
       const toCityId = addressOf(input.toAddressId).cityId;
       const cargo = input.serviceType === "delivery" ? input.cargo : undefined;
@@ -1190,7 +1190,7 @@ export const mockAdapter: ApiAdapter = {
    */
   getWallet: () =>
     withLatency<WalletSummary>(() => {
-      const scenarios = getDemoScenarios();
+      const scenarios = getTestScenarios();
       const passengerId = currentPassengerId();
       const myCardOrders = db
         .orders()
@@ -1380,7 +1380,7 @@ export const mockAdapter: ApiAdapter = {
 
   getBonusSummary: () =>
     withLatency<BonusSummary>(() => {
-      const scenarios = getDemoScenarios();
+      const scenarios = getTestScenarios();
       let balance = bonusBalance();
       if (scenarios.bonusBelowMin) balance = Math.min(balance, BONUS_MIN_WITHDRAW - 8_000);
       const monthlyWithdrawn = bonusLedger()
@@ -1496,11 +1496,11 @@ export const mockAdapter: ApiAdapter = {
     withLatency(() => submitForReview("account_delete", { self: true }), { minMs: 300, maxMs: 600 }),
 
   requestPhoneChange: (_newPhone: string) =>
-    withLatency<OtpRequestResult>(() => ({ requestId: genId("otp"), demoCode: DEMO_OTP_CODE }), { minMs: 250, maxMs: 500 }),
+    withLatency<OtpRequestResult>(() => ({ requestId: genId("otp"), testCode: TEST_OTP_CODE }), { minMs: 250, maxMs: 500 }),
 
   confirmPhoneChange: (_requestId: string, code: string, newPhone: string) =>
     withLatency(() => {
-      if (code !== DEMO_OTP_CODE) throw new ApiError("INVALID_CODE", "Kod noto'g'ri. Qaytadan urinib ko'ring.");
+      if (code !== TEST_OTP_CODE) throw new ApiError("INVALID_CODE", "Kod noto'g'ri. Qaytadan urinib ko'ring.");
       db.updatePassenger(currentPassengerId(), { phoneMasked: newPhone });
       return submitForReview("phone_change", { newPhone });
     }, { minMs: 200, maxMs: 400 }),

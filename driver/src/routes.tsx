@@ -1,6 +1,8 @@
 import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
+import { DEMO_MODE } from "@/config";
+import { TEST_PANEL_PATH, TEST_PANEL_PROFILE_PATH } from "@/features/testPanel/paths";
 
 // Every screen is its own lazy chunk.
 const HomeScreen = lazy(() => import("@/features/home/HomeScreen"));
@@ -19,15 +21,17 @@ const NotificationPrefsScreen = lazy(() => import("@/features/profile/Notificati
 const HelpScreen = lazy(() => import("@/features/profile/HelpScreen"));
 const AboutScreen = lazy(() => import("@/features/profile/AboutScreen"));
 const TripChatScreen = lazy(() => import("@/features/chat/TripChatScreen"));
-const DemoScreen = lazy(() => import("@/features/demo/DemoScreen"));
+// Test panel: sample-data mode only. DEMO_MODE is a build-time constant, so
+// in the http build this branch (and the chunk it imports) is dropped.
+const TestPanelScreen = DEMO_MODE ? lazy(() => import("@/features/testPanel/TestPanelScreen")) : null;
 const RegistrationFlow = lazy(() => import("@/features/registration/RegistrationFlow"));
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/register" element={<RegistrationFlow />} />
-      {/* Demo panel is also reachable while signed out (from the registration header). */}
-      <Route path="/demo" element={<DemoScreen />} />
+      {/* The test panel is also reachable while signed out (from the registration header). */}
+      {TestPanelScreen && <Route path={TEST_PANEL_PATH} element={<TestPanelScreen />} />}
       <Route element={<AppShell />}>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/trip/chat/:bookingId" element={<TripChatScreen />} />
@@ -47,7 +51,7 @@ export function AppRoutes() {
         <Route path="/profile/notifications" element={<NotificationPrefsScreen />} />
         <Route path="/profile/help" element={<HelpScreen />} />
         <Route path="/profile/about" element={<AboutScreen />} />
-        <Route path="/profile/demo" element={<DemoScreen />} />
+        {TestPanelScreen && <Route path={TEST_PANEL_PROFILE_PATH} element={<TestPanelScreen />} />}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

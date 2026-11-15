@@ -1,10 +1,10 @@
 import { useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { useLiftDemoFab } from "@/stores/demoStore";
+import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 
 export function BottomBar({ children, className }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  useLiftDemoFab(ref);
+  useLiftFloatingControl(ref);
   return (
     <div
       ref={ref}

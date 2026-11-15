@@ -1,4 +1,4 @@
-import { getDemoScenarios } from "@/stores/demoStore";
+import { getTestScenarios } from "@/stores/testScenariosStore";
 
 export class ApiError extends Error {
   code: string;
@@ -15,7 +15,7 @@ export class ApiError extends Error {
  * This NEVER touches the network — it's a local timer only.
  */
 export function withLatency<T>(factory: () => T, opts?: { minMs?: number; maxMs?: number }): Promise<T> {
-  const scenarios = getDemoScenarios();
+  const scenarios = getTestScenarios();
   const [min, max] = scenarios.slowInternet
     ? [1800, 3200]
     : [opts?.minMs ?? 300, opts?.maxMs ?? 900];

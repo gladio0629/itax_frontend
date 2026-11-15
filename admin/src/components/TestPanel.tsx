@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { FlaskConical, RotateCcw, X } from "lucide-react";
-import { useDemoStore, type DemoScenarios } from "@/stores/demoStore";
+import { useScenarioStore, SCENARIOS_KEY, type TestScenarios } from "@/stores/scenarioStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useMeStore } from "@/stores/meStore";
 import { api } from "@/api/client";
 import { ALL_ROLES } from "@/mockDb/db";
+import { clearAppStorage } from "@/mockDb/storage";
 import type { AdminRole } from "@/api/types";
 import { ROLE_LABEL } from "./Topbar";
 import { cn } from "@/lib/cn";
 
-const SCENARIO_LABELS: Record<keyof DemoScenarios, { label: string; hint: string }> = {
+const SCENARIO_LABELS: Record<keyof TestScenarios, { label: string; hint: string }> = {
   noDriverFound: { label: "Haydovchi topilmadi", hint: "Buyurtma qidiruvi muvaffaqiyatsiz tugaydi" },
   slowInternet: { label: "Sekin internet", hint: "Barcha so'rovlar sezilarli kechikadi" },
   forceErrors: { label: "Xatoliklarni qaytarish", hint: "So'rovlar ko'pincha xato bilan tugaydi" },
@@ -18,13 +19,26 @@ const SCENARIO_LABELS: Record<keyof DemoScenarios, { label: string; hint: string
   shortSession: { label: "Qisqa seans", hint: "Harakatsizlikdan chiqish 20 soniyaga qisqaradi" },
 };
 
-export function DemoControlPanel() {
-  const { isDemo, scenarios, toggle, resetDb } = useDemoStore();
+function resetDb() {
+  clearAppStorage();
+  try {
+    localStorage.removeItem(SCENARIOS_KEY);
+  } catch {
+    /* ignore */
+  }
+  window.location.reload();
+}
+
+/**
+ * "Sinov paneli" — only in the sample-data build (VITE_DEMO_MODE=true).
+ * App.tsx imports it lazily behind that flag, so the real-backend build
+ * doesn't contain it at all.
+ */
+export default function TestPanel() {
+  const { scenarios, toggle } = useScenarioStore();
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState<AdminRole | null>(null);
-
-  if (!isDemo) return null;
 
   async function loginAsRole(role: AdminRole) {
     setSwitching(role);
@@ -43,13 +57,13 @@ export function DemoControlPanel() {
       {open && (
         <div className="max-h-[calc(100vh-96px)] w-80 overflow-y-auto overscroll-contain rounded-sheet bg-sidebar-bg p-5 text-white shadow-2xl animate-slide-up">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold">Demo boshqaruv paneli</p>
+            <p className="text-sm font-semibold">Sinov paneli</p>
             <button type="button" onClick={() => setOpen(false)} aria-label="Yopish" className="rounded-full p-1 hover:bg-white/10">
               <X className="h-4 w-4" />
             </button>
           </div>
           <div className="space-y-3">
-            {(Object.keys(SCENARIO_LABELS) as Array<keyof DemoScenarios>).map((key) => {
+            {(Object.keys(SCENARIO_LABELS) as Array<keyof TestScenarios>).map((key) => {
               const meta = SCENARIO_LABELS[key];
               const active = scenarios[key];
               return (
@@ -97,7 +111,7 @@ export function DemoControlPanel() {
       )}
       <button type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Demo boshqaruv paneli"
+        aria-label="Sinov paneli"
         className="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-sidebar-bg text-brand-yellow shadow-soft transition-transform active:scale-95"
       >
         <FlaskConical className="h-5 w-5" />

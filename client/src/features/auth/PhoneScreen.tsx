@@ -7,13 +7,13 @@ import { Logo } from "@/components/Logo";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
-import { useLiftDemoFab } from "@/stores/demoStore";
+import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import { formatPhoneInput } from "@/lib/phone";
 
 
 export function PhoneScreen() {
   const footerRef = useRef<HTMLDivElement>(null);
-  useLiftDemoFab(footerRef);
+  useLiftFloatingControl(footerRef);
   const { t } = useT();
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +31,7 @@ export function PhoneScreen() {
       const fullPhone = `+998 ${value}`;
       const res = await api.requestOtp(fullPhone);
       setPhone(fullPhone);
-      navigate("/auth/otp", { state: { requestId: res.requestId, demoCode: res.demoCode, phone: fullPhone } });
+      navigate("/auth/otp", { state: { requestId: res.requestId, testCode: res.testCode, phone: fullPhone } });
     } catch {
       setError(t("auth.otpSendError"));
     } finally {

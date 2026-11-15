@@ -314,7 +314,7 @@ export const ru: Dictionary = {
   "safety.contactsEmpty": "Добавьте в Настройки > Безопасность",
   "safety.support": "Помощь",
   "safety.supportDesc": "Позвонить в поддержку",
-  "safety.callDemo": "Демо-версия: звонок не совершается",
+  "safety.callUnavailable": "Звонок пока недоступен",
   "safety.contacts.add": "Добавить контакт",
   "safety.contacts.footer": "Во время поездки делитесь ей через кнопку безопасности. Не более {{max}}.",
   "safety.contacts.limit": "Достигнут лимит контактов",
@@ -458,7 +458,7 @@ export const ru: Dictionary = {
   "account.newPhone": "Новый номер телефона",
   "account.enterCode": "Введите код",
   "account.otpError": "Неверный код. Попробуйте снова.",
-  "account.demoCodeHint": "Демо-код: {{code}}",
+  "account.testCodeHint": "Тестовый код: {{code}}",
   "account.accountsTitle": "АККАУНТЫ",
   "account.addAccount": "Добавить аккаунт",
   "account.deleteAccount": "Удалить аккаунт",
@@ -482,7 +482,7 @@ export const ru: Dictionary = {
   "notifPrefs.bonusDesc": "Уведомляет о начислении или выводе бонусов",
 
   "about.description": "IZGO — служба такси по городу и между городами.",
-  "about.version": "Версия {{version}} (демо)",
+  "about.version": "Версия {{version}}",
   "about.terms": "Условия использования",
   "about.privacy": "Политика конфиденциальности",
   "about.contact": "Контакты",
@@ -603,6 +603,6 @@ export const ru: Dictionary = {
 
   "driver.call": "Позвонить",
   "driver.message": "Написать сообщение",
-  "driver.callDemoNote": "Демо-версия: звонок не выполняется",
-  "driver.messageDemoNote": "Демо-версия: сообщение не отправляется",
+  "driver.callUnavailable": "Звонок пока недоступен",
+  "driver.messageUnavailable": "Сообщения пока недоступны",
 };

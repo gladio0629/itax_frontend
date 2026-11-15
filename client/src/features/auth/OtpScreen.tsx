@@ -7,14 +7,15 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
-import { useLiftDemoFab } from "@/stores/demoStore";
+import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import { cn } from "@/lib/cn";
 
-type LocationState = { requestId: string; demoCode: string; phone: string };
+/** `testCode` comes only from the sample-data adapter; a real backend sends the code by SMS. */
+type LocationState = { requestId: string; testCode?: string; phone: string };
 
 export function OtpScreen() {
   const footerRef = useRef<HTMLDivElement>(null);
-  useLiftDemoFab(footerRef);
+  useLiftFloatingControl(footerRef);
   const { t } = useT();
   const location = useLocation();
   const navigate = useNavigate();
@@ -34,8 +35,10 @@ export function OtpScreen() {
       navigate("/auth/phone", { replace: true });
       return;
     }
+    const code = state.testCode;
+    if (!code) return;
     const t = setTimeout(() => {
-      setDigits(state.demoCode.split(""));
+      setDigits(code.split(""));
     }, 900);
     return () => clearTimeout(t);
   }, [state, navigate]);

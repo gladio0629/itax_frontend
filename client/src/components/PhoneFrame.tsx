@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { useDemoStore } from "@/stores/demoStore";
+import { DEMO_MODE } from "@/config";
 import { useIsIOS } from "@/lib/platform";
 
 // Desktop preview of the iOS interface: an iPhone 15-sized mockup that
@@ -50,7 +50,6 @@ function useKeyboardAwareHeight(ref: RefObject<HTMLDivElement>, enabled: boolean
  */
 export function PhoneFrame({ children }: { children: ReactNode }) {
   const [isNarrow, setIsNarrow] = useState(true);
-  const isDemo = useDemoStore((s) => s.isDemo);
   const ios = useIsIOS();
   const screenRef = useRef<HTMLDivElement>(null);
   useKeyboardAwareHeight(screenRef, ios && isNarrow);
@@ -64,10 +63,10 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
   }, []);
 
   if (isNarrow) {
-    // Full-screen, the floating demo control shares the viewport with the app:
-    // scroll areas (.scroll-pb / .scroll-pb-bar) reserve room so their last
-    // item can always scroll clear of it.
-    const clearance = (isDemo ? { "--demo-clearance": "44px", "--demo-clearance-bar": "48px" } : {}) as CSSProperties;
+    // Full-screen, the floating test-panel button (sample-data build only)
+    // shares the viewport with the app: scroll areas (.scroll-pb /
+    // .scroll-pb-bar) reserve room so their last item can scroll clear of it.
+    const clearance = (DEMO_MODE ? { "--fab-clearance": "44px", "--fab-clearance-bar": "48px" } : {}) as CSSProperties;
     return (
       <div
         ref={screenRef}

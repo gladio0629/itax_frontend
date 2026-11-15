@@ -1,5 +1,5 @@
 import type {
-  AcceptedPage, BonusInfo, CancelReason, CapabilitiesInput, ChatSend, DemoOrderVariant, DemoPreset, DriverCapabilities,
+  AcceptedPage, BonusInfo, CancelReason, CapabilitiesInput, ChatSend, DriverCapabilities,
   DriverProfile, FeedPage, FeedQuery, HelpRequest, HelpTopic, HistoryFilter, HistoryPage, HomeSummary, LedgerPage, LedgerQuery,
   NotificationItem, NotificationPrefs, PayProvider, RegistrationOptions, RequestAlert, ReviewRequest, RoutesPage, Session,
   TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car,
@@ -14,7 +14,8 @@ export interface ApiAdapter {
   // Session & registration
   getSession(): Promise<Session>;
   getRegistrationOptions(): Promise<RegistrationOptions>;
-  requestOtp(phone: string): Promise<{ requestId: string; demoCode: string; resendInSec: number }>;
+  /** `testCode` is set only by the sample-data adapter (the screen autofills it). */
+  requestOtp(phone: string): Promise<{ requestId: string; testCode?: string; resendInSec: number }>;
   verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;
   savePersonal(input: { name: string; cityId: string }): Promise<Session>;
   saveCar(input: { model: string; colorKey: string; plate: string; year: number }): Promise<Session>;
@@ -79,16 +80,8 @@ export interface ApiAdapter {
 
   // Shared review mechanism
   getReviewStatus(reviewId: string): Promise<ReviewRequest>;
-
-  // Demo controls (mock only — the http adapter rejects them)
-  demoApplyPreset(preset: DemoPreset): Promise<void>;
-  demoEmitRequest(variant?: DemoOrderVariant): Promise<void>;
-  /** Another driver takes the newest open request. */
-  demoTakeRequest(): Promise<void>;
-  /** Fill today's seats with accepted passengers. */
-  demoFillSeats(): Promise<void>;
-  /** Commission rows push the wallet to the debt limit. */
-  demoDebtLimit(): Promise<void>;
+  // Test-panel controls are not part of this interface: they live in
+  // adapters/mock.ts (`testControls`) and exist only in sample-data mode.
 }
 
 export type { Car };

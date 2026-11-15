@@ -1,6 +1,13 @@
+import { lazy, Suspense } from "react";
 import { Outlet } from "react-router-dom";
 import { PhoneFrame } from "@/components/PhoneFrame";
-import { DemoControlPanel } from "@/components/DemoControlPanel";
+import { DEMO_MODE } from "@/config";
+
+// The test panel is a separate chunk that exists only in the sample-data
+// build: DEMO_MODE is a compile-time constant, so the http build drops it.
+const TestControlPanel = DEMO_MODE
+  ? lazy(() => import("@/components/TestControlPanel").then((m) => ({ default: m.TestControlPanel })))
+  : null;
 
 export function RootLayout() {
   return (
@@ -8,7 +15,11 @@ export function RootLayout() {
       <PhoneFrame>
         <Outlet />
       </PhoneFrame>
-      <DemoControlPanel />
+      {TestControlPanel && (
+        <Suspense fallback={null}>
+          <TestControlPanel />
+        </Suspense>
+      )}
     </>
   );
 }

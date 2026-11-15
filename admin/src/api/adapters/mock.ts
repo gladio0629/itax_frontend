@@ -147,7 +147,7 @@ type LoginAttemptState = {
   adminId: string;
   steps: LoginStep[];
   stepIndex: number;
-  demoCode: string;
+  code: string;
   attemptsLeft: number;
 };
 const loginAttempts = new Map<string, LoginAttemptState>();
@@ -244,7 +244,7 @@ export const mockAdapter: ApiAdapter = {
       const steps: LoginStep[] = user.role === "operator" ? ["phone_code"] : ["email_code", "phone_code"];
       const requestId = `li_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
       const code = genCode();
-      loginAttempts.set(requestId, { adminId: user.id, steps, stepIndex: 0, demoCode: code, attemptsLeft: 3 });
+      loginAttempts.set(requestId, { adminId: user.id, steps, stepIndex: 0, code, attemptsLeft: 3 });
       addAuditEntry({
         actorId: user.id,
         actorName: user.name,
@@ -257,7 +257,7 @@ export const mockAdapter: ApiAdapter = {
         requestId,
         steps,
         maskedDestination: destinationFor(user, steps[0]),
-        demoCode: code,
+        testCode: code,
         resendSeconds: 30,
         attemptsLeft: 3,
       };
@@ -267,15 +267,15 @@ export const mockAdapter: ApiAdapter = {
     withLatency(() => {
       const st = loginAttempts.get(requestId);
       if (!st) throw new ApiError("NOT_FOUND", "So'rov topilmadi yoki eskirgan.");
-      st.demoCode = genCode();
-      return { demoCode: st.demoCode, resendSeconds: 30 };
+      st.code = genCode();
+      return { testCode: st.code, resendSeconds: 30 };
     }),
 
   verifyLoginStep: (requestId, code) =>
     withLatency<LoginStepResult>(() => {
       const st = loginAttempts.get(requestId);
       if (!st) throw new ApiError("NOT_FOUND", "So'rov topilmadi yoki eskirgan.");
-      if (code !== st.demoCode) {
+      if (code !== st.code) {
         st.attemptsLeft -= 1;
         if (st.attemptsLeft <= 0) {
           loginAttempts.delete(requestId);
@@ -301,14 +301,14 @@ export const mockAdapter: ApiAdapter = {
       }
       const user = getStaffMember(st.adminId)!;
       const nextStep = st.steps[st.stepIndex];
-      st.demoCode = genCode();
+      st.code = genCode();
       st.attemptsLeft = 3;
       return {
         done: false,
         requestId,
         step: nextStep,
         maskedDestination: destinationFor(user, nextStep),
-        demoCode: st.demoCode,
+        testCode: st.code,
         resendSeconds: 30,
         attemptsLeft: 3,
       };
@@ -420,7 +420,7 @@ export const mockAdapter: ApiAdapter = {
         action: "login_verified",
         targetType: "session",
         targetId: user.id,
-        detail: "Demo: rol sifatida kirish",
+        detail: "Sinov: rol sifatida kirish",
       });
     }),
 

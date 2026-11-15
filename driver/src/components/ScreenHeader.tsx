@@ -2,12 +2,11 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "@/lib/icons";
 import { useT } from "@/lib/i18n/provider";
-import { DemoBadge } from "./DemoBadge";
 
 /**
  * Sub-pages get a back arrow; tab roots don't. Titles are left-aligned at
  * the same baseline either way. Actions live in the screen body (thumb zone),
- * so the right slot only carries the demo badge or a minor control.
+ * so the right slot only carries a minor control.
  */
 export function ScreenHeader({ title, back, right }: { title: string; back?: string | true; right?: ReactNode }) {
   const { t } = useT();
@@ -30,7 +29,7 @@ export function ScreenHeader({ title, back, right }: { title: string; back?: str
         <span className="w-2 shrink-0" />
       )}
       <h1 className="min-w-0 flex-1 truncate py-3 text-xl font-bold text-ink">{title}</h1>
-      <div className="flex shrink-0 items-center pr-2">{right ?? <DemoBadge />}</div>
+      <div className="flex shrink-0 items-center pr-2">{right}</div>
     </header>
   );
 }

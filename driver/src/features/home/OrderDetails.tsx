@@ -179,7 +179,7 @@ export function ContactList({ freight, callable }: { freight: Freight; callable:
   );
 }
 
-/** Masked number: the demo shows it instead of dialling. */
+/** Masked number: shown instead of dialling. */
 export function CallButton({ name, phoneMasked, size = 48 }: { name: string; phoneMasked: string; size?: 40 | 48 }) {
   const { t } = useT();
   return (

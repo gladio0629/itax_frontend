@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import { clearAppStorage } from "@/mockDb/storage";
 
-// Network-condition demo toggles. Read by the mock latency layer only.
-export type DemoNetwork = { slowInternet: boolean; forceErrors: boolean };
-const KEY = "izgo_driver_demo_network";
-const defaults: DemoNetwork = { slowInternet: false, forceErrors: false };
+// Network-condition toggles of the test panel (sample-data mode only).
+// Read by the mock latency layer and the slow-connection banner.
+export type TestNetwork = { slowInternet: boolean; forceErrors: boolean };
+const KEY = "izgo_driver_test_network";
+const defaults: TestNetwork = { slowInternet: false, forceErrors: false };
 
-function load(): DemoNetwork {
+function load(): TestNetwork {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return { ...defaults, ...JSON.parse(raw) };
@@ -16,13 +17,13 @@ function load(): DemoNetwork {
   return defaults;
 }
 
-type DemoState = {
-  network: DemoNetwork;
-  toggle: (key: keyof DemoNetwork) => void;
+type TestControlsState = {
+  network: TestNetwork;
+  toggle: (key: keyof TestNetwork) => void;
   resetAll: () => void;
 };
 
-export const useDemoStore = create<DemoState>((set, get) => ({
+export const useTestControls = create<TestControlsState>((set, get) => ({
   network: load(),
   toggle: (key) => {
     const next = { ...get().network, [key]: !get().network[key] };
@@ -44,6 +45,6 @@ export const useDemoStore = create<DemoState>((set, get) => ({
   },
 }));
 
-export function getDemoNetwork(): DemoNetwork {
-  return useDemoStore.getState().network;
+export function getTestNetwork(): TestNetwork {
+  return useTestControls.getState().network;
 }

@@ -13,13 +13,13 @@ import { makeRng } from "@/lib/prng";
 import { groupDigits } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
-  AcceptBlock, AcceptedPage, BonusInfo, Booking, BookingDay, CapabilitiesInput, DebtState, DemoOrderVariant, Direction,
+  AcceptBlock, AcceptedPage, BonusInfo, Booking, BookingDay, CapabilitiesInput, DebtState, TestOrderVariant, TestPreset, Direction,
   DriverCapabilities, DriverProfile, FeedPage, FeedQuery, HistoryItem, HistoryPage, HomeSummary, LedgerPage, OfferPlace,
   OrderExtras, OrderKind, OrderOption, PassengerInfo, Place, RequestAlert, ReviewKind, ReviewRequest, RideRequest, RoutesPage,
   TopupOptions, TripChat, TripDetail, TripPlace, TripStage, TripStep, TripSummary, TripWhen, WalletSummary,
 } from "../types";
 
-const DEMO_OTP = "0000";
+const TEST_OTP = "0000";
 const LEDGER_PAGE_SIZE = 12;
 const STAGES: TripStage[] = ["to_pickup", "waiting", "in_progress", "completed"];
 const CANCEL_REASONS = ["cancel.reason.passengerNoShow", "cancel.reason.wrongAddress", "cancel.reason.carIssue", "cancel.reason.passengerAsked", "cancel.reason.other"];
@@ -386,7 +386,7 @@ function passengerOptions(s: DriverState, full: boolean): OrderOption[] {
   return out;
 }
 
-type MakeOpts = { variant?: DemoOrderVariant; dayOffset?: number; direction?: Direction; postedAt?: number; seats?: number; neverTaken?: boolean };
+type MakeOpts = { variant?: TestOrderVariant; dayOffset?: number; direction?: Direction; postedAt?: number; seats?: number; neverTaken?: boolean };
 
 function makeRequest(s: DriverState, opts: MakeOpts = {}): RequestRecord | null {
   const dirs = directionsOf(s);
@@ -860,12 +860,12 @@ export const mockAdapter: ApiAdapter = {
     withLatency(() => {
       const digits = phone.replace(/\D/g, "");
       if (digits.length !== 9) throw new ApiError("PHONE_INVALID");
-      return { requestId: genId("otp") + ":" + digits, demoCode: DEMO_OTP, resendInSec: 30 };
+      return { requestId: genId("otp") + ":" + digits, testCode: TEST_OTP, resendInSec: 30 };
     }),
 
   verifyOtp: (requestId, code) =>
     withLatency(() => {
-      if (code !== DEMO_OTP) throw new ApiError("CODE_INVALID");
+      if (code !== TEST_OTP) throw new ApiError("CODE_INVALID");
       return submitForReview("otp_verify", { phone: requestId.split(":")[1] ?? "" }, [900, 1400]);
     }),
 
@@ -1289,13 +1289,16 @@ export const mockAdapter: ApiAdapter = {
       persist();
       return { ...r };
     }, { minMs: 120, maxMs: 260, noFail: true }),
+};
 
-  demoApplyPreset: (preset) =>
+/** Test-panel controls (sample-data mode only; not on ApiAdapter). */
+export const testControls = {
+  applyPreset: (preset: TestPreset) =>
     withLatency(() => {
       replaceState(presetState(preset));
     }, { noFail: true, minMs: 100, maxMs: 200 }),
 
-  demoEmitRequest: (variant = "random") =>
+  emitRequest: (variant: TestOrderVariant = "random") =>
     withLatency(() => {
       const s = state();
       requireActive(s);
@@ -1306,7 +1309,8 @@ export const mockAdapter: ApiAdapter = {
       persist();
     }, { noFail: true, minMs: 80, maxMs: 120 }),
 
-  demoTakeRequest: () =>
+  /** Another driver takes the newest open request. */
+  takeRequest: () =>
     withLatency(() => {
       const s = state();
       requireActive(s);
@@ -1322,7 +1326,8 @@ export const mockAdapter: ApiAdapter = {
       persist();
     }, { noFail: true, minMs: 80, maxMs: 120 }),
 
-  demoFillSeats: () =>
+  /** Fill today's seats with accepted passengers. */
+  fillSeats: () =>
     withLatency(() => {
       const s = state();
       requireActive(s);
@@ -1342,7 +1347,8 @@ export const mockAdapter: ApiAdapter = {
       persist();
     }, { noFail: true, minMs: 80, maxMs: 120 }),
 
-  demoDebtLimit: () =>
+  /** Commission rows push the wallet to the debt limit. */
+  debtLimit: () =>
     withLatency(() => {
       const s = state();
       requireActive(s);

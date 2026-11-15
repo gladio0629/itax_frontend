@@ -25,14 +25,14 @@ export function DriverCard({ driver }: { driver: Driver }) {
       </div>
       <div className="flex shrink-0 gap-2">
         <button
-          onClick={() => setToast(t("driver.callDemoNote"))}
+          onClick={() => setToast(t("driver.callUnavailable"))}
           aria-label={t("driver.call")}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-10 text-accent"
         >
           <Phone className="h-4 w-4" />
         </button>
         <button
-          onClick={() => setToast(t("driver.messageDemoNote"))}
+          onClick={() => setToast(t("driver.messageUnavailable"))}
           aria-label={t("driver.message")}
           className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/80"
         >

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { isDemo } from "@/api/client";
 import { api } from "@/api/client";
+import { DEMO_MODE } from "@/config";
+import { TEST_PANEL_PATH } from "@/features/testPanel/paths";
+import { testPanelText } from "@/features/testPanel/strings";
 import type { RegistrationOptions, SessionStage } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
@@ -22,7 +24,7 @@ const STEP_OF: Record<SessionStage, number> = { signed_out: 1, personal: 2, car:
 const STEP_KEYS = ["reg.step1", "reg.step2", "reg.step3", "reg.step4", "reg.step5"] as const;
 
 export default function RegistrationFlow() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const session = useSession((s) => s.session);
   const setSession = useSession((s) => s.set);
   const refresh = useSession((s) => s.refresh);
@@ -39,10 +41,10 @@ export default function RegistrationFlow() {
       <header className="shrink-0 px-4" style={{ paddingTop: "calc(var(--safe-top) + 16px)" }}>
         <div className="flex items-center justify-between">
           <p className="tabular text-sm text-muted">{t("reg.step", { n: step })}</p>
-          {isDemo && (
-            <Link to="/demo" className="press focus-inset -my-2 -mr-2 flex h-12 items-center gap-2 rounded-button px-3 text-sm font-medium text-muted">
+          {DEMO_MODE && (
+            <Link to={TEST_PANEL_PATH} className="press focus-inset -my-2 -mr-2 flex h-12 items-center gap-2 rounded-button px-3 text-sm font-medium text-muted">
               <FlaskConical className="h-5 w-5" />
-              {t("profile.demo")}
+              {testPanelText(locale, "title")}
             </Link>
           )}
         </div>
@@ -123,7 +125,7 @@ function BottomAction({ children }: { children: React.ReactNode }) {
 function PhoneStep({ onVerified }: { onVerified: () => void }) {
   const { t } = useT();
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState<{ requestId: string; demoCode: string; resendInSec: number } | null>(null);
+  const [otp, setOtp] = useState<{ requestId: string; testCode?: string; resendInSec: number } | null>(null);
   const [code, setCode] = useState(["", "", "", ""]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -237,7 +239,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
             {error}
           </p>
         )}
-        <p className="tabular mt-6 text-center text-sm text-gold">{t("reg.demoCode", { code: otp.demoCode })}</p>
+        {otp.testCode && <p className="tabular mt-6 text-center text-sm text-gold">{t("reg.testCode", { code: otp.testCode })}</p>}
         <BottomAction>
           <Button variant="ghost" fullWidth disabled={resendIn > 0 || busy} onClick={send}>
             {resendIn > 0 ? t("reg.resendIn", { n: resendIn }) : t("reg.resend")}

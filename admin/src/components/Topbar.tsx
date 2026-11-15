@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import { Avatar } from "./Avatar";
-import { DemoBadge } from "./DemoBadge";
 import type { AdminRole, Me } from "@/api/types";
 
 export const ROLE_LABEL: Record<AdminRole, string> = {
@@ -29,7 +28,6 @@ export function Topbar({ title, me, onLogout }: { title: string; me: Me | null; 
     <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-6 xl:px-8">
       <h1 className="truncate text-lg font-semibold text-ink">{title}</h1>
       <div className="flex shrink-0 items-center gap-3">
-        <DemoBadge inline />
         <span className="hidden items-center gap-2 rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success lg:flex">
           <ShieldCheck className="h-4 w-4" aria-hidden />
           Xavfsiz kirish

@@ -24,8 +24,12 @@ export function ServerGate({ children }: { children: ReactNode }) {
   const check = useCallback(() => {
     // Nothing to probe without a URL; a reload picks up a new deploy.
     if (!apiConfig.configured) return window.location.reload();
-    setState("checking");
-    probeDevBackend().then((reachable) => setState(reachable ? "ok" : "down"));
+    // The probe endpoint exists only on the dev server; production builds
+    // drop this branch (import.meta.env.DEV is a build-time constant).
+    if (import.meta.env.DEV) {
+      setState("checking");
+      probeDevBackend().then((reachable) => setState(reachable ? "ok" : "down"));
+    }
   }, []);
 
   useEffect(() => {

@@ -144,13 +144,14 @@ export type LoginStartResult = {
   requestId: string;
   steps: LoginStep[];
   maskedDestination: string;
-  demoCode: string;
+  /** Set by the mock adapter only (sample-data build); never by the server. */
+  testCode?: string;
   resendSeconds: number;
   attemptsLeft: number;
 };
 
 export type LoginStepResult =
-  | { done: false; requestId: string; step: LoginStep; maskedDestination: string; demoCode: string; resendSeconds: number; attemptsLeft: number }
+  | { done: false; requestId: string; step: LoginStep; maskedDestination: string; testCode?: string; resendSeconds: number; attemptsLeft: number }
   | { done: true; reviewId: string };
 
 // ---------------------------------------------------------------------

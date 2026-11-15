@@ -5,6 +5,7 @@ import { Badge } from "@/components/Badge";
 import { Skeleton } from "@/components/Skeleton";
 import { ROLE_LABEL } from "@/components/Topbar";
 import { usePermissions } from "@/hooks/usePermissions";
+import { DEMO_MODE } from "@/config";
 
 export function AccountScreen() {
   const { me } = usePermissions();
@@ -45,17 +46,19 @@ export function AccountScreen() {
         </p>
       </Card>
 
-      <Card className="space-y-3 lg:col-span-2">
-        <div className="flex items-center gap-2 text-ink">
-          <SettingsIcon className="h-4 w-4 text-accent" aria-hidden />
-          <h2 className="text-sm font-semibold">Demo rejimi</h2>
-        </div>
-        <p className="text-sm text-ink/60">
-          Bu ilova to'liq demo rejimida ishlaydi — barcha ma'lumotlar brauzeringizda saqlanadi, haqiqiy backendga ulanish yo'q. Chap
-          pastdagi demo paneli orqali bazani tiklashingiz, turli stsenariylarni sinab ko'rishingiz va boshqa rol sifatida kirishingiz
-          mumkin.
-        </p>
-      </Card>
+      {DEMO_MODE && (
+        <Card className="space-y-3 lg:col-span-2">
+          <div className="flex items-center gap-2 text-ink">
+            <SettingsIcon className="h-4 w-4 text-accent" aria-hidden />
+            <h2 className="text-sm font-semibold">Sinov rejimi</h2>
+          </div>
+          <p className="text-sm text-ink/60">
+            Ilova namunaviy ma'lumotlar bilan ishlayapti — barcha ma'lumotlar brauzeringizda saqlanadi, serverga ulanish yo'q. Chap
+            pastdagi sinov paneli orqali bazani tiklashingiz, turli stsenariylarni sinab ko'rishingiz va boshqa rol sifatida
+            kirishingiz mumkin.
+          </p>
+        </Card>
+      )}
     </div>
   );
 }

@@ -92,9 +92,6 @@ export function Sidebar({ sections, badges }: { sections: Section[]; badges: Sec
           })}
         </ul>
       </nav>
-      <div className="h-20 shrink-0 border-t border-sidebar-border xl:flex xl:items-center xl:pl-[72px] xl:pr-6">
-        <p className="hidden text-xs text-sidebar-text/60 xl:block">Demo rejimi</p>
-      </div>
     </aside>
   );
 }

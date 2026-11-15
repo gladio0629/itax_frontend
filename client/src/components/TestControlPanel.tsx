@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { FlaskConical, RotateCcw, X } from "@/lib/icons";
-import { useDemoStore, type DemoScenarios } from "@/stores/demoStore";
+import { useTestScenarios, type TestScenarios } from "@/stores/testScenariosStore";
+import { useFloatingControl } from "@/stores/floatingControlStore";
 import { Switch } from "@/components/Switch";
 import { useModalOpen } from "@/lib/useModalOpen";
 import { detectedPlatform, readPlatformOverride, setPlatformOverride, type PlatformOverride } from "@/lib/platform";
 import { cn } from "@/lib/cn";
 
-const SCENARIO_LABELS: Record<keyof DemoScenarios, { label: string; hint: string }> = {
+const PANEL_TITLE = "Sinov paneli";
+
+const SCENARIO_LABELS: Record<keyof TestScenarios, { label: string; hint: string }> = {
   noDriverFound: { label: "Haydovchi topilmadi", hint: "Buyurtma qidiruvi muvaffaqiyatsiz tugaydi" },
   slowInternet: { label: "Sekin internet", hint: "Barcha so'rovlar sezilarli kechikadi" },
   forceErrors: { label: "Xatoliklarni qaytarish", hint: "So'rovlar ko'pincha xato bilan tugaydi" },
@@ -28,10 +31,10 @@ function PlatformToggle() {
   return (
     <div className="mb-3 rounded-xl bg-white/5 px-3 py-2.5">
       <p className="mb-2 flex items-baseline justify-between gap-2 text-xs font-semibold">
-        <span id="demo-platform-label">Platforma</span>
+        <span id="test-platform-label">Platforma</span>
         <span className="text-[11px] font-normal text-white/70">Qurilma: {detected}</span>
       </p>
-      <div role="radiogroup" aria-labelledby="demo-platform-label" className="grid grid-cols-3 gap-1 rounded-lg bg-white/10 p-0.5">
+      <div role="radiogroup" aria-labelledby="test-platform-label" className="grid grid-cols-3 gap-1 rounded-lg bg-white/10 p-0.5">
         {PLATFORM_OPTIONS.map((o) => (
           <button
             key={o.id}
@@ -64,20 +67,21 @@ function useWideViewport() {
 }
 
 /**
- * Demo-only floating control (also the DEMO marker). On a desktop preview it
- * sits outside the phone mockup and never overlaps the app. Full-screen on a
- * phone it would, so there it steps aside: hidden while a modal sheet/drawer
- * or the expanded order flow is open, lifted above the home sheet and any
- * registered footer (useLiftDemoFab), and scroll areas reserve room for it
- * via --demo-clearance (set in PhoneFrame).
+ * Floating test panel. Loaded lazily by App.tsx only when VITE_DEMO_MODE=true,
+ * so the http build never contains it. On a desktop preview it sits outside
+ * the phone mockup and never overlaps the app. Full-screen on a phone it
+ * would, so there it steps aside: hidden while a modal sheet/drawer or the
+ * expanded order flow is open, lifted above the home sheet and any registered
+ * footer (useLiftFloatingControl), and scroll areas reserve room for it via
+ * --fab-clearance (set in PhoneFrame).
  */
-export function DemoControlPanel() {
-  const { isDemo, scenarios, toggle, resetDb, fabHidden, fabBottomPx } = useDemoStore();
+export function TestControlPanel() {
+  const { scenarios, toggle, resetDb } = useTestScenarios();
+  const { fabHidden, fabBottomPx } = useFloatingControl();
   const [open, setOpen] = useState(false);
   const wide = useWideViewport();
   const modalOpen = useModalOpen();
 
-  if (!isDemo) return null;
   if (!wide && !open && (fabHidden || modalOpen)) return null;
 
   // Desktop preview: bottom-right of the window, outside the phone mockup.
@@ -91,16 +95,16 @@ export function DemoControlPanel() {
   return (
     <div className="fixed right-4 z-50 flex flex-col items-end gap-3" style={{ bottom }}>
       {open && (
-        <div className="max-h-[calc(100dvh-96px)] w-72 max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl bg-[#13201c] p-4 text-white shadow-2xl animate-slide-up" role="dialog" aria-label="Demo boshqaruv paneli">
+        <div className="max-h-[calc(100dvh-96px)] w-72 max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl bg-[#13201c] p-4 text-white shadow-2xl animate-slide-up" role="dialog" aria-label={PANEL_TITLE}>
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-semibold">Demo boshqaruv paneli</p>
+            <p className="text-sm font-semibold">{PANEL_TITLE}</p>
             <button onClick={() => setOpen(false)} aria-label="Yopish" className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10">
               <X className="h-4 w-4" />
             </button>
           </div>
           <PlatformToggle />
           <div className="space-y-2">
-            {(Object.keys(SCENARIO_LABELS) as Array<keyof DemoScenarios>).map((key) => {
+            {(Object.keys(SCENARIO_LABELS) as Array<keyof TestScenarios>).map((key) => {
               const meta = SCENARIO_LABELS[key];
               return (
                 <div key={key} className="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2.5">
@@ -124,12 +128,12 @@ export function DemoControlPanel() {
       )}
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Demo boshqaruv paneli"
+        aria-label={PANEL_TITLE}
         aria-expanded={open}
         className="flex h-11 items-center gap-1.5 rounded-full bg-[#13201c] pl-3 pr-3.5 text-white shadow-2xl ring-1 ring-white/20 transition-transform active:scale-95"
       >
         <FlaskConical className="h-4 w-4" aria-hidden="true" />
-        <span className="text-xs font-semibold uppercase tracking-wide">Demo</span>
+        <span className="text-xs font-semibold uppercase tracking-wide">Sinov</span>
       </button>
     </div>
   );

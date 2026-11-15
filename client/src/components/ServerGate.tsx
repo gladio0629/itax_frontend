@@ -24,6 +24,8 @@ export function ServerGate({ children }: { children: ReactNode }) {
   const check = useCallback(() => {
     // Nothing to probe without a URL; a reload picks up a new deploy.
     if (!apiConfig.configured) return window.location.reload();
+    // Only the dev proxy is probed; production builds drop this branch.
+    if (!import.meta.env.DEV) return setState("ok");
     setState("checking");
     probeDevBackend().then((reachable) => setState(reachable ? "ok" : "down"));
   }, []);

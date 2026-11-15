@@ -386,7 +386,7 @@ export type RegistrationOptions = {
 
 export type CancelReason = { key: string };
 
-/** Which kind of request a demo event produces. */
-export type DemoOrderVariant = "random" | "full" | "cargo";
+/** Which kind of request a test-panel event produces (sample-data mode). */
+export type TestOrderVariant = "random" | "full" | "cargo";
 
-export type DemoPreset = "new" | "active" | "near_debt" | "debt" | "bonus";
+export type TestPreset = "new" | "active" | "near_debt" | "debt" | "bonus";

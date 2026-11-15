@@ -64,15 +64,16 @@
 
 @layer utilities {
   /* Bottom padding for a screen's main scroll area: home-indicator inset,
-     a 24px breathing gap, and (demo, full-screen phone only) room for the
-     floating demo control so the last item can scroll clear of it. */
+     a 24px breathing gap, and (sample-data build, full-screen phone only)
+     room for the floating test-panel button so the last item can scroll
+     clear of it. */
   .scroll-pb {
-    padding-bottom: calc(var(--safe-bottom) + 24px + var(--demo-clearance, 0px));
+    padding-bottom: calc(var(--safe-bottom) + 24px + var(--fab-clearance, 0px));
   }
   /* Same, for a scroll area that sits above a BottomBar (which already pads
      for the home indicator). */
   .scroll-pb-bar {
-    padding-bottom: calc(16px + var(--demo-clearance-bar, 0px));
+    padding-bottom: calc(16px + var(--fab-clearance-bar, 0px));
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;

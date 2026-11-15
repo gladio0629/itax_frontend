@@ -314,7 +314,7 @@ export const en: Dictionary = {
   "safety.contactsEmpty": "Add them in Settings > Safety",
   "safety.support": "Help",
   "safety.supportDesc": "Call support",
-  "safety.callDemo": "Demo version: no call is made",
+  "safety.callUnavailable": "Calling isn't available yet",
   "safety.contacts.add": "Add contact",
   "safety.contacts.footer": "During a trip, share it with them from the safety button. Up to {{max}}.",
   "safety.contacts.limit": "Contact limit reached",
@@ -458,7 +458,7 @@ export const en: Dictionary = {
   "account.newPhone": "New phone number",
   "account.enterCode": "Enter the code",
   "account.otpError": "Wrong code. Please try again.",
-  "account.demoCodeHint": "Demo code: {{code}}",
+  "account.testCodeHint": "Test code: {{code}}",
   "account.accountsTitle": "ACCOUNTS",
   "account.addAccount": "Add account",
   "account.deleteAccount": "Delete account",
@@ -482,7 +482,7 @@ export const en: Dictionary = {
   "notifPrefs.bonusDesc": "Notifies you when bonuses are earned or withdrawn",
 
   "about.description": "IZGO — an intercity and in-city taxi service.",
-  "about.version": "Version {{version}} (demo)",
+  "about.version": "Version {{version}}",
   "about.terms": "Terms of use",
   "about.privacy": "Privacy policy",
   "about.contact": "Contact",
@@ -603,6 +603,6 @@ export const en: Dictionary = {
 
   "driver.call": "Call",
   "driver.message": "Message",
-  "driver.callDemoNote": "Demo version: the call isn't actually placed",
-  "driver.messageDemoNote": "Demo version: the message isn't actually sent",
+  "driver.callUnavailable": "Calling isn't available yet",
+  "driver.messageUnavailable": "Messaging isn't available yet",
 };

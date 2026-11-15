@@ -7,7 +7,7 @@ import { Input } from "@/components/Input";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { useT } from "@/lib/i18n/provider";
-import { useLiftDemoFab } from "@/stores/demoStore";
+import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 
 /**
  * Simulated provider-hosted card-link page. IZGO never collects a card
@@ -17,7 +17,7 @@ import { useLiftDemoFab } from "@/stores/demoStore";
  */
 export function CardLinkScreen() {
   const footerRef = useRef<HTMLDivElement>(null);
-  useLiftDemoFab(footerRef);
+  useLiftFloatingControl(footerRef);
   const { t } = useT();
   const navigate = useNavigate();
   const [label, setLabel] = useState("");

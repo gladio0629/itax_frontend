@@ -1,5 +1,5 @@
 // Namespaced localStorage helpers. Every key for this app is prefixed so the
-// "reset DB" demo action can wipe exactly this app's data and nothing else.
+// test panel's "reset" action can wipe exactly this app's data and nothing else.
 const PREFIX = "izgo_driver_";
 
 export function storageKey(name: string): string {

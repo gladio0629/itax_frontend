@@ -1,7 +1,7 @@
 /* Inter Variable — latin + latin-ext subsets only (Uzbek is written in Latin
    script). This is a trimmed copy of @fontsource-variable/inter/wght.css
    with the cyrillic/greek/vietnamese @font-face blocks removed, to keep
-   the demo lightweight. */
+   the app lightweight. */
 @font-face {
   font-family: "InterVariable";
   font-style: normal;

@@ -17,7 +17,8 @@ export function PhoneChangeSheet({ onClose, onDone }: { onClose: () => void; onD
   const { t } = useT();
   const [value, setValue] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
-  const [demoCode, setDemoCode] = useState("");
+  /** Only the sample-data adapter returns the code; a real backend sends an SMS. */
+  const [testCode, setTestCode] = useState("");
   const [digits, setDigits] = useState<string[]>(["", "", "", ""]);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,8 +33,11 @@ export function PhoneChangeSheet({ onClose, onDone }: { onClose: () => void; onD
     try {
       const res = await api.requestPhoneChange(fullPhone);
       setRequestId(res.requestId);
-      setDemoCode(res.demoCode);
-      setTimeout(() => setDigits(res.demoCode.split("")), 600);
+      const code = res.testCode;
+      if (code) {
+        setTestCode(code);
+        setTimeout(() => setDigits(code.split("")), 600);
+      }
     } finally {
       setLoading(false);
     }
@@ -90,7 +94,7 @@ export function PhoneChangeSheet({ onClose, onDone }: { onClose: () => void; onD
               ))}
             </div>
             {error && <p className="mt-3 text-xs font-normal text-danger">{error}</p>}
-            <p className="mt-3 text-xs text-ink/60">{t("account.demoCodeHint", { code: demoCode })}</p>
+            {testCode && <p className="mt-3 text-xs text-ink/60">{t("account.testCodeHint", { code: testCode })}</p>}
           </>
         ) : (
           <>

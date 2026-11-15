@@ -7,7 +7,6 @@ import { useQuery } from "@/lib/useQuery";
 import { useFeedSignal } from "@/stores/feedSignal";
 import { Armchair, Bell } from "@/lib/icons";
 import { Avatar } from "@/components/Avatar";
-import { DemoBadge } from "@/components/DemoBadge";
 import { Skeleton } from "@/components/Skeleton";
 import { Chip } from "@/components/Chip";
 import { SwipeTabs } from "@/components/SwipeTabs";
@@ -93,7 +92,6 @@ export default function HomeScreen() {
           >
             {profile.data ? <Avatar seed={profile.data.avatarSeed} name={profile.data.name} size={44} /> : <Skeleton className="h-11 w-11 rounded-full" />}
           </button>
-          <DemoBadge />
           <button
             type="button"
             onClick={() => setNotifOpen(true)}

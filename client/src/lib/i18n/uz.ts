@@ -314,7 +314,7 @@ export const uz = {
   "safety.contactsEmpty": "Sozlamalar > Xavfsizlik bo'limida qo'shing",
   "safety.support": "Yordam",
   "safety.supportDesc": "Qo'llab-quvvatlash xizmatiga qo'ng'iroq",
-  "safety.callDemo": "Demo versiya: qo'ng'iroq qilinmaydi",
+  "safety.callUnavailable": "Qo'ng'iroq qilish hozircha mavjud emas",
   "safety.contacts.add": "Kontakt qo'shish",
   "safety.contacts.footer": "Safar paytida xavfsizlik tugmasi orqali ularga safarni ulashasiz. Ko'pi bilan {{max}} ta.",
   "safety.contacts.limit": "Kontaktlar soni chegarasiga yetdi",
@@ -458,7 +458,7 @@ export const uz = {
   "account.newPhone": "Yangi telefon raqam",
   "account.enterCode": "Kodni kiriting",
   "account.otpError": "Kod noto'g'ri. Qaytadan urinib ko'ring.",
-  "account.demoCodeHint": "Demo kod: {{code}}",
+  "account.testCodeHint": "Sinov kodi: {{code}}",
   "account.accountsTitle": "AKKAUNTLAR",
   "account.addAccount": "Yangi akkaunt qo'shish",
   "account.deleteAccount": "Akkauntni o'chirish",
@@ -482,7 +482,7 @@ export const uz = {
   "notifPrefs.bonusDesc": "Bonus to'planganda yoki yechilganda xabar beradi",
 
   "about.description": "IZGO — shahar va shaharlar aro taksi xizmati.",
-  "about.version": "Versiya {{version}} (demo)",
+  "about.version": "Versiya {{version}}",
   "about.terms": "Foydalanish shartlari",
   "about.privacy": "Maxfiylik siyosati",
   "about.contact": "Aloqa",
@@ -603,8 +603,8 @@ export const uz = {
 
   "driver.call": "Qo'ng'iroq qilish",
   "driver.message": "Xabar yozish",
-  "driver.callDemoNote": "Demo versiya: qo'ng'iroq amalga oshirilmaydi",
-  "driver.messageDemoNote": "Demo versiya: xabar yuborilmaydi",
+  "driver.callUnavailable": "Qo'ng'iroq qilish hozircha mavjud emas",
+  "driver.messageUnavailable": "Xabar yuborish hozircha mavjud emas",
 };
 
 export type Dictionary = typeof uz;

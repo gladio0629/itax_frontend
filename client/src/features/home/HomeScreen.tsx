@@ -13,7 +13,7 @@ import { SearchPill } from "@/components/ui/SearchPill";
 import { ListRow } from "@/components/ui/ListRow";
 import { PinBubble } from "@/components/ui/PinBubble";
 import { useOrderStore } from "@/stores/orderStore";
-import { useDemoStore } from "@/stores/demoStore";
+import { useFloatingControl } from "@/stores/floatingControlStore";
 import { useT } from "@/lib/i18n/provider";
 import { OrderSheet } from "@/features/order/OrderSheet";
 import { SearchScreen } from "@/features/order/SearchScreen";
@@ -45,7 +45,7 @@ export function HomeScreen() {
   const [submitError, setSubmitError] = useState(false);
   const [panelH, setPanelH] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
-  const setFabPlacement = useDemoStore((s) => s.setFabPlacement);
+  const setFabPlacement = useFloatingControl((s) => s.setFabPlacement);
 
   const fromAddress = addressById(draft.fromAddressId) ?? null;
   const toAddress = addressById(draft.toAddressId) ?? null;
@@ -82,7 +82,7 @@ export function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.fromAddressId, savedReload]);
 
-  // The floating demo control sits above the home sheet, and steps aside
+  // The floating test-panel button sits above the home sheet, and steps aside
   // in the order flow.
   useLayoutEffect(() => {
     const el = panelRef.current;

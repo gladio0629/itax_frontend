@@ -16,7 +16,9 @@ import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { LanguageSheet } from "@/components/LanguageSheet";
-import { isDemo } from "@/api/client";
+import { DEMO_MODE } from "@/config";
+import { TEST_PANEL_PROFILE_PATH } from "@/features/testPanel/paths";
+import { testPanelText } from "@/features/testPanel/strings";
 
 export default function ProfileScreen() {
   const { t, locale } = useT();
@@ -107,7 +109,7 @@ export default function ProfileScreen() {
         <SettingsGroup label={t("profile.groupSupport")}>
           <SettingsRow icon={LifeBuoy} tile="green" label={t("profile.help")} to="/profile/help" />
           <SettingsRow icon={Info} tile="slate" label={t("profile.about")} to="/profile/about" />
-          {isDemo && <SettingsRow icon={FlaskConical} tile="orange" label={t("profile.demo")} to="/profile/demo" />}
+          {DEMO_MODE && <SettingsRow icon={FlaskConical} tile="orange" label={testPanelText(locale, "title")} to={TEST_PANEL_PROFILE_PATH} />}
         </SettingsGroup>
 
         <SettingsGroup>

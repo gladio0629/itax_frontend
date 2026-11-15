@@ -20,11 +20,11 @@ const STEPS = [
 ] as const;
 
 /**
- * Shared "submitted for review" state used everywhere a demo action needs
- * verification (OTP, card linking, wallet top-up, driver documents, admin
- * 2FA, two-person approval, support tickets). Polls api.getReviewStatus()
- * until the mock server auto-resolves it (2-4s), then shows a short
- * celebratory confirmation before calling back.
+ * Shared "submitted for review" state used everywhere an action needs
+ * verification (admin 2FA, two-person approval). Polls api.getReviewStatus()
+ * until the adapter reports a result (the mock adapter auto-resolves after
+ * 2-4s; any timers live there only), then shows a short confirmation before
+ * calling back.
  */
 export function ReviewStatus({ reviewId, title, description, onApproved, onRejected }: Props) {
   const [status, setStatus] = useState<ReviewStatusValue>("pending");

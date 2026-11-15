@@ -2,12 +2,12 @@
 // byte-identical across the three apps and supplies cities, passengers and
 // the driver identity; everything time-relative (today's trips, ledger,
 // offers, live trip) is generated here relative to the moment of seeding so
-// "today" is never empty in a demo.
+// "today" is never empty in the sample data.
 import { CITIES, computePrice, generateSeed, roadDistanceKm, type Passenger } from "@/seed/generate";
 import { makeRng } from "@/lib/prng";
 import { readJSON, writeJSON } from "./storage";
 import type {
-  AddressDetails, CapabilitiesInput, Cargo, CarClass, CargoBody, ChildSeatAge, DemoPreset, Freight, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
+  AddressDetails, CapabilitiesInput, Cargo, CarClass, CargoBody, ChildSeatAge, TestPreset, Freight, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
   NotificationPrefs, OrderKind, PaymentType, RequestAlert, ReviewRequest, RideTime, Session, TimelineEvent, TripStage, TripSummary,
 } from "@/api/types";
 
@@ -484,7 +484,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
   };
 }
 
-export function presetState(preset: DemoPreset): DriverState {
+export function presetState(preset: TestPreset): DriverState {
   switch (preset) {
     case "new":
       return seedState({ registered: false });
@@ -499,7 +499,7 @@ export function presetState(preset: DemoPreset): DriverState {
   }
 }
 
-/** Re-anchor stored demo data to today by whole days, so "today" never goes stale. */
+/** Re-anchor stored sample data to today by whole days, so "today" never goes stale. */
 function reanchor(s: DriverState) {
   const day = 86_400_000;
   const start = (ts: number) => new Date(ts).setHours(0, 0, 0, 0);

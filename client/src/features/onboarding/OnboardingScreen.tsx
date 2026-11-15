@@ -5,7 +5,7 @@ import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/cn";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
-import { useLiftDemoFab } from "@/stores/demoStore";
+import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { RouteIllustration, PriceIllustration, TrustIllustration } from "./illustrations";
 
@@ -17,7 +17,7 @@ const SLIDES = [
 
 export function OnboardingScreen() {
   const footerRef = useRef<HTMLDivElement>(null);
-  useLiftDemoFab(footerRef);
+  useLiftFloatingControl(footerRef);
   const { t } = useT();
   const [index, setIndex] = useState(0);
   const navigate = useNavigate();

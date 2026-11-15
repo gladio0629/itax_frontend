@@ -58,7 +58,7 @@ export interface ApiAdapter {
   // --- auth / session ---
   requestLogin(identifier: string): Promise<LoginStartResult>;
   verifyLoginStep(requestId: string, code: string): Promise<LoginStepResult>;
-  resendLoginCode(requestId: string): Promise<{ demoCode: string; resendSeconds: number }>;
+  resendLoginCode(requestId: string): Promise<{ testCode?: string; resendSeconds: number }>;
   getReviewStatus(reviewId: string): Promise<ReviewRequest>;
   logout(): Promise<void>;
   getMe(): Promise<Me>;

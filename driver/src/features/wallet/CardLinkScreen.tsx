@@ -74,7 +74,7 @@ export default function CardLinkScreen() {
         )}
 
         {step === "provider" && (
-          // Simulated third-party page: deliberately neutral, with a demo notice.
+          // Simulated third-party page: deliberately neutral, with a test notice.
           <div className="flex flex-1 animate-fade-up flex-col">
             <Card className="overflow-hidden">
               <div className="flex items-center gap-3 border-b border-line bg-raised px-4 py-3">
@@ -91,7 +91,7 @@ export default function CardLinkScreen() {
                 </div>
                 <p className="flex gap-2 rounded-button bg-warning/15 p-3 text-sm text-ink">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                  {t("cards.providerDemo")}
+                  {t("cards.providerTest")}
                 </p>
               </div>
             </Card>

@@ -397,7 +397,9 @@ export type Profile = {
 
 export type OtpRequestResult = {
   requestId: string;
-  demoCode: string;
+  /** Sample-data adapter only: the code to autofill. A real backend never
+   * returns it (the code arrives by SMS). */
+  testCode?: string;
 };
 
 export type NotificationPrefs = {

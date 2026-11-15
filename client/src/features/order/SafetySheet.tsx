@@ -11,7 +11,7 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 /**
  * Safety during an active trip: share it (system share sheet, clipboard as a
  * fallback), emergency contacts (managed in Sozlamalar > Xavfsizlik) and a
- * support call (demo — nothing is dialled).
+ * support call (not dialled yet — shows a note).
  */
 export function SafetySheet({ orderId, onClose, onToast }: { orderId: string; onClose: () => void; onToast: (msg: string) => void }) {
   const { t } = useT();
@@ -67,7 +67,7 @@ export function SafetySheet({ orderId, onClose, onToast }: { orderId: string; on
       icon: Headphones,
       title: t("safety.support"),
       subtitle: support ? `${t("safety.supportDesc")} · ${support}` : t("safety.supportDesc"),
-      onClick: () => onToast(t("safety.callDemo")),
+      onClick: () => onToast(t("safety.callUnavailable")),
       tone: "danger",
     },
   ];

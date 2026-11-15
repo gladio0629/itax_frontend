@@ -9,6 +9,7 @@ import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
 import { useMeStore } from "@/stores/meStore";
 import { cn } from "@/lib/cn";
+import { DEMO_MODE } from "@/config";
 
 type Phase = "identifier" | "code" | "review";
 
@@ -16,13 +17,16 @@ export function LoginScreen() {
   const navigate = useNavigate();
   const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
   const [phase, setPhase] = useState<Phase>("identifier");
-  const [identifier, setIdentifier] = useState("kamola@izgo.example");
+  // The sample-data build prefills a sample account; the real build starts empty.
+  const [identifier, setIdentifier] = useState(DEMO_MODE ? "kamola@izgo.example" : "");
   const [loading, setLoading] = useState(false);
   const [identifierError, setIdentifierError] = useState<string | null>(null);
 
   const [requestId, setRequestId] = useState<string | null>(null);
   const [destination, setDestination] = useState("");
-  const [demoCode, setDemoCode] = useState("");
+  // Only the mock adapter returns the code (sample-data build); the real
+  // backend never does, so nothing is shown or autofilled there.
+  const [testCode, setTestCode] = useState<string | undefined>(undefined);
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const [codeError, setCodeError] = useState<string | null>(null);
   const [resendSeconds, setResendSeconds] = useState(0);
@@ -44,7 +48,7 @@ export function LoginScreen() {
       const res = await api.requestLogin(identifier);
       setRequestId(res.requestId);
       setDestination(res.maskedDestination);
-      setDemoCode(res.demoCode);
+      setTestCode(res.testCode);
       setResendSeconds(res.resendSeconds);
       setDigits(Array(6).fill(""));
       setPhase("code");
@@ -68,7 +72,7 @@ export function LoginScreen() {
       } else {
         setRequestId(res.requestId);
         setDestination(res.maskedDestination);
-        setDemoCode(res.demoCode);
+        setTestCode(res.testCode);
         setResendSeconds(res.resendSeconds);
         setDigits(Array(6).fill(""));
         setTimeout(() => inputsRef.current[0]?.focus(), 0);
@@ -87,7 +91,7 @@ export function LoginScreen() {
     setResending(true);
     try {
       const res = await api.resendLoginCode(requestId);
-      setDemoCode(res.demoCode);
+      setTestCode(res.testCode);
       setResendSeconds(res.resendSeconds);
     } finally {
       setResending(false);
@@ -126,10 +130,12 @@ export function LoginScreen() {
               onKeyDown={(e) => e.key === "Enter" && handleStart()}
               autoFocus
             />
-            <p className="text-xs text-ink/50">
-              Demo: kamola@izgo.example (superadmin) · behzod@izgo.example (egasi) · javlon@izgo.example (menejer) ·
-              shahnoza@izgo.example (marketolog) · +998 90 000 00 05 (operator, email yo'q)
-            </p>
+            {DEMO_MODE && (
+              <p className="text-xs text-ink/50">
+                Sinov hisoblari: kamola@izgo.example (superadmin) · behzod@izgo.example (egasi) · javlon@izgo.example (menejer) ·
+                shahnoza@izgo.example (marketolog) · +998 90 000 00 05 (operator, email yo'q)
+              </p>
+            )}
             <Button fullWidth loading={loading} disabled={!identifier.trim()} onClick={handleStart}>
               Davom etish
             </Button>
@@ -144,7 +150,8 @@ export function LoginScreen() {
             <div>
               <p className="text-sm font-semibold text-ink">Tasdiqlash kodi</p>
               <p className="mt-1 text-xs text-ink/60">
-                {destination} manziliga yuborilgan 6 xonali kodni kiriting. (Demo kod: {demoCode})
+                {destination} manziliga yuborilgan 6 xonali kodni kiriting.
+                {testCode && ` (Sinov kodi: ${testCode})`}
               </p>
             </div>
             <div className="flex gap-2">
