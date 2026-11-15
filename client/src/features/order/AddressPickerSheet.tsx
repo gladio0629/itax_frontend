@@ -115,8 +115,8 @@ export function AddressPickerSheet({
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
       </div>
       <div className="px-5 pt-3">
-        <div className="flex h-12 items-center gap-2 rounded-xl bg-ink/5 px-3 focus-within:ring-2 focus-within:ring-accent ios:h-9 ios:gap-1.5 ios:rounded-[10px] ios:bg-[var(--ios-fill-tertiary)] ios:px-2 ios:focus-within:ring-0">
-          <Search className="h-4 w-4 text-ink/60 ios:text-[color:var(--ios-label-secondary)]" />
+        <div className="flex h-12 items-center gap-2 rounded-xl bg-ink/5 px-3 focus-within:ring-2 focus-within:ring-accent">
+          <Search className="h-4 w-4 text-ink/60" />
           <input
             autoFocus
             type="search"

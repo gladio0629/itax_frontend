@@ -47,7 +47,7 @@ export function Alert({
       <div className="absolute inset-0 animate-ios-backdrop-in bg-[var(--ios-backdrop)]" aria-hidden="true" />
       <div
         ref={panelRef}
-        className="relative w-[270px] animate-ios-alert-in overflow-hidden rounded-[14px] bg-[var(--ios-material)] backdrop-blur-xl backdrop-saturate-150 ios-squircle"
+        className="relative w-[270px] animate-ios-alert-in overflow-hidden rounded-[14px] bg-[var(--ios-material)] backdrop-blur-xl backdrop-saturate-150"
       >
         <div className="px-4 pb-[19px] pt-[19px] text-center">
           <h2 id="ios-alert-title" className="ios-headline text-ink">

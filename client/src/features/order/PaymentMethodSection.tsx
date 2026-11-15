@@ -4,7 +4,16 @@ import { Link } from "react-router-dom";
 import { api } from "@/api/client";
 import type { PaymentMethod, SavedCard } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
-import { cn } from "@/lib/cn";
+import { RadioRow } from "@/components/ui/RadioRow";
+import type { LucideIcon } from "@/lib/icons";
+
+function PayTile({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <span className="flex h-[var(--size-tile)] w-[var(--size-tile)] shrink-0 items-center justify-center rounded-tile bg-fill text-ink/70" aria-hidden="true">
+      <Icon className="h-5 w-5" />
+    </span>
+  );
+}
 
 export function PaymentMethodSection({
   value,
@@ -26,29 +35,22 @@ export function PaymentMethodSection({
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={() => onChange("cash")}
-        className={cn(
-          "flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-colors",
-          value === "cash" ? "border-accent bg-accent-5" : "border-border"
-        )}
-      >
-        <Banknote className="h-5 w-5 text-ink/70" />
-        <span className="text-sm font-semibold text-ink">{t("order.cash")}</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => onChange("card")}
-        className={cn(
-          "flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-colors",
-          value === "card" ? "border-accent bg-accent-5" : "border-border"
-        )}
-      >
-        <CreditCard className="h-5 w-5 text-ink/70" />
-        <span className="text-sm font-semibold text-ink">{t("order.card")}</span>
-      </button>
+      {/* Radio rows with the round check on the right (reference style). */}
+      <div role="radiogroup" aria-label={t("order.step.payment")}>
+        <RadioRow
+          checked={value === "cash"}
+          onSelect={() => onChange("cash")}
+          leading={<PayTile icon={Banknote} />}
+          title={t("order.cash")}
+        />
+        <RadioRow
+          checked={value === "card"}
+          onSelect={() => onChange("card")}
+          leading={<PayTile icon={CreditCard} />}
+          title={t("order.card")}
+          last
+        />
+      </div>
 
       {value === "card" && (
         <div className="ml-4 space-y-2">
@@ -58,23 +60,23 @@ export function PaymentMethodSection({
             </button>
           )}
           {cards.map((c) => (
-            <div key={c.id} className="flex items-center justify-between rounded-xl bg-card px-3 py-2.5 shadow-softer">
+            <div key={c.id} className="flex items-center justify-between rounded-control bg-fill px-3 py-2.5">
               <span className="text-xs font-normal text-ink/80">{`${c.label} •••• ${c.last4}`}</span>
             </div>
           ))}
           <Link
             to="/cards/link"
-            className="flex items-center gap-2 rounded-xl border border-dashed border-accent/40 px-3 py-2.5 text-xs font-semibold text-accent"
+            className="flex h-[var(--size-chip)] w-fit items-center gap-1.5 rounded-chip bg-fill px-3.5 text-sub font-medium text-accent"
           >
             <Plus className="h-3.5 w-3.5" /> {t("order.linkCard")}
           </Link>
         </div>
       )}
 
-      <p className="pt-2 text-xs font-semibold text-ink/60">{t("order.paymentSystems")}</p>
+      <p className="pt-2 text-sub text-ink/60">{t("order.paymentSystems")}</p>
       <div className="flex gap-2">
         {["Payme", "Click"].map((label) => (
-          <div key={label} translate="no" className="flex-1 rounded-xl border border-border px-4 py-3 text-center text-xs font-semibold text-ink/60">
+          <div key={label} translate="no" className="flex h-[var(--size-chip)] flex-1 items-center justify-center rounded-chip bg-fill text-sub font-medium text-ink/70">
             {label}
           </div>
         ))}

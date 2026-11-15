@@ -36,7 +36,7 @@ export function ListSection({
           {header}
         </h2>
       )}
-      <div className="overflow-hidden rounded-group bg-card ios-squircle">{children}</div>
+      <div className="overflow-hidden rounded-group bg-card">{children}</div>
       {footer && <p className="ios-footnote px-4 pt-[7px] text-[color:var(--ios-label-secondary)]">{footer}</p>}
     </section>
   );
@@ -63,7 +63,7 @@ export function IconTile({ icon: Icon, tone = "accent" }: { icon: React.Componen
     <span
       aria-hidden="true"
       className={cn(
-        "flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-[7px] ios-squircle",
+        "flex h-[29px] w-[29px] shrink-0 items-center justify-center rounded-[7px]",
         tone === "accent" && "bg-accent text-white",
         tone === "danger" && "bg-danger text-white",
         tone === "yellow" && "bg-brand-yellow text-on-yellow",

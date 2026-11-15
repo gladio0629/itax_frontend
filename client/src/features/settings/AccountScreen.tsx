@@ -255,7 +255,7 @@ export function AccountScreen() {
         )}
         <button
           onClick={() => setAddOpen(true)}
-          className="mb-5 flex w-full items-center gap-3 rounded-2xl bg-card p-4 text-left text-accent shadow-softer"
+          className="mb-5 flex w-full items-center gap-3 rounded-xl bg-card p-4 text-left text-accent shadow-softer"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5">
             <Plus className="h-4 w-4" />

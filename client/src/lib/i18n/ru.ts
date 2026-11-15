@@ -121,6 +121,7 @@ export const ru: Dictionary = {
 
   "cargo.title": "Груз",
   "cargo.price": "Цена",
+  "cargo.body": "Кузов",
   "cargo.vehicleTitle": "Тип машины",
   "cargo.vehicle.spark": "Spark",
   "cargo.vehicle.damas": "Damas",
@@ -151,6 +152,7 @@ export const ru: Dictionary = {
   "kargo.tab.intercity": "Межгород",
   "kargo.tab.marketplace": "На маркетплейс",
   "kargo.loaders.title": "Грузчики",
+  "kargo.loaders.noneDesc": "Помощь не нужна",
   "kargo.loaders.none": "Нет",
   "kargo.loaders.rule": "Грузчиков {{n}}: вещи до {{kg}} кг",
   "kargo.loaders.price": "Каждый грузчик: +{{price}}",

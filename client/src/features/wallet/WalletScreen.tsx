@@ -101,7 +101,7 @@ export function WalletScreen() {
                   const positive = e.amount >= 0;
                   const Icon = TYPE_ICON[e.type];
                   return (
-                    <div key={e.id} className="flex items-center gap-3 rounded-2xl bg-card p-3.5 shadow-softer">
+                    <div key={e.id} className="flex items-center gap-3 rounded-xl bg-card p-3.5 shadow-softer">
                       <div
                         className={cn(
                           "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",

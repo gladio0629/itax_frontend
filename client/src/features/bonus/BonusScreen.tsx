@@ -147,7 +147,7 @@ export function BonusScreen() {
   // 12px card at the top of the scroll content, under the Large Title.
   const hero = (
       <div
-        className={cn("relative overflow-hidden bg-on-yellow text-white", ios ? "mb-6 rounded-card p-4 ios-squircle" : "px-4 pb-6")}
+        className={cn("relative overflow-hidden bg-on-yellow text-white", ios ? "mb-6 rounded-card p-4" : "px-4 pb-6")}
         style={ios ? undefined : { paddingTop: "calc(var(--safe-top) + 68px)" }}
       >
         {celebrateKey > 0 && <ConfettiBurst key={celebrateKey} />}
@@ -180,7 +180,7 @@ export function BonusScreen() {
           disabled={!s?.canWithdraw}
           onClick={() => setAmountOpen(true)}
           className={cn(
-            "mt-5 flex w-full flex-col items-center gap-1 rounded-2xl px-4 py-3.5 transition-colors",
+            "mt-5 flex w-full flex-col items-center gap-1 rounded-xl px-4 py-3.5 transition-colors",
             s?.canWithdraw ? "bg-brand-yellow text-on-yellow" : "bg-white/10 text-white/60"
           )}
         >
@@ -215,8 +215,8 @@ export function BonusScreen() {
         <p className="mb-3 text-sm font-semibold text-ink">{t("bonus.sourcesTitle")}</p>
         {sources.status === "loading" && (
           <div className="space-y-2">
-            <Skeleton className="h-16 w-full rounded-2xl" />
-            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+            <Skeleton className="h-16 w-full rounded-xl" />
           </div>
         )}
         {sources.status === "error" && (
@@ -232,7 +232,7 @@ export function BonusScreen() {
                 <button
                   key={src.id}
                   onClick={() => setDetailSource(src)}
-                  className="flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3.5 text-left shadow-softer"
+                  className="flex w-full items-center gap-3 rounded-xl bg-card px-4 py-3.5 text-left shadow-softer"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
                     <Icon className="h-4 w-4" />
@@ -269,8 +269,8 @@ export function BonusScreen() {
 
         {historyState === "loading" && entries.length === 0 && (
           <div className="space-y-2">
-            <Skeleton className="h-14 w-full rounded-2xl" />
-            <Skeleton className="h-14 w-full rounded-2xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
           </div>
         )}
         {historyState === "error" && <ErrorState onRetry={() => loadHistory(true)} />}
@@ -282,7 +282,7 @@ export function BonusScreen() {
             {entries.map((e, i) => (
               <div
                 key={e.id}
-                className="flex items-center justify-between rounded-2xl bg-card px-4 py-3.5 shadow-softer animate-slide-up"
+                className="flex items-center justify-between rounded-xl bg-card px-4 py-3.5 shadow-softer animate-slide-up"
                 style={{ animationDelay: `${Math.min(i, 8) * 40}ms`, animationFillMode: "backwards" }}
               >
                 <div>

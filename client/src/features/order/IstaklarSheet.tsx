@@ -4,10 +4,7 @@ import type { OptionVariants, OrderOption, OrderOptionId } from "@/api/types";
 import { Sheet } from "@/components/Sheet";
 import { Button } from "@/components/Button";
 import { Switch } from "@/components/Switch";
-import { Segmented } from "@/components/ios/Segmented";
-import { IconTile, ListSection } from "@/components/ios/List";
 import { formatSom } from "@/lib/format";
-import { useIsIOS } from "@/lib/platform";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
@@ -45,9 +42,9 @@ export function IstaklarRow({
     <button
       type="button"
       onClick={onOpen}
-      className="flex min-h-[60px] w-full items-center gap-3 rounded-xl border border-border px-3 py-2.5 text-left hover:bg-ink/5 ios:border-0 ios:bg-[var(--ios-fill-quaternary)]"
+      className="flex min-h-[60px] w-full items-center gap-3 rounded-xl border border-border px-3 py-2.5 text-left hover:bg-ink/5"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent ios:bg-card">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
         <SlidersHorizontal className="h-[18px] w-[18px]" />
       </span>
       <span className="min-w-0 flex-1">
@@ -85,25 +82,12 @@ export function IstaklarSheet({
   onClose: () => void;
 }) {
   const { t, intlTag } = useT();
-  const ios = useIsIOS();
   const price = (o: OrderOption) => (o.price > 0 ? `+${formatSom(o.price, intlTag)}` : t("option.free"));
 
   function variantPicker(o: OrderOption) {
     if (!o.variants || !selected.includes(o.id)) return null;
     const value = variants[o.id] ?? o.defaultVariant ?? o.variants[0].id;
     const label = t("option.child_seat.age");
-    if (ios) {
-      return (
-        <div className="bg-card px-4 pb-3 pt-1">
-          <Segmented
-            ariaLabel={label}
-            value={value}
-            onChange={(v) => onVariant(o.id, v)}
-            options={o.variants.map((v) => ({ id: v.id, label: t(v.labelKey as TranslationKey) }))}
-          />
-        </div>
-      );
-    }
     return (
       <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2 pb-3 pl-[60px] pr-3">
         {o.variants.map((v) => {
@@ -128,44 +112,6 @@ export function IstaklarSheet({
     );
   }
 
-  if (ios) {
-    return (
-      <Sheet open onClose={onClose} ariaLabel={t("options.title")} panelClassName="ios:bg-bg">
-        {/* Pinned like a navigation bar, so "Tayyor" stays reachable while the list scrolls. */}
-        <div className="sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center bg-bg px-4 pb-3 pt-1">
-          <span />
-          <h2 className="ios-headline text-ink">{t("options.title")}</h2>
-          <button type="button" onClick={onClose} className="ios-headline min-h-[44px] justify-self-end text-accent">
-            {t("options.done")}
-          </button>
-        </div>
-        <ListSection className="mb-4">
-          {options.map((o) => {
-            const title = t(o.titleKey as TranslationKey);
-            return (
-              <div key={o.id} className="ios-sep relative" style={{ ["--sep-inset" as string]: "60px" }}>
-                <div className={cn("flex min-h-[60px] items-center gap-[15px] bg-card px-4 py-[9px]", !o.available && "opacity-50")}>
-                  <IconTile icon={ICONS[o.id]} tone={o.id === "child_seat" ? "yellow" : "accent"} />
-                  <span className="min-w-0 flex-1">
-                    <span className="ios-body block text-ink">{title}</span>
-                    {/* Price sits with the description: at Body size a separate
-                        price column would squeeze the text into a sliver. */}
-                    <span className="ios-subheadline block text-[color:var(--ios-label-secondary)]">
-                      <span className="tabular text-ink/80">{price(o)}</span>
-                      {" \u00b7 "}
-                      {o.available ? t(o.descKey as TranslationKey) : t(o.reasonKey as TranslationKey)}
-                    </span>
-                  </span>
-                  <Switch checked={selected.includes(o.id)} disabled={!o.available} onChange={() => onToggle(o)} label={title} />
-                </div>
-                {variantPicker(o)}
-              </div>
-            );
-          })}
-        </ListSection>
-      </Sheet>
-    );
-  }
 
   return (
     <Sheet open onClose={onClose} ariaLabel={t("options.title")}>

@@ -91,7 +91,7 @@ export function TipCard({ orderId, className }: { orderId: string; className?: s
   const chip = (selected: boolean) =>
     cn(
       "min-h-[40px] rounded-full border px-3.5 text-sm font-semibold transition-colors tabular",
-      selected ? "border-accent bg-accent text-bg" : "border-border text-ink/80 hover:border-accent/40 ios:border-0 ios:bg-[var(--ios-fill-tertiary)]"
+      selected ? "border-accent bg-accent text-bg" : "border-border text-ink/80 hover:border-accent/40"
     );
 
   return (

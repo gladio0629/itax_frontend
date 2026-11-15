@@ -43,7 +43,7 @@ export function PhoneScreen() {
     <div className="flex h-full flex-col bg-bg px-6" style={{ paddingTop: "calc(var(--safe-top) + 48px)" }}>
       <div className="flex-1">
         <Logo size={40} className="mb-6" />
-        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-10 text-accent">
+        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-xl bg-accent-10 text-accent">
           <Phone className="h-7 w-7" />
         </div>
         <h1 className="mb-2 text-xl font-semibold text-ink">{t("auth.phoneTitle")}</h1>

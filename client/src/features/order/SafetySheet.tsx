@@ -5,8 +5,6 @@ import type { LucideIcon } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { EmergencyContacts } from "@/api/types";
 import { Sheet } from "@/components/Sheet";
-import { IconTile, ListRow, ListSection } from "@/components/ios/List";
-import { useIsIOS } from "@/lib/platform";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 
@@ -17,7 +15,6 @@ import type { TranslationKey } from "@/lib/i18n/uz";
  */
 export function SafetySheet({ orderId, onClose, onToast }: { orderId: string; onClose: () => void; onToast: (msg: string) => void }) {
   const { t } = useT();
-  const ios = useIsIOS();
   const navigate = useNavigate();
   const [contacts, setContacts] = useState<EmergencyContacts | null>(null);
   const [support, setSupport] = useState<string | null>(null);
@@ -75,23 +72,6 @@ export function SafetySheet({ orderId, onClose, onToast }: { orderId: string; on
     },
   ];
 
-  if (ios) {
-    return (
-      <Sheet open onClose={onClose} ariaLabel={t("safety.button")} panelClassName="ios:bg-bg">
-        <div className="flex flex-col items-center px-4 pb-4 pt-1">
-          <span className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-white">
-            <ShieldCheck className="h-6 w-6" />
-          </span>
-          <h2 className="ios-headline text-ink">{t("safety.button")}</h2>
-        </div>
-        <ListSection className="mb-4">
-          {rows.map((r) => (
-            <ListRow key={r.title} leading={<IconTile icon={r.icon} tone={r.tone ?? "accent"} />} title={r.title} subtitle={r.subtitle} chevron onClick={r.onClick} />
-          ))}
-        </ListSection>
-      </Sheet>
-    );
-  }
 
   return (
     <Sheet open onClose={onClose} ariaLabel={t("safety.button")}>

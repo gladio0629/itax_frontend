@@ -26,8 +26,8 @@ import { ContactFields, ContactNote, LuggageStepper, PromoRow, RiderSection, typ
 import { CargoInfoChips, CargoInfoSheet, CargoTabs, LoadersControl, PricingModeControl, RideAlongRow, WarehouseSheet } from "./KargoControls";
 import { ruleErrorKey } from "@/lib/apiError";
 import { detailsSummary } from "./addressDetails";
-import { useIsIOS } from "@/lib/platform";
-import { Segmented } from "@/components/ios/Segmented";
+import { Segmented } from "@/components/ui/Segmented";
+import { CloseButton } from "@/components/ui/CloseButton";
 
 const STEP_KEYS = ["order.step.route", "order.step.details", "order.step.summary"] as const;
 
@@ -53,15 +53,7 @@ function StepHeader({
             />
           ))}
         </div>
-        <button
-          onClick={onClose}
-          aria-label={t("common.close")}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/70">
-            <X className="h-4 w-4" />
-          </span>
-        </button>
+        <CloseButton onClick={onClose} label={t("common.close")} />
       </div>
       {cargo ? (
         <div className="mt-1 flex items-center gap-2.5">
@@ -100,7 +92,6 @@ export function OrderSheet({
   onClose: () => void;
 }) {
   const { t, intlTag } = useT();
-  const ios = useIsIOS();
   const [step, setStepRaw] = useState(0);
   const [direction, setDirection] = useState<"fwd" | "back">("fwd");
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -517,41 +508,32 @@ export function OrderSheet({
 
         {step === 1 && (
           <div className="space-y-4">
-            {ios ? (
-              <Segmented
-                ariaLabel={t("order.step.details")}
-                value={draft.serviceType}
-                onChange={(v) => {
-                  setField("serviceType", v);
-                  setField("optionIds", []);
-                }}
-                options={[
-                  { id: "passenger", label: t("order.passenger"), icon: Armchair },
-                  { id: "delivery", label: t("order.delivery"), icon: CarIcon },
-                ]}
-              />
-            ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <SegmentButton
-                selected={draft.serviceType === "passenger"}
-                icon={Armchair}
-                label={t("order.passenger")}
-                onClick={() => {
-                  setField("serviceType", "passenger");
-                  setField("optionIds", []);
-                }}
-              />
-              <SegmentButton
-                selected={draft.serviceType === "delivery"}
-                icon={CarIcon}
-                label={t("order.delivery")}
-                onClick={() => {
-                  setField("serviceType", "delivery");
-                  setField("optionIds", []);
-                }}
-              />
-            </div>
-            )}
+            <Segmented
+              ariaLabel={t("order.step.details")}
+              value={draft.serviceType}
+              onChange={(v) => {
+                setField("serviceType", v);
+                setField("optionIds", []);
+              }}
+              options={[
+                {
+                  id: "passenger",
+                  label: (
+                    <span className="inline-flex items-center gap-2">
+                      <Armchair className="h-4 w-4" /> {t("order.passenger")}
+                    </span>
+                  ),
+                },
+                {
+                  id: "delivery",
+                  label: (
+                    <span className="inline-flex items-center gap-2">
+                      <CarIcon className="h-4 w-4" /> {t("order.delivery")}
+                    </span>
+                  ),
+                },
+              ]}
+            />
 
             {draft.serviceType === "passenger" ? (
               <>
@@ -931,29 +913,6 @@ export function OrderSheet({
   );
 }
 
-function SegmentButton({
-  selected,
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  selected: boolean;
-  icon: typeof CarIcon;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center justify-center gap-2 rounded-xl border-2 py-3.5 text-sm font-semibold transition-colors",
-        selected ? "border-accent bg-accent-5 text-accent" : "border-border text-ink/70"
-      )}
-    >
-      <Icon className="h-4 w-4" /> {label}
-    </button>
-  );
-}
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (

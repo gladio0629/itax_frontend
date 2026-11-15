@@ -58,7 +58,7 @@ export function AppShell() {
   const controlClass = cn(
     "absolute left-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl transition-opacity active:scale-95",
     // iOS (map screens without a bar): a round blurred map button.
-    "ios:rounded-full ios:bg-[var(--ios-bar-bg)] ios:shadow-soft ios:backdrop-blur-xl",
+    " ios:bg-[var(--ios-bar-bg)] ios:shadow-soft ios:backdrop-blur-xl",
     modalOpen && "pointer-events-none opacity-0"
   );
 

@@ -121,6 +121,7 @@ export const uz = {
 
   "cargo.title": "Kargo",
   "cargo.price": "Narx",
+  "cargo.body": "Kuzov",
   "cargo.vehicleTitle": "Mashina turi",
   "cargo.vehicle.spark": "Spark",
   "cargo.vehicle.damas": "Damas",
@@ -151,6 +152,7 @@ export const uz = {
   "kargo.tab.intercity": "Shaharlararo",
   "kargo.tab.marketplace": "Marketpleysga",
   "kargo.loaders.title": "Yukchilar",
+  "kargo.loaders.noneDesc": "Yordam kerak emas",
   "kargo.loaders.none": "Yo'q",
   "kargo.loaders.rule": "{{n}} yukchi: {{kg}} kg gacha buyumlar",
   "kargo.loaders.price": "Har bir yukchi: +{{price}}",

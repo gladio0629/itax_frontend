@@ -76,7 +76,7 @@ export function DriverComment({
           maxLength={maxLength}
           onChange={(e) => onChange(e.target.value)}
           placeholder={t("comment.placeholder")}
-          className="block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink/60 focus:border-accent ios:border-0 ios:bg-[var(--ios-fill-tertiary)] ios:focus:bg-[var(--ios-fill-secondary)] ios:placeholder:text-[color:var(--ios-label-tertiary)]"
+          className="block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink/60 focus:border-accent"
         />
         {maxLength != null && (
           <p className="mt-1 text-right text-xs text-ink/60 tabular" aria-hidden={value.length < maxLength * 0.9}>
@@ -90,7 +90,7 @@ export function DriverComment({
           const option = options.find((o) => o.id === hint.optionId);
           if (!option) return null;
           return (
-            <div key={hint.optionId} className="flex animate-fade-in gap-2.5 rounded-xl bg-accent-5 pb-1 pl-3 pr-1 pt-3 ios:bg-[var(--ios-fill-quaternary)]">
+            <div key={hint.optionId} className="flex animate-fade-in gap-2.5 rounded-xl bg-accent-5 pb-1 pl-3 pr-1 pt-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
                 <Lightbulb className="h-4 w-4" />
               </span>

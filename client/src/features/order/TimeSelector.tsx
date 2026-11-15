@@ -4,12 +4,11 @@ import type { OrderTiming, SchedulingRules } from "@/api/types";
 import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/Skeleton";
 import { WheelPicker } from "@/components/WheelPicker";
-import { X } from "@/lib/icons";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { cn } from "@/lib/cn";
-import { useIsIOS } from "@/lib/platform";
-import { Segmented as IOSSegmented } from "@/components/ios/Segmented";
+import { Segmented as UISegmented } from "@/components/ui/Segmented";
+import { RadioRow } from "@/components/ui/RadioRow";
 import { Switch } from "@/components/Switch";
 import {
   addDays,
@@ -51,30 +50,7 @@ function Segmented<T extends string>({
   onChange: (v: T) => void;
   label: string;
 }) {
-  const ios = useIsIOS();
-  if (ios) return <IOSSegmented ariaLabel={label} value={value} onChange={onChange} options={options} />;
-  return (
-    <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-2">
-      {options.map((o) => {
-        const selected = o.id === value;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(o.id)}
-            className={cn(
-              "min-h-[48px] rounded-xl border-2 px-2 text-sm font-semibold transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-[0.98]",
-              selected ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer" : "border-border bg-card text-ink/70 hover:border-ink/25 hover:text-ink"
-            )}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+  return <UISegmented ariaLabel={label} value={value} onChange={onChange} options={options} />;
 }
 
 /** Smooth height expand (grid-rows 0fr → 1fr), 240ms. */
@@ -174,19 +150,14 @@ export function TimeSelector({
 
   return (
     <section aria-labelledby="when-title" className="space-y-3">
-      <p id="when-title" className="text-sm font-semibold text-ink">
+      <h3 id="when-title" className="text-section font-bold text-ink">
         {t("when.title")}
-      </p>
-      <Segmented
-        label={t("when.title")}
-        value={open ? "custom" : "driver"}
-        onChange={chooseMode}
-        options={[
-          { id: "driver", label: t("when.driver") },
-          { id: "custom", label: t("when.custom") },
-        ]}
-      />
-      {!open && <p className="text-xs text-ink/60">{t("when.driverHint")}</p>}
+      </h3>
+      {/* Radio rows with the round check (reference "pickup time" card). */}
+      <div role="radiogroup" aria-labelledby="when-title">
+        <RadioRow checked={!open} onSelect={() => chooseMode("driver")} title={t("when.driver")} subtitle={t("when.driverHint")} />
+        <RadioRow checked={open} onSelect={() => chooseMode("custom")} title={t("when.custom")} last />
+      </div>
 
       <Expand open={open}>
         {rulesQuery.status === "error" ? (
@@ -246,10 +217,8 @@ function ScheduledFields({
   const end = timing.dateEnd ? resolveDay(timing.dateEnd, now) : undefined;
   const earliest = earliestToday(rules, now);
   const onToday = start === today;
-  const chipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const ios = useIsIOS();
-
-  // iOS date wheels: "Bugun", "Ertaga", then "Sha 16-noy"… across the
+  // Date wheels (one design on every device, as the reference's date and
+  // time sheet): "Bugun", "Ertaga", then "Sha 16-noy"… across the
   // bookable window; "Bir necha kun" adds a second wheel for the last day,
   // limited to maxRangeDays after the first. Every change goes through the
   // same commit/normalizeTiming path as the chips.
@@ -270,27 +239,6 @@ function ScheduledFields({
       const first = endChoices(start)[0];
       if (first) commit({ ...timing, dateEnd: first });
     }
-  }
-
-  // Keep the start chip in view (e.g. after jumping to tomorrow).
-  useEffect(() => {
-    chipRefs.current[start]?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
-  }, [start]);
-
-  function tapDay(d: string) {
-    if (anchor && !end && d > anchor) {
-      if (dayDiff(anchor, d) <= rules.maxRangeDays) {
-        setAnchor(null);
-        commit({ ...timing, date: anchor, dateEnd: d });
-        return;
-      }
-      // Too far for a range: blocked — that tap starts a fresh single date.
-      setAnchor(d);
-      commit({ ...timing, date: d, dateEnd: undefined }, { key: "rangeTooLong" });
-      return;
-    }
-    setAnchor(d);
-    commit({ ...timing, date: d, dateEnd: undefined });
   }
 
   function setKind(kind: "exact" | "range") {
@@ -328,7 +276,6 @@ function ScheduledFields({
   return (
     <div className="space-y-4 pt-2">
       {/* Date first */}
-      {ios ? (
         <div>
           <p className="mb-1 text-xs font-semibold text-ink/60">{t("when.date")}</p>
           <div className={cn(end && "grid grid-cols-2 gap-3")}>
@@ -360,67 +307,6 @@ function ScheduledFields({
             />
           </label>
         </div>
-      ) : (
-      <div>
-        <p id="when-date" className="mb-2 text-xs font-semibold text-ink/60">
-          {t("when.date")}
-        </p>
-        <div
-          role="group"
-          aria-labelledby="when-date"
-          className="no-scrollbar -mx-5 flex snap-x scroll-px-5 gap-2 overflow-x-auto overscroll-x-contain px-5 py-1"
-        >
-          {days.map((d) => {
-            const isEdge = d === start || d === end;
-            const inRange = !!end && d > start && d < end;
-            const named = d === today || d === addDays(today, 1);
-            return (
-              <button
-                key={d}
-                ref={(el) => (chipRefs.current[d] = el)}
-                type="button"
-                aria-pressed={isEdge || inRange}
-                aria-label={named ? `${dayLabel(d, t, intlTag, now)}, ${shortDate(d, intlTag)}` : `${weekdayShort(d, intlTag)}, ${shortDate(d, intlTag)}`}
-                onClick={() => tapDay(d)}
-                className={cn(
-                  "flex h-14 shrink-0 snap-start flex-col items-center justify-center rounded-xl border-2 px-3 transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-[0.97]",
-                  named ? "min-w-[76px]" : "min-w-[56px]",
-                  isEdge
-                    ? "border-brand-yellow bg-brand-yellow text-on-yellow shadow-softer"
-                    : inRange
-                    ? "border-brand-yellow/40 bg-brand-yellow/20 text-ink"
-                    : "border-border bg-card text-ink/70 hover:border-ink/25 hover:text-ink"
-                )}
-              >
-                <span className="text-xs leading-4">{named ? dayLabel(d, t, intlTag, now) : weekdayShort(d, intlTag)}</span>
-                <span className="text-sm font-semibold leading-5 tabular">{shortDate(d, intlTag)}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-1 flex min-h-[44px] items-center justify-between gap-3">
-          {end ? (
-            <>
-              <p className="text-sm font-semibold text-ink tabular">
-                {dayLabel(start, t, intlTag, now)} – {dayLabel(end, t, intlTag, now)}
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setAnchor(start);
-                  commit({ ...timing, dateEnd: undefined });
-                }}
-                className="inline-flex min-h-[44px] items-center gap-1 text-xs font-semibold text-accent"
-              >
-                <X className="h-3.5 w-3.5" /> {t("when.clearRange")}
-              </button>
-            </>
-          ) : (
-            <p className="text-xs text-ink/60 text-pretty">{t("when.rangeHint", { max: rules.maxRangeDays })}</p>
-          )}
-        </div>
-      </div>
-      )}
 
       <Segmented
         label={t("when.time")}

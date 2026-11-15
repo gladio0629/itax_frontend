@@ -14,28 +14,29 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none select-none";
+  "inline-flex items-center justify-center gap-2 rounded-button font-semibold transition duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none select-none";
 
 // Brand yellow is the signature fill color — always paired with navy
 // (on-yellow) text. It's the default ("primary") button everywhere, since
 // each screen/sheet in this app renders at most one at a time; `brand` is
 // kept as an explicit alias for call sites that want to say so directly.
-const PRIMARY_CLASSES = "bg-brand-yellow text-on-yellow shadow-soft hover:brightness-105 ios:shadow-none";
+// Flat yellow, as measured (no drop shadow on the reference's button).
+const PRIMARY_CLASSES = "bg-brand-yellow text-on-yellow hover:brightness-105";
 
 const variants: Record<Variant, string> = {
   primary: PRIMARY_CLASSES,
   brand: PRIMARY_CLASSES,
-  secondary: "bg-accent-5 text-accent hover:bg-accent-10",
+  secondary: "bg-fill text-ink hover:bg-ink/10",
   ghost: "bg-transparent text-ink/80 hover:bg-ink/5",
-  danger: "bg-danger text-bg shadow-soft hover:brightness-105 ios:text-white ios:shadow-none",
+  danger: "bg-danger text-white hover:brightness-105",
   dangerSoft: "bg-danger/10 text-danger hover:bg-danger/15",
 };
 
-// Large: 52px / 14px standard; 50px / 17px semibold on iOS (tokens).
-// Small: capsule on iOS.
+// Large: 56px / 17px semibold, radius 17 (measured, tokens.css). Small: a
+// 44px capsule.
 const sizes: Record<Size, string> = {
-  md: "h-[var(--button-md-height)] px-6 text-[length:var(--button-md-text)] leading-5 ios:tracking-[-0.43px]",
-  sm: "h-11 px-4 text-sm ios:rounded-full",
+  md: "h-[var(--button-md-height)] px-6 text-[length:var(--button-md-text)] leading-5",
+  sm: "h-11 rounded-chip px-4 text-control",
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(

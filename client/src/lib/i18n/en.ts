@@ -121,6 +121,7 @@ export const en: Dictionary = {
 
   "cargo.title": "Cargo",
   "cargo.price": "Price",
+  "cargo.body": "Body",
   "cargo.vehicleTitle": "Vehicle type",
   "cargo.vehicle.spark": "Spark",
   "cargo.vehicle.damas": "Damas",
@@ -151,6 +152,7 @@ export const en: Dictionary = {
   "kargo.tab.intercity": "Intercity",
   "kargo.tab.marketplace": "Marketplace",
   "kargo.loaders.title": "Loaders",
+  "kargo.loaders.noneDesc": "No help needed",
   "kargo.loaders.none": "None",
   "kargo.loaders.rule": "{{n}} loader(s): items up to {{kg}} kg",
   "kargo.loaders.price": "Each loader: +{{price}}",

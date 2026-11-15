@@ -1,91 +1,27 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { Info, Minus, Package, Plus, UserRound, Users, Warehouse as WarehouseIcon } from "@/lib/icons";
+import { useEffect, useId, useState } from "react";
+import { Info, Minus, Package, Plus, UserRound, Warehouse as WarehouseIcon } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { CargoInfo, CargoInfoTopic, CargoRules, RideAlong, Warehouse } from "@/api/types";
 import { Sheet } from "@/components/Sheet";
 import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/Skeleton";
 import { Switch } from "@/components/Switch";
+import { Segmented } from "@/components/ui/Segmented";
+import { TextTabs } from "@/components/ui/TextTabs";
+import { Chip } from "@/components/ui/Chip";
 import { formatKm, formatSom } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
 
-type SegOption<T extends string> = { id: T; label: string; disabled?: boolean };
+/** Kargo's segmented controls are the shared gray-track Segmented. */
+export const Seg = Segmented;
 
-/**
- * Equal-width segmented control (iOS look under data-platform="ios"), with
- * per-option disabled state — Kargo tabs, loaders, pricing mode.
- */
-export function Seg<T extends string>({
-  options,
-  value,
-  onChange,
-  ariaLabel,
-  ariaLabelledBy,
-}: {
-  options: SegOption<T>[];
-  value: T;
-  onChange: (v: T) => void;
-  ariaLabel?: string;
-  ariaLabelledBy?: string;
-}) {
-  const refs = useRef(new Map<T, HTMLButtonElement>());
-  function onKeyDown(e: KeyboardEvent) {
-    const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-    if (!d) return;
-    e.preventDefault();
-    const usable = options.filter((o) => !o.disabled);
-    const i = usable.findIndex((o) => o.id === value);
-    const next = usable[(i + d + usable.length) % usable.length];
-    if (next) {
-      onChange(next.id);
-      refs.current.get(next.id)?.focus();
-    }
-  }
-  return (
-    <div
-      role="radiogroup"
-      aria-label={ariaLabel}
-      aria-labelledby={ariaLabelledBy}
-      onKeyDown={onKeyDown}
-      className="grid gap-1 rounded-xl bg-ink/5 p-1 ios:rounded-[9px] ios:bg-[var(--ios-fill-tertiary)] ios:p-0.5"
-      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
-    >
-      {options.map((o) => {
-        const on = o.id === value;
-        return (
-          <button
-            key={o.id}
-            ref={(el) => {
-              if (el) refs.current.set(o.id, el);
-              else refs.current.delete(o.id);
-            }}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            aria-disabled={o.disabled || undefined}
-            tabIndex={on ? 0 : -1}
-            onClick={() => !o.disabled && onChange(o.id)}
-            className={cn(
-              "min-h-[40px] min-w-0 rounded-lg px-1 text-[13px] font-semibold leading-tight transition-colors ios:min-h-[32px] ios:rounded-[7px]",
-              on ? "bg-card text-ink shadow-softer ios:shadow-[0_3px_8px_rgba(0,0,0,0.12)]" : "text-ink/70 hover:text-ink",
-              o.disabled && "cursor-not-allowed text-ink/35 hover:text-ink/35"
-            )}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Kargo tabs: Shahar ichi / Shaharlararo / Marketpleysga. */
+/** Kargo tabs: text tabs with the thick underline. */
 export function CargoTabs({ rules, value, onChange }: { rules: CargoRules; value: string; onChange: (v: CargoRules["tabs"][number]["id"]) => void }) {
   const { t } = useT();
   return (
-    <Seg
+    <TextTabs
       ariaLabel={t("kargo.tabs.label")}
       value={value as CargoRules["tabs"][number]["id"]}
       onChange={onChange}
@@ -94,29 +30,31 @@ export function CargoTabs({ rules, value, onChange }: { rules: CargoRules; value
   );
 }
 
-/** "Yukchilar": Yo'q / 1 / 2 with the adapter's rules and price. */
+/** "Yukchilar": label and the selected rule on the left, Yo'q / 1 / 2 on the
+ * right (as the reference lays it out); price and the other rule below. */
 export function LoadersControl({ rules, value, onChange }: { rules: CargoRules; value: number; onChange: (n: number) => void }) {
   const { t, intlTag } = useT();
   const id = useId();
+  const rule = rules.loaders.infoLines.find((l) => l.params?.n === value);
   return (
-    <section aria-labelledby={id} className="space-y-2 pt-1">
-      <p id={id} className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-        <Users className="h-4 w-4 text-ink/60" /> {t("kargo.loaders.title")}
-      </p>
-      <Seg
-        ariaLabelledBy={id}
-        value={String(value)}
-        onChange={(v) => onChange(Number(v))}
-        options={rules.loaders.counts.map((n) => ({ id: String(n), label: n === 0 ? t("kargo.loaders.none") : String(n) }))}
-      />
-      <p className="flex gap-1.5 text-xs text-ink/60">
-        <Info className="mt-px h-3.5 w-3.5 shrink-0" />
-        <span>
-          {rules.loaders.infoLines.map((l) => t(l.key as TranslationKey, l.params)).join(" · ")}
-          {" · "}
-          <span className="tabular">{t("kargo.loaders.price", { price: formatSom(rules.loaders.pricePerLoader, intlTag) })}</span>
+    <section aria-labelledby={id} className="space-y-1.5">
+      <div className="flex items-center gap-3">
+        <span className="min-w-0 flex-1">
+          <span id={id} className="block text-control text-ink">
+            {t("kargo.loaders.title")}
+          </span>
+          <span className="block text-sub text-ink/60">{rule ? t(rule.key as TranslationKey, rule.params) : t("kargo.loaders.noneDesc")}</span>
         </span>
-      </p>
+        <Segmented
+          size="sm"
+          className="w-[148px] shrink-0"
+          ariaLabelledBy={id}
+          value={String(value)}
+          onChange={(v) => onChange(Number(v))}
+          options={rules.loaders.counts.map((n) => ({ id: String(n), label: n === 0 ? t("kargo.loaders.none") : String(n) }))}
+        />
+      </div>
+      <p className="text-sub text-ink/60 tabular">{t("kargo.loaders.price", { price: formatSom(rules.loaders.pricePerLoader, intlTag) })}</p>
     </section>
   );
 }
@@ -143,30 +81,30 @@ export function PricingModeControl({
   const blocked = modes.find((m) => !m.available);
   const { min, max } = rules.hours;
   const btn =
-    "flex h-11 w-11 items-center justify-center rounded-full bg-accent-5 text-accent transition-colors hover:bg-accent-10 disabled:opacity-40 disabled:hover:bg-accent-5 ios:bg-card";
+    "flex h-11 w-11 items-center justify-center rounded-full bg-fill text-ink transition-colors hover:bg-ink/10 disabled:opacity-40 disabled:hover:bg-fill";
   return (
-    <section aria-labelledby={id} className="space-y-2">
-      <p id={id} className="text-sm font-semibold text-ink">
+    <section aria-labelledby={id} className="space-y-3">
+      <h3 id={id} className="text-section font-bold text-ink">
         {t("kargo.mode.title")}
-      </p>
-      <Seg
+      </h3>
+      <Segmented
         ariaLabelledBy={id}
         value={mode}
         onChange={onMode}
         options={modes.map((m) => ({ id: m.id, label: t(m.labelKey as TranslationKey), disabled: !m.available }))}
       />
-      {blocked && <p className="text-xs text-ink/60">{t(blocked.reasonKey as TranslationKey)}</p>}
+      {blocked && <p className="text-sub text-ink/60">{t(blocked.reasonKey as TranslationKey)}</p>}
       {mode === "hourly" && (
-        <div className="flex min-h-[64px] items-center gap-3 rounded-xl border border-border px-3 py-2 animate-fade-in ios:border-0 ios:bg-[var(--ios-fill-quaternary)]">
+        <div className="flex min-h-[var(--size-row)] items-center gap-3 border-b border-hairline py-2 animate-fade-in">
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-ink">{t("kargo.hours.title")}</span>
-            <span className="block text-xs text-ink/60">{t("kargo.hours.range", { min, max })}</span>
+            <span className="block text-control text-ink">{t("kargo.hours.title")}</span>
+            <span className="block text-sub text-ink/60">{t("kargo.hours.range", { min, max })}</span>
           </span>
           <div className="flex shrink-0 items-center gap-1">
             <button type="button" onClick={() => onHours(Math.max(min, hours - 1))} disabled={hours <= min} aria-label={t("kargo.hours.decrease")} className={btn}>
               <Minus className="h-4 w-4" />
             </button>
-            <span className="min-w-[56px] whitespace-nowrap px-1 text-center text-base font-semibold text-ink tabular" aria-live="polite">
+            <span className="min-w-[56px] whitespace-nowrap px-1 text-center text-body font-semibold text-ink tabular" aria-live="polite">
               {t("kargo.hours.value", { n: hours })}
             </span>
             <button type="button" onClick={() => onHours(Math.min(max, hours + 1))} disabled={hours >= max} aria-label={t("kargo.hours.increase")} className={btn}>
@@ -179,20 +117,15 @@ export function PricingModeControl({
   );
 }
 
-/** "Yetkazish haqida", "Yukchilar haqida", "Kuzov haqida", "Sug'urta". */
+/** "Yetkazish haqida ⓘ", … — gray capsule chips. */
 export function CargoInfoChips({ rules, onOpen }: { rules: CargoRules; onOpen: (topic: CargoInfoTopic) => void }) {
   const { t } = useT();
   return (
     <div className="flex flex-wrap gap-2">
       {rules.infoTopics.map((x) => (
-        <button
-          key={x.id}
-          type="button"
-          onClick={() => onOpen(x.id)}
-          className="flex min-h-[36px] items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-ink/80 transition-colors hover:border-accent/40 hover:text-ink ios:border-0 ios:bg-[var(--ios-fill-tertiary)]"
-        >
-          <Info className="h-3.5 w-3.5 text-accent" /> {t(x.labelKey as TranslationKey)}
-        </button>
+        <Chip key={x.id} onClick={() => onOpen(x.id)} trailing={<Info className="h-4 w-4" />}>
+          {t(x.labelKey as TranslationKey)}
+        </Chip>
       ))}
     </div>
   );
@@ -255,12 +188,12 @@ export function RideAlongRow({
   const { t } = useT();
   const available = !!state?.available;
   return (
-    <div className={cn("flex min-h-[64px] items-center gap-3 rounded-xl border border-border px-3 py-2 ios:border-0 ios:bg-[var(--ios-fill-quaternary)]", state && !available && "opacity-70")}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent ios:bg-card">
+    <div className={cn("flex min-h-[var(--size-row)] items-center gap-3 py-2", state && !available && "opacity-70")}>
+      <span className="flex h-[var(--size-tile)] w-[var(--size-tile)] shrink-0 items-center justify-center rounded-tile bg-fill text-ink/70">
         <UserRound className="h-[18px] w-[18px]" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-ink">{t("kargo.rideAlong")}</span>
+        <span className="block text-control text-ink">{t("kargo.rideAlong")}</span>
         {!state && onRetry ? (
           <button onClick={onRetry} className="inline-flex min-h-[32px] items-center text-xs font-semibold text-danger underline">
             {t("common.loadFailedRetry")}

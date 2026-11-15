@@ -176,7 +176,7 @@ export function HomeScreen() {
             onClose={collapseFlow}
           />
         ) : (
-          <div className="px-5 pb-4 ios:pb-[calc(var(--safe-bottom)+16px)]">
+          <div className="px-5 pb-4">
             <div className="mb-4 flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
                 <MapPin className="h-3.5 w-3.5" />
@@ -186,7 +186,7 @@ export function HomeScreen() {
 
             <button
               onClick={() => openFlow()}
-              className="flex w-full items-center justify-between rounded-2xl bg-ink/5 px-5 py-4 text-left ios:bg-[var(--ios-fill-tertiary)] ios:active:bg-[var(--ios-fill)]"
+              className="flex w-full items-center justify-between rounded-2xl bg-ink/5 px-5 py-4 text-left"
             >
               <span className="text-sm font-normal text-ink/60">{t("home.whereTo")}</span>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-bg">
@@ -217,7 +217,7 @@ export function HomeScreen() {
                   <button
                     key={address.id}
                     onClick={() => openFlow(address, details)}
-                    className="flex w-full items-center gap-3 rounded-xl bg-card px-4 py-3.5 text-left shadow-softer ios:bg-[var(--ios-fill-quaternary)] ios:transition-colors ios:duration-100 ios:active:bg-[var(--ios-fill)]"
+                    className="flex w-full items-center gap-3 rounded-xl bg-card px-4 py-3.5 text-left shadow-softer"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
                       <MapPin className="h-4 w-4" />

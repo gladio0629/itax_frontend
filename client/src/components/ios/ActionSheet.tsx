@@ -43,7 +43,7 @@ export function ActionSheet({
         className="absolute inset-x-0 bottom-0 animate-ios-sheet-in px-2"
         style={{ paddingBottom: "max(var(--safe-bottom), 8px)" }}
       >
-        <div className="overflow-hidden rounded-[14px] bg-[var(--ios-material)] backdrop-blur-xl backdrop-saturate-150 ios-squircle">
+        <div className="overflow-hidden rounded-[14px] bg-[var(--ios-material)] backdrop-blur-xl backdrop-saturate-150">
           {(title || message) && (
             <div className="ios-sep relative px-4 py-[14px] text-center" style={{ ["--sep-inset" as string]: "0px" }}>
               {title && <p className="ios-footnote font-semibold text-[color:var(--ios-label-secondary)]">{title}</p>}
@@ -75,7 +75,7 @@ export function ActionSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-2 flex h-[57px] w-full items-center justify-center rounded-[14px] bg-[var(--ios-elevated)] text-[20px] font-semibold leading-[25px] tracking-[-0.45px] text-accent transition-colors duration-100 hover:bg-[var(--ios-fill-quaternary)] active:bg-[var(--ios-row-pressed)] ios-squircle"
+          className="mt-2 flex h-[57px] w-full items-center justify-center rounded-[14px] bg-[var(--ios-elevated)] text-[20px] font-semibold leading-[25px] tracking-[-0.45px] text-accent transition-colors duration-100 hover:bg-[var(--ios-fill-quaternary)] active:bg-[var(--ios-row-pressed)]"
         >
           {cancelLabel}
         </button>

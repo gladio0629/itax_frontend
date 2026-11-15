@@ -1,8 +1,9 @@
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
-import { useIsIOS } from "@/lib/platform";
 
-const ITEM_HEIGHT = 44;
+// Row pitch 51 and band 58.5 (measured: photo 1, the date and time sheet).
+const ITEM_HEIGHT = 52;
+const BAND_HEIGHT = 58;
 const VISIBLE_COUNT = 5;
 const PAD = Math.floor(VISIBLE_COUNT / 2) * ITEM_HEIGHT;
 /** Rows either side of centre that get the drum transform. */
@@ -35,9 +36,6 @@ export function WheelPicker({
   /** Display label for an option (defaults to the option itself). */
   format?: (option: string) => string;
 }) {
-  // iOS: UIDatePicker look — gray selection band, regular weight, 22pt rows,
-  // unavailable rows simply greyed (no strike-through).
-  const ios = useIsIOS();
   const listId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -160,11 +158,9 @@ export function WheelPicker({
     <div className="relative select-none" style={{ height: ITEM_HEIGHT * VISIBLE_COUNT }}>
       {/* Highlight band behind the centre row */}
       <div
-        className={cn(
-          "pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2",
-          ios ? "rounded-lg bg-[var(--ios-fill-tertiary)]" : "rounded-xl bg-brand-yellow/15 ring-1 ring-inset ring-brand-yellow/60"
-        )}
-        style={{ height: ITEM_HEIGHT }}
+        // Gray selection band (measured: #f4f4f4, radius 16), one design everywhere.
+        className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-[16px] bg-fill-subtle"
+        style={{ height: BAND_HEIGHT }}
         aria-hidden="true"
       />
       <div
@@ -197,14 +193,8 @@ export function WheelPicker({
               aria-disabled={dimmed || undefined}
               onClick={() => scrollToIndex(i, true)}
               className={cn(
-                "flex cursor-pointer items-center justify-center text-lg tabular will-change-transform",
-                ios
-                  ? cn("whitespace-nowrap px-1 text-[22px] tracking-[0.35px]", dimmed ? "text-ink/25" : "text-ink")
-                  : selected
-                  ? "font-semibold text-ink"
-                  : dimmed
-                  ? "text-ink/25 line-through decoration-ink/20"
-                  : "text-ink/70"
+                "flex cursor-pointer items-center justify-center whitespace-nowrap px-1 text-lead tabular will-change-transform",
+                selected ? "font-medium text-ink" : dimmed ? "text-ink/20" : "text-ink/55"
               )}
               // 288 rows: let the browser skip off-screen ones (fixed height, so
               // scroll maths is unaffected).

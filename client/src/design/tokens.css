@@ -19,13 +19,43 @@
   --color-border: rgba(14, 20, 32, 0.08);
   --shadow-color: rgba(14, 20, 32, 0.1);
 
-  --radius-button: 8px;
-  --radius-card: 12px;
-  --radius-sheet: 16px;
-  /* Role radii that only diverge on iOS (design/ios.css): grouped inset
-     lists and small chips. Off iOS they equal what the markup used before. */
+  /* ── Shape and type, measured (one design on every device) ───────────────
+     Source: brand/yandex_photos (591×1280 iPhone captures of the reference
+     layout). CSS px = image px ÷ (591 / 393) = ÷ 1.5038. Corner radii are a
+     least-squares circle fit to each edge profile; font sizes are the cap
+     height of a descender-free glyph ÷ 0.727 (Inter's cap height). Values
+     are the measurements rounded to whole px. */
+  --radius-sheet: 25px; /* sheets & stacked cards — photos 1, 4, 8: 24.6/25.3/25.3 */
+  --radius-sheet-home: 33px; /* home bottom sheet — photo 10 edge fit */
+  --radius-card: 25px;
+  --radius-button: 17px; /* primary 56px button — photos 4, 6: 16.6 */
+  --radius-control: 17px; /* segmented track — photo 4: 16.6 */
+  --radius-field: 19px; /* search pill — photo 10: 18.6 */
+  --radius-tile: 13px; /* 40px icon tile — photo 10: 12.6 */
+  --radius-thumb: 15px; /* class card / illustration card — photos 5, 8: 14.6 */
+  --radius-bubble: 17px; /* map pin bubble — photo 10: 18.6 (white edge, soft) */
+  --radius-chip: 9999px; /* chips & capsules are full capsules — photos 3, 4, 8 */
   --radius-group: var(--radius-card);
-  --radius-chip: var(--radius-button);
+
+  /* Sizes (css px, same source). */
+  --size-button: 56px; /* 55.9 */
+  --size-search: 48px; /* 47.9 */
+  --size-chip: 32px; /* 31.3–31.9 */
+  --size-track: 48px; /* 49.2 */
+  --size-track-sm: 40px; /* 41.2 */
+  --size-row: 57px; /* list/field pitch 56.5–57 */
+  --size-tile: 40px; /* 40.6 */
+  --size-map-button: 48px; /* 47.9 */
+  --size-radio: 32px; /* 31.9 */
+
+  /* Neutral fills (chips, search field, segmented track, tiles) — the
+     reference's grays, and a darker secondary text than the reference's for
+     AA contrast. */
+  --color-fill: #eeeeee;
+  --color-fill-subtle: #f4f4f4; /* wheel band */
+  --color-selected: #edeef2; /* selected class card */
+  --color-hairline: #e6e6e6;
+  --color-backdrop: #000000; /* behind stacked cards */
 
   /* Elevation — flat on iOS, where grouped lists and cards carry no shadow. */
   --shadow-soft: 0 2px 12px -2px var(--shadow-color);
@@ -47,9 +77,24 @@
   --text-4xl: 36px;
   --text-4xl-lh: 40px;
 
+  /* Measured type scale (size / line-height). Kept apart from text-xs…4xl,
+     which the remaining iOS-styled screens still remap. */
+  --type-display: 28px; /* "Taksi", sheet & card titles — 27.4–30.1 */
+  --type-display-lh: 34px;
+  --type-section: 20px; /* card sections — 20.1 */
+  --type-section-lh: 26px;
+  --type-lead: 18px; /* search pill — 19.3, list titles 18.3 */
+  --type-lead-lh: 24px;
+  --type-body: 17px; /* list titles, results, fields, button — 16.5–17.3 */
+  --type-body-lh: 22px;
+  --type-control: 16px; /* route rows, tabs, segments, radio rows — 15.5 */
+  --type-control-lh: 21px;
+  --type-sub: 13px; /* subtitles, trailing values, chips, capsules — 12.8 */
+  --type-sub-lh: 17px;
+
   /* Large primary button. */
-  --button-md-height: 52px;
-  --button-md-text: var(--text-sm);
+  --button-md-height: var(--size-button);
+  --button-md-text: var(--type-body);
 
   /* Every safe-area read in the app goes through these four, never env()
      directly — so a desktop preview (and screenshot tests) can simulate an
@@ -76,4 +121,10 @@
   --color-danger-rgb: 248 113 113;
   --color-border: rgba(237, 241, 248, 0.1);
   --shadow-color: rgba(0, 0, 0, 0.4);
+
+  --color-fill: rgba(237, 241, 248, 0.1);
+  --color-fill-subtle: rgba(237, 241, 248, 0.06);
+  --color-selected: rgba(237, 241, 248, 0.12);
+  --color-hairline: rgba(237, 241, 248, 0.12);
+  --color-backdrop: #000000;
 }

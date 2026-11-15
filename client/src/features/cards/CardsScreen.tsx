@@ -49,7 +49,7 @@ export function CardsScreen() {
           <div className="space-y-3">
             {cards.map((c) => (
               <div key={c.id} className="flex items-center gap-3 rounded-2xl bg-card p-4 shadow-softer">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-10 text-accent">
+                <div className="flex h-11 w-11 items-center justify-center rounded-tile bg-accent-10 text-accent">
                   <CreditCard className="h-5 w-5" />
                 </div>
                 <div className="flex-1">

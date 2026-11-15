@@ -36,13 +36,6 @@ html[data-platform="ios"] {
   --shadow-softer: 0 0 #0000;
   --shadow-soft: 0 2px 10px -2px var(--shadow-color);
 
-  /* Radii — buttons/cards 12, grouped lists and sheets 10, chips capsule. */
-  --radius-button: 12px;
-  --radius-card: 12px;
-  --radius-sheet: 10px;
-  --radius-group: 10px;
-  --radius-chip: 9999px;
-
   /* Type — system font (SF Pro on iPhone; never bundled) and the iOS text
      styles: xs Caption 12, sm Subheadline 15, base Body 17, lg Title 3 20,
      xl Title 1 28, 4xl Large Title 34. Tracking is set per step below. */
@@ -174,14 +167,6 @@ html[data-platform="ios"] [class*="active:scale"]:active {
   --tw-scale-x: 1 !important;
   --tw-scale-y: 1 !important;
   opacity: 0.6;
-}
-
-/* Continuous (squircle) corners where the engine supports corner-shape;
-   elsewhere the plain radius applies. */
-@supports (corner-shape: squircle) {
-  html[data-platform="ios"] :is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-card, .rounded-button, .rounded-group, .rounded-sheet, .rounded-t-sheet, .ios-squircle):not([class*="rounded-full"]) {
-    corner-shape: squircle;
-  }
 }
 
 /* Inset list separator: a 1px line scaled to a hairline (a 0.5px-tall box

@@ -20,6 +20,11 @@ export default {
         warning: "rgb(var(--color-warning-rgb) / <alpha-value>)",
         danger: "rgb(var(--color-danger-rgb) / <alpha-value>)",
         border: "var(--color-border)",
+        fill: "var(--color-fill)",
+        "fill-subtle": "var(--color-fill-subtle)",
+        selected: "var(--color-selected)",
+        hairline: "var(--color-hairline)",
+        backdrop: "var(--color-backdrop)",
       },
       // Family, sizes and shadows resolve through design tokens so the iOS
       // token set (design/ios.css) can swap them without touching markup.
@@ -33,6 +38,13 @@ export default {
         lg: ["var(--text-lg)", { lineHeight: "var(--text-lg-lh)" }],
         xl: ["var(--text-xl)", { lineHeight: "var(--text-xl-lh)" }],
         "4xl": ["var(--text-4xl)", { lineHeight: "var(--text-4xl-lh)" }],
+        // Measured scale (design/tokens.css) — the same on every device.
+        display: ["var(--type-display)", { lineHeight: "var(--type-display-lh)" }],
+        section: ["var(--type-section)", { lineHeight: "var(--type-section-lh)" }],
+        lead: ["var(--type-lead)", { lineHeight: "var(--type-lead-lh)" }],
+        body: ["var(--type-body)", { lineHeight: "var(--type-body-lh)" }],
+        control: ["var(--type-control)", { lineHeight: "var(--type-control-lh)" }],
+        sub: ["var(--type-sub)", { lineHeight: "var(--type-sub-lh)" }],
       },
       boxShadow: {
         soft: "var(--shadow-soft)",
@@ -40,15 +52,21 @@ export default {
         inner5: "inset 0 1px 0 0 rgba(255,255,255,0.18)",
       },
       borderRadius: {
-        // Tightened scale: buttons/inputs 8px, cards 12px, sheets 16px.
-        // `xl`/`2xl` are overridden because the app's existing markup
-        // already uses them as the de facto button/card sizes everywhere.
+        // Measured scale (design/tokens.css), the same on every device.
+        // `xl`/`2xl` keep their roles from the old markup: xl = controls and
+        // buttons (17), 2xl/card = cards (25).
         xl: "var(--radius-button)",
         button: "var(--radius-button)",
         "2xl": "var(--radius-card)",
         card: "var(--radius-card)",
         "3xl": "var(--radius-card)",
         sheet: "var(--radius-sheet)",
+        "sheet-home": "var(--radius-sheet-home)",
+        control: "var(--radius-control)",
+        field: "var(--radius-field)",
+        tile: "var(--radius-tile)",
+        thumb: "var(--radius-thumb)",
+        bubble: "var(--radius-bubble)",
         group: "var(--radius-group)",
         chip: "var(--radius-chip)",
       },

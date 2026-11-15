@@ -65,12 +65,11 @@ function DetailsButton({ filled, place, onClick }: { filled: boolean; place: str
       aria-label={t("details.buttonFor", { place })}
       className="group flex h-11 shrink-0 items-center"
     >
+      {/* Outlined capsule (reference "details" button, 35px). */}
       <span
         className={cn(
-          "flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-[background-color,opacity]",
-          filled
-            ? "bg-accent text-bg group-hover:opacity-90"
-            : "bg-card text-accent shadow-softer group-hover:bg-accent-10 ios:bg-[var(--ios-fill-tertiary)]"
+          "flex h-9 items-center rounded-chip border px-3.5 text-sub font-medium transition-colors",
+          filled ? "border-accent/40 bg-accent-5 text-accent" : "border-hairline bg-card text-ink/70 group-hover:border-ink/25"
         )}
       >
         {t("details.button")}
