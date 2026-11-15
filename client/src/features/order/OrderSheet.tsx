@@ -348,7 +348,8 @@ export function OrderSheet({
   useEffect(() => {
     if (!delivery || step !== 1 || !canQuote) return;
     const req = ++checkReq.current;
-    const timer = window.setTimeout(() => {
+    let timer = 0;
+    const run = () => {
       const d = draftRef.current;
       api
         .checkCargo({
@@ -362,8 +363,12 @@ export function OrderSheet({
         .then((r) => {
           if (req === checkReq.current) setCargoCheck(r);
         })
-        .catch(() => {});
-    }, 250);
+        // A dropped check would leave Tasdiqlash stuck: try again shortly.
+        .catch(() => {
+          if (req === checkReq.current) timer = window.setTimeout(run, 1000);
+        });
+    };
+    timer = window.setTimeout(run, 250);
     return () => window.clearTimeout(timer);
   }, [delivery, step, canQuote, draft.fromAddressId, draft.toAddressId, stopsKey, cargoKey, contactsKey]);
   // Field errors show once the person has left that field.
@@ -631,7 +636,12 @@ export function OrderSheet({
                   </div>
                 </section>
 
-                <RideAlongRow state={rideAlongData} value={!!draft.cargo.rideAlong} onChange={(v) => setCargo({ rideAlong: v })} />
+                <RideAlongRow
+                  state={rideAlongData}
+                  value={!!draft.cargo.rideAlong}
+                  onChange={(v) => setCargo({ rideAlong: v })}
+                  onRetry={rideAlong.status === "error" ? rideAlong.refetch : undefined}
+                />
               </>
             )}
 

@@ -166,7 +166,7 @@ export function PricingModeControl({
             <button type="button" onClick={() => onHours(Math.max(min, hours - 1))} disabled={hours <= min} aria-label={t("kargo.hours.decrease")} className={btn}>
               <Minus className="h-4 w-4" />
             </button>
-            <span className="w-14 text-center text-base font-semibold text-ink tabular" aria-live="polite">
+            <span className="min-w-[56px] whitespace-nowrap px-1 text-center text-base font-semibold text-ink tabular" aria-live="polite">
               {t("kargo.hours.value", { n: hours })}
             </span>
             <button type="button" onClick={() => onHours(Math.min(max, hours + 1))} disabled={hours >= max} aria-label={t("kargo.hours.increase")} className={btn}>
@@ -240,7 +240,18 @@ export function CargoInfoSheet({ topic, onClose }: { topic: CargoInfoTopic; onCl
 }
 
 /** "Men ham birga ketaman": the adapter says whether the cab has a seat. */
-export function RideAlongRow({ state, value, onChange }: { state: RideAlong | null; value: boolean; onChange: (v: boolean) => void }) {
+export function RideAlongRow({
+  state,
+  value,
+  onChange,
+  onRetry,
+}: {
+  state: RideAlong | null;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  /** Set when the adapter check failed: shows a retry instead of the reason. */
+  onRetry?: () => void;
+}) {
   const { t } = useT();
   const available = !!state?.available;
   return (
@@ -250,9 +261,15 @@ export function RideAlongRow({ state, value, onChange }: { state: RideAlong | nu
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-ink">{t("kargo.rideAlong")}</span>
-        <span className={cn("block text-xs", available ? "text-ink/60" : "font-semibold text-ink/70")}>
-          {!state ? " " : available ? t("kargo.rideAlong.desc") : t(state.reasonKey as TranslationKey)}
-        </span>
+        {!state && onRetry ? (
+          <button onClick={onRetry} className="inline-flex min-h-[32px] items-center text-xs font-semibold text-danger underline">
+            {t("common.loadFailedRetry")}
+          </button>
+        ) : (
+          <span className={cn("block text-xs", available ? "text-ink/60" : "font-semibold text-ink/70")}>
+            {!state ? " " : available ? t("kargo.rideAlong.desc") : t(state.reasonKey as TranslationKey)}
+          </span>
+        )}
       </span>
       <Switch checked={available && value} disabled={!available} onChange={() => onChange(!value)} label={t("kargo.rideAlong")} />
     </div>
