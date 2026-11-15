@@ -1,8 +1,8 @@
 import type {
-  ActiveTrip, BonusInfo, CancelReason, DemoOrderVariant, DemoPreset, DriverProfile, HelpRequest, HelpTopic, HistoryFilter,
-  HistoryPage, HomeSummary, LedgerPage, LedgerQuery, NotificationItem, NotificationPrefs, Offer, PayProvider,
-  RegistrationOptions, ReviewRequest, Session, ChatSend, TripChat, CapabilitiesInput, DriverCapabilities, TopupOptions, TripDetail, TripStage, TripSummary, WalletSummary,
-  Car,
+  AcceptedPage, BonusInfo, CancelReason, CapabilitiesInput, ChatSend, DemoOrderVariant, DemoPreset, DriverCapabilities,
+  DriverProfile, FeedPage, FeedQuery, HelpRequest, HelpTopic, HistoryFilter, HistoryPage, HomeSummary, LedgerPage, LedgerQuery,
+  NotificationItem, NotificationPrefs, PayProvider, RegistrationOptions, RequestAlert, ReviewRequest, RoutesPage, Session,
+  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car,
 } from "./types";
 
 /**
@@ -21,23 +21,36 @@ export interface ApiAdapter {
   submitDocuments(input: { licenseFile: string; registrationFile: string }): Promise<ReviewRequest>;
   logout(): Promise<Session>;
 
-  // Home cockpit
+  // Yo'nalishlarim (city pairs the driver serves; at least one)
+  getRoutes(): Promise<RoutesPage>;
+  addRoute(aCityId: string, bCityId: string): Promise<RoutesPage>;
+  setRouteBothWays(routeId: string, bothWays: boolean): Promise<RoutesPage>;
+  removeRoute(routeId: string): Promise<RoutesPage>;
+  /** Finishes the first-run routes step (stage "routes" → "active"). */
+  completeRoutesSetup(): Promise<Session>;
+
+  // Home: request feed
   getProfile(): Promise<DriverProfile>;
   getHomeSummary(): Promise<HomeSummary>;
-  setOnline(online: boolean): Promise<HomeSummary>;
-  getCurrentOffer(): Promise<Offer | null>;
-  acceptOffer(offerId: string): Promise<ActiveTrip>;
-  declineOffer(offerId: string): Promise<void>;
+  getFeed(query: FeedQuery): Promise<FeedPage>;
+  /** The driver has seen the feed: clears the Asosiy badge. */
+  markFeedSeen(): Promise<void>;
+  getRejectReasons(): Promise<CancelReason[]>;
+  /** Hides the request for this driver only. */
+  rejectRequest(requestId: string, reasonKey?: string): Promise<void>;
+  /** Goes through review; first accept wins (rejected with resultKey when someone else took it). */
+  acceptRequest(requestId: string): Promise<ReviewRequest>;
+  /** New-request alerts not yet shown (banner / system notification). Empty when muted. */
+  takeRequestAlerts(): Promise<RequestAlert[]>;
 
-  // Active trip
-  getActiveTrip(): Promise<ActiveTrip | null>;
-  advanceTrip(tripId: string): Promise<ReviewRequest>;
+  // Accepted requests (bookings) and their trip steps
+  getAccepted(): Promise<AcceptedPage>;
+  advanceBooking(bookingId: string): Promise<ReviewRequest>;
   getCancelReasons(): Promise<CancelReason[]>;
-  cancelTrip(tripId: string, reasonKey: string): Promise<void>;
-  getTripSummary(tripId: string): Promise<TripSummary>;
-  /** Chat with the passenger of the active trip (null when there is none). */
-  getTripChat(): Promise<TripChat | null>;
-  sendTripMessage(tripId: string, message: ChatSend): Promise<TripChat>;
+  cancelBooking(bookingId: string, reasonKey: string): Promise<void>;
+  getTripSummary(bookingId: string): Promise<TripSummary>;
+  getTripChat(bookingId: string): Promise<TripChat | null>;
+  sendTripMessage(bookingId: string, message: ChatSend): Promise<TripChat>;
 
   // Orders history
   getHistory(filter: HistoryFilter): Promise<HistoryPage>;
@@ -69,8 +82,13 @@ export interface ApiAdapter {
 
   // Demo controls (mock only — the http adapter rejects them)
   demoApplyPreset(preset: DemoPreset): Promise<void>;
-  demoTriggerOffer(variant?: DemoOrderVariant): Promise<void>;
-  demoTripAtStage(stage: Exclude<TripStage, "completed">, variant?: DemoOrderVariant): Promise<void>;
+  demoEmitRequest(variant?: DemoOrderVariant): Promise<void>;
+  /** Another driver takes the newest open request. */
+  demoTakeRequest(): Promise<void>;
+  /** Fill today's seats with accepted passengers. */
+  demoFillSeats(): Promise<void>;
+  /** Commission rows push the wallet to the debt limit. */
+  demoDebtLimit(): Promise<void>;
 }
 
 export type { Car };

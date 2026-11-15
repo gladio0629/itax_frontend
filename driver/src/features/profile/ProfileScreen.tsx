@@ -5,7 +5,7 @@ import { useT } from "@/lib/i18n/provider";
 import { useTheme } from "@/lib/theme";
 import { useQuery } from "@/lib/useQuery";
 import { useSession } from "@/stores/sessionStore";
-import { Bell, FlaskConical, Gift, Globe, Info, LifeBuoy, LogOut, Moon, SlidersHorizontal, Sun, User } from "@/lib/icons";
+import { Bell, FlaskConical, Gift, Globe, Info, LifeBuoy, LogOut, Moon, Route, SlidersHorizontal, Sun, User } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SettingsGroup, SettingsRow } from "@/components/SettingsRow";
 import { Avatar } from "@/components/Avatar";
@@ -17,7 +17,6 @@ import { Skeleton } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { LanguageSheet } from "@/components/LanguageSheet";
 import { isDemo } from "@/api/client";
-import { cn } from "@/lib/cn";
 
 export default function ProfileScreen() {
   const { t, locale } = useT();
@@ -52,13 +51,6 @@ export default function ProfileScreen() {
           <section aria-label={p?.name ?? t("profile.title")} className="mb-5 flex flex-col items-center text-center">
             <div className="relative">
               {p ? <Avatar seed={p.avatarSeed} name={p.name} size={96} silhouette /> : <Skeleton className="h-24 w-24 rounded-full" />}
-              {p && (
-                <span
-                  role="img"
-                  aria-label={p.online ? t("profile.statusOnline") : t("profile.statusOffline")}
-                  className={cn("absolute bottom-1 right-1 h-5 w-5 rounded-full ring-4 ring-bg", p.online ? "bg-yellow" : "bg-ink/40")}
-                />
-              )}
             </div>
             {p ? (
               <>
@@ -89,6 +81,7 @@ export default function ProfileScreen() {
 
         <SettingsGroup label={t("profile.groupAccount")}>
           <SettingsRow icon={User} tile="blue" label={t("profile.personal")} to="/profile/personal" />
+          <SettingsRow icon={Route} tile="teal" label={t("routes.title")} to="/profile/routes" />
           <SettingsRow icon={SlidersHorizontal} tile="green" label={t("profile.capabilities")} to="/profile/capabilities" />
           <SettingsRow
             icon={Gift}

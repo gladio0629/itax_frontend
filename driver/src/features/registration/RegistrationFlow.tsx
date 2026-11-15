@@ -13,10 +13,13 @@ import { TextField } from "@/components/TextField";
 import { Chip } from "@/components/Chip";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { Skeleton } from "@/components/Skeleton";
+import { RoutesEditor } from "@/features/routes/RoutesEditor";
+import { toast } from "@/lib/toast";
+import type { Session } from "@/api/types";
 import { cn } from "@/lib/cn";
 
-const STEP_OF: Record<SessionStage, number> = { signed_out: 1, personal: 2, car: 3, documents: 4, review: 4, active: 4 };
-const STEP_KEYS = ["reg.step1", "reg.step2", "reg.step3", "reg.step4"] as const;
+const STEP_OF: Record<SessionStage, number> = { signed_out: 1, personal: 2, car: 3, documents: 4, review: 4, routes: 5, active: 5 };
+const STEP_KEYS = ["reg.step1", "reg.step2", "reg.step3", "reg.step4", "reg.step5"] as const;
 
 export default function RegistrationFlow() {
   const { t } = useT();
@@ -43,10 +46,10 @@ export default function RegistrationFlow() {
             </Link>
           )}
         </div>
-        <ol className="mt-3 grid grid-cols-4 gap-2" aria-label={t("reg.title")}>
+        <ol className="mt-3 grid grid-cols-5 gap-2" aria-label={t("reg.title")}>
           {STEP_KEYS.map((k, i) => {
             const n = i + 1;
-            const state = n < step || welcome ? "done" : n === step ? "active" : "todo";
+            const state = n < step || (welcome && n < 5) ? "done" : n === step ? "active" : "todo";
             return (
               <li key={k} aria-current={state === "active" ? "step" : undefined}>
                 <span className="relative block h-1.5 overflow-hidden rounded-full bg-ink/10">
@@ -65,7 +68,7 @@ export default function RegistrationFlow() {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div key={session.stage + String(welcome)} className="flex min-h-full animate-fade-up flex-col px-4 pb-6 pt-6">
           {welcome ? (
-            <Welcome onDone={() => navigate("/", { replace: true })} />
+            <Welcome onDone={() => (session.stage === "routes" ? setWelcome(false) : navigate("/", { replace: true }))} />
           ) : session.stage === "signed_out" ? (
             <PhoneStep onVerified={() => refresh()} />
           ) : !options.data ? (
@@ -76,6 +79,13 @@ export default function RegistrationFlow() {
             <CarStep options={options.data} onSaved={setSession} />
           ) : session.stage === "documents" ? (
             <DocsStep onSubmitted={() => refresh()} />
+          ) : session.stage === "routes" ? (
+            <RoutesStep
+              onDone={(next) => {
+                setSession(next);
+                navigate("/", { replace: true });
+              }}
+            />
           ) : session.stage === "review" && session.documentsReviewId ? (
             <div className="flex flex-1 flex-col justify-center">
               <ReviewStatus
@@ -532,6 +542,34 @@ function DocsStep({ onSubmitted }: { onSubmitted: () => void }) {
         </Button>
       </BottomAction>
     </div>
+  );
+}
+
+// ---------- Step 5: Yo'nalishlarim (first run) ----------
+
+function RoutesStep({ onDone }: { onDone: (s: Session) => void }) {
+  const { t } = useT();
+  const [busy, setBusy] = useState(false);
+  async function finish() {
+    setBusy(true);
+    try {
+      onDone(await api.completeRoutesSetup());
+    } catch (e) {
+      toast(errorMessage(e, t), "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <StepTitle title={t("routes.setupTitle")} desc={t("routes.setupDesc")} />
+      <RoutesEditor />
+      <BottomAction>
+        <Button size="lg" fullWidth loading={busy} onClick={finish}>
+          {t("routes.setupDone")}
+        </Button>
+      </BottomAction>
+    </>
   );
 }
 

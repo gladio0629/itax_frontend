@@ -93,7 +93,7 @@ export function OptionChips({ options, luggageCount }: { options: OrderOption[];
 }
 
 /** The passenger's own words, quoted as typed. */
-export function CommentNote({ text }: { text: string | null }) {
+export function CommentNote({ text, clamp }: { text: string | null; clamp?: boolean }) {
   const { t } = useT();
   if (!text) return null;
   return (
@@ -101,7 +101,7 @@ export function CommentNote({ text }: { text: string | null }) {
       <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
       <div className="min-w-0">
         <figcaption className="text-xs text-muted">{t("order.comment")}</figcaption>
-        <blockquote className="break-words text-sm text-ink">{text}</blockquote>
+        <blockquote className={cn("break-words text-sm text-ink", clamp && "line-clamp-2")}>{text}</blockquote>
       </div>
     </figure>
   );

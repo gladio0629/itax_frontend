@@ -70,6 +70,7 @@ export type ReviewKind =
   | "wallet_topup"
   | "card_link"
   | "trip_step"
+  | "request_accept"
   | "profile_change"
   | "help_request";
 
@@ -81,6 +82,8 @@ export type ReviewRequest = {
   resolvesAt: number;
   payload?: Record<string, unknown>;
   applied?: boolean;
+  /** Translation key explaining a rejection (e.g. another driver took the request). */
+  resultKey?: string;
 };
 
 export type DocumentStatus = "none" | "auto_review" | "approved";
@@ -98,7 +101,6 @@ export type DriverProfile = {
   totalTrips: number;
   city: CityRef;
   car: Car;
-  online: boolean;
   documents: DriverDocument[];
   memberSinceYear: number;
 };
@@ -131,32 +133,14 @@ export type DebtState = {
 };
 
 export type HomeSummary = {
-  online: boolean;
   todayEarnings: number;
   todayTrips: number;
   unreadNotifications: number;
   debt: DebtState;
   canAcceptOrders: boolean;
   bonusActive: boolean;
-};
-
-export type Offer = OrderExtras<OfferPlace> & {
-  id: string;
-  pickup: OfferPlace;
-  dropoff: OfferPlace;
-  distanceKm: number;
-  durationMin: number;
-  pickupEtaMin: number;
-  priceMin: number;
-  priceMax: number;
-  kind: OrderKind;
-  passengers?: number;
-  cargo?: Cargo;
-  payment: PaymentType;
-  createdAt: number;
-  expiresAt: number;
-  /** Total countdown length in seconds (30). */
-  countdownSec: number;
+  /** New matching requests the driver hasn't looked at yet (Asosiy tab badge). */
+  newRequests: number;
 };
 
 export type TripStage = "to_pickup" | "waiting" | "in_progress" | "completed";
@@ -165,25 +149,90 @@ export type TripAction = "arrived" | "start" | "finish";
 
 export type PassengerInfo = { name: string; rating: number; phoneMasked: string; avatarSeed: string };
 
-export type ActiveTrip = OrderExtras<TripPlace> & {
+/** When the passenger wants to go: a set time, a window, or "Istagan paytda". Times are epoch ms. */
+export type RideTime = { kind: "exact"; at: number } | { kind: "interval"; from: number; to: number } | { kind: "any" };
+export type TripWhen = {
+  /** Local calendar date, YYYY-MM-DD. */
+  date: string;
+  /** 0 = today, 1 = tomorrow, … */
+  dayOffset: number;
+  /** Start of that day, epoch ms (for display). */
+  dayStart: number;
+  time: RideTime;
+};
+
+export type Direction = { id: string; from: CityRef; to: CityRef };
+/** Why "Qabul qilish" is disabled, decided by the adapter. `action: "wallet"` links to Hamyon. */
+export type AcceptBlock = { reasonKey: string; params?: Record<string, string | number>; action?: "wallet" };
+
+/** A passenger (or cargo) request in the feed. No passenger identity until accepted. */
+export type RideRequest = OrderExtras<OfferPlace> & {
   id: string;
+  directionId: string;
+  pickup: OfferPlace;
+  dropoff: OfferPlace;
+  when: TripWhen;
+  kind: OrderKind;
+  /** Seats the request takes (whole car = all seats). 0 for cargo. */
+  seats: number;
+  wholeCar: boolean;
+  cargo?: Cargo;
+  /** What the passenger pays, as the adapter prices it. */
+  price: number;
+  /** What the driver keeps after commission. */
+  earnings: { net: number; commissionPct: number };
+  payment: PaymentType;
+  pickupDistanceKm: number;
+  distanceKm: number;
+  durationMin: number;
+  postedAt: number;
+  /** "taken": another driver got it — shown briefly, then the adapter drops it. */
+  status: "open" | "taken";
+  acceptBlock: AcceptBlock | null;
+};
+
+export type FeedDate = "today" | "tomorrow" | string;
+export type FeedType = "all" | "passengers" | "delivery";
+export type FeedQuery = { direction: string; date: FeedDate; type: FeedType };
+export type SeatSummary = { free: number; total: number; direction: Direction | null; when: { date: string; dayOffset: number; dayStart: number } };
+export type FeedPage = {
+  items: RideRequest[];
+  seats: SeatSummary;
+  directions: Direction[];
+  /** Dates offered under "Sana". */
+  dates: { date: string; dayOffset: number; dayStart: number }[];
+};
+
+/** An accepted request: passenger details, its own trip steps. */
+export type Booking = OrderExtras<TripPlace> & {
+  id: string;
+  directionId: string;
   stage: TripStage;
   steps: TripStep[];
   nextAction: TripAction | null;
-  /** Review id when the current step is being confirmed. */
   pendingReviewId: string | null;
   passenger: PassengerInfo;
   pickup: TripPlace;
   dropoff: TripPlace;
-  remainingKm: number;
-  remainingMin: number;
-  price: number;
-  payment: PaymentType;
+  when: TripWhen;
   kind: OrderKind;
-  passengers?: number;
+  seats: number;
+  wholeCar: boolean;
   cargo?: Cargo;
+  price: number;
+  earnings: { net: number; commissionPct: number };
+  payment: PaymentType;
   acceptedAt: number;
 };
+export type BookingTrip = { direction: Direction; seats: { used: number; total: number }; bookings: Booking[] };
+export type BookingDay = { date: string; dayOffset: number; dayStart: number; trips: BookingTrip[] };
+export type AcceptedPage = { days: BookingDay[]; count: number };
+
+/** In-app banner / system notification for a new request. Minimal on purpose: no names or phones. */
+export type RequestAlert = { id: string; requestId: string; from: string; to: string; kind: OrderKind; seats: number; wholeCar: boolean; price: number; dayOffset: number; date: string };
+
+export type DriverRoute = { id: string; a: CityRef; b: CityRef; bothWays: boolean };
+export type RoutesPage = { routes: DriverRoute[]; cities: CityRef[] };
 
 /** Mock chat with the passenger (text-only orders). Passenger lines and
  * quick replies arrive as translation keys; the driver's own text as text. */
@@ -310,12 +359,21 @@ export type NotificationItem = {
   createdAt: number;
   read: boolean;
 };
-export type NotificationPrefs = { master: boolean; newOrders: boolean; payments: boolean; news: boolean; bonus: boolean };
+export type NotificationPrefs = {
+  master: boolean;
+  newOrders: boolean;
+  payments: boolean;
+  news: boolean;
+  bonus: boolean;
+  /** The system-notification explanation was shown once (accepted or dismissed). */
+  systemAsked?: boolean;
+};
 
 export type HelpTopic = "order" | "payment" | "app" | "docs";
 export type HelpRequest = { id: string; topic: HelpTopic; message?: string; createdAt: number; status: "in_review" | "resolved" };
 
-export type SessionStage = "signed_out" | "personal" | "car" | "documents" | "review" | "active";
+/** "routes": verified, but the driver still has to pick Yo'nalishlarim before requests arrive. */
+export type SessionStage = "signed_out" | "personal" | "car" | "documents" | "review" | "routes" | "active";
 export type Session = { stage: SessionStage; phone?: string; documentsReviewId?: string };
 
 export type RegistrationOptions = {
@@ -328,7 +386,7 @@ export type RegistrationOptions = {
 
 export type CancelReason = { key: string };
 
-/** Which kind of order a demo event produces. */
+/** Which kind of request a demo event produces. */
 export type DemoOrderVariant = "random" | "full" | "cargo";
 
-export type DemoPreset = "new" | "online" | "near_debt" | "debt" | "bonus" | "offline";
+export type DemoPreset = "new" | "active" | "near_debt" | "debt" | "bonus";

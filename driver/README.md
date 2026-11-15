@@ -12,10 +12,11 @@ npm run check:no-network
 
 ## Structure
 
-- Bottom tabs: **Asosiy** (map cockpit, active order), **Hamyon** (Bugungi daromad, balance, ledger), **Tarix** (past trips), **Profil**.
+- Bottom tabs: **Asosiy** (passenger request feed: Yangi so'rovlar / Qabul qilinganlar), **Hamyon** (Bugungi daromad, balance, ledger), **Tarix** (past trips), **Profil**.
 - `src/api/adapterTypes.ts` is the whole contract between screens and the backend. Screens
-  render what the adapter returns and send requests; commission, debt limit and level, offer
-  timing, trip stages, bonus levels, filtering and pagination are all computed in
+  render what the adapter returns and send requests; commission, debt limit and level, which
+  requests a driver sees (Yo'nalishlarim + Imkoniyatlarim), seats, first-accept-wins, trip
+  stages, bonus levels, filtering and pagination are all computed in
   `src/api/adapters/mock.ts`.
 - `src/mockDb/driverDb.ts` holds the driver's local demo state (seeded relative to "now", and
   re-anchored daily so "today" is never empty). `src/seed/generate.ts` is the seed shared with
@@ -26,8 +27,9 @@ npm run check:no-network
 
 ## Demo
 
-- New drivers go through a 4-step sign-up (phone + OTP, personal, car, documents). Demo OTP: `0000`.
-- **Profil → Demo boshqaruv**: role presets (new driver, online, near/at the debt limit, bonus
-  active, offline), an incoming order, a trip at each stage, slow internet, error mode, reset.
-- Every verification (OTP, documents, top-up, card link, trip steps, profile changes, support
+- New drivers go through sign-up (phone + OTP, personal, car, documents), then pick Yo'nalishlarim. Demo OTP: `0000`.
+- **Profil → Demo boshqaruv**: role presets (new driver, active, near/at the debt limit, bonus
+  active), new request (random / all details / cargo), another driver takes a request, seats
+  full, debt limit, slow internet, error mode, reset. The mock market emits a request every 20–40 s.
+- Every verification (OTP, documents, accepting a request, top-up, card link, trip steps, profile changes, support
   requests) goes through the shared `submitForReview` → `ReviewStatus` pattern.

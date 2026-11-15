@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
-import type { DemoPreset, TripStage } from "@/api/types";
+import type { DemoPreset } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { useSession } from "@/stores/sessionStore";
 import { useDemoStore } from "@/stores/demoStore";
-import { AlertTriangle, Car, Gift, ListChecks, Power, RotateCcw, Truck, User, UserPlus, Wallet, WifiOff, Zap } from "@/lib/icons";
+import { AlertTriangle, Armchair, Car, Gift, RotateCcw, Truck, User, UserPlus, UserX, Wallet, WifiOff, Zap } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/Card";
 import { SettingsGroup, SettingsRow } from "@/components/SettingsRow";
@@ -17,13 +17,11 @@ import { Sheet } from "@/components/Sheet";
 
 const PRESETS: { key: DemoPreset; icon: typeof User; tile: "blue" | "yellow" | "green" | "orange" | "red" | "slate" }[] = [
   { key: "new", icon: UserPlus, tile: "blue" },
-  { key: "online", icon: Car, tile: "green" },
+  { key: "active", icon: Car, tile: "green" },
   { key: "near_debt", icon: Wallet, tile: "orange" },
   { key: "debt", icon: AlertTriangle, tile: "red" },
   { key: "bonus", icon: Gift, tile: "yellow" },
-  { key: "offline", icon: Power, tile: "slate" },
 ];
-const STAGES: Exclude<TripStage, "completed">[] = ["to_pickup", "waiting", "in_progress"];
 
 export default function DemoScreen() {
   const { t } = useT();
@@ -69,30 +67,12 @@ export default function DemoScreen() {
 
         <SectionLabel className="mt-6">{t("demo.events")}</SectionLabel>
         <SettingsGroup>
-          <SettingsRow icon={Zap} tile="yellow" label={t("demo.incomingOrder")} onClick={busy ? undefined : () => run("offer", () => api.demoTriggerOffer(), "/")} />
-          <SettingsRow icon={Zap} tile="yellow" label={t("demo.offerFull")} onClick={busy ? undefined : () => run("offer-full", () => api.demoTriggerOffer("full"), "/")} />
-          <SettingsRow icon={Truck} tile="yellow" label={t("demo.offerCargo")} onClick={busy ? undefined : () => run("offer-cargo", () => api.demoTriggerOffer("cargo"), "/")} />
-          {STAGES.map((s) => (
-            <SettingsRow
-              key={s}
-              icon={ListChecks}
-              tile="blue"
-              label={t("demo.tripAt", { stage: t(`trip.stage.${s}`) })}
-              onClick={busy ? undefined : () => run(s, () => api.demoTripAtStage(s), "/")}
-            />
-          ))}
-          <SettingsRow
-            icon={ListChecks}
-            tile="green"
-            label={t("demo.tripFull", { stage: t("trip.stage.to_pickup") })}
-            onClick={busy ? undefined : () => run("trip-full", () => api.demoTripAtStage("to_pickup", "full"), "/")}
-          />
-          <SettingsRow
-            icon={Truck}
-            tile="green"
-            label={t("demo.tripCargo", { stage: t("trip.stage.to_pickup") })}
-            onClick={busy ? undefined : () => run("trip-cargo", () => api.demoTripAtStage("to_pickup", "cargo"), "/")}
-          />
+          <SettingsRow icon={Zap} tile="yellow" label={t("demo.emitRequest")} onClick={busy ? undefined : () => run("emit", () => api.demoEmitRequest(), "/")} />
+          <SettingsRow icon={Zap} tile="yellow" label={t("demo.emitFull")} onClick={busy ? undefined : () => run("emit-full", () => api.demoEmitRequest("full"), "/")} />
+          <SettingsRow icon={Truck} tile="yellow" label={t("demo.emitCargo")} onClick={busy ? undefined : () => run("emit-cargo", () => api.demoEmitRequest("cargo"), "/")} />
+          <SettingsRow icon={UserX} tile="slate" label={t("demo.takeRequest")} onClick={busy ? undefined : () => run("take", () => api.demoTakeRequest(), "/")} />
+          <SettingsRow icon={Armchair} tile="blue" label={t("demo.fillSeats")} onClick={busy ? undefined : () => run("seats", () => api.demoFillSeats(), "/")} />
+          <SettingsRow icon={AlertTriangle} tile="red" label={t("demo.debtLimit")} onClick={busy ? undefined : () => run("debt-limit", () => api.demoDebtLimit(), "/")} />
         </SettingsGroup>
 
         <SectionLabel className="mt-6">{t("demo.network")}</SectionLabel>

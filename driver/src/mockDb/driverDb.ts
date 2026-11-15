@@ -8,7 +8,7 @@ import { makeRng } from "@/lib/prng";
 import { readJSON, writeJSON } from "./storage";
 import type {
   AddressDetails, CapabilitiesInput, Cargo, CarClass, CargoBody, ChildSeatAge, DemoPreset, Freight, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
-  NotificationPrefs, OrderKind, PaymentType, ReviewRequest, Session, TimelineEvent, TripStage, TripSummary,
+  NotificationPrefs, OrderKind, PaymentType, RequestAlert, ReviewRequest, RideTime, Session, TimelineEvent, TripStage, TripSummary,
 } from "@/api/types";
 
 export const BASE_COMMISSION_PCT = 10;
@@ -82,7 +82,11 @@ export type TripRecord = {
 export type DetailsRecord = AddressDetails & { intercom?: string };
 export type StopRecord = { cityId: string; address: string; details?: DetailsRecord };
 
-export type OfferRecord = {
+/** A day plus a time; all epoch ms so re-anchoring can shift them. */
+export type WhenRecord = { dayStart: number; time: RideTime };
+
+/** A passenger/cargo request as the server knows it (identity included; the adapter decides what to show). */
+export type RequestRecord = {
   id: string;
   fromCityId: string;
   toCityId: string;
@@ -99,34 +103,39 @@ export type OfferRecord = {
   freight: Freight | null;
   distanceKm: number;
   durationMin: number;
-  pickupEtaMin: number;
+  pickupDistanceKm: number;
   price: number;
-  priceMax: number;
   passengerId: string;
   kind: OrderKind;
-  passengers?: number;
+  seats: number;
+  wholeCar: boolean;
   cargo?: Cargo;
   payment: PaymentType;
-  createdAt: number;
-  expiresAt: number;
+  when: WhenRecord;
+  postedAt: number;
+  /** When another driver takes it (null = nobody will). Accepting before this wins. */
+  takenAt: number | null;
 };
 
 export type ChatRecord = { id: string; from: "driver" | "passenger"; at: number; textKey?: string; text?: string };
 
-export type LiveTrip = OfferRecord & {
-  /** Messages with the passenger; passenger replies may carry a future `at` (still "typing"). */
-  chat?: ChatRecord[];
+export type BookingRecord = RequestRecord & {
+  requestId: string;
   stage: Exclude<TripStage, "completed">;
   stageStartedAt: number;
   acceptedAt: number;
   pendingReviewId: string | null;
   timeline: TimelineEvent[];
+  /** Messages with the passenger; passenger replies may carry a future `at` (still "typing"). */
+  chat?: ChatRecord[];
 };
+
+export type RouteRecord = { id: string; a: string; b: string; bothWays: boolean };
 
 export type Draft = { name?: string; cityId?: string; car?: { model: string; colorKey: string; plate: string; year: number } };
 
 export type DriverState = {
-  version: 4;
+  version: 5;
   seededAt: number;
   registered: boolean;
   session: Session;
@@ -145,7 +154,6 @@ export type DriverState = {
     /** Trips completed before the seeded 30-day window. */
     pastTrips?: number;
   };
-  online: boolean;
   /** "Imkoniyatlarim" switches (car class and cargo body derive from the car). */
   capabilities: CapabilitiesInput;
   balance: number;
@@ -155,9 +163,19 @@ export type DriverState = {
   notifications: NotificationItem[];
   prefs: NotificationPrefs;
   help: HelpRequest[];
-  offer: OfferRecord | null;
-  nextOfferAt: number | null;
-  trip: LiveTrip | null;
+  /** Yo'nalishlarim. */
+  routes: RouteRecord[];
+  /** Open requests on the market (all drivers); visibility is decided per driver by the adapter. */
+  requests: RequestRecord[];
+  bookings: BookingRecord[];
+  /** Requests this driver rejected (hidden for them only). */
+  rejectedIds: string[];
+  /** New-request alerts waiting for the app to show them. */
+  alerts: RequestAlert[];
+  /** Next generated request; null = the feed has not been seeded yet. */
+  nextRequestAt: number | null;
+  /** Requests posted after this count toward the Asosiy badge. */
+  feedSeenAt: number;
   summaries: Record<string, TripSummary>;
   reviews: ReviewRequest[];
 };
@@ -185,6 +203,12 @@ export function carClassFor(model: string): CarClass {
   if (/Gentra|Onix|Tracker/.test(model)) return "comfort";
   return "economy";
 }
+
+/** A registered driver starts with two corridors, both ways. */
+export const DEFAULT_ROUTES: RouteRecord[] = [
+  { id: "rt_tsh_smq", a: "tsh", b: "smq", bothWays: true },
+  { id: "rt_tsh_and", a: "tsh", b: "and", bothWays: true },
+];
 
 export const CHILD_SEAT_AGES: ChildSeatAge[] = ["infant", "toddler", "booster"];
 export const DEFAULT_CAPABILITIES: CapabilitiesInput = { childSeat: true, childSeatAges: ["toddler", "booster"], pets: false, bigLuggage: true };
@@ -343,7 +367,7 @@ function runLedger(rows: Omit<LedgerEntry, "balanceAfter">[], target: number, to
   return out.reverse();
 }
 
-type SeedOpts = { balance?: number; weekTrips?: number; online?: boolean; registered?: boolean };
+type SeedOpts = { balance?: number; weekTrips?: number; registered?: boolean };
 
 export function seedState(opts: SeedOpts = {}): DriverState {
   const now = Date.now();
@@ -419,7 +443,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
     notifications.length = 0;
   }
   return {
-    version: 4,
+    version: 5,
     seededAt: now,
     registered,
     session: registered ? { stage: "active", phone: "+998 90 *** ** 41" } : { stage: "signed_out" },
@@ -440,7 +464,6 @@ export function seedState(opts: SeedOpts = {}): DriverState {
       memberSinceYear: 2023,
       pastTrips: registered ? 280 : 0,
     },
-    online: opts.online ?? false,
     capabilities: { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] },
     balance: registered ? ledger[0]?.balanceAfter ?? target : 0,
     ledger,
@@ -449,9 +472,13 @@ export function seedState(opts: SeedOpts = {}): DriverState {
     notifications,
     prefs: { master: true, newOrders: true, payments: true, news: false, bonus: true },
     help: registered ? [{ id: "help_1", topic: "payment", createdAt: now - day * 6, status: "resolved" }] : [],
-    offer: null,
-    nextOfferAt: null,
-    trip: null,
+    routes: registered ? DEFAULT_ROUTES.map((r) => ({ ...r })) : [],
+    requests: [],
+    bookings: [],
+    rejectedIds: [],
+    alerts: [],
+    nextRequestAt: null,
+    feedSeenAt: now,
     summaries: {},
     reviews: [],
   };
@@ -461,16 +488,14 @@ export function presetState(preset: DemoPreset): DriverState {
   switch (preset) {
     case "new":
       return seedState({ registered: false });
-    case "online":
-      return seedState({ online: true });
+    case "active":
+      return seedState({});
     case "near_debt":
-      return seedState({ online: true, balance: -42_000 });
+      return seedState({ balance: -42_000 });
     case "debt":
-      return seedState({ online: true, balance: DEBT_LIMIT });
+      return seedState({ balance: DEBT_LIMIT });
     case "bonus":
-      return seedState({ online: true, balance: 120_000, weekTrips: 37 });
-    case "offline":
-      return seedState({ online: false });
+      return seedState({ balance: 120_000, weekTrips: 37 });
   }
 }
 
@@ -489,20 +514,49 @@ function reanchor(s: DriverState) {
   s.ledger.forEach((e) => (e.createdAt += shift));
   s.notifications.forEach((n) => (n.createdAt += shift));
   s.help.forEach((h) => (h.createdAt += shift));
-  s.offer = null;
-  s.trip = null;
+  // Accepted bookings keep their relative day; the market is regenerated.
+  s.bookings.forEach((b) => {
+    b.when = shiftWhen(b.when, shift);
+    b.acceptedAt += shift;
+    b.stageStartedAt += shift;
+    b.postedAt += shift;
+    b.timeline = b.timeline.map((e) => ({ ...e, at: e.at + shift }));
+  });
+  s.requests = [];
+  s.alerts = [];
+  s.nextRequestAt = null;
+  s.feedSeenAt += shift;
 }
 
-/** v3 → v4: offers and live trips gained order details; drop any in flight. */
+function shiftWhen(w: WhenRecord, shift: number): WhenRecord {
+  const t = w.time;
+  const time: RideTime = t.kind === "exact" ? { kind: "exact", at: t.at + shift } : t.kind === "interval" ? { kind: "interval", from: t.from + shift, to: t.to + shift } : t;
+  return { dayStart: w.dayStart + shift, time };
+}
+
+/**
+ * v3 → v4: offers/trips gained order details; v4 → v5: the single offer and
+ * online status gave way to the request feed. Ledger, history and settings
+ * are kept; in-flight offers and trips are dropped.
+ */
 function upgrade(stored: { version: number } | null): DriverState | null {
   if (!stored) return null;
-  if (stored.version === 4) return stored as DriverState;
-  if (stored.version !== 3) return null;
-  const s = stored as unknown as DriverState;
-  s.version = 4;
-  s.offer = null;
-  s.trip = null;
-  s.capabilities = { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
+  if (stored.version === 5) return stored as DriverState;
+  if (stored.version !== 3 && stored.version !== 4) return null;
+  const s = stored as unknown as DriverState & { online?: boolean; offer?: unknown; trip?: unknown; nextOfferAt?: unknown };
+  if (stored.version === 3) s.capabilities = { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
+  delete s.online;
+  delete s.offer;
+  delete s.trip;
+  delete s.nextOfferAt;
+  s.version = 5;
+  s.routes = s.registered ? DEFAULT_ROUTES.map((r) => ({ ...r })) : [];
+  s.requests = [];
+  s.bookings = [];
+  s.rejectedIds = [];
+  s.alerts = [];
+  s.nextRequestAt = null;
+  s.feedSeenAt = Date.now();
   return s;
 }
 
@@ -531,5 +585,8 @@ export function appendLedger(type: LedgerType, amount: number, descKey: string, 
 }
 
 export function pushNotification(n: Omit<NotificationItem, "id" | "createdAt" | "read">) {
-  state().notifications.unshift({ ...n, id: genId("ntf"), createdAt: Date.now(), read: false });
+  const s = state();
+  s.notifications.unshift({ ...n, id: genId("ntf"), createdAt: Date.now(), read: false });
+  // A request every 20–40 s would otherwise grow the list (and storage) forever.
+  if (s.notifications.length > 60) s.notifications.length = 60;
 }

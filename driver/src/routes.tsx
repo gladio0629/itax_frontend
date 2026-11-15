@@ -13,6 +13,7 @@ const CardLinkScreen = lazy(() => import("@/features/wallet/CardLinkScreen"));
 const ProfileScreen = lazy(() => import("@/features/profile/ProfileScreen"));
 const PersonalScreen = lazy(() => import("@/features/profile/PersonalScreen"));
 const BonusScreen = lazy(() => import("@/features/profile/BonusScreen"));
+const RoutesScreen = lazy(() => import("@/features/profile/RoutesScreen"));
 const CapabilitiesScreen = lazy(() => import("@/features/profile/CapabilitiesScreen"));
 const NotificationPrefsScreen = lazy(() => import("@/features/profile/NotificationPrefsScreen"));
 const HelpScreen = lazy(() => import("@/features/profile/HelpScreen"));
@@ -29,7 +30,7 @@ export function AppRoutes() {
       <Route path="/demo" element={<DemoScreen />} />
       <Route element={<AppShell />}>
         <Route path="/" element={<HomeScreen />} />
-        <Route path="/trip/chat" element={<TripChatScreen />} />
+        <Route path="/trip/chat/:bookingId" element={<TripChatScreen />} />
         <Route path="/history" element={<HistoryScreen />} />
         <Route path="/history/:tripId" element={<TripDetailScreen />} />
         {/* Old "Buyurtmalar" links. */}
@@ -42,6 +43,7 @@ export function AppRoutes() {
         <Route path="/profile/personal" element={<PersonalScreen />} />
         <Route path="/profile/bonus" element={<BonusScreen />} />
         <Route path="/profile/capabilities" element={<CapabilitiesScreen />} />
+        <Route path="/profile/routes" element={<RoutesScreen />} />
         <Route path="/profile/notifications" element={<NotificationPrefsScreen />} />
         <Route path="/profile/help" element={<HelpScreen />} />
         <Route path="/profile/about" element={<AboutScreen />} />

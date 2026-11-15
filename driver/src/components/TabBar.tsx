@@ -11,7 +11,8 @@ const TABS = [
 ] as const;
 
 /** Four fixed tabs. Active = yellow icon + label; inactive = muted. */
-export function TabBar({ badge }: { badge?: Partial<Record<(typeof TABS)[number]["to"], boolean>> }) {
+/** `badge`: true shows a dot; a number shows a counter (new requests on Asosiy). */
+export function TabBar({ badge }: { badge?: Partial<Record<(typeof TABS)[number]["to"], boolean | number>> }) {
   const { t } = useT();
   return (
     <nav
@@ -36,9 +37,16 @@ export function TabBar({ badge }: { badge?: Partial<Record<(typeof TABS)[number]
                 <>
                   <span className="relative">
                     <Icon className="h-6 w-6" />
-                    {badge?.[to] && <span className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface" />}
+                    {typeof badge?.[to] === "number" && (badge[to] as number) > 0 ? (
+                      <span className="tabular absolute -right-2.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger-fill px-1 text-xs font-bold text-white ring-2 ring-surface">
+                        {(badge[to] as number) > 99 ? "99+" : (badge[to] as number)}
+                      </span>
+                    ) : (
+                      badge?.[to] === true && <span className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface" />
+                    )}
                   </span>
                   {t(key)}
+                  {typeof badge?.[to] === "number" && (badge[to] as number) > 0 && <span className="sr-only">{t("tab.newCount", { n: badge[to] as number })}</span>}
                 </>
               )}
             </NavLink>

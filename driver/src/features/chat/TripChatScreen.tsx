@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { ChatMessage, ChatSend } from "@/api/types";
 import { isKey, useT } from "@/lib/i18n/provider";
@@ -20,7 +20,8 @@ import { cn } from "@/lib/cn";
 export default function TripChatScreen() {
   const { t } = useT();
   const navigate = useNavigate();
-  const q = useQuery(() => api.getTripChat(), [], { pollMs: 2000 });
+  const { bookingId = "" } = useParams();
+  const q = useQuery(() => api.getTripChat(bookingId), [bookingId], { pollMs: 2000 });
   const chat = q.data;
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -68,7 +69,7 @@ export default function TripChatScreen() {
           title={t("chat.noTrip")}
           description={t("chat.noTripDesc")}
           action={
-            <Button fullWidth onClick={() => navigate("/", { replace: true })}>
+            <Button fullWidth onClick={() => navigate("/?tab=accepted", { replace: true })}>
               {t("tab.home")}
             </Button>
           }

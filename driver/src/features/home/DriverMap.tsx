@@ -1,9 +1,8 @@
 import { memo } from "react";
-import { cn } from "@/lib/cn";
 
 // Stylised night-city map: inline SVG only (no tiles, no requests). Colours
 // come from --map-* tokens so the same geometry works in both themes.
-// The driver sits at (50%, 46%); everything is decorative (aria-hidden) —
+// Used as a small header strip above the request feed; the driver sits at (50%, 46%); everything is decorative (aria-hidden) —
 // the screen reader gets a single label from the parent.
 
 const W = 400;
@@ -43,7 +42,7 @@ const PASSENGERS = [
   { x: 82, y: 22 },
 ];
 
-export const DriverMap = memo(function DriverMap({ online, label }: { online: boolean; label: string }) {
+export const DriverMap = memo(function DriverMap({ label }: { label: string }) {
   return (
     <div className="absolute inset-0 overflow-hidden" role="img" aria-label={label}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" aria-hidden="true">
@@ -77,38 +76,15 @@ export const DriverMap = memo(function DriverMap({ online, label }: { online: bo
 
       {/* Waiting passengers: small and quiet. */}
       {PASSENGERS.map((p, i) => (
-        <span
-          key={i}
-          aria-hidden="true"
-          className={cn("absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity duration-[280ms]", online ? "opacity-100" : "opacity-50")}
-          style={{ left: `${p.x}%`, top: `${p.y}%` }}
-        >
+        <span key={i} aria-hidden="true" className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
           <span className="absolute inset-0 rounded-full bg-accent/30" />
           <span className="absolute inset-[3px] rounded-full bg-accent" />
         </span>
       ))}
 
-      {/* Online wash + radar rings (opacity/transform only). */}
-      <div
-        aria-hidden="true"
-        className={cn("absolute inset-0 transition-opacity duration-[280ms]", online ? "opacity-100" : "opacity-0")}
-        style={{ background: "radial-gradient(circle at 50% 46%, rgba(246,191,14,0.14), transparent 55%)" }}
-      />
-      {online &&
-        [0, 1, 2].map((i) => (
-          <span
-            key={i}
-            aria-hidden="true"
-            className="absolute h-[340px] w-[340px] animate-radar rounded-full border-2 border-yellow/60"
-            style={{ left: "50%", top: "46%", animationDelay: `${i}s` }}
-          />
-        ))}
-
-      {/* Driver */}
-      <span aria-hidden="true" className="absolute h-14 w-14 -translate-x-1/2 -translate-y-1/2" style={{ left: "50%", top: "46%" }}>
-        <span className={cn("absolute inset-0 animate-pulse-ring rounded-full", online ? "bg-yellow/40" : "bg-accent/40")} />
-        <span className="absolute inset-[14px] rounded-full bg-white shadow-2" />
-        <span className={cn("absolute inset-[18px] rounded-full transition-opacity", online ? "bg-yellow" : "bg-[#264A9F]")} />
+      {/* Driver: a static marker — no status, no radar. */}
+      <span aria-hidden="true" className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-2" style={{ left: "50%", top: "46%" }}>
+        <span className="absolute inset-[5px] rounded-full bg-yellow" />
       </span>
     </div>
   );
