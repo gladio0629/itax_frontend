@@ -63,7 +63,7 @@ export function DriverComment({
 
   return (
     <section aria-labelledby={`${id}-title`} className="space-y-2">
-      <label id={`${id}-title`} htmlFor={id} className="block text-sm font-semibold text-ink">
+      <label id={`${id}-title`} htmlFor={id} className="block text-control font-semibold text-ink">
         {t("comment.title")}
       </label>
       <div>
@@ -76,7 +76,7 @@ export function DriverComment({
           maxLength={maxLength}
           onChange={(e) => onChange(e.target.value)}
           placeholder={t("comment.placeholder")}
-          className="block w-full resize-none rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-ink/60 focus:border-accent"
+          className="block w-full resize-none rounded-control bg-fill px-4 py-3 text-control text-ink outline-none transition-shadow placeholder:text-ink/55 focus:ring-2 focus:ring-accent/40"
         />
         {maxLength != null && (
           <p className="mt-1 text-right text-xs text-ink/60 tabular" aria-hidden={value.length < maxLength * 0.9}>

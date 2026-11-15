@@ -56,6 +56,11 @@
   --color-selected: #edeef2; /* selected class card */
   --color-hairline: #e6e6e6;
   --color-backdrop: #000000; /* behind stacked cards */
+  /* Map canvas: light neutral like the reference map; our own drawing. */
+  --map-bg: #f3f2ee;
+  --map-block: #e7e5df;
+  --map-road: #ffffff;
+  --map-route: #264a9f;
 
   /* Elevation — flat on iOS, where grouped lists and cards carry no shadow. */
   --shadow-soft: 0 2px 12px -2px var(--shadow-color);
@@ -127,4 +132,8 @@
   --color-selected: rgba(237, 241, 248, 0.12);
   --color-hairline: rgba(237, 241, 248, 0.12);
   --color-backdrop: #000000;
+  --map-bg: #141a28;
+  --map-block: #1c2334;
+  --map-road: #283047;
+  --map-route: #6e96e6;
 }

@@ -42,14 +42,14 @@ export function IstaklarRow({
     <button
       type="button"
       onClick={onOpen}
-      className="flex min-h-[60px] w-full items-center gap-3 rounded-xl border border-border px-3 py-2.5 text-left hover:bg-ink/5"
+      className="flex min-h-[var(--size-row)] w-full items-center gap-3 border-b border-hairline py-2 text-left"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
-        <SlidersHorizontal className="h-[18px] w-[18px]" />
+      <span className="flex h-[var(--size-tile)] w-[var(--size-tile)] shrink-0 items-center justify-center rounded-tile bg-fill text-ink/70">
+        <SlidersHorizontal className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-ink">{t("options.title")}</span>
-        <span className={cn("line-clamp-2 text-xs", summary ? "text-ink/80" : "text-ink/60")}>{summary || t("options.none")}</span>
+        <span className="block text-body text-ink">{t("options.title")}</span>
+        <span className={cn("line-clamp-2 text-sub", summary ? "text-ink/80" : "text-ink/60")}>{summary || t("options.none")}</span>
       </span>
       {selected.length > 0 && (
         <span className="flex h-6 min-w-[24px] shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-bg tabular">

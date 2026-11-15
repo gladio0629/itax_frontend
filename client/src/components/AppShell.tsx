@@ -46,7 +46,9 @@ export function AppShell() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [tone, setToneState] = useState<HeaderTone>("auto");
   const setTone = useCallback((next: HeaderTone) => setToneState(next), []);
-  const iconColor = tone === "onDark" ? "text-white" : "text-ink";
+  // The control is a white disc now, so its icon is always ink.
+  const iconColor = "text-ink";
+  void tone;
   // Screen sheets render inside the screen's own stacking context, below this
   // control; step it out of the way while any modal is open instead.
   const modalOpen = useModalOpen();
@@ -55,10 +57,10 @@ export function AppShell() {
   const shellRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
 
+  // Round floating map button (measured 48px, soft shadow), one look on every
+  // device; it steps aside while a modal is open.
   const controlClass = cn(
-    "absolute left-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl transition-opacity active:scale-95",
-    // iOS (map screens without a bar): a round blurred map button.
-    " ios:bg-[var(--ios-bar-bg)] ios:shadow-soft ios:backdrop-blur-xl",
+    "absolute left-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-card shadow-[0_2px_12px_rgba(0,0,0,0.16)] transition-opacity active:scale-95",
     modalOpen && "pointer-events-none opacity-0"
   );
 

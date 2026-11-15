@@ -20,6 +20,7 @@ export const httpAdapter: ApiAdapter = {
   getAddressSuggestions: notImplemented("getAddressSuggestions"),
   getRecentAddresses: notImplemented("getRecentAddresses"),
   getSavedAddresses: notImplemented("getSavedAddresses"),
+  searchAddresses: notImplemented("searchAddresses"),
   reverseGeocode: notImplemented("reverseGeocode"),
   getPickupEta: notImplemented("getPickupEta"),
   getSeatMap: notImplemented("getSeatMap"),

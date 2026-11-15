@@ -167,6 +167,8 @@ export type CarClass = {
   price: number;
   available: boolean;
   reasonKey?: string;
+  /** Minutes until a car of this class could arrive. */
+  etaMinutes?: number;
 };
 
 /** "Kim ketadi?" — the passenger, or someone the passenger orders for. */
@@ -243,6 +245,8 @@ export type Quote = {
   currency: "som";
   etaMinutes: number;
   durationMinutes: number;
+  /** When the trip would end (ms): pickup ETA + trip duration from now. */
+  arrivalAt?: number;
 };
 
 export type CreateOrderInput = {
@@ -309,8 +313,20 @@ export type UpdateOrderInput = Partial<{
   optionIds: OrderOptionId[];
 }>;
 
+/** One search result: the point, its area (shown as a subtitle), distance
+ * from the pickup, and — for entrance variants — the entrance the adapter
+ * knows for that point ("…, 1-podyezd"). */
+export type AddressSearchResult = {
+  address: Address;
+  area: string;
+  distanceKm: number;
+  entrance?: string;
+};
+
 export type SavedAddressInfo = {
   address: Address;
+  /** Area line under the name (region). */
+  area?: string;
   /** Tafsilotlar remembered for this saved address. */
   details?: AddressDetails;
   distanceKm: number;

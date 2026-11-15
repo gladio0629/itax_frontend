@@ -17,6 +17,7 @@ import { makeRng } from "@/lib/prng";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   AddressDetails,
+  AddressSearchResult,
   CargoCheck,
   CargoContact,
   CargoInfo,
@@ -288,6 +289,8 @@ function classAvailability(id: CarClassId, mode: OrderMode, directKm: number): s
 }
 
 const PROMO_CODES: Record<string, number> = { IZGO10: 10 };
+/** Entrances the mock knows, by point index (1 = Avtovokzal, 3 = Temir yo'l vokzali). */
+const ENTRANCES: Record<string, string[]> = { "1": ["1", "2"], "3": ["1"] };
 
 // Tips: chip amounts and the custom range. A tip goes through the review
 // mechanism like any other money movement in the demo.
@@ -722,6 +725,24 @@ export const mockAdapter: ApiAdapter = {
       return result;
     }),
 
+  searchAddresses: ({ query, fromAddressId, excludeCityId, onlyCityId }) =>
+    withLatency<AddressSearchResult[]>(() => {
+      const from = fromAddressId ? addressById(fromAddressId) : undefined;
+      const out: AddressSearchResult[] = [];
+      for (const address of addressesForQuery(query, excludeCityId, onlyCityId)) {
+        const distanceKm = !from
+          ? 0
+          : from.cityId === address.cityId
+          ? cityLegKm(from, address)
+          : roadDistanceKm(from.cityId, address.cityId);
+        const area = cityOf(address.cityId).region;
+        out.push({ address, area, distanceKm });
+        // Points with several entrances come back once per entrance too.
+        for (const entrance of ENTRANCES[address.id.split("-")[1] ?? ""] ?? []) out.push({ address, area, distanceKm, entrance });
+      }
+      return out.slice(0, 14);
+    }, { minMs: 150, maxMs: 350 }),
+
   getAddressSuggestions: (query: string, excludeCityId?: string, onlyCityId?: string) =>
     withLatency(() => addressesForQuery(query, excludeCityId, onlyCityId), { minMs: 150, maxMs: 350 }),
 
@@ -752,7 +773,7 @@ export const mockAdapter: ApiAdapter = {
       const details = savedAddressDetails();
       return savedAddresses().map((address) => {
         const distanceKm = roadDistanceKm(fromCityId, address.cityId);
-        return { address, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
+        return { address, area: cityOf(address.cityId).region, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
       });
     }, { minMs: 150, maxMs: 350 }),
 
@@ -819,7 +840,9 @@ export const mockAdapter: ApiAdapter = {
             promoCode: input.promoCode,
           }).total;
         }
-        return { id, nameKey: c.nameKey, seats: c.seats, price, available: !reasonKey, reasonKey };
+        // A deterministic "nearest car" per class and route.
+        const etaMinutes = 3 + (hashSeed(`${input.fromAddressId}|${id}`) % 9);
+        return { id, nameKey: c.nameKey, seats: c.seats, price, available: !reasonKey, reasonKey, etaMinutes };
       });
     }, { minMs: 250, maxMs: 500 }),
 
@@ -871,13 +894,16 @@ export const mockAdapter: ApiAdapter = {
         carClass: input.carClass,
         promoCode: input.promoCode,
       });
+      const etaMinutes = 3 + Math.round(Math.random() * 6);
+      const durationMinutes = Math.round((routeKm / 70) * 60);
       return {
         distanceKm: routeKm,
         lines,
         total,
         currency: "som",
-        etaMinutes: 3 + Math.round(Math.random() * 6),
-        durationMinutes: Math.round((routeKm / 70) * 60),
+        etaMinutes,
+        durationMinutes,
+        arrivalAt: Date.now() + (etaMinutes + durationMinutes) * 60_000,
       };
     }, { minMs: 300, maxMs: 600 }),
 

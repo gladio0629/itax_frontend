@@ -1,61 +1,74 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Bell, Heart, LocateFixed, MapPin } from "@/lib/icons";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Bell, ChevronRight, LocateFixed, MapPin, PersonStanding } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, AddressDetails, SavedAddressInfo } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
-import { FakeMap } from "@/components/FakeMap";
-import { DragSheet, type SnapPoint } from "@/components/Sheet";
+import { MapCanvas } from "@/components/MapCanvas";
 import { Skeleton } from "@/components/Skeleton";
+import { Logo } from "@/components/Logo";
 import { LowConnectionBanner } from "@/components/LowConnectionBanner";
+import { MapButton } from "@/components/ui/MapButton";
+import { SearchPill } from "@/components/ui/SearchPill";
+import { ListRow } from "@/components/ui/ListRow";
+import { PinBubble } from "@/components/ui/PinBubble";
 import { useOrderStore } from "@/stores/orderStore";
 import { useDemoStore } from "@/stores/demoStore";
 import { useT } from "@/lib/i18n/provider";
-import { formatKm } from "@/lib/format";
 import { OrderSheet } from "@/features/order/OrderSheet";
+import { SearchScreen } from "@/features/order/SearchScreen";
 import { detailsSummary } from "@/features/order/addressDetails";
+import { formatDuration } from "@/features/order/duration";
 
+/**
+ * Home (reference structure): full-screen map, the pickup caption at the top,
+ * a pin bubble with the pickup ETA, round map buttons, and a sheet with the
+ * IZGO mark, "Taksi", the search pill and saved addresses as list rows.
+ *
+ * The flow lives in the URL (?flow=search|route), so back, Escape and the
+ * browser's swipe-back step search → home and route → home without leaving
+ * the order; the draft itself is in the store.
+ */
 export function HomeScreen() {
   const navigate = useNavigate();
-  const { t, intlTag } = useT();
+  const { t } = useT();
   const { draft, setField, reset } = useOrderStore();
-  const [profileName, setProfileName] = useState("");
+  const [params, setParams] = useSearchParams();
+  const flow = params.get("flow");
+  const searchTarget = params.get("target") === "from" ? "from" : "to";
   const [eta, setEta] = useState<number | null>(null);
   const [saved, setSaved] = useState<SavedAddressInfo[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState(false);
   const [savedReload, setSavedReload] = useState(0);
-  const [snap, setSnap] = useState<SnapPoint>("collapsed");
-  const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
+  const [panelH, setPanelH] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
   const setFabPlacement = useDemoStore((s) => s.setFabPlacement);
 
-  // The floating demo control would sit on the order flow; step it aside.
-  useEffect(() => {
-    setFabPlacement({ hidden: expanded });
-  }, [expanded, setFabPlacement]);
-  useEffect(() => () => setFabPlacement({ hidden: false, bottomPx: null }), [setFabPlacement]);
+  const fromAddress = addressById(draft.fromAddressId) ?? null;
+  const toAddress = addressById(draft.toAddressId) ?? null;
+  // A route needs a drop-off; a stale ?flow=route falls back to home.
+  const view = flow === "search" ? "search" : flow === "route" && toAddress ? "route" : "home";
 
   useEffect(() => {
-    api.getProfile().then((p) => setProfileName(p.name.split(" ")[0])).catch(() => {});
     api.getPickupEta().then((r) => setEta(r.minutes)).catch(() => {});
   }, []);
 
-  // Back on Home after the order flow: refetch, since the flow may have
-  // changed a saved address's Tafsilotlar (the adapter remembers them).
-  const flowWasOpen = useRef(false);
+  // Back on Home after the order flow: refetch saved addresses, since the
+  // flow may have changed one's Tafsilotlar.
+  const wasAway = useRef(false);
   useEffect(() => {
-    if (expanded) flowWasOpen.current = true;
-    else if (flowWasOpen.current) {
-      flowWasOpen.current = false;
+    if (view !== "home") wasAway.current = true;
+    else if (wasAway.current) {
+      wasAway.current = false;
       setSavedReload((n) => n + 1);
     }
-  }, [expanded]);
+  }, [view]);
 
   useEffect(() => {
     if (!draft.fromAddressId) return;
-    // Skeleton only for the first load; a refresh keeps the list in place.
     if (saved.length === 0) setSavedLoading(true);
     setSavedError(false);
     api
@@ -66,24 +79,44 @@ export function HomeScreen() {
         setSavedError(true);
       })
       .finally(() => setSavedLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.fromAddressId, savedReload]);
 
-  const fromAddress = addressById(draft.fromAddressId) ?? null;
-  const toAddress = addressById(draft.toAddressId) ?? null;
+  // The floating demo control sits above the home sheet, and steps aside
+  // in the order flow.
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setPanelH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
+  useEffect(() => {
+    setFabPlacement(view === "home" ? { hidden: false, bottomPx: panelH } : { hidden: true });
+  }, [view, panelH, setFabPlacement]);
+  useEffect(() => () => setFabPlacement({ hidden: false, bottomPx: null }), [setFabPlacement]);
 
-  function openFlow(presetTo?: Address, details?: AddressDetails) {
-    if (presetTo) {
-      setField("toAddressId", presetTo.id);
-      // A saved address keeps its Tafsilotlar.
-      setField("toDetails", details ?? {});
-    }
-    setExpanded(true);
-    setSnap("full");
+  const go = (next: Record<string, string>, replace = false) => setParams(next, { replace });
+  function back() {
+    if (window.history.state?.idx > 0) navigate(-1);
+    else go({}, true);
   }
 
-  function collapseFlow() {
-    setExpanded(false);
-    setSnap("collapsed");
+  /** Same rule as in the flow: a new point starts clean; an entrance chosen
+   * in search fills Podyezd; a saved address brings its details back. */
+  function setPoint(which: "from" | "to", addr: Address, details?: AddressDetails, entrance?: string) {
+    setField(which === "from" ? "fromAddressId" : "toAddressId", addr.id);
+    const picked: AddressDetails = { ...(details ?? {}), ...(entrance ? { entrance } : {}) };
+    setField(which === "from" ? "fromDetails" : "toDetails", picked);
+    if (!details) {
+      api
+        .getSavedAddressDetails(addr.id)
+        .then((s) => {
+          const id = which === "from" ? useOrderStore.getState().draft.fromAddressId : useOrderStore.getState().draft.toAddressId;
+          if (s && id === addr.id) setField(which === "from" ? "fromDetails" : "toDetails", { ...s, ...(entrance ? { entrance } : {}) });
+        })
+        .catch(() => {});
+    }
   }
 
   async function submit() {
@@ -114,9 +147,8 @@ export function HomeScreen() {
         sender: draft.serviceType === "delivery" ? draft.sender : undefined,
         receiver: draft.serviceType === "delivery" ? draft.receiver : undefined,
       });
-      navigate(`/order/track/${order.id}`);
+      navigate(`/order/track/${order.id}`, { replace: true });
       reset();
-      collapseFlow();
     } catch {
       setSubmitError(true);
     } finally {
@@ -124,120 +156,137 @@ export function HomeScreen() {
     }
   }
 
-  return (
-    <div className="relative h-full bg-bg">
-      <FakeMap pickupLabel={fromAddress ? `${t("order.pickupCaption")}: ${fromAddress.label}` : undefined} etaMinutes={eta ?? undefined} className="absolute inset-0" />
-
-      <div className="relative flex items-center justify-between pl-16 pr-5" style={{ paddingTop: "calc(var(--safe-top) + 16px)" }}>
-        <div className="rounded-2xl bg-card/90 px-3 py-2 shadow-softer backdrop-blur-sm">
-          <p className="text-xs text-ink/60">{t("home.greeting")}{profileName ? "," : ""}</p>
-          <p className="text-sm font-semibold text-ink">{profileName || t("home.guest")} 👋</p>
-        </div>
-        <Link
-          to="/notifications"
-          aria-label={t("home.notifications")}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-card/90 shadow-softer backdrop-blur-sm"
-        >
-          <Bell className="h-5 w-5 text-ink/80" />
-        </Link>
+  if (view === "route") {
+    return (
+      <div className="relative h-full bg-bg">
+        <OrderSheet
+          draft={draft}
+          setField={setField}
+          addresses={{ from: fromAddress, to: toAddress }}
+          onAddressChange={(which, addr) => setField(which === "from" ? "fromAddressId" : "toAddressId", addr.id)}
+          onSubmit={submit}
+          submitting={submitting}
+          submitError={submitError}
+          onClose={back}
+        />
       </div>
+    );
+  }
 
+  return (
+    <div className="relative h-full overflow-hidden bg-bg">
+      <MapCanvas className="absolute inset-0" />
+
+      {/* Pickup caption, top centre. */}
       <button
-        aria-label={t("home.locateMe")}
-        className="absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-card shadow-soft"
-        style={{ top: "calc(var(--safe-top) + 76px)" }}
+        type="button"
+        onClick={() => go({ flow: "search", target: "from" })}
+        aria-label={`${t("home.pickupChange")}: ${fromAddress?.label ?? ""}`}
+        className="absolute left-1/2 max-w-[60%] -translate-x-1/2 text-center"
+        style={{ top: "calc(var(--safe-top) + 16px)" }}
       >
-        <LocateFixed className="h-5 w-5 text-accent" />
+        <span className="flex items-center justify-center gap-0.5 text-sub text-ink/70">
+          {t("order.pickupCaption")} <ChevronRight className="h-3.5 w-3.5" />
+        </span>
+        <span className="block truncate text-control font-semibold text-ink">{fromAddress?.label}</span>
       </button>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 [&>*]:pointer-events-auto" style={{ paddingTop: "calc(var(--safe-top) + 128px)" }}>
+      <Link
+        to="/notifications"
+        aria-label={t("home.notifications")}
+        className="absolute right-4 flex h-12 w-12 items-center justify-center rounded-full bg-card text-ink shadow-[0_2px_12px_rgba(0,0,0,0.16)]"
+        style={{ top: "calc(var(--safe-top) + 16px)" }}
+      >
+        <Bell className="h-5 w-5" />
+      </Link>
+
+      <div className="pointer-events-none absolute inset-x-0 top-0 [&>*]:pointer-events-auto" style={{ paddingTop: "calc(var(--safe-top) + 76px)" }}>
         <LowConnectionBanner />
       </div>
 
-      <DragSheet
-        snap={expanded ? "full" : snap}
-        onSnapChange={(s) => {
-          setSnap(s);
-          if (s !== "full") setExpanded(false);
-        }}
-        ariaLabel={t("home.orderSheet")}
-        handleLabel={t("sheet.handle")}
-        onVisibleHeightChange={(px) => setFabPlacement({ bottomPx: px })}
+      {/* Pickup pin and its bubble, centred on the visible map. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center" style={{ height: `calc(100% - ${panelH}px)` }}>
+        <div className="mt-auto mb-auto flex flex-col items-center">
+          <PinBubble icon={<PersonStanding className="h-5 w-5" />} caption={t("pin.pickup")} value={eta != null ? t("pin.eta", { n: eta }) : "…"} />
+          <span className="mt-1 h-5 w-[3px] rounded-full bg-ink" aria-hidden="true" />
+          <span className="-mt-1 h-3 w-3 rounded-full border-[3px] border-ink bg-card" aria-hidden="true" />
+        </div>
+      </div>
+
+      <MapButton aria-label={t("home.locateMe")} className="absolute right-3" style={{ bottom: panelH + 12 }}>
+        <LocateFixed className="h-5 w-5" />
+      </MapButton>
+
+      <div
+        ref={panelRef}
+        role="region"
+        aria-label={t("home.orderSheet")}
+        className="absolute inset-x-0 bottom-0 z-20 rounded-t-sheet-home bg-card px-4 pt-2 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+        style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
       >
-        {expanded ? (
-          <OrderSheet
-            draft={draft}
-            setField={setField}
-            addresses={{ from: fromAddress, to: toAddress }}
-            onAddressChange={(which, addr) => setField(which === "from" ? "fromAddressId" : "toAddressId", addr.id)}
-            onSubmit={submit}
-            submitting={submitting}
-            submitError={submitError}
-            onClose={collapseFlow}
-          />
-        ) : (
-          <div className="px-5 pb-4">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
-                <MapPin className="h-3.5 w-3.5" />
-              </span>
-              <p className="text-sm font-semibold text-ink" translate="no">IZGO Taksi</p>
+        <div className="flex justify-center" aria-hidden="true">
+          <span className="h-[5px] w-9 rounded-full bg-ink/15" />
+        </div>
+        <div className="mb-4 mt-2 flex items-center gap-3">
+          <span className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
+            <Logo size={48} />
+          </span>
+          <h1 className="text-display font-bold text-ink">{t("home.title")}</h1>
+        </div>
+
+        <SearchPill label={t("home.whereTo")} onClick={() => go({ flow: "search", target: "to" })} />
+
+        <div className="mt-3">
+          {savedLoading ? (
+            <div className="space-y-2 py-2">
+              <Skeleton className="h-12 w-full rounded-control" />
+              <Skeleton className="h-12 w-full rounded-control" />
             </div>
-
+          ) : savedError ? (
             <button
-              onClick={() => openFlow()}
-              className="flex w-full items-center justify-between rounded-2xl bg-ink/5 px-5 py-4 text-left"
+              onClick={() => setSavedReload((n) => n + 1)}
+              className="inline-flex min-h-[44px] items-center text-sub font-semibold text-danger underline"
             >
-              <span className="text-sm font-normal text-ink/60">{t("home.whereTo")}</span>
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-bg">
-                <MapPin className="h-4 w-4" />
-              </span>
+              {t("common.errorMessage")} — {t("common.retry")}
             </button>
+          ) : saved.length === 0 ? (
+            <p className="py-3 text-sub text-ink/60">{t("home.noSavedAddresses")}</p>
+          ) : (
+            <div aria-label={t("order.savedAddresses")} role="group">
+              {saved.map(({ address, area, details, etaMinutes }, i) => (
+                <ListRow
+                  key={address.id}
+                  icon={<MapPin className="h-5 w-5" />}
+                  title={address.label}
+                  subtitle={(details && detailsSummary(details, t)) || area}
+                  trailing={formatDuration(etaMinutes, t)}
+                  last={i === saved.length - 1}
+                  onClick={() => {
+                    setPoint("to", address, details ?? {});
+                    go({ flow: "route" });
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
-            <p className="mb-2 mt-5 flex items-center gap-1.5 text-sm font-semibold text-ink">
-              <Heart className="h-4 w-4 text-ink/60" /> {t("order.savedAddresses")}
-            </p>
-            {savedLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-14 w-full rounded-xl" />
-                <Skeleton className="h-14 w-full rounded-xl" />
-              </div>
-            ) : savedError ? (
-              <button
-                onClick={() => setSavedReload((n) => n + 1)}
-                className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline"
-              >
-                {t("common.errorMessage")} — {t("common.retry")}
-              </button>
-            ) : saved.length === 0 ? (
-              <p className="text-xs text-ink/60">{t("home.noSavedAddresses")}</p>
-            ) : (
-              <div className="space-y-2">
-                {saved.map(({ address, details, distanceKm, etaMinutes }) => (
-                  <button
-                    key={address.id}
-                    onClick={() => openFlow(address, details)}
-                    className="flex w-full items-center gap-3 rounded-xl bg-card px-4 py-3.5 text-left shadow-softer"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
-                      <MapPin className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-ink">{address.label}</p>
-                      {details && detailsSummary(details, t) && (
-                        <p className="truncate text-xs text-ink/60">{detailsSummary(details, t)}</p>
-                      )}
-                      <p className="text-xs text-ink/60 tabular">
-                        {formatKm(distanceKm, intlTag)} &middot; ~{etaMinutes} {t("order.minutesShort")}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </DragSheet>
+      {view === "search" && (
+        <SearchScreen
+          title={searchTarget === "from" ? t("order.from") : t("order.to")}
+          fromLabel={searchTarget === "to" ? fromAddress?.label : undefined}
+          fromAddressId={searchTarget === "to" ? draft.fromAddressId : undefined}
+          excludeCityId={searchTarget === "to" ? fromAddress?.cityId : toAddress?.cityId}
+          onClose={back}
+          onSelect={(addr, entrance) => {
+            setPoint(searchTarget, addr, undefined, entrance);
+            // A drop-off goes on to the route; a new pickup returns home.
+            if (searchTarget === "to") go({ flow: "route" }, true);
+            else back();
+          }}
+        />
+      )}
     </div>
   );
 }

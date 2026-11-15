@@ -15,17 +15,17 @@ export function LuggageStepper({ rules, value, onChange }: { rules: NonNullable<
   const { t } = useT();
   const step = (d: number) => onChange(Math.min(rules.max, Math.max(rules.min, value + d)));
   const btn =
-    "flex h-11 w-11 items-center justify-center rounded-full bg-accent-5 text-accent transition-colors hover:bg-accent-10 disabled:opacity-40 disabled:hover:bg-accent-5";
+    "flex h-11 w-11 items-center justify-center rounded-full bg-fill text-ink transition-colors hover:bg-ink/10 disabled:opacity-40 disabled:hover:bg-fill";
   return (
-    <section aria-labelledby="luggage-title" className="flex min-h-[64px] items-center gap-3 rounded-xl border border-border px-3 py-2">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
-        <Luggage className="h-[18px] w-[18px]" />
+    <section aria-labelledby="luggage-title" className="flex min-h-[var(--size-row)] items-center gap-3 border-b border-hairline py-2">
+      <span className="flex h-[var(--size-tile)] w-[var(--size-tile)] shrink-0 items-center justify-center rounded-tile bg-fill text-ink/70">
+        <Luggage className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span id="luggage-title" className="block text-sm font-semibold text-ink">
+        <span id="luggage-title" className="block text-body text-ink">
           {t("luggage.title")}
         </span>
-        <span className="block text-xs text-ink/60">{t("luggage.desc")}</span>
+        <span className="block text-sub text-ink/60">{t("luggage.desc")}</span>
       </span>
       <div className="flex shrink-0 items-center gap-1">
         <button type="button" onClick={() => step(-1)} disabled={value <= rules.min} aria-label={t("luggage.decrease")} className={btn}>

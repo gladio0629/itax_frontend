@@ -1,19 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { Armchair, Car as CarIcon, ChevronRight, Package, X } from "@/lib/icons";
+import { ArrowLeft, Banknote, CreditCard, LocateFixed, Package, SlidersHorizontal } from "@/lib/icons";
 import { api } from "@/api/client";
-import type { Address, AddressDetails, CargoCheck, CargoInfoTopic, CargoInput, CarClass, OrderDetailsRules, OrderOption, OrderOptionId, Seat } from "@/api/types";
+import type { Address, AddressDetails, CargoCheck, CargoInfoTopic, CargoInput, CarClass, OrderDetailsRules, OrderOption, Seat } from "@/api/types";
 import { addressById } from "@/clientData/addresses";
 import { newStopUid, type OrderDraft } from "@/stores/orderStore";
 import { Button } from "@/components/Button";
+import { Sheet } from "@/components/Sheet";
 import { Skeleton } from "@/components/Skeleton";
-import { formatSom } from "@/lib/format";
+import { MapCanvas, ROUTE } from "@/components/MapCanvas";
+import { MapButton } from "@/components/ui/MapButton";
+import { TextTabs } from "@/components/ui/TextTabs";
+import { Chip } from "@/components/ui/Chip";
+import { CloseButton } from "@/components/ui/CloseButton";
+import { formatSom, formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { useQuery } from "@/lib/useQuery";
 import { cn } from "@/lib/cn";
+import { ruleErrorKey } from "@/lib/apiError";
 import { SeatMap, seatCountLabel } from "./SeatMap";
 import { VehiclePicker } from "./VehiclePicker";
-import { AddressPickerSheet } from "./AddressPickerSheet";
 import { TimeSelector } from "./TimeSelector";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
@@ -24,54 +30,18 @@ import { CarClassPicker } from "./CarClassPicker";
 import { IstaklarRow, IstaklarSheet } from "./IstaklarSheet";
 import { ContactFields, ContactNote, LuggageStepper, PromoRow, RiderSection, type RiderError } from "./TripDetails";
 import { CargoInfoChips, CargoInfoSheet, CargoTabs, LoadersControl, PricingModeControl, RideAlongRow, WarehouseSheet } from "./KargoControls";
-import { ruleErrorKey } from "@/lib/apiError";
+import { SearchScreen } from "./SearchScreen";
 import { detailsSummary } from "./addressDetails";
-import { Segmented } from "@/components/ui/Segmented";
-import { CloseButton } from "@/components/ui/CloseButton";
+import { formatDuration } from "./duration";
 
-const STEP_KEYS = ["order.step.route", "order.step.details", "order.step.summary"] as const;
-
-function StepHeader({
-  step,
-  cargo,
-  onClose,
-}: {
-  step: number;
-  /** Dostavka details: the panel reads as "Kargo" with a cargo icon. */
-  cargo: boolean;
-  onClose: () => void;
-}) {
-  const { t } = useT();
-  return (
-    <div className="px-5 pb-1 pt-2">
-      <div className="flex items-center gap-3">
-        <div className="flex flex-1 items-center gap-1.5">
-          {STEP_KEYS.map((_, i) => (
-            <span
-              key={i}
-              className={cn("h-1.5 flex-1 rounded-full transition-colors", i <= step ? "bg-brand-yellow" : "bg-border")}
-            />
-          ))}
-        </div>
-        <CloseButton onClick={onClose} label={t("common.close")} />
-      </div>
-      {cargo ? (
-        <div className="mt-1 flex items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-on-yellow">
-            <Package className="h-[18px] w-[18px]" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-ink">{t("cargo.title")}</h2>
-            <p className="text-xs font-semibold text-ink/60">{t(STEP_KEYS[step])}</p>
-          </div>
-        </div>
-      ) : (
-        <p className="mt-1 text-xs font-semibold text-ink/60">{t(STEP_KEYS[step])}</p>
-      )}
-    </div>
-  );
-}
-
+/**
+ * The route screen (reference structure): the map with the route line and
+ * its bubbles, and a sheet — route rows (Podyezd capsules, round +), TAKSI /
+ * KARGO tabs, the class carousel, chips for seats / time / price, and a
+ * bottom bar (payment · Buyurtma berish · options). Kargo is a stack of
+ * white cards on the dark backdrop with its own confirm button.
+ * Everything priced, limited or validated comes from the adapter.
+ */
 export function OrderSheet({
   draft,
   setField,
@@ -89,17 +59,10 @@ export function OrderSheet({
   onSubmit: () => void;
   submitting: boolean;
   submitError: boolean;
+  /** Back to the home screen. */
   onClose: () => void;
 }) {
   const { t, intlTag } = useT();
-  const [step, setStepRaw] = useState(0);
-  const [direction, setDirection] = useState<"fwd" | "back">("fwd");
-  const bodyRef = useRef<HTMLDivElement>(null);
-  function setStep(next: number) {
-    setDirection(next > step ? "fwd" : "back");
-    setStepRaw(next);
-    bodyRef.current?.scrollTo({ top: 0 });
-  }
   // "newStop" opens the search for a stop that is only added once picked,
   // so an empty stop never reaches the quote.
   const [picker, setPicker] = useState<RouteTarget | "newStop" | null>(null);
@@ -182,8 +145,9 @@ export function OrderSheet({
   }
 
   /** A new address starts without the old one's Tafsilotlar; a saved
-   * address brings its own back from the adapter. */
-  function pickAddress(which: RouteTarget | "newStop", addr: Address) {
+   * address brings its own back from the adapter, and an entrance variant
+   * picked in search (the adapter's) fills in "Podyezd". */
+  function pickAddress(which: RouteTarget | "newStop", addr: Address, entrance?: string) {
     let target: RouteTarget;
     if (which === "newStop") {
       const uid = newStopUid();
@@ -200,10 +164,12 @@ export function OrderSheet({
       );
       target = which;
     }
+    const picked: AddressDetails = entrance ? { entrance } : {};
+    if (entrance) setPointDetails(target, picked);
     api
       .getSavedAddressDetails(addr.id)
       .then((saved) => {
-        if (saved && pointAddressId(target) === addr.id) setPointDetails(target, saved);
+        if (saved && pointAddressId(target) === addr.id) setPointDetails(target, { ...saved, ...picked });
       })
       .catch(() => {});
   }
@@ -262,7 +228,7 @@ export function OrderSheet({
     // Keyed on the cargo without its note — typing a note mustn't refetch;
     // likewise the comment and Tafsilotlar never re-quote. Every stop
     // add/remove/reorder/change does.
-    [step, draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, cargoKey, optionsKey, variantsKey, draft.carClass, draft.promoCode]
+    [draft.serviceType, draft.fromAddressId, draft.toAddressId, stopsKey, draft.mode, draft.seatIds, cargoKey, optionsKey, variantsKey, draft.carClass, draft.promoCode]
   );
 
   // Class cards: each price is the adapter's total for this order with that
@@ -337,7 +303,7 @@ export function OrderSheet({
   const [cargoCheck, setCargoCheck] = useState<CargoCheck | null>(null);
   const checkReq = useRef(0);
   useEffect(() => {
-    if (!delivery || step !== 1 || !canQuote) return;
+    if (!delivery || !canQuote) return;
     const req = ++checkReq.current;
     let timer = 0;
     const run = () => {
@@ -361,7 +327,7 @@ export function OrderSheet({
     };
     timer = window.setTimeout(run, 250);
     return () => window.clearTimeout(timer);
-  }, [delivery, step, canQuote, draft.fromAddressId, draft.toAddressId, stopsKey, cargoKey, contactsKey]);
+  }, [delivery, canQuote, draft.fromAddressId, draft.toAddressId, stopsKey, cargoKey, contactsKey]);
   // Field errors show once the person has left that field.
   const [touched, setTouched] = useState<string[]>([]);
   const touch = (f: string) => setTouched((x) => (x.includes(f) ? x : [...x, f]));
@@ -394,9 +360,12 @@ export function OrderSheet({
     : undefined;
   const stopMax = delivery ? (cr ? cr.maxExtraDropoffs[tab] : null) : rules?.maxStops ?? null;
 
-  /** Leaving the details step: the adapter checks "Kim ketadi?" while its
-   * fields are still on screen. */
-  async function nextFromDetails() {
+  // ── Sheets of the route screen ──────────────────────────────────────────
+  const [sheet, setSheet] = useState<null | "options" | "seats" | "price" | "payment" | "cargoSummary">(null);
+
+  /** "Buyurtma berish": the adapter checks "Kim ketadi?" first; a problem
+   * opens the options sheet with the field focused (nothing is guessed here). */
+  async function submitTaxi() {
     if (passenger && draft.rider.kind === "other") {
       setValidating(true);
       setRiderError(null);
@@ -407,247 +376,455 @@ export function OrderSheet({
         if (e.code === "RIDER_NAME" || e.code === "RIDER_PHONE") {
           const field = e.code === "RIDER_NAME" ? "name" : "phone";
           setRiderError({ field, message: t(e.message as TranslationKey) });
-          riderRef.current?.focus(field);
+          setSheet("options");
+          window.setTimeout(() => riderRef.current?.focus(field), 350);
         } else setRiderError({ field: "form", message: t("common.errorMessage") });
         return;
       } finally {
         setValidating(false);
       }
     }
-    setStep(2);
+    onSubmit();
   }
 
-  const canNext =
-    step === 0
-      ? canQuote
-      : step === 1
-      ? draft.serviceType === "delivery" || draft.mode === "car" || draft.seatIds.length > 0
-      : true;
-
-  // Dostavka's Panel 2 confirms the vehicle (price + Tasdiqlash) and moves on
-  // to the summary — the same step change, not a separate action.
-  const cargoConfirm = step === 1 && draft.serviceType === "delivery";
+  // Per-seat booking needs at least one seat (the old step gate).
+  const needSeats = passenger && draft.mode === "seat" && draft.seatIds.length === 0;
+  const routeEta = quote.status === "success" ? formatDuration(quote.data.durationMinutes, t) : undefined;
+  const selectedClass = (classes.status === "success" ? classes.data : lastClasses.current).find((c) => c.id === draft.carClass);
 
   const routeBlock = (
-      <RouteFields
-        from={addresses.from}
-        to={addresses.to}
-        // Marketpleysga: the drop-off is a warehouse from the list.
-        onPick={(which) => (delivery && tab === "marketplace" && which === "to" ? setWarehouseOpen(true) : setPicker(which))}
-        onSwap={() => {
-          const f = draft.fromAddressId;
-          const fd = draft.fromDetails;
-          setField("fromAddressId", draft.toAddressId);
-          setField("toAddressId", f);
-          setField("fromDetails", draft.toDetails);
-          setField("toDetails", fd);
-          // Swapping reverses the whole route, stops included.
-          setField("stops", [...draft.stops].reverse());
-        }}
-        fromDetailsLine={detailsSummary(draft.fromDetails, t)}
-        toDetailsLine={detailsSummary(draft.toDetails, t)}
-        onDetails={setDetailsFor}
-        stops={draft.stops.map((st) => ({
-          uid: st.uid,
-          address: addressById(st.addressId) ?? null,
-          detailsLine: detailsSummary(st.details, t),
-        }))}
-        maxStops={stopMax}
-        onAddStop={stopMax === 0 ? undefined : () => setPicker("newStop")}
-        labels={stopLabels}
-        toLabel={delivery && tab === "marketplace" ? t("kargo.warehouse") : undefined}
+    <RouteFields
+      from={addresses.from}
+      to={addresses.to}
+      // Marketpleysga: the drop-off is a warehouse from the list.
+      onPick={(which) => (delivery && tab === "marketplace" && which === "to" ? setWarehouseOpen(true) : setPicker(which))}
+      onSwap={() => {
+        const f = draft.fromAddressId;
+        const fd = draft.fromDetails;
+        setField("fromAddressId", draft.toAddressId);
+        setField("toAddressId", f);
+        setField("fromDetails", draft.toDetails);
+        setField("toDetails", fd);
+        // Swapping reverses the whole route, stops included.
+        setField("stops", [...draft.stops].reverse());
+      }}
+      fromDetailsLine={detailsSummary(draft.fromDetails, t)}
+      toDetailsLine={detailsSummary(draft.toDetails, t)}
+      onDetails={setDetailsFor}
+      stops={draft.stops.map((st) => ({
+        uid: st.uid,
+        address: addressById(st.addressId) ?? null,
+        detailsLine: detailsSummary(st.details, t),
+      }))}
+      maxStops={stopMax}
+      onAddStop={stopMax === 0 ? undefined : () => setPicker("newStop")}
+      labels={stopLabels}
+      toLabel={delivery && tab === "marketplace" ? t("kargo.warehouse") : undefined}
       canSwap={!(delivery && tab === "marketplace")}
-        onPickStop={(uid) => setPicker({ stop: uid })}
-        onRemoveStop={(uid) => setField("stops", draftRef.current.stops.filter((st) => st.uid !== uid))}
-        onReorderStops={(from, to) => {
-          const next = [...draftRef.current.stops];
-          const [moved] = next.splice(from, 1);
-          next.splice(to, 0, moved);
-          setField("stops", next);
-        }}
-      />
+      // Taxi rows: address only, "Podyezd" capsule, round + (reference);
+      // Kargo rows: labelled, "Tafsilotlar" capsules, "Manzil +" chip.
+      addStyle={delivery ? "chip" : "plus"}
+      showLabels={delivery}
+      fromDetailsText={delivery ? undefined : t("details.entrance")}
+      toDetailsText={delivery ? undefined : t("details.entrance")}
+      toTrailing={delivery ? undefined : routeEta}
+      onPickStop={(uid) => setPicker({ stop: uid })}
+      onRemoveStop={(uid) => setField("stops", draftRef.current.stops.filter((st) => st.uid !== uid))}
+      onReorderStops={(from, to) => {
+        const next = [...draftRef.current.stops];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        setField("stops", next);
+      }}
+    />
   );
 
   /** A rule the person can fix shows the adapter's reason; anything else a retry. */
   const quoteError = (err: unknown, onRetry: () => void, className?: string) => {
     const key = ruleErrorKey(err);
     return key ? (
-      <p role="alert" className={cn("text-xs font-semibold text-danger", className)}>
+      <p role="alert" className={cn("text-sub font-semibold text-danger", className)}>
         {t(key as TranslationKey)}
       </p>
     ) : (
-      <button onClick={onRetry} className={cn("inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline", className)}>
+      <button onClick={onRetry} className={cn("inline-flex min-h-[44px] items-center text-sub font-semibold text-danger underline", className)}>
         {t("order.quoteError")}
       </button>
     );
   };
 
-  return (
-    <div className="flex h-full flex-col">
-      <StepHeader step={step} cargo={step === 1 && draft.serviceType === "delivery"} onClose={onClose} />
+  const serviceTabs = (
+    <TextTabs
+      uppercase
+      ariaLabel={t("service.tabs")}
+      value={draft.serviceType}
+      onChange={(v) => {
+        setField("serviceType", v);
+        setField("optionIds", []);
+      }}
+      options={[
+        { id: "passenger", label: t("service.taxi") },
+        { id: "delivery", label: t("service.cargo") },
+      ]}
+    />
+  );
 
-      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 pt-3">
-        <div key={step} className={direction === "fwd" ? "animate-step-fwd" : "animate-step-back"}>
-        {step === 0 && (
+  const priceLines = (
+    <div aria-live="polite">
+      {quote.status === "loading" && (
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-full" />
+          <Skeleton className="h-5 w-2/3" />
+        </div>
+      )}
+      {quote.status === "error" && quoteError(quote.error, quote.refetch)}
+      {quote.status === "success" && (
+        <div className="space-y-2">
+          {quote.data.lines.map((line, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 text-control">
+              <span className="min-w-0 text-ink/60">{t(line.key as TranslationKey, line.params)}</span>
+              <span className="shrink-0 tabular text-ink">{formatSom(line.amount, intlTag)}</span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between border-t border-hairline pt-2 text-body font-semibold">
+            <span className="text-ink">{t("order.total")}</span>
+            <span className="tabular text-ink">{formatSom(quote.data.total, intlTag)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const summaryBlock = (
+    <div className="space-y-1.5">
+      <ol className="space-y-1.5">
+        {[
+          { key: "from", label: addresses.from?.label, details: draft.fromDetails },
+          ...draft.stops.map((st) => ({ key: st.uid, label: addressById(st.addressId)?.label, details: st.details })),
+          { key: "to", label: addresses.to?.label, details: draft.toDetails },
+        ].map((p) => {
+          const line = detailsSummary(p.details, t);
+          return (
+            <li key={p.key}>
+              <span className="block text-control text-ink">{p.label}</span>
+              {line && <span className="block text-sub text-ink/60">{line}</span>}
+            </li>
+          );
+        })}
+      </ol>
+      <dl className="space-y-1 border-t border-hairline pt-2 text-sub">
+        <SummaryRow
+          label={t("order.seatsTitle")}
+          value={
+            passenger
+              ? draft.mode === "car"
+                ? t("order.wholeCar")
+                : seatCountLabel(t, draft.seatIds.length, intlTag)
+              : `${t("order.delivery")} · ${t(`cargo.vehicle.${draft.cargo.vehicle}` as TranslationKey)}`
+          }
+        />
+        <SummaryRow label={t("when.title")} value={timingSummary(draft.timing, t, intlTag)} />
+        {passenger && <SummaryRow label={t("class.title")} value={t(`class.${draft.carClass}` as TranslationKey)} />}
+        {passenger && draft.optionIds.length > 0 && (
+          <SummaryRow
+            label={t("options.title")}
+            value={optionList
+              .filter((o) => draft.optionIds.includes(o.id))
+              .map((o) => {
+                const v = o.variants?.find((x) => x.id === draft.optionVariants[o.id]);
+                return v ? `${t(o.titleKey as TranslationKey)} (${t(v.labelKey as TranslationKey)})` : t(o.titleKey as TranslationKey);
+              })
+              .join(", ")}
+          />
+        )}
+        {passenger && luggage && <SummaryRow label={t("luggage.title")} value={draft.luggage > 0 ? t("luggage.count", { n: draft.luggage }) : t("luggage.none")} />}
+        {passenger && draft.rider.kind === "other" && <SummaryRow label={t("rider.summary")} value={`${draft.rider.name.trim()}, +998 ${draft.rider.phone}`} />}
+        {passenger && draft.comment.trim() && <SummaryRow label={t("comment.title")} value={draft.comment.trim()} />}
+        {delivery && cr && (
           <>
-            {routeBlock}
-            {canQuote && (
-              <div className="mt-3 flex min-h-[44px] items-center justify-between gap-3 px-1" aria-live="polite">
-                <span className="text-sm text-ink/60">{t("order.priceEstimate")}</span>
-                {quote.status === "success" ? (
-                  <span className="text-base font-semibold text-ink tabular">{formatSom(quote.data.total, intlTag)}</span>
-                ) : quote.status === "error" ? (
-                  quoteError(quote.error, quote.refetch, "text-right")
-                ) : (
-                  <Skeleton className="h-5 w-24" />
-                )}
-              </div>
-            )}
+            <SummaryRow label={t("kargo.summary.type")} value={t(cr.tabs.find((x) => x.id === tab)?.labelKey as TranslationKey)} />
+            <SummaryRow
+              label={t("kargo.mode.title")}
+              value={mode === "hourly" ? `${t("kargo.mode.hourly")} · ${t("kargo.hours.value", { n: draft.cargo.hours ?? cr.hours.min })}` : t("kargo.mode.route")}
+            />
+            <SummaryRow label={t("kargo.loaders.title")} value={(draft.cargo.loaders ?? 0) > 0 ? String(draft.cargo.loaders) : t("kargo.loaders.none")} />
+            <SummaryRow label={t("kargo.sender")} value={draft.sender.kind === "me" ? t("rider.me") : `${draft.sender.name.trim()}, +998 ${draft.sender.phone}`} />
+            <SummaryRow label={t("kargo.receiver")} value={`${draft.receiver.name.trim()}, +998 ${draft.receiver.phone}`} />
+            {draft.cargo.rideAlong && <SummaryRow label={t("kargo.rideAlong")} value={t("kargo.summary.yes")} />}
           </>
         )}
+      </dl>
+    </div>
+  );
 
-        {step === 1 && (
-          <div className="space-y-4">
-            <Segmented
-              ariaLabel={t("order.step.details")}
-              value={draft.serviceType}
-              onChange={(v) => {
-                setField("serviceType", v);
-                setField("optionIds", []);
-              }}
-              options={[
-                {
-                  id: "passenger",
-                  label: (
-                    <span className="inline-flex items-center gap-2">
-                      <Armchair className="h-4 w-4" /> {t("order.passenger")}
-                    </span>
-                  ),
-                },
-                {
-                  id: "delivery",
-                  label: (
-                    <span className="inline-flex items-center gap-2">
-                      <CarIcon className="h-4 w-4" /> {t("order.delivery")}
-                    </span>
-                  ),
-                },
-              ]}
-            />
+  const PayIcon = draft.paymentMethod === "card" ? CreditCard : Banknote;
+  const payLabel = draft.paymentMethod === "card" ? t("order.card") : t("order.cash");
 
-            {draft.serviceType === "passenger" ? (
-              <>
-                <CarClassPicker
-                  status={classes.status}
-                  classes={classes.status === "success" ? classes.data : lastClasses.current}
-                  value={draft.carClass}
-                  onChange={(id) => setField("carClass", id)}
-                  onRetry={classes.refetch}
-                  errorKey={classes.status === "error" ? ruleErrorKey(classes.error) : null}
-                />
-                <SeatMap
-                  seats={seats}
-                  mode={draft.mode}
-                  seatIds={draft.seatIds}
-                  onChange={(m, ids) => {
-                    setField("mode", m);
-                    setField("seatIds", ids);
-                  }}
-                  loadError={seatsError}
-                  onRetry={() => setSeatsReload((n) => n + 1)}
-                />
-              </>
-            ) : (
-              <>
-                {cr ? (
-                  <CargoTabs rules={cr} value={tab} onChange={(v) => setCargo({ tab: v })} />
-                ) : cargoRules.status === "error" ? (
-                  <button onClick={cargoRules.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
-                    {t("common.loadFailedRetry")}
-                  </button>
-                ) : (
-                  <Skeleton className="h-12 w-full" />
-                )}
-                {routeBlock}
-                <VehiclePicker
-                  value={draft.cargo}
-                  onChange={(v) => setField("cargo", v)}
-                  belowChips={cr && <LoadersControl rules={cr} value={draft.cargo.loaders ?? 0} onChange={(n) => setCargo({ loaders: n })} />}
-                />
-                {cr && (
-                  <PricingModeControl
-                    rules={cr}
-                    tab={tab}
-                    mode={mode}
-                    hours={Math.min(cr.hours.max, Math.max(cr.hours.min, draft.cargo.hours ?? cr.hours.min))}
-                    onMode={(m) =>
-                      // Switching to Soatbay starts within the adapter's bounds.
-                      setCargo(m === "hourly" ? { pricingMode: m, hours: Math.min(cr.hours.max, Math.max(cr.hours.min, draftRef.current.cargo.hours ?? cr.hours.min)) } : { pricingMode: m })
-                    }
-                    onHours={(h) => setCargo({ hours: h })}
-                  />
-                )}
-                {cr && <CargoInfoChips rules={cr} onOpen={setInfoTopic} />}
+  // ── Kargo: stacked white cards on the dark backdrop ─────────────────────
+  if (delivery) {
+    return (
+      <div className="absolute inset-0 z-30 flex flex-col bg-backdrop" role="dialog" aria-modal="true" aria-label={t("cargo.title")}>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ paddingTop: "calc(var(--safe-top) + 8px)" }}>
+          <div className="flex flex-col gap-[2px]">
+            {/* Header card */}
+            <div className="flex items-center gap-3 rounded-card bg-card px-4 py-3">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-on-yellow" aria-hidden="true">
+                <Package className="h-6 w-6" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-display font-bold text-ink">{t("cargo.title")}</span>
+                <span className="block truncate text-sub text-ink/60">{addresses.from?.label}</span>
+              </span>
+              <CloseButton label={t("common.close")} onClick={() => setField("serviceType", "passenger")} />
+            </div>
 
-                <section aria-labelledby="cargo-contacts" className="space-y-4">
-                  <p id="cargo-contacts" className="text-sm font-semibold text-ink">
-                    {t("kargo.contacts.title")}
-                  </p>
-                  <RiderSection
-                    title={t("kargo.sender")}
-                    prefix="sender"
-                    note={null}
-                    value={draft.sender}
-                    onChange={(r) => setField("sender", r)}
-                    nameMaxLength={rules?.riderNameMaxLength}
-                    error={null}
-                    errors={{ name: fieldIssue("sender.name"), phone: fieldIssue("sender.phone") }}
-                    onBlurField={(f) => touch(`sender.${f}`)}
-                  />
-                  <div className="space-y-3">
-                    <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">{t("kargo.receiver")}</p>
-                    <ContactFields
-                      prefix="receiver"
-                      value={draft.receiver}
-                      onChange={(v) => setField("receiver", v)}
-                      nameMaxLength={rules?.riderNameMaxLength}
-                      errors={{ name: fieldIssue("receiver.name"), phone: fieldIssue("receiver.phone") }}
-                      onBlurField={(f) => touch(`receiver.${f}`)}
-                    />
-                    <ContactNote>{t("kargo.receiverNote")}</ContactNote>
-                  </div>
-                </section>
-
-                <RideAlongRow
-                  state={rideAlongData}
-                  value={!!draft.cargo.rideAlong}
-                  onChange={(v) => setCargo({ rideAlong: v })}
-                  onRetry={rideAlong.status === "error" ? rideAlong.refetch : undefined}
-                />
-              </>
-            )}
-
-            <TimeSelector value={draft.timing} onChange={(timing) => setField("timing", timing)} />
-
-            {passenger && luggage && (
-              <LuggageStepper rules={luggage} value={Math.min(draft.luggage, luggage.max)} onChange={(n) => setField("luggage", n)} />
-            )}
-
-            {passenger && (
-              <RiderSection
-                ref={riderRef}
-                value={draft.rider}
-                onChange={(r) => {
-                  setField("rider", r);
-                  setRiderError(null);
-                }}
-                nameMaxLength={rules?.riderNameMaxLength}
-                error={riderError}
+            {/* Tabs, body, loaders, info chips */}
+            <div className="space-y-4 rounded-card bg-card px-4 pb-5 pt-2">
+              {cr ? (
+                <CargoTabs rules={cr} value={tab} onChange={(v) => setCargo({ tab: v })} />
+              ) : cargoRules.status === "error" ? (
+                <button onClick={cargoRules.refetch} className="inline-flex min-h-[44px] items-center text-sub font-semibold text-danger underline">
+                  {t("common.loadFailedRetry")}
+                </button>
+              ) : (
+                <Skeleton className="h-11 w-full" />
+              )}
+              <VehiclePicker
+                value={draft.cargo}
+                onChange={(v) => setField("cargo", v)}
+                belowChips={cr && <LoadersControl rules={cr} value={draft.cargo.loaders ?? 0} onChange={(n) => setCargo({ loaders: n })} />}
               />
-            )}
+              {cr && <CargoInfoChips rules={cr} onOpen={setInfoTopic} />}
+            </div>
 
-            {/* Dostavka has its own "Izoh" on the vehicle picker. */}
-            {passenger && (
+            {/* Price calculation + addresses */}
+            <div className="space-y-4 rounded-card bg-card px-4 pb-5 pt-5">
+              {cr && (
+                <PricingModeControl
+                  rules={cr}
+                  tab={tab}
+                  mode={mode}
+                  hours={Math.min(cr.hours.max, Math.max(cr.hours.min, draft.cargo.hours ?? cr.hours.min))}
+                  onMode={(m) =>
+                    // Switching to Soatbay starts within the adapter's bounds.
+                    setCargo(m === "hourly" ? { pricingMode: m, hours: Math.min(cr.hours.max, Math.max(cr.hours.min, draftRef.current.cargo.hours ?? cr.hours.min)) } : { pricingMode: m })
+                  }
+                  onHours={(h) => setCargo({ hours: h })}
+                />
+              )}
+              {routeBlock}
+            </div>
+
+            {/* Contacts */}
+            <section aria-labelledby="cargo-contacts" className="space-y-4 rounded-card bg-card px-4 pb-5 pt-5">
+              <h3 id="cargo-contacts" className="text-section font-bold text-ink">
+                {t("kargo.contacts.title")}
+              </h3>
+              <RiderSection
+                title={t("kargo.sender")}
+                prefix="sender"
+                note={null}
+                value={draft.sender}
+                onChange={(r) => setField("sender", r)}
+                nameMaxLength={rules?.riderNameMaxLength}
+                error={null}
+                errors={{ name: fieldIssue("sender.name"), phone: fieldIssue("sender.phone") }}
+                onBlurField={(f) => touch(`sender.${f}`)}
+              />
+              <div className="space-y-3">
+                <p className="text-control font-semibold text-ink">{t("kargo.receiver")}</p>
+                <ContactFields
+                  prefix="receiver"
+                  value={draft.receiver}
+                  onChange={(v) => setField("receiver", v)}
+                  nameMaxLength={rules?.riderNameMaxLength}
+                  errors={{ name: fieldIssue("receiver.name"), phone: fieldIssue("receiver.phone") }}
+                  onBlurField={(f) => touch(`receiver.${f}`)}
+                />
+                <ContactNote>{t("kargo.receiverNote")}</ContactNote>
+              </div>
+              <RideAlongRow
+                state={rideAlongData}
+                value={!!draft.cargo.rideAlong}
+                onChange={(v) => setCargo({ rideAlong: v })}
+                onRetry={rideAlong.status === "error" ? rideAlong.refetch : undefined}
+              />
+            </section>
+
+            {/* Pickup time (radio rows) */}
+            <div className="rounded-card bg-card px-4 pb-5 pt-5">
+              <TimeSelector value={draft.timing} onChange={(timing) => setField("timing", timing)} />
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom card: payment, adapter price, Tasdiqlash */}
+        <div className="rounded-t-card bg-card px-2 pt-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 8px)" }}>
+          <div className="flex min-h-[48px] items-center gap-3 px-2" aria-live="polite">
+            <button type="button" onClick={() => setSheet("payment")} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={t("order.paymentFor", { m: payLabel })}>
+              <PayIcon className="h-6 w-6 shrink-0 text-ink" />
+              <span className="truncate text-control text-ink">{payLabel}</span>
+            </button>
+            {quote.status === "success" ? (
+              <span className="shrink-0 text-display font-normal text-ink tabular">{formatSom(quote.data.total, intlTag)}</span>
+            ) : quote.status === "error" ? (
+              quoteError(quote.error, quote.refetch, "max-w-[62%] text-right")
+            ) : (
+              <Skeleton className="h-7 w-32" />
+            )}
+          </div>
+          {cargoCheck && !cargoCheck.ready && (
+            <p id="cargo-fill-hint" className="px-2 pb-2 text-sub font-semibold text-ink/70">
+              {t("kargo.fillAll")}
+            </p>
+          )}
+          <Button
+            fullWidth
+            disabled={!cargoCheck?.ready || quote.status !== "success"}
+            aria-describedby={cargoCheck && !cargoCheck.ready ? "cargo-fill-hint" : undefined}
+            onClick={() => setSheet("cargoSummary")}
+          >
+            {t("common.confirm")}
+          </Button>
+        </div>
+
+        {renderOverlays()}
+      </div>
+    );
+  }
+
+  // ── Taxi: map + sheet + bottom bar ───────────────────────────────────────
+  const point = (x: number, y: number) => ({
+    // MapCanvas is "slice"-fitted: a 0–100 point lands at 50% + (p−50) of the
+    // larger side (container query units).
+    left: `calc(50% + (${x} - 50) * max(1cqw, 1cqh))`,
+    top: `calc(50% + (${y} - 50) * max(1cqw, 1cqh))`,
+  });
+  return (
+    <div className="absolute inset-0 z-30 flex flex-col bg-bg" role="dialog" aria-modal="true" aria-label={t("home.orderSheet")}>
+      <div className="relative min-h-[120px] flex-1 [container-type:size]">
+        <MapCanvas route className="absolute inset-0" />
+        {quote.status === "success" && quote.data.arrivalAt && (
+          <span
+            className="absolute -translate-x-1/2 -translate-y-[calc(100%+10px)] whitespace-nowrap rounded-chip bg-card px-3 py-1 text-control font-medium text-ink shadow-[0_2px_10px_rgba(0,0,0,0.14)] tabular"
+            style={point(ROUTE.to[0], ROUTE.to[1])}
+          >
+            {t("order.arrival", { time: formatTime(quote.data.arrivalAt) })}
+          </span>
+        )}
+        {selectedClass?.etaMinutes != null && (
+          <span
+            className="absolute flex -translate-x-1/2 -translate-y-[calc(100%+8px)] flex-col items-center rounded-[13px] bg-brand-yellow px-2.5 py-1 text-center leading-tight text-on-yellow shadow-[0_2px_10px_rgba(0,0,0,0.14)]"
+            style={point(ROUTE.from[0], ROUTE.from[1])}
+          >
+            <span className="text-lead font-bold tabular">{selectedClass.etaMinutes}</span>
+            <span className="text-[11px]">{t("order.minutesShort")}</span>
+          </span>
+        )}
+        <MapButton onClick={onClose} aria-label={t("order.back")} className="absolute bottom-8 left-3">
+          <ArrowLeft className="h-5 w-5" />
+        </MapButton>
+        <MapButton aria-label={t("home.locateMe")} className="absolute bottom-8 right-3">
+          <LocateFixed className="h-5 w-5" />
+        </MapButton>
+      </div>
+
+      <div className="relative -mt-5 flex max-h-[78%] flex-col rounded-t-sheet bg-card shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+        <div className="flex justify-center pt-2" aria-hidden="true">
+          <span className="h-[5px] w-9 rounded-full bg-ink/15" />
+        </div>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-3 pt-1">
+          {routeBlock}
+          {serviceTabs}
+          <CarClassPicker
+            status={classes.status}
+            classes={classes.status === "success" ? classes.data : lastClasses.current}
+            value={draft.carClass}
+            onChange={(id) => setField("carClass", id)}
+            onRetry={classes.refetch}
+            errorKey={classes.status === "error" ? ruleErrorKey(classes.error) : null}
+          />
+          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+            <Chip onClick={() => setSheet("seats")} selected={needSeats}>
+              {draft.mode === "car" ? t("order.wholeCar") : draft.seatIds.length ? seatCountLabel(t, draft.seatIds.length, intlTag) : t("order.seatsHint")}
+            </Chip>
+            <Chip onClick={() => setSheet("options")}>{timingSummary(draft.timing, t, intlTag)}</Chip>
+            <Chip onClick={() => setSheet("price")}>{t("order.priceDetails")}</Chip>
+          </div>
+          {quote.status === "error" && quoteError(quote.error, quote.refetch)}
+        </div>
+
+        {/* Bottom bar: payment · Buyurtma berish · options (radius 23, measured). */}
+        <div className="rounded-t-[23px] border-t border-hairline bg-card px-2 pt-2" style={{ paddingBottom: "calc(var(--safe-bottom) + 8px)" }}>
+          {(submitError || riderError?.field === "form") && (
+            <p role="alert" className="px-2 pb-2 text-sub text-danger">
+              {riderError?.field === "form" ? riderError.message : t("order.submitError")}
+            </p>
+          )}
+          {needSeats && (
+            <p id="seat-hint" className="px-2 pb-2 text-sub font-semibold text-ink/70">
+              {t("order.seatsHint")}
+            </p>
+          )}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSheet("payment")}
+              aria-label={t("order.paymentFor", { m: payLabel })}
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-button text-ink hover:bg-ink/5"
+            >
+              <PayIcon className="h-7 w-7" />
+            </button>
+            <Button
+              fullWidth
+              loading={submitting || validating}
+              disabled={quote.status !== "success" || needSeats}
+              aria-describedby={needSeats ? "seat-hint" : undefined}
+              onClick={submitTaxi}
+            >
+              {t("order.submit")}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setSheet("options")}
+              aria-label={t("order.settings")}
+              className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-button text-ink hover:bg-ink/5"
+            >
+              <SlidersHorizontal className="h-6 w-6" />
+              {draft.optionIds.length > 0 && (
+                <span className="absolute right-2 top-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white tabular">
+                  {draft.optionIds.length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {renderOverlays()}
+    </div>
+  );
+
+  function renderOverlays() {
+    return (
+      <>
+        {sheet === "options" && (
+          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.settings")}>
+            <div className="space-y-6 px-4 pb-2 pt-1">
+              <div className="flex items-start gap-2">
+                <h2 className="min-w-0 flex-1 pt-1 text-display font-bold text-ink">{t("order.settings")}</h2>
+                <CloseButton label={t("common.close")} onClick={() => setSheet(null)} className="-mr-2" />
+              </div>
+              <TimeSelector value={draft.timing} onChange={(timing) => setField("timing", timing)} />
+              {options.status === "error" ? (
+                <button onClick={options.refetch} className="inline-flex min-h-[44px] items-center text-sub font-semibold text-danger underline">
+                  {t("common.loadFailedRetry")}
+                </button>
+              ) : (
+                optionList.length > 0 && (
+                  <IstaklarRow options={optionList} selected={draft.optionIds} variants={draft.optionVariants} onOpen={() => setIstaklarOpen(true)} />
+                )
+              )}
               <DriverComment
                 value={draft.comment}
                 onChange={(v) => setField("comment", v)}
@@ -661,258 +838,171 @@ export function OrderSheet({
                   if (o?.available && !draftRef.current.optionIds.includes(id)) setOption(o, true);
                 }}
               />
-            )}
-
-            {options.status === "error" ? (
-              <button onClick={options.refetch} className="inline-flex min-h-[44px] items-center text-xs font-semibold text-danger underline">
-                {t("common.loadFailedRetry")}
-              </button>
-            ) : (
-              optionList.length > 0 && (
-                <IstaklarRow options={optionList} selected={draft.optionIds} variants={draft.optionVariants} onOpen={() => setIstaklarOpen(true)} />
-              )
-            )}
-          </div>
+              {luggage && <LuggageStepper rules={luggage} value={Math.min(draft.luggage, luggage.max)} onChange={(n) => setField("luggage", n)} />}
+              <RiderSection
+                ref={riderRef}
+                value={draft.rider}
+                onChange={(r) => {
+                  setField("rider", r);
+                  setRiderError(null);
+                }}
+                nameMaxLength={rules?.riderNameMaxLength}
+                error={riderError}
+              />
+              <section className="space-y-2">
+                <h3 className="text-control font-semibold text-ink">{t("promo.title")}</h3>
+                <PromoRow value={draft.promoCode} onChange={(code) => setField("promoCode", code)} />
+              </section>
+              <div className="sticky bottom-0 -mx-4 bg-card px-2 pt-2">
+                <Button fullWidth onClick={() => setSheet(null)}>
+                  {t("options.done")}
+                </Button>
+              </div>
+            </div>
+          </Sheet>
         )}
 
-        {step === 2 && (
-          <div className="space-y-4">
-            <div className="rounded-xl bg-accent-5 p-4">
-              <p className="text-xs font-semibold text-ink/60">{t("order.route")}</p>
-              <ol className="mt-1.5 space-y-1.5">
-                {[
-                  { key: "from", label: addresses.from?.label, details: draft.fromDetails, dot: "bg-ink" },
-                  ...draft.stops.map((st) => ({
-                    key: st.uid,
-                    label: addressById(st.addressId)?.label,
-                    details: st.details,
-                    dot: "border-2 border-ink/50 bg-card",
-                  })),
-                  { key: "to", label: addresses.to?.label, details: draft.toDetails, dot: "bg-brand-yellow ring-1 ring-on-yellow/40" },
-                ].map((p) => {
-                  const line = detailsSummary(p.details, t);
-                  return (
-                    <li key={p.key} className="flex gap-2.5">
-                      <span className={cn("mt-[5px] h-2.5 w-2.5 shrink-0 rounded-full", p.dot)} aria-hidden="true" />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-ink">{p.label}</span>
-                        {line && <span className="block text-xs text-ink/60">{line}</span>}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ol>
-              <div className="mt-2 flex items-center justify-between text-xs text-ink/60">
-                <span>
-                  {draft.serviceType === "passenger"
-                    ? draft.mode === "car"
-                      ? t("order.wholeCar")
-                      : seatCountLabel(t, draft.seatIds.length, intlTag)
-                    : `${t("order.delivery")} · ${t(`cargo.vehicle.${draft.cargo.vehicle}` as TranslationKey)}`}
-                </span>
-                <span className="tabular">{timingSummary(draft.timing, t, intlTag)}</span>
+        {sheet === "seats" && (
+          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.seatsTitle")}>
+            <div className="space-y-4 px-4 pb-2 pt-1">
+              <div className="flex items-start gap-2">
+                <h2 className="min-w-0 flex-1 pt-1 text-display font-bold text-ink">{t("order.seatsTitle")}</h2>
+                <CloseButton label={t("common.close")} onClick={() => setSheet(null)} className="-mr-2" />
               </div>
-              {passenger && (
-                <dl className="mt-2 space-y-1 border-t border-border pt-2 text-xs">
-                  <SummaryRow
-                    label={t("class.title")}
-                    value={t(`class.${draft.carClass}` as TranslationKey)}
-                  />
-                  {draft.optionIds.length > 0 && (
-                    <SummaryRow
-                      label={t("options.title")}
-                      value={optionList
-                        .filter((o) => draft.optionIds.includes(o.id))
-                        .map((o) => {
-                          const v = o.variants?.find((x) => x.id === draft.optionVariants[o.id]);
-                          return v ? `${t(o.titleKey as TranslationKey)} (${t(v.labelKey as TranslationKey)})` : t(o.titleKey as TranslationKey);
-                        })
-                        .join(", ")}
-                    />
+              <SeatMap
+                seats={seats}
+                mode={draft.mode}
+                seatIds={draft.seatIds}
+                onChange={(m, ids) => {
+                  setField("mode", m);
+                  setField("seatIds", ids);
+                }}
+                loadError={seatsError}
+                onRetry={() => setSeatsReload((n) => n + 1)}
+              />
+              <div className="sticky bottom-0 -mx-4 bg-card px-2 pt-2">
+                <Button fullWidth disabled={needSeats} onClick={() => setSheet(null)}>
+                  {t("options.done")}
+                </Button>
+              </div>
+            </div>
+          </Sheet>
+        )}
+
+        {(sheet === "price" || sheet === "cargoSummary") && (
+          <Sheet open onClose={() => setSheet(null)} ariaLabel={sheet === "price" ? t("order.priceDetails") : t("kargo.summaryTitle")}>
+            <div className="space-y-5 px-4 pb-2 pt-1">
+              <div className="flex items-start gap-2">
+                <h2 className="min-w-0 flex-1 pt-1 text-display font-bold text-ink">
+                  {sheet === "price" ? t("order.priceDetails") : t("kargo.summaryTitle")}
+                </h2>
+                <CloseButton label={t("common.close")} onClick={() => setSheet(null)} className="-mr-2" />
+              </div>
+              {summaryBlock}
+              {priceLines}
+              {sheet === "cargoSummary" && (
+                <>
+                  <section className="space-y-2">
+                    <h3 className="text-control font-semibold text-ink">{t("order.step.payment")}</h3>
+                    <PaymentMethodSection value={draft.paymentMethod} onChange={(m) => setField("paymentMethod", m)} />
+                  </section>
+                  <section className="space-y-2">
+                    <h3 className="text-control font-semibold text-ink">{t("promo.title")}</h3>
+                    <PromoRow value={draft.promoCode} onChange={(code) => setField("promoCode", code)} />
+                  </section>
+                  {submitError && (
+                    <p role="alert" className="text-sub text-danger">
+                      {t("order.submitError")}
+                    </p>
                   )}
-                  {luggage && (
-                    <SummaryRow
-                      label={t("luggage.title")}
-                      value={draft.luggage > 0 ? t("luggage.count", { n: draft.luggage }) : t("luggage.none")}
-                    />
-                  )}
-                  {draft.rider.kind === "other" && (
-                    <SummaryRow label={t("rider.summary")} value={`${draft.rider.name.trim()}, +998 ${draft.rider.phone}`} />
-                  )}
-                </dl>
-              )}
-              {delivery && cr && (
-                <dl className="mt-2 space-y-1 border-t border-border pt-2 text-xs">
-                  <SummaryRow label={t("kargo.summary.type")} value={t(cr.tabs.find((x) => x.id === tab)?.labelKey as TranslationKey)} />
-                  <SummaryRow
-                    label={t("kargo.mode.title")}
-                    value={
-                      mode === "hourly"
-                        ? `${t("kargo.mode.hourly")} · ${t("kargo.hours.value", { n: draft.cargo.hours ?? cr.hours.min })}`
-                        : t("kargo.mode.route")
-                    }
-                  />
-                  <SummaryRow
-                    label={t("kargo.loaders.title")}
-                    value={(draft.cargo.loaders ?? 0) > 0 ? String(draft.cargo.loaders) : t("kargo.loaders.none")}
-                  />
-                  <SummaryRow
-                    label={t("kargo.sender")}
-                    value={draft.sender.kind === "me" ? t("rider.me") : `${draft.sender.name.trim()}, +998 ${draft.sender.phone}`}
-                  />
-                  <SummaryRow label={t("kargo.receiver")} value={`${draft.receiver.name.trim()}, +998 ${draft.receiver.phone}`} />
-                  {draft.cargo.rideAlong && <SummaryRow label={t("kargo.rideAlong")} value={t("kargo.summary.yes")} />}
-                </dl>
-              )}
-              {draft.serviceType === "passenger" && draft.comment.trim() && (
-                <p className="mt-2 border-t border-border pt-2 text-xs text-ink/60">
-                  <span className="font-semibold">{t("comment.title")}:</span>{" "}
-                  <span className="break-words text-ink">{draft.comment.trim()}</span>
-                </p>
+                  <div className="sticky bottom-0 -mx-4 bg-card px-2 pt-2">
+                    <Button fullWidth loading={submitting} disabled={quote.status !== "success"} onClick={onSubmit}>
+                      {t("order.submit")}
+                    </Button>
+                  </div>
+                </>
               )}
             </div>
+          </Sheet>
+        )}
 
-            {quote.status === "loading" && (
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-5 w-2/3" />
+        {sheet === "payment" && (
+          <Sheet open onClose={() => setSheet(null)} ariaLabel={t("order.step.payment")}>
+            <div className="space-y-4 px-4 pb-2 pt-1">
+              <div className="flex items-start gap-2">
+                <h2 className="min-w-0 flex-1 pt-1 text-display font-bold text-ink">{t("order.step.payment")}</h2>
+                <CloseButton label={t("common.close")} onClick={() => setSheet(null)} className="-mr-2" />
               </div>
-            )}
-            {quote.status === "error" && quoteError(quote.error, quote.refetch)}
-            {quote.status === "success" && (
-              <div className="space-y-2">
-                {quote.data.lines.map((line, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="min-w-0 text-ink/60">{t(line.key as TranslationKey, line.params)}</span>
-                    <span className="shrink-0 tabular font-normal text-ink">{formatSom(line.amount, intlTag)}</span>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between border-t border-border pt-2 text-base font-semibold">
-                  <span className="text-ink">{t("order.total")}</span>
-                  <span className="tabular text-ink">{formatSom(quote.data.total, intlTag)}</span>
-                </div>
+              <PaymentMethodSection value={draft.paymentMethod} onChange={(m) => setField("paymentMethod", m)} />
+              <div className="sticky bottom-0 -mx-4 bg-card px-2 pt-2">
+                <Button fullWidth onClick={() => setSheet(null)}>
+                  {t("options.done")}
+                </Button>
               </div>
-            )}
-
-            <p className="pt-1 text-sm font-semibold text-ink">{t("order.step.payment")}</p>
-            <PaymentMethodSection value={draft.paymentMethod} onChange={(m) => setField("paymentMethod", m)} />
-
-            <p className="pt-1 text-sm font-semibold text-ink">{t("promo.title")}</p>
-            <PromoRow value={draft.promoCode} onChange={(code) => setField("promoCode", code)} />
-          </div>
+            </div>
+          </Sheet>
         )}
-        </div>
-      </div>
 
-      <div className="border-t border-border px-5 py-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
-        {cargoConfirm && (
-          <div className="mb-3 flex min-h-[28px] items-center justify-between gap-3" aria-live="polite">
-            <span className="text-sm text-ink/60">{t("cargo.price")}</span>
-            {quote.status === "success" ? (
-              <span className="text-lg font-bold text-ink tabular">{formatSom(quote.data.total, intlTag)}</span>
-            ) : quote.status === "error" ? (
-              quoteError(quote.error, quote.refetch, "max-w-[70%] text-right")
-            ) : (
-              <Skeleton className="h-6 w-28" />
-            )}
-          </div>
+        {picker && (
+          <SearchScreen
+            title={
+              picker === "from"
+                ? t("order.from")
+                : picker === "to"
+                ? t("order.to")
+                : picker === "newStop"
+                ? stopLabels?.add ?? t("stops.add")
+                : (stopLabels?.item ?? ((n: number) => t("stops.label", { n })))(draft.stops.findIndex((st) => st.uid === picker.stop) + 1)
+            }
+            fromLabel={picker === "from" ? undefined : addresses.from?.label}
+            fromAddressId={picker === "from" ? undefined : draft.fromAddressId}
+            {...pickerScope(picker)}
+            onClose={() => setPicker(null)}
+            onSelect={(addr, entrance) => {
+              pickAddress(picker, addr, entrance);
+              setPicker(null);
+            }}
+          />
         )}
-        {cargoConfirm && cargoCheck && !cargoCheck.ready && (
-          <p id="cargo-fill-hint" className="mb-2 text-xs font-semibold text-ink/70">
-            {t("kargo.fillAll")}
-          </p>
+
+        {warehouseOpen && (
+          <WarehouseSheet
+            fromAddressId={draft.fromAddressId}
+            onClose={() => setWarehouseOpen(false)}
+            onSelect={(w) => {
+              pickAddress("to", w.address);
+              setWarehouseOpen(false);
+            }}
+          />
         )}
-        {submitError && (
-          <p role="alert" aria-live="polite" className="mb-2 text-xs font-normal text-danger">
-            {t("order.submitError")}
-          </p>
+        {infoTopic && <CargoInfoSheet topic={infoTopic} onClose={() => setInfoTopic(null)} />}
+
+        {istaklarOpen && (
+          <IstaklarSheet
+            options={optionList}
+            selected={draft.optionIds}
+            variants={draft.optionVariants}
+            onToggle={(o) => setOption(o, !draftRef.current.optionIds.includes(o.id))}
+            onVariant={(id, v) => setField("optionVariants", { ...draftRef.current.optionVariants, [id]: v })}
+            onClose={() => setIstaklarOpen(false)}
+          />
         )}
-        <div className="flex items-center gap-2">
-          {step > 0 && (
-            <Button variant="secondary" onClick={() => setStep(step - 1)}>
-              {t("common.back")}
-            </Button>
-          )}
-          {cargoConfirm ? (
-            <Button
-              fullWidth
-              disabled={!canNext || !cargoCheck?.ready || quote.status !== "success"}
-              aria-describedby={cargoCheck && !cargoCheck.ready ? "cargo-fill-hint" : undefined}
-              onClick={() => setStep(2)}
-            >
-              {t("common.confirm")}
-            </Button>
-          ) : step < 2 ? (
-            <Button fullWidth disabled={!canNext} loading={validating} onClick={() => (step === 1 ? nextFromDetails() : setStep(step + 1))}>
-              {t("order.next")} <ChevronRight className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button fullWidth loading={submitting} disabled={quote.status !== "success"} onClick={onSubmit}>
-              {t("order.submit")}
-            </Button>
-          )}
-        </div>
-      </div>
 
-      {picker && (
-        <AddressPickerSheet
-          title={
-            picker === "from"
-              ? t("order.from")
-              : picker === "to"
-              ? t("order.to")
-              : picker === "newStop"
-              ? stopLabels?.add ?? t("stops.add")
-              : (stopLabels?.item ?? ((n: number) => t("stops.label", { n })))(draft.stops.findIndex((st) => st.uid === picker.stop) + 1)
-          }
-          {...pickerScope(picker)}
-          onClose={() => setPicker(null)}
-          onSelect={(addr) => {
-            pickAddress(picker, addr);
-            setPicker(null);
-          }}
-        />
-      )}
-
-      {warehouseOpen && (
-        <WarehouseSheet
-          fromAddressId={draft.fromAddressId}
-          onClose={() => setWarehouseOpen(false)}
-          onSelect={(w) => {
-            pickAddress("to", w.address);
-            setWarehouseOpen(false);
-          }}
-        />
-      )}
-      {infoTopic && <CargoInfoSheet topic={infoTopic} onClose={() => setInfoTopic(null)} />}
-
-      {istaklarOpen && (
-        <IstaklarSheet
-          options={optionList}
-          selected={draft.optionIds}
-          variants={draft.optionVariants}
-          onToggle={(o) => setOption(o, !draftRef.current.optionIds.includes(o.id))}
-          onVariant={(id, v) => setField("optionVariants", { ...draftRef.current.optionVariants, [id]: v })}
-          onClose={() => setIstaklarOpen(false)}
-        />
-      )}
-
-      {detailsFor && addressById(pointAddressId(detailsFor, draft)) && (
-        <AddressDetailsSheet
-          // Re-mount per point so the form starts from that point's details.
-          key={typeof detailsFor === "string" ? detailsFor : detailsFor.stop}
-          address={addressById(pointAddressId(detailsFor, draft))!}
-          value={pointDetails(detailsFor)}
-          rules={rules}
-          onSave={(d) => setPointDetails(detailsFor, d)}
-          onClose={() => setDetailsFor(null)}
-        />
-      )}
-
-    </div>
-  );
+        {detailsFor && addressById(pointAddressId(detailsFor, draft)) && (
+          <AddressDetailsSheet
+            // Re-mount per point so the form starts from that point's details.
+            key={typeof detailsFor === "string" ? detailsFor : detailsFor.stop}
+            address={addressById(pointAddressId(detailsFor, draft))!}
+            value={pointDetails(detailsFor)}
+            rules={rules}
+            onSave={(d) => setPointDetails(detailsFor, d)}
+            onClose={() => setDetailsFor(null)}
+          />
+        )}
+      </>
+    );
+  }
 }
-
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (

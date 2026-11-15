@@ -1,4 +1,5 @@
 import type { DeliveryVehicleSpec,
+  AddressSearchResult,
   AddressDetails,
   CargoCheck,
   CargoContact,
@@ -61,6 +62,8 @@ export interface ApiAdapter {
   getPopularRoutes(): Promise<RouteSuggestion[]>;
   getRecentRoutes(): Promise<RouteSuggestion[]>;
   getAddressSuggestions(query: string, excludeCityId?: string, onlyCityId?: string): Promise<Address[]>;
+  /** Search with area, distance from the pickup and entrance variants. */
+  searchAddresses(input: { query: string; fromAddressId?: string; excludeCityId?: string; onlyCityId?: string }): Promise<AddressSearchResult[]>;
   getRecentAddresses(): Promise<Address[]>;
   getSavedAddresses(fromAddressId: string): Promise<SavedAddressInfo[]>;
   reverseGeocode(x: number, y: number, excludeCityId?: string, onlyCityId?: string): Promise<Address>;
