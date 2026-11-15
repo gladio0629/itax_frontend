@@ -96,6 +96,8 @@ const SECTION_FROM_API: Record<Api.AdminSection, Section> = {
   tariffs: "tariffs",
   operator: "operators",
   stats: "stats",
+  complaints: "complaints",
+  audit: "audit",
 };
 /** Route of each section, in sidebar order (first allowed = landing page). */
 const SECTION_PATH: [Section, string][] = [
@@ -105,8 +107,10 @@ const SECTION_PATH: [Section, string][] = [
   ["orders", "/orders"],
   ["wallet", "/wallet"],
   ["tariffs", "/tariffs"],
+  ["complaints", "/complaints"],
   ["staff", "/staff"],
   ["operators", "/operators"],
+  ["audit", "/audit"],
 ];
 
 export function meFromApi(me: Api.AdminMe): Me {

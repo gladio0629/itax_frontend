@@ -1,4 +1,4 @@
-// Hand-written types for api/openapi.yml (IZGO Taxi Platform API 0.1.0).
+// Hand-written types for api/openapi.yml (IZGO Taxi Platform API 0.2.0, 100 operations).
 // The YAML is the only source of truth: field names, enums and nullability
 // below mirror it one to one. Do not add fields that the contract doesn't
 // declare. Money is an integer in tiyin (1 UZS = 100 tiyin). IDs are UUIDs.
@@ -25,7 +25,7 @@ export type PageQuery = { cursor?: string; limit?: number };
 
 // -------------------------------------------------------------------- auth
 export type OtpRequest = { phone: Phone };
-export type OtpRequestResult = { expires_in: number; resend_after: number };
+export type OtpRequestResult = { expires_in: number; resend_after: number; code_length?: number };
 export type OtpVerify = { phone: Phone; code: string };
 export type RefreshRequest = { refresh_token: string };
 export type TokenPair = {
@@ -37,7 +37,7 @@ export type TokenPair = {
 };
 
 export type AdminLoginEmail = { email: string };
-export type AdminLoginChallenge = { challenge_id: Uuid; expires_in: number };
+export type AdminLoginChallenge = { challenge_id: Uuid; expires_in: number; code_length?: number };
 /** Either { challenge_id, email_code, phone } or { phone } (operator without email). */
 export type AdminLoginSms = { phone: Phone; challenge_id?: Uuid; email_code?: string };
 export type AdminLoginVerify = { challenge_id: Uuid; sms_code: string };
@@ -100,25 +100,53 @@ export type OrderType = "passenger" | "delivery";
 export type PaymentMethod = "cash" | "card" | "wallet" | "payme" | "click";
 export type VehicleType = "spark" | "damas" | "labo" | "isuzu" | "isuzu2" | "fura";
 export type OrderStatus = "searching" | "accepted" | "arrived" | "in_progress" | "completed" | "cancelled" | "expired";
+export type SeatId = "front" | "back-left" | "back-mid" | "back-right";
 
-/** passenger: `seats` OR `car_class`; delivery: `vehicle_type` only. */
+/** One line of a price breakdown. `key` is a client i18n key (quote.seatFare,
+ * quote.carFare, quote.class.komfort|biznes|miniven, quote.cargoBase,
+ * quote.cargoDistance); lines always sum to the price. */
+export type PriceLine = { key: string; params?: Record<string, string | number>; amount: Money };
+
+/** passenger: `seats`/`seat_ids` OR `car_class`; delivery: `vehicle_type` only.
+ * Time: none = now; `scheduled_at` = exact; `scheduled_from` + `scheduled_to` = range
+ * (never together with scheduled_at). `quote_id`: charge exactly that quote's price. */
 export type OrderCreate = {
   type: OrderType;
   seats?: number;
+  seat_ids?: SeatId[];
   car_class?: CarClass;
   vehicle_type?: VehicleType;
   from: GeoPoint;
   to: GeoPoint;
   scheduled_at?: DateTime;
+  scheduled_from?: DateTime;
+  scheduled_to?: DateTime;
   payment_method: PaymentMethod;
   comment?: string;
+  quote_id?: Uuid;
 };
+/** OrderCreate without quote_id; payment_method optional. */
+export type QuoteRequest = Omit<OrderCreate, "quote_id" | "payment_method"> & { payment_method?: PaymentMethod };
+export type Quote = {
+  quote_id: Uuid;
+  price: Money;
+  lines: PriceLine[];
+  distance_m: number;
+  duration_s: number;
+  /** Usable once, by its owner, until this time. */
+  expires_at: DateTime;
+};
+export type SeatMap = { seats: { id: SeatId; taken: boolean; price: Money }[] };
+export type SeatMapQuery = { from_lat: number; from_lng: number; to_lat: number; to_lng: number };
 export type OrderUpdate = {
   seats?: number;
+  seat_ids?: SeatId[];
   car_class?: CarClass;
   vehicle_type?: VehicleType;
   to?: GeoPoint;
   scheduled_at?: DateTime;
+  scheduled_from?: DateTime;
+  scheduled_to?: DateTime;
   payment_method?: PaymentMethod;
   comment?: string;
 };
@@ -129,22 +157,77 @@ export type Order = {
   id: Uuid;
   type: OrderType;
   seats?: number;
+  seat_ids?: SeatId[];
   car_class?: CarClass;
   vehicle_type?: VehicleType;
   from: GeoPoint;
   to: GeoPoint;
+  from_city_id?: Uuid | null;
+  to_city_id?: Uuid | null;
   scheduled_at?: DateTime | null;
+  scheduled_from?: DateTime | null;
+  scheduled_to?: DateTime | null;
   payment_method: PaymentMethod;
   comment?: string | null;
   status: OrderStatus;
   price: Money;
+  price_lines?: PriceLine[];
+  quote_id?: Uuid | null;
+  cancel_reason?: string | null;
+  /** Server verdict: PATCH allowed. */
+  editable?: boolean;
+  /** Server verdict: the passenger may cancel. */
+  can_cancel?: boolean;
   distance_m?: number;
   duration_s?: number;
   driver?: OrderDriver | null;
   trip_id?: Uuid | null;
   created_at: DateTime;
 };
+/** Admin views add the passenger. */
+export type AdminOrder = Order & { passenger_id?: Uuid };
 export type OrderPage = CursorPage<Order>;
+
+// ------------------------------------------------------------------ places
+export type City = { id: Uuid; name: string; region: string; lat: number; lng: number };
+export type CityList = { data: City[] };
+export type PlaceKind = "city" | "landmark" | "station" | "bus_station" | "airport" | "market" | "district" | "address";
+export type Place = {
+  id: Uuid;
+  city_id: Uuid;
+  name: string;
+  area: string;
+  kind: PlaceKind;
+  lat: number;
+  lng: number;
+  entrance?: string | null;
+  distance_m?: number | null;
+};
+export type PlaceList = { data: Place[] };
+export type PlaceSearchQuery = { q: string; near_lat?: number; near_lng?: number; city_id?: Uuid; limit?: number };
+export type PlaceDetails = { entrance?: string; floor?: string; apartment?: string; intercom?: string; note?: string };
+export type SavedPlaceCreate = { name: string; area?: string; lat: number; lng: number; details?: PlaceDetails };
+export type SavedPlace = {
+  id: Uuid;
+  name: string;
+  area: string;
+  lat: number;
+  lng: number;
+  details: PlaceDetails | null;
+  created_at: DateTime;
+};
+export type SavedPlaceList = { data: SavedPlace[] };
+export type RouteEnd = { city_id: Uuid; lat: number; lng: number; address: string };
+export type PopularRoute = { from: RouteEnd; to: RouteEnd; distance_m: number | null; price_from: Money | null };
+export type PopularRouteList = { data: PopularRoute[] };
+export type DeliverySizeLabel = "S" | "M" | "L" | "XL" | "XXL" | "3XL";
+export type DeliveryVehicleSpec = {
+  vehicle_type: VehicleType;
+  size_label: DeliverySizeLabel;
+  dimensions_cm: { width: number; depth: number; height: number };
+  max_weight_kg: number;
+};
+export type DeliveryVehicleList = { data: DeliveryVehicleSpec[] };
 
 // ----------------------------------------------------------------- ratings
 export type RatingReasonKind = "polite" | "good_talk" | "comfort" | "just_because" | "custom";
@@ -164,29 +247,59 @@ export type Offer = {
   order_id: Uuid;
   type: OrderType;
   seats?: number;
+  seat_ids?: SeatId[];
   car_class?: CarClass;
   vehicle_type?: VehicleType;
   from: GeoPoint;
   to: GeoPoint;
+  from_city_id?: Uuid | null;
+  to_city_id?: Uuid | null;
+  scheduled_at?: DateTime | null;
+  scheduled_from?: DateTime | null;
+  scheduled_to?: DateTime | null;
+  payment_method?: PaymentMethod;
+  comment?: string | null;
   price: Money;
   commission?: Money;
   distance_m?: number;
   pickup_eta_s?: number;
+  created_at?: DateTime;
   expires_at: DateTime;
 };
 export type OfferPage = CursorPage<Offer>;
+export type OfferRejectReason = "too_far" | "bad_price" | "busy" | "other";
+export type OfferReject = { reason?: OfferRejectReason };
 export type TripStatus = "assigned" | "in_progress" | "completed" | "cancelled";
+/** Server verdict of what the driver may do next. */
+export type TripAction = "arrive" | "start" | "cancel" | "complete";
 export type Trip = {
   id: Uuid;
   order_id: Uuid;
   driver_id: Uuid;
   status: TripStatus;
+  arrived_at?: DateTime | null;
   started_at?: DateTime | null;
   completed_at?: DateTime | null;
+  cancelled_at?: DateTime | null;
+  cancelled_by?: "driver" | "admin" | null;
+  cancel_reason?: string | null;
   final_price?: Money | null;
   commission?: Money | null;
   distance_m?: number | null;
+  next_actions?: TripAction[];
 };
+export type TripWithOrder = Trip & { order: Order };
+export type TripPage = CursorPage<TripWithOrder>;
+export type TripCancelReason = "passenger_no_show" | "passenger_asked" | "car_problem" | "emergency" | "other";
+export type TripCancel = { reason: TripCancelReason; comment?: string };
+export type TripsQuery = PageQuery & { status?: string };
+
+// --------------------------------------------------------- driver profile
+export type DriverRoute = { id?: Uuid; a_city_id: Uuid; b_city_id: Uuid; both_ways: boolean };
+export type DriverRoutes = { routes: DriverRoute[] };
+export type DriverRoutesInput = { routes: { a_city_id: Uuid; b_city_id: Uuid; both_ways: boolean }[] };
+export type ChildSeatAge = "0-1" | "1-3" | "3-7" | "7-12";
+export type DriverCapabilities = { child_seat: boolean; child_seat_ages: ChildSeatAge[]; pets: boolean; big_luggage: boolean };
 
 // ------------------------------------------------------------------ wallet
 export type WalletBalance = {
@@ -234,12 +347,17 @@ export type Notification = {
 };
 export type NotificationPage = CursorPage<Notification>;
 
-/** WebSocket /ws server → client message. All values are strings. */
+/** WebSocket /ws server → client message. All values are strings.
+ * See onlyback/docs/websocket-events.md. Unknown types must be ignored. */
 export type RealtimeEventType =
   | "order.created"
   | "offer.created"
   | "order.accepted"
+  | "order.arrived"
+  | "trip.started"
   | "trip.completed"
+  | "trip.cancelled"
+  | "order.cancelled"
   | "wallet.limit_reached"
   | "driver.approved";
 export type RealtimeEvent = { type: RealtimeEventType; id: string; status?: string; order_id?: string };
@@ -264,7 +382,17 @@ export type ProfileUpdate = { first_name?: string; last_name?: string };
 
 // ------------------------------------------------------------------- admin
 export type StaffRole = "superadmin" | "owner" | "manager" | "marketer" | "operator";
-export type AdminSection = "staff" | "drivers" | "passengers" | "orders" | "wallet" | "tariffs" | "operator" | "stats";
+export type AdminSection =
+  | "staff"
+  | "drivers"
+  | "passengers"
+  | "orders"
+  | "wallet"
+  | "tariffs"
+  | "operator"
+  | "stats"
+  | "complaints"
+  | "audit";
 export type AdminMe = {
   id: Uuid;
   email: string;
@@ -321,7 +449,17 @@ export type AdminPassenger = {
 };
 export type AdminPassengerPage = CursorPage<AdminPassenger>;
 export type PersonQuery = PageQuery & { state?: AccountState; q?: string };
-export type AdminOrdersQuery = PageQuery & { status?: OrderStatus; from_date?: DateOnly; to_date?: DateOnly };
+export type AdminOrdersQuery = PageQuery & { status?: OrderStatus; from_date?: DateOnly; to_date?: DateOnly; passenger_id?: Uuid };
+/** At least one field; scheduled_at excludes the range; only while searching. */
+export type AdminOrderUpdate = {
+  comment?: string;
+  payment_method?: PaymentMethod;
+  scheduled_at?: DateTime;
+  scheduled_from?: DateTime;
+  scheduled_to?: DateTime;
+};
+export type AdminOrderCancelReason = "admin_decision" | "passenger_request" | "driver_request" | "duplicate" | "fraud" | "other";
+export type AdminOrderCancel = { reason: AdminOrderCancelReason; comment?: string };
 export type AdminLedgerQuery = PageQuery & { wallet_id?: Uuid; driver_id?: Uuid };
 
 export type ApprovalStatus = "pending_approval" | "approved" | "rejected";
@@ -340,6 +478,69 @@ export type Correction = {
 };
 /** reason 3–500 chars. */
 export type ApprovalReject = { reason: string };
+export type CorrectionListItem = Correction & { created_by_name?: string | null };
+export type CorrectionPage = CursorPage<CorrectionListItem>;
+export type CorrectionQuery = PageQuery & { approval_status?: ApprovalStatus };
+
+export type ComplaintStatus = "open" | "in_progress" | "resolved" | "rejected";
+export type ComplaintSubjectType = "passenger" | "driver" | "order";
+export type ComplaintCategory =
+  | "driver_behavior"
+  | "passenger_behavior"
+  | "payment"
+  | "safety"
+  | "lost_item"
+  | "app_issue"
+  | "other";
+export type ComplaintCreate = {
+  order_id?: Uuid;
+  subject_type: ComplaintSubjectType;
+  subject_id: Uuid;
+  category: ComplaintCategory;
+  description: string;
+};
+export type Complaint = {
+  id: Uuid;
+  order_id: Uuid | null;
+  subject_type: ComplaintSubjectType;
+  subject_id: Uuid;
+  category: ComplaintCategory;
+  description: string;
+  status: ComplaintStatus;
+  assigned_to: Uuid | null;
+  resolution: string | null;
+  created_by: Uuid;
+  created_at: DateTime;
+  updated_at: DateTime;
+};
+export type ComplaintNote = { id: Uuid; complaint_id: Uuid; author_id: Uuid; text: string; created_at: DateTime };
+export type ComplaintDetail = Complaint & { notes: ComplaintNote[] };
+export type ComplaintPage = CursorPage<Complaint>;
+export type ComplaintQuery = PageQuery & { status?: ComplaintStatus; assigned_to?: Uuid; subject_type?: ComplaintSubjectType };
+/** resolution required (3–1000) for resolved/rejected. */
+export type ComplaintStatusChange = { status: "in_progress" | "resolved" | "rejected"; resolution?: string };
+
+export type AuditEntry = {
+  id: Uuid;
+  actor_id: Uuid | null;
+  actor_role: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  request_id: string | null;
+  created_at: DateTime;
+};
+export type AuditPage = CursorPage<AuditEntry>;
+export type AuditQuery = PageQuery & {
+  entity_type?: string;
+  entity_id?: string;
+  actor_id?: Uuid;
+  action?: string;
+  from_date?: DateOnly;
+  to_date?: DateOnly;
+};
 
 export type TariffFields = {
   name: string;
@@ -389,10 +590,15 @@ export type Stats = {
   revenue: Money;
   commission: Money;
   drivers_over_limit?: number;
+  orders_expired?: number;
+  average_order_value?: Money;
+  orders_by_status?: Partial<Record<OrderStatus, number>>;
+  daily?: { date: DateOnly; orders: number; completed: number; revenue: Money }[];
+  top_routes?: { from_city_id: Uuid; to_city_id: Uuid; from_name: string; to_name: string; orders: number }[];
 };
 
 // ------------------------------------------------------------------ paths
-/** Every path in the contract (70 operations), for grep-ability. */
+/** Every path in the contract (100 operations), for grep-ability. */
 export const API_PATHS = {
   otpRequest: "/api/v1/auth/otp/request",
   otpVerify: "/api/v1/auth/otp/verify",
@@ -401,18 +607,35 @@ export const API_PATHS = {
   adminLoginEmail: "/admin/v1/auth/login/email",
   adminLoginSms: "/admin/v1/auth/login/sms",
   adminLoginVerify: "/admin/v1/auth/login/verify",
+  adminLogout: "/admin/v1/auth/logout",
   driverMe: "/api/v1/drivers/me",
   driverRegistrationStep: (step: 1 | 2 | 3 | 4) => `/api/v1/drivers/registration/step/${step}`,
   driverDocumentUploadUrl: "/api/v1/drivers/documents/upload-url",
   locationUpdate: "/api/v1/location/update",
   driverStatus: "/api/v1/drivers/me/status",
+  driverRoutes: "/api/v1/drivers/me/routes",
+  driverCapabilities: "/api/v1/drivers/me/capabilities",
   orders: "/api/v1/orders",
   orderHistory: "/api/v1/orders/history",
+  orderQuote: "/api/v1/orders/quote",
+  orderSeatMap: "/api/v1/orders/seat-map",
+  cities: "/api/v1/cities",
+  placesSearch: "/api/v1/places/search",
+  placesReverse: "/api/v1/places/reverse",
+  placesSaved: "/api/v1/places/saved",
+  placeSaved: (id: Uuid) => `/api/v1/places/saved/${encodeURIComponent(id)}`,
+  routesPopular: "/api/v1/routes/popular",
+  deliveryVehicles: "/api/v1/delivery/vehicles",
   order: (id: Uuid) => `/api/v1/orders/${encodeURIComponent(id)}`,
   orderCancel: (id: Uuid) => `/api/v1/orders/${encodeURIComponent(id)}/cancel`,
   orderRate: (id: Uuid) => `/api/v1/orders/${encodeURIComponent(id)}/rate`,
   tripOffers: "/api/v1/trips/offers",
   tripOfferAccept: (id: Uuid) => `/api/v1/trips/offers/${encodeURIComponent(id)}/accept`,
+  tripOfferReject: (id: Uuid) => `/api/v1/trips/offers/${encodeURIComponent(id)}/reject`,
+  trips: "/api/v1/trips",
+  tripsHistory: "/api/v1/trips/history",
+  tripArrive: (id: Uuid) => `/api/v1/trips/${encodeURIComponent(id)}/arrive`,
+  tripCancel: (id: Uuid) => `/api/v1/trips/${encodeURIComponent(id)}/cancel`,
   tripStart: (id: Uuid) => `/api/v1/trips/${encodeURIComponent(id)}/start`,
   tripComplete: (id: Uuid) => `/api/v1/trips/${encodeURIComponent(id)}/complete`,
   walletBalance: "/api/v1/wallet/balance",
@@ -433,6 +656,13 @@ export const API_PATHS = {
   adminPassenger: (id: Uuid) => `/admin/v1/passengers/${encodeURIComponent(id)}`,
   adminOrders: "/admin/v1/orders",
   adminOrder: (id: Uuid) => `/admin/v1/orders/${encodeURIComponent(id)}`,
+  adminOrderCancel: (id: Uuid) => `/admin/v1/orders/${encodeURIComponent(id)}/cancel`,
+  adminComplaints: "/admin/v1/complaints",
+  adminComplaint: (id: Uuid) => `/admin/v1/complaints/${encodeURIComponent(id)}`,
+  adminComplaintAssign: (id: Uuid) => `/admin/v1/complaints/${encodeURIComponent(id)}/assign`,
+  adminComplaintStatus: (id: Uuid) => `/admin/v1/complaints/${encodeURIComponent(id)}/status`,
+  adminComplaintNotes: (id: Uuid) => `/admin/v1/complaints/${encodeURIComponent(id)}/notes`,
+  adminAudit: "/admin/v1/audit",
   adminWalletLedger: "/admin/v1/wallet/ledger",
   adminWalletCorrection: "/admin/v1/wallet/correction",
   adminWalletCorrectionApprove: (id: Uuid) => `/admin/v1/wallet/correction/${encodeURIComponent(id)}/approve`,
