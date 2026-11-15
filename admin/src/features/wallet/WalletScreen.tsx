@@ -258,7 +258,7 @@ export function WalletScreen() {
                   <span className="text-xs text-ink/50">{p.proposedByName}</span>
                 </div>
                 <p className="text-sm text-ink">
-                  <span className="font-semibold">{driver?.name ?? p.driverId}</span>:{" "}
+                  <span className="font-semibold">{driver?.name ?? p.subjectLabel ?? p.driverId}</span>:{" "}
                   <span className={cn("tabular font-semibold", p.amount < 0 ? "text-danger" : "text-accent")}>
                     {p.amount > 0 ? "+" : ""}
                     {formatSom(p.amount)}
@@ -334,7 +334,7 @@ export function WalletScreen() {
         submitLabel="Taklif qilish"
         loading={proposing}
         error={formError}
-        disabled={!form.driverId || !Number(form.amount) || form.reason.trim().length < (caps.adjustmentProposalsList ? 1 : 5)}
+        disabled={!form.driverId || !Number(form.amount) || form.reason.trim().length < caps.adjustmentReasonMinLength}
       >
         <p className="text-xs text-ink/60">Yozuv faqat ikkinchi admin tasdiqlagandan so'ng qo'llaniladi. Hamyon jurnali faqat qo'shish uchun — mavjud yozuvlarni tahrirlash yoki o'chirish mumkin emas.</p>
         <div>
@@ -380,7 +380,7 @@ export function WalletScreen() {
           required
           value={form.reason}
           onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
-          hint={caps.adjustmentProposalsList ? undefined : "Kamida 5 ta belgi."}
+          hint={caps.adjustmentReasonMinLength > 1 ? `Kamida ${caps.adjustmentReasonMinLength} ta belgi.` : undefined}
         />
       </FormDrawer>
 

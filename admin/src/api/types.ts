@@ -10,8 +10,8 @@ import type {
   DriverStatus as SeedDriverStatus,
   WalletEntry as SeedWalletEntry,
   WalletEntryType as SeedWalletEntryType,
-  Complaint,
-  ComplaintType,
+  Complaint as SeedComplaint,
+  ComplaintType as SeedComplaintType,
   ComplaintStatus,
   ComplaintNote,
   Tariff as SeedTariff,
@@ -22,11 +22,11 @@ import type {
   StaffStatus,
   Section,
   Action,
-  AuditEntry,
+  AuditEntry as SeedAuditEntry,
   AuditAction,
   TariffProposal as SeedTariffProposal,
   TariffProposalType,
-  AdjustmentProposal,
+  AdjustmentProposal as SeedAdjustmentProposal,
   ReviewKind,
   ReviewRequest,
   QueueItem as SeedQueueItem,
@@ -48,7 +48,40 @@ export type Order = Omit<SeedOrder, "status" | "paymentMethod"> & {
   paymentMethod: PaymentMethod;
   /** Requested pickup time (epoch ms), when the order has one. */
   scheduledAt?: number;
+  /** Requested pickup range (epoch ms), when the order has one. */
+  scheduledRange?: { from: number; to: number };
 };
+/** Contract reasons for an admin cancel (AdminOrderCancel.reason). */
+export type OrderCancelReasonCode = "admin_decision" | "passenger_request" | "driver_request" | "duplicate" | "fraud" | "other";
+/** Fields the order edit form may send; which ones a backend accepts is
+ * `capabilities.orderEditFields`. */
+export type OrderEditField = "seats" | "timeWindow" | "note" | "paymentMethod" | "schedule";
+export type OrderFieldsPatch = {
+  seatIds?: string[];
+  note?: string;
+  timeWindow?: { from: string; to: string } | null;
+  paymentMethod?: PaymentMethod;
+  /** Exact pickup time or a pickup range, epoch ms. */
+  schedule?: { at: number } | { from: number; to: number };
+};
+/** The real API's complaint categories next to the sample data's types. */
+export type ComplaintCategory = "driver_behavior" | "passenger_behavior" | "payment" | "safety" | "lost_item" | "app_issue" | "other";
+export type ComplaintType = SeedComplaintType | ComplaintCategory;
+export type ComplaintSubjectType = "passenger" | "driver" | "order";
+export type Complaint = Omit<SeedComplaint, "type"> & {
+  type: ComplaintType;
+  /** Real API only: what the complaint is about. */
+  subjectType?: ComplaintSubjectType;
+  subjectId?: string;
+  /** Real API only: the closing text of a resolved/rejected complaint. */
+  resolution?: string;
+};
+/** Real API actions are dotted strings ("staff.update"); the sample data
+ * uses its own AuditAction names. */
+export type AuditEntry = Omit<SeedAuditEntry, "action"> & { action: AuditAction | (string & {}) };
+/** `subjectLabel`: what to show when the driver isn't known (the real list
+ * only carries a wallet id). */
+export type AdjustmentProposal = SeedAdjustmentProposal & { subjectLabel?: string };
 export type WalletEntryType = SeedWalletEntryType | "trip_payment" | "bonus";
 export type WalletEntry = Omit<SeedWalletEntry, "type"> & { type: WalletEntryType };
 export type QueueReason = SeedQueueReason | "driver_application" | "document_update";
@@ -99,6 +132,29 @@ export type AdapterCapabilities = {
   tariffCarClass: boolean;
   /** Order statuses the list can be filtered by. */
   orderStatuses: readonly OrderStatus[];
+  /** Order fields the edit form shows (and the backend accepts). */
+  orderEditFields: readonly OrderEditField[];
+  /** Longest order note the backend accepts (null = no limit). */
+  orderNoteMaxLength: number | null;
+  /** Cancel takes a reason code from a fixed list (+ optional comment)
+   * instead of free text. */
+  orderCancelReasons: boolean;
+  /** Shortest correction reason the backend accepts. */
+  adjustmentReasonMinLength: number;
+  /** Complaint list: free-text search and the sample fraud/service split. */
+  complaintSearch: boolean;
+  complaintCategoryFilter: boolean;
+  /** Complaint list: filter by subject (passenger/driver/order) and "assigned to me". */
+  complaintSubjectFilter: boolean;
+  complaintAssigneeFilter: boolean;
+  /** false: the list has no notes; the card loads them with getComplaint(). */
+  complaintNotesInList: boolean;
+  /** Closing (resolved/rejected) needs a resolution text. */
+  complaintResolution: boolean;
+  /** Audit log: free-text search. */
+  auditSearch: boolean;
+  /** Audit log: the backend's dotted action names and an entity-type filter. */
+  auditApiFilters: boolean;
 };
 
 export type QueueListItem = Omit<QueueItem, "phoneFull">;
@@ -111,8 +167,6 @@ export type {
   OrderMode,
   Passenger,
   PassengerStatus,
-  Complaint,
-  ComplaintType,
   ComplaintStatus,
   ComplaintNote,
   AdminUser,
@@ -120,10 +174,8 @@ export type {
   StaffStatus,
   Section,
   Action,
-  AuditEntry,
   AuditAction,
   TariffProposalType,
-  AdjustmentProposal,
   ReviewKind,
   ReviewRequest,
   QueueStatus,
@@ -188,6 +240,9 @@ export type MarketingStats = {
   ordersTotal?: number | null;
   ordersCompleted?: number | null;
   ordersCancelled?: number | null;
+  ordersExpired?: number | null;
+  /** Real API only: orders and completed orders per day. */
+  ordersOverTime?: { date: string; orders: number; completed: number }[] | null;
   ordersByStatus: { status: OrderStatus; count: number }[] | null;
   ordersByRoute: { from: string; to: string; count: number }[] | null;
   registrations: { date: string; passengers: number; drivers: number }[] | null;
@@ -215,6 +270,8 @@ export type LoginStartResult = {
   needsPhone?: boolean;
   /** Shortest accepted code (SMS codes may be 4–6 digits); default 6. */
   codeMinLength?: number;
+  /** Exact length of the code that was sent, when the server says (code boxes). */
+  codeLength?: number;
 };
 
 export type LoginStepResult =
@@ -228,6 +285,7 @@ export type LoginStepResult =
       attemptsLeft: number;
       needsPhone?: boolean;
       codeMinLength?: number;
+      codeLength?: number;
     }
   | { done: true; reviewId: string };
 
@@ -243,7 +301,7 @@ export type ArchivableStatusFilter<S extends string> = S | "archived" | "all";
 export type StaffQuery = { search?: string; role?: AdminRole | "all"; status?: ArchivableStatusFilter<StaffStatus> };
 export type DriverQuery = { search?: string; status?: ArchivableStatusFilter<DriverStatus> };
 export type PassengerQuery = { search?: string; status?: ArchivableStatusFilter<PassengerStatus> };
-export type OrderQuery = { search?: string; status?: OrderStatus | "all" };
+export type OrderQuery = { search?: string; status?: OrderStatus | "all"; passengerId?: string };
 export type WalletQuery = { search?: string; type?: WalletEntryType | "all" };
 export type TariffQuery = { search?: string; status?: "active" | "archived" | "all" };
 
@@ -252,9 +310,15 @@ export type TariffProposalQuery = { status?: ProposalStatusFilter };
 export type AdjustmentProposalQuery = { status?: ProposalStatusFilter };
 
 export type ComplaintCategoryFilter = "all" | "fraud" | "service";
-export type ComplaintQuery = { search?: string; status?: ComplaintStatus | "all"; category?: ComplaintCategoryFilter };
+export type ComplaintQuery = {
+  search?: string;
+  status?: ComplaintStatus | "all";
+  category?: ComplaintCategoryFilter;
+  subjectType?: ComplaintSubjectType | "all";
+  assignedToMe?: boolean;
+};
 
-export type AuditQuery = { search?: string; action?: AuditAction | "all"; dateFrom?: string; dateTo?: string };
+export type AuditQuery = { search?: string; action?: string; dateFrom?: string; dateTo?: string; entityType?: string };
 
 export type OperatorQueueQuery = { search?: string; reason?: QueueReason | "all" };
 export type OperatorInProgressQuery = { search?: string };

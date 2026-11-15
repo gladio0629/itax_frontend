@@ -16,7 +16,17 @@ import { api } from "@/api/client";
 import { useAdapterList } from "@/hooks/useAdapterList";
 import { formatDateTime, formatKm, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { City, OrderMode, OrderQuery, OrderStatus, OrderWithNames, Passenger, PaymentMethod } from "@/api/types";
+import type {
+  City,
+  OrderCancelReasonCode,
+  OrderFieldsPatch,
+  OrderMode,
+  OrderQuery,
+  OrderStatus,
+  OrderWithNames,
+  Passenger,
+  PaymentMethod,
+} from "@/api/types";
 
 const caps = api.capabilities;
 
@@ -48,6 +58,39 @@ const STATUS_OPTIONS: { value: OrderStatus | "all"; label: string }[] = [
 /** Short display number: sample ids are "ord_123", real ones are UUIDs. */
 const orderNo = (id: string) => (id.startsWith("ord_") ? id.slice(4) : id.slice(0, 8));
 const PAYMENT_LABEL: Record<PaymentMethod, string> = { cash: "Naqd", card: "Karta", wallet: "Hamyon", payme: "Payme", click: "Click" };
+const PAYMENT_METHODS = Object.keys(PAYMENT_LABEL) as PaymentMethod[];
+const CANCEL_REASON_LABEL: Record<OrderCancelReasonCode, string> = {
+  admin_decision: "Admin qarori",
+  passenger_request: "Yo'lovchi so'rovi",
+  driver_request: "Haydovchi so'rovi",
+  duplicate: "Takroriy buyurtma",
+  fraud: "Firibgarlik",
+  other: "Boshqa sabab",
+};
+// Codes the server may put in Order.cancel_reason (admin and passenger reasons).
+const CANCEL_CODE_LABEL: Record<string, string> = {
+  ...CANCEL_REASON_LABEL,
+  changed_plans: "Rejalar o'zgardi",
+  long_wait: "Uzoq kutish",
+  driver_asked: "Haydovchi so'radi",
+  wrong_address: "Manzil noto'g'ri",
+};
+const editable = (f: (typeof caps.orderEditFields)[number]) => caps.orderEditFields.includes(f);
+const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
+const pad2 = (n: number) => String(n).padStart(2, "0");
+/** epoch ms ↔ <input type="datetime-local"> value (local time). */
+function toLocalInput(ms: number | undefined): string {
+  if (!ms) return "";
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+const fromLocalInput = (v: string): number | null => {
+  const ms = v ? new Date(v).getTime() : NaN;
+  return Number.isFinite(ms) ? ms : null;
+};
+type ScheduleMode = "none" | "at" | "range";
+const INPUT_CLS =
+  "h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 const SEATS = [
   { id: "front", label: "Old o'rindiq" },
@@ -79,9 +122,22 @@ export function OrdersScreen() {
 
   const [selected, setSelected] = useState<OrderWithNames | null>(null);
   const [editingOrder, setEditingOrder] = useState(false);
-  const [editForm, setEditForm] = useState({ seatIds: [] as string[], note: "", timeFrom: "", timeTo: "" });
+  const [editForm, setEditForm] = useState({
+    seatIds: [] as string[],
+    note: "",
+    timeFrom: "",
+    timeTo: "",
+    paymentMethod: "cash" as PaymentMethod,
+    scheduleMode: "none" as ScheduleMode,
+    scheduleAt: "",
+    scheduleFrom: "",
+    scheduleTo: "",
+  });
+  const [editError, setEditError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelCode, setCancelCode] = useState<OrderCancelReasonCode>("admin_decision");
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -102,11 +158,48 @@ export function OrdersScreen() {
     setEditingOrder(false);
     setCancelling(false);
     setCancelReason("");
+    setCancelCode("admin_decision");
+    setCancelError(null);
   }
 
   function startEditOrder(o: OrderWithNames) {
-    setEditForm({ seatIds: o.seatIds, note: o.note ?? "", timeFrom: o.timeWindow?.from ?? "", timeTo: o.timeWindow?.to ?? "" });
+    setEditForm({
+      seatIds: o.seatIds,
+      note: o.note ?? "",
+      timeFrom: o.timeWindow?.from ?? "",
+      timeTo: o.timeWindow?.to ?? "",
+      paymentMethod: o.paymentMethod,
+      scheduleMode: o.scheduledAt ? "at" : o.scheduledRange ? "range" : "none",
+      scheduleAt: toLocalInput(o.scheduledAt),
+      scheduleFrom: toLocalInput(o.scheduledRange?.from),
+      scheduleTo: toLocalInput(o.scheduledRange?.to),
+    });
+    setEditError(null);
     setEditingOrder(true);
+  }
+
+  /** Only the fields this backend edits, and only the ones that changed. */
+  function buildPatch(o: OrderWithNames): OrderFieldsPatch | "invalid" {
+    const patch: OrderFieldsPatch = {};
+    if (editable("seats") && o.mode === "seat") patch.seatIds = editForm.seatIds;
+    if (editable("timeWindow")) patch.timeWindow = editForm.timeFrom && editForm.timeTo ? { from: editForm.timeFrom, to: editForm.timeTo } : null;
+    if (editable("note") && editForm.note !== (o.note ?? "")) patch.note = editForm.note;
+    if (editable("paymentMethod") && editForm.paymentMethod !== o.paymentMethod) patch.paymentMethod = editForm.paymentMethod;
+    if (editable("schedule")) {
+      if (editForm.scheduleMode === "at") {
+        const at = fromLocalInput(editForm.scheduleAt);
+        if (at === null) return "invalid";
+        if (toLocalInput(at) !== toLocalInput(o.scheduledAt)) patch.schedule = { at };
+      } else if (editForm.scheduleMode === "range") {
+        const from = fromLocalInput(editForm.scheduleFrom);
+        const to = fromLocalInput(editForm.scheduleTo);
+        if (from === null || to === null) return "invalid";
+        if (toLocalInput(from) !== toLocalInput(o.scheduledRange?.from) || toLocalInput(to) !== toLocalInput(o.scheduledRange?.to)) {
+          patch.schedule = { from, to };
+        }
+      }
+    }
+    return patch;
   }
 
   function openCreate() {
@@ -147,31 +240,46 @@ export function OrdersScreen() {
 
   async function handleSaveEdit() {
     if (!selected) return;
+    const patch = buildPatch(selected);
+    if (patch === "invalid") {
+      setEditError("Vaqtni to'liq kiriting.");
+      return;
+    }
+    if (Object.keys(patch).length === 0) {
+      setEditingOrder(false);
+      return;
+    }
     setSaving(true);
+    setEditError(null);
     try {
-      const updated = await api.updateOrderFields(selected.id, {
-        seatIds: selected.mode === "seat" ? editForm.seatIds : undefined,
-        note: editForm.note,
-        timeWindow: editForm.timeFrom && editForm.timeTo ? { from: editForm.timeFrom, to: editForm.timeTo } : null,
-      });
+      const updated = await api.updateOrderFields(selected.id, patch);
       setSelected(updated);
       setEditingOrder(false);
       setToast("Saqlandi");
       reload();
+    } catch (e) {
+      // e.g. 403 driver_assigned / trip_started / order_closed from the server.
+      setEditError(errorText(e));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleCancel() {
-    if (!selected || !cancelReason.trim()) return;
+    if (!selected) return;
+    if (!caps.orderCancelReasons && !cancelReason.trim()) return;
     setSaving(true);
+    setCancelError(null);
     try {
-      const updated = await api.cancelOrder(selected.id, cancelReason.trim());
+      const updated = caps.orderCancelReasons
+        ? await api.cancelOrder(selected.id, cancelCode, cancelReason.trim() || undefined)
+        : await api.cancelOrder(selected.id, cancelReason.trim());
       setSelected(updated);
       setCancelling(false);
       setToast("Buyurtma bekor qilindi");
       reload();
+    } catch (e) {
+      setCancelError(errorText(e));
     } finally {
       setSaving(false);
     }
@@ -297,11 +405,21 @@ export function OrdersScreen() {
                 <p className="text-xs text-ink/50">Masofa</p>
                 <p className="font-semibold text-ink">{formatKm(selected.distanceKm)}</p>
               </div>
-              {caps.orderPassenger && (
+              {caps.orderPassenger ? (
                 <div>
                   <p className="text-xs text-ink/50">Yo'lovchi</p>
                   <p className="font-semibold text-ink">{selected.passengerName}</p>
                 </div>
+              ) : (
+                selected.passengerId && (
+                  // The API gives only the passenger's id, no name.
+                  <div>
+                    <p className="text-xs text-ink/50">Yo'lovchi ID</p>
+                    <p className="tabular select-all font-semibold text-ink" title={selected.passengerId}>
+                      #{selected.passengerId.slice(0, 8)}
+                    </p>
+                  </div>
+                )
               )}
               <div>
                 <p className="text-xs text-ink/50">Haydovchi</p>
@@ -320,6 +438,13 @@ export function OrdersScreen() {
                   <p className="text-xs text-ink/50">Jo'nash vaqti</p>
                   <p className="font-semibold text-ink">{formatDateTime(selected.scheduledAt)}</p>
                 </div>
+              ) : selected.scheduledRange ? (
+                <div>
+                  <p className="text-xs text-ink/50">Jo'nash oralig'i</p>
+                  <p className="font-semibold text-ink">
+                    {formatDateTime(selected.scheduledRange.from)} – {formatDateTime(selected.scheduledRange.to)}
+                  </p>
+                </div>
               ) : (
                 <div>
                   <p className="text-xs text-ink/50">Vaqt oralig'i</p>
@@ -333,7 +458,11 @@ export function OrdersScreen() {
                 </div>
               )}
             </div>
-            {selected.cancelReason && <div className="rounded-card bg-danger/10 p-3 text-xs text-danger">Bekor qilish sababi: {selected.cancelReason}</div>}
+            {selected.cancelReason && (
+              <div className="rounded-card bg-danger/10 p-3 text-xs text-danger">
+                Bekor qilish sababi: {CANCEL_CODE_LABEL[selected.cancelReason] ?? selected.cancelReason}
+              </div>
+            )}
 
             <div className="border-t border-border pt-4">
               <div className="mb-2 flex items-center justify-between">
@@ -351,15 +480,42 @@ export function OrdersScreen() {
               <div className="border-t border-border pt-4">
                 {cancelling ? (
                   <div className="space-y-2">
+                    {caps.orderCancelReasons && (
+                      <select
+                        value={cancelCode}
+                        onChange={(e) => setCancelCode(e.target.value as OrderCancelReasonCode)}
+                        aria-label="Bekor qilish sababi"
+                        className={INPUT_CLS}
+                      >
+                        {(Object.keys(CANCEL_REASON_LABEL) as OrderCancelReasonCode[]).map((r) => (
+                          <option key={r} value={r}>
+                            {CANCEL_REASON_LABEL[r]}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <textarea
                       value={cancelReason}
                       onChange={(e) => setCancelReason(e.target.value)}
-                      placeholder="Bekor qilish sababi…"
+                      placeholder={caps.orderCancelReasons ? "Izoh (ixtiyoriy)…" : "Bekor qilish sababi…"}
+                      aria-label={caps.orderCancelReasons ? "Izoh" : "Bekor qilish sababi"}
+                      maxLength={caps.orderCancelReasons ? 500 : undefined}
                       rows={2}
                       className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
                     />
+                    {cancelError && (
+                      <p role="alert" className="text-xs font-semibold text-danger">
+                        {cancelError}
+                      </p>
+                    )}
                     <div className="flex gap-2">
-                      <Button variant="danger" size="sm" loading={saving} disabled={!cancelReason.trim()} onClick={handleCancel}>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        loading={saving}
+                        disabled={!caps.orderCancelReasons && !cancelReason.trim()}
+                        onClick={handleCancel}
+                      >
                         Bekor qilish
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => setCancelling(false)}>
@@ -368,7 +524,14 @@ export function OrdersScreen() {
                     </div>
                   </div>
                 ) : (
-                  <Button variant="danger" size="sm" onClick={() => setCancelling(true)}>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => {
+                      setCancelError(null);
+                      setCancelling(true);
+                    }}
+                  >
                     <X className="h-4 w-4" /> Buyurtmani bekor qilish
                   </Button>
                 )}
@@ -379,7 +542,7 @@ export function OrdersScreen() {
 
         {selected && editingOrder && (
           <div className="space-y-4">
-            {selected.mode === "seat" && (
+            {editable("seats") && selected.mode === "seat" && (
               <div>
                 <label className="mb-2 block text-sm font-semibold text-ink/80">O'rindiqlar</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -405,6 +568,7 @@ export function OrdersScreen() {
                 </div>
               </div>
             )}
+            {editable("timeWindow") && (
             <div>
               <label htmlFor="fld-vaqt-oralig-i" className="mb-2 block text-sm font-semibold text-ink/80">Vaqt oralig'i</label>
               <div className="flex items-center gap-3">
@@ -431,15 +595,85 @@ export function OrdersScreen() {
                 </select>
               </div>
             </div>
-            <div>
-              <label htmlFor="fld-izoh" className="mb-2 block text-sm font-semibold text-ink/80">Izoh</label>
-              <textarea id="fld-izoh"
-                value={editForm.note}
-                onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
-                rows={3}
-                className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
-              />
-            </div>
+            )}
+            {editable("paymentMethod") && (
+              <div>
+                <label htmlFor="fld-tolov" className="mb-2 block text-sm font-semibold text-ink/80">To'lov usuli</label>
+                <select
+                  id="fld-tolov"
+                  value={editForm.paymentMethod}
+                  onChange={(e) => setEditForm((f) => ({ ...f, paymentMethod: e.target.value as PaymentMethod }))}
+                  className={INPUT_CLS}
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m} value={m}>
+                      {PAYMENT_LABEL[m]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {editable("schedule") && (
+              <div className="space-y-2">
+                <label htmlFor="fld-jonash" className="block text-sm font-semibold text-ink/80">Jo'nash vaqti</label>
+                <select
+                  id="fld-jonash"
+                  value={editForm.scheduleMode}
+                  onChange={(e) => setEditForm((f) => ({ ...f, scheduleMode: e.target.value as ScheduleMode }))}
+                  className={INPUT_CLS}
+                >
+                  {/* A set time can be changed but not removed (the API has no "clear"). */}
+                  {!selected.scheduledAt && !selected.scheduledRange && <option value="none">Belgilanmagan (imkon qadar tez)</option>}
+                  <option value="at">Aniq vaqt</option>
+                  <option value="range">Vaqt oralig'i</option>
+                </select>
+                {editForm.scheduleMode === "at" && (
+                  <input
+                    type="datetime-local"
+                    aria-label="Aniq jo'nash vaqti"
+                    value={editForm.scheduleAt}
+                    onChange={(e) => setEditForm((f) => ({ ...f, scheduleAt: e.target.value }))}
+                    className={INPUT_CLS}
+                  />
+                )}
+                {editForm.scheduleMode === "range" && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="datetime-local"
+                      aria-label="Oraliq boshlanishi"
+                      value={editForm.scheduleFrom}
+                      onChange={(e) => setEditForm((f) => ({ ...f, scheduleFrom: e.target.value }))}
+                      className={INPUT_CLS}
+                    />
+                    <span className="text-sm text-ink/60">–</span>
+                    <input
+                      type="datetime-local"
+                      aria-label="Oraliq tugashi"
+                      value={editForm.scheduleTo}
+                      onChange={(e) => setEditForm((f) => ({ ...f, scheduleTo: e.target.value }))}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            {editable("note") && (
+              <div>
+                <label htmlFor="fld-izoh" className="mb-2 block text-sm font-semibold text-ink/80">Izoh</label>
+                <textarea id="fld-izoh"
+                  value={editForm.note}
+                  onChange={(e) => setEditForm((f) => ({ ...f, note: e.target.value }))}
+                  rows={3}
+                  maxLength={caps.orderNoteMaxLength ?? undefined}
+                  className="w-full rounded-button border border-border bg-card p-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+                />
+              </div>
+            )}
+            {editError && (
+              <p role="alert" className="text-xs font-semibold text-danger">
+                {editError}
+              </p>
+            )}
             <div className="flex gap-2">
               <Button variant="ghost" fullWidth onClick={() => setEditingOrder(false)}>
                 Bekor qilish

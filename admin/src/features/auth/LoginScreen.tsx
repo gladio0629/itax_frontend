@@ -37,6 +37,8 @@ export function LoginScreen() {
   const [needsPhone, setNeedsPhone] = useState(false);
   const [phone, setPhone] = useState("");
   const [codeMinLength, setCodeMinLength] = useState(6);
+  // Number of code boxes: the server's code_length when it sends one, else 6.
+  const [codeLength, setCodeLength] = useState(6);
   const inputsRef = useRef<HTMLInputElement[]>([]);
   const code = digits.join("");
   const canSubmit = code.length >= codeMinLength && (!needsPhone || phone.trim().length > 0);
@@ -59,7 +61,8 @@ export function LoginScreen() {
       setResendSeconds(res.resendSeconds);
       setNeedsPhone(!!res.needsPhone);
       setCodeMinLength(res.codeMinLength ?? 6);
-      setDigits(Array(6).fill(""));
+      setCodeLength(res.codeLength ?? 6);
+      setDigits(Array(res.codeLength ?? 6).fill(""));
       setPhase("code");
       setTimeout(() => inputsRef.current[0]?.focus(), 0);
     } catch (e) {
@@ -85,12 +88,13 @@ export function LoginScreen() {
         setResendSeconds(res.resendSeconds);
         setNeedsPhone(!!res.needsPhone);
         setCodeMinLength(res.codeMinLength ?? 6);
-        setDigits(Array(6).fill(""));
+        setCodeLength(res.codeLength ?? 6);
+        setDigits(Array(res.codeLength ?? 6).fill(""));
         setTimeout(() => inputsRef.current[0]?.focus(), 0);
       }
     } catch (e) {
       setCodeError(e instanceof Error ? e.message : "Kod noto'g'ri.");
-      setDigits(Array(6).fill(""));
+      setDigits(Array(codeLength).fill(""));
       inputsRef.current[0]?.focus();
     } finally {
       setLoading(false);
@@ -105,6 +109,10 @@ export function LoginScreen() {
       const res = await api.resendLoginCode(requestId);
       setTestCode(res.testCode);
       setResendSeconds(res.resendSeconds);
+      if (res.codeLength && res.codeLength !== codeLength) {
+        setCodeLength(res.codeLength);
+        setDigits(Array(res.codeLength).fill(""));
+      }
     } catch (e) {
       setCodeError(e instanceof Error ? e.message : "Kodni qayta yuborib bo'lmadi.");
     } finally {
@@ -117,9 +125,9 @@ export function LoginScreen() {
     const next = [...digits];
     next[i] = v;
     setDigits(next);
-    if (v && i < 5) inputsRef.current[i + 1]?.focus();
-    // Auto-submit once all six boxes are filled, unless a phone is still needed.
-    if (!needsPhone && next.every((d) => d) && next.join("").length === 6) handleVerify(next.join(""));
+    if (v && i < next.length - 1) inputsRef.current[i + 1]?.focus();
+    // Auto-submit once every box is filled, unless a phone is still needed.
+    if (!needsPhone && next.every((d) => d) && next.join("").length === next.length) handleVerify(next.join(""));
   }
 
   return (
@@ -165,7 +173,7 @@ export function LoginScreen() {
             <div>
               <p className="text-sm font-semibold text-ink">Tasdiqlash kodi</p>
               <p className="mt-1 text-xs text-ink/60">
-                {destination} manziliga yuborilgan {codeMinLength < 6 ? "tasdiqlash kodini" : "6 xonali kodni"} kiriting.
+                {destination} manziliga yuborilgan {codeMinLength < codeLength ? "tasdiqlash kodini" : `${codeLength} xonali kodni`} kiriting.
                 {testCode && ` (Sinov kodi: ${testCode})`}
               </p>
             </div>

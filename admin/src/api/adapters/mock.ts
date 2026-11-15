@@ -263,6 +263,18 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
   tariffFields: ["baseFare", "perKmCar", "perKmSeat", "frontSeatSurcharge", "fuelAdjustmentPct", "commissionPct"],
   tariffCarClass: false,
   orderStatuses: ["completed", "cancelled", "in_progress", "accepted", "searching", "no_driver"],
+  orderEditFields: ["seats", "timeWindow", "note"],
+  orderNoteMaxLength: null,
+  orderCancelReasons: false,
+  adjustmentReasonMinLength: 1,
+  complaintSearch: true,
+  complaintCategoryFilter: true,
+  complaintSubjectFilter: false,
+  complaintAssigneeFilter: false,
+  complaintNotesInList: true,
+  complaintResolution: false,
+  auditSearch: true,
+  auditApiFilters: false,
 };
 
 export const mockAdapter: ApiAdapter = {
@@ -883,7 +895,9 @@ export const mockAdapter: ApiAdapter = {
   updateOrderFields: (id, patch) =>
     withLatency<OrderWithNames>(() => {
       const actor = currentAdmin();
-      const { timeWindow, ...rest } = patch;
+      // The sample orders only know seats, note and the HH:MM window.
+      const { timeWindow, seatIds, note } = patch;
+      const rest = { ...(seatIds !== undefined ? { seatIds } : {}), ...(note !== undefined ? { note } : {}) };
       db.updateOrder(id, { ...rest, timeWindow: timeWindow === null ? undefined : timeWindow });
       addAuditEntry({ actorId: actor.id, actorName: actor.name, action: "order_edit", targetType: "order", targetId: id, detail: "Buyurtma tahrirlandi" });
       const o = db.getOrder(id);
@@ -1121,6 +1135,13 @@ export const mockAdapter: ApiAdapter = {
       if (query.category === "service") rows = rows.filter((c) => !FRAUD_TYPES.includes(c.type));
       if (query.search) rows = rows.filter((c) => matchesSearch(c.description, query.search));
       return rows;
+    }),
+
+  getComplaint: (id) =>
+    withLatency<Complaint>(() => {
+      const c = db.complaints().find((x) => x.id === id);
+      if (!c) throw new ApiError("NOT_FOUND", "Topilmadi");
+      return c;
     }),
 
   assignComplaint: (id, toId) =>

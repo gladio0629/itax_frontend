@@ -1,5 +1,5 @@
 // Contract error keys (api/openapi.yml) → the Uzbek text the admin UI shows.
-// The admin panel has no i18n; screens render `err.message`. Unknown keys
+// The admin panel has no i18n (Uzbek only); screens render `err.message`. Unknown keys
 // fall back to a generic message. Never interpolate personal data here.
 import type { ErrorParams } from "@shared/http/errors";
 
@@ -9,6 +9,14 @@ const FORBIDDEN_REASON: Record<string, string> = {
   not_pending: "Bu yozuv endi tasdiq kutmayapti.",
   not_in_progress: "Bu vazifa jarayonda emas.",
   not_assigned: "Bu vazifa sizga biriktirilmagan.",
+  self_approval: "O'zingiz yaratgan yozuvni o'zingiz tasdiqlay yoki rad eta olmaysiz.",
+  invalid_state: "Bu holatdan bunday o'zgartirib bo'lmaydi.",
+  staff_inactive: "Hisobingiz faol emas.",
+  invalid_transition: "Shikoyatni bu holatga o'tkazib bo'lmaydi. Ochiq shikoyatni avval ko'rib chiqishga oling (o'zingizga biriktiring).",
+  complaint_closed: "Shikoyat allaqachon yopilgan.",
+  driver_assigned: "Buyurtmaga haydovchi biriktirilgan: endi uni tahrirlab bo'lmaydi.",
+  trip_started: "Safar boshlangan: buyurtmani o'zgartirib yoki bekor qilib bo'lmaydi.",
+  order_closed: "Buyurtma yakunlangan yoki bekor qilingan.",
 };
 
 const MESSAGES: Record<string, (p: ErrorParams) => string> = {
@@ -30,6 +38,8 @@ const MESSAGES: Record<string, (p: ErrorParams) => string> = {
   TARIFF_CHANGE_PENDING: () => "Bu tarifda tasdiq kutayotgan o'zgarish bor. Avval uni tasdiqlang yoki rad eting.",
   IDEMPOTENCY_KEY_REUSED: () => "Bu so'rov boshqa ma'lumot bilan allaqachon yuborilgan. Formani qayta to'ldiring.",
   ORDER_NOT_FOUND: () => "Buyurtma topilmadi.",
+  TRIP_ORDER_UNAVAILABLE: () => "Buyurtmalar xizmati javob bermadi. Keyinroq urinib ko'ring.",
+  IDENTITY_UNAVAILABLE: () => "Kirish xizmati javob bermadi. Keyinroq urinib ko'ring.",
   NOT_FOUND: () => "Ma'lumot topilmadi.",
   VALIDATION_ERROR: () => "Ma'lumotlar noto'g'ri. Maydonlarni tekshirib, qayta yuboring.",
   INTERNAL_ERROR: () => "Serverda xatolik yuz berdi. Keyinroq urinib ko'ring.",

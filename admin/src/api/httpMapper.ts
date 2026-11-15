@@ -4,16 +4,22 @@
 // `httpAdapter.capabilities` hides it on screen (see
 // docs/backend-gaps/admin.md); no business rule is computed here.
 import type * as Api from "@shared/api/openapi";
+import { formatDayShort } from "@/lib/format";
 import type {
   ActiveTask,
   AdjustmentProposal,
   AdminRole,
+  AuditEntry,
+  Complaint,
+  ComplaintStatus,
+  ComplaintType,
   Driver,
   DriverStatus,
   HistoryEntry,
   HistoryResult,
   MarketingStats,
   Me,
+  OrderFieldsPatch,
   OrderWithNames,
   Passenger,
   QueueReason,
@@ -31,6 +37,7 @@ import type {
 export const toSom = (tiyin: number | null | undefined): number => (tiyin ?? 0) / 100;
 export const toTiyin = (som: number): number => Math.round(som * 100);
 export const toMs = (iso: string | null | undefined): number => (iso ? Date.parse(iso) || 0 : 0);
+export const toIso = (ms: number): string => new Date(ms).toISOString();
 
 /** "+998 90 123 45 67" / "90 123-45-67" / "901234567" → "+998901234567", or null. */
 export function normalizePhone(input: string): string | null {
@@ -67,7 +74,12 @@ export function splitName(full: string): { first_name: string; last_name: string
 }
 
 const joinName = (first?: string | null, last?: string | null) => [first, last].filter(Boolean).join(" ").trim() || "—";
-const shortId = (id: string) => id.slice(0, 8);
+export const shortId = (id: string) => id.slice(0, 8);
+
+/** Staff display name for a bare staff id: the caller resolves what it
+ * knows (itself, a loaded staff list), otherwise "#1a2b3c4d". */
+export type StaffNameOf = (id: string) => string | undefined;
+const staffLabel = (id: string | null | undefined, nameOf: StaffNameOf) => (id ? nameOf(id) ?? `#${shortId(id)}` : "—");
 
 // ------------------------------------------------------------ roles / me
 const ROLE_FROM_API: Record<Api.StaffRole, AdminRole> = {
@@ -197,11 +209,11 @@ export function passengerFromApi(p: Api.AdminPassenger): Passenger {
 // --------------------------------------------------------------- orders
 const placeName = (g: Api.GeoPoint) => g.address?.trim() || `${g.lat.toFixed(4)}, ${g.lng.toFixed(4)}`;
 
-export function orderFromApi(o: Api.Order): OrderWithNames {
+export function orderFromApi(o: Api.AdminOrder): OrderWithNames {
   const seats = o.seats ?? 0;
   return {
     id: o.id,
-    passengerId: "",
+    passengerId: o.passenger_id ?? "",
     driverId: o.driver?.id ?? null,
     fromCityId: "",
     toCityId: "",
@@ -213,13 +225,33 @@ export function orderFromApi(o: Api.Order): OrderWithNames {
     status: o.status,
     createdAt: toMs(o.created_at),
     scheduledAt: o.scheduled_at ? toMs(o.scheduled_at) : undefined,
+    scheduledRange: o.scheduled_from && o.scheduled_to ? { from: toMs(o.scheduled_from), to: toMs(o.scheduled_to) } : undefined,
     note: o.comment ?? undefined,
-    passengerName: "—", // Order has no passenger (capabilities.orderPassenger = false)
+    cancelReason: o.cancel_reason ?? undefined,
+    // Only passenger_id, no name (capabilities.orderPassenger = false).
+    passengerName: "—",
     driverName: o.driver?.first_name ?? null,
     fromCityName: placeName(o.from),
     toCityName: placeName(o.to),
-    canCancel: false, // no admin cancel endpoint
+    // Order.can_cancel is the passenger's verdict; there is none for admins,
+    // so the action is offered and the server's 403 decides.
+    canCancel: true,
   };
+}
+
+/** Edit form → AdminOrderUpdate. Only fields the caller set are sent. */
+export function orderPatchToApi(patch: OrderFieldsPatch): Api.AdminOrderUpdate {
+  const body: Api.AdminOrderUpdate = {};
+  if (patch.note !== undefined) body.comment = patch.note;
+  if (patch.paymentMethod !== undefined) body.payment_method = patch.paymentMethod;
+  if (patch.schedule) {
+    if ("at" in patch.schedule) body.scheduled_at = toIso(patch.schedule.at);
+    else {
+      body.scheduled_from = toIso(patch.schedule.from);
+      body.scheduled_to = toIso(patch.schedule.to);
+    }
+  }
+  return body;
 }
 
 // --------------------------------------------------------------- wallet
@@ -251,16 +283,101 @@ const APPROVAL: Record<Api.ApprovalStatus, AdjustmentProposal["status"]> = {
   rejected: "rejected",
 };
 
-export function correctionFromApi(c: Api.Correction, driverId: string, me: Me | null): AdjustmentProposal {
+export function correctionFromApi(c: Api.CorrectionListItem, driverId: string, me: Me | null): AdjustmentProposal {
   return {
     id: c.id,
     driverId,
+    // The correction names a wallet, not a driver.
+    subjectLabel: `Hamyon #${shortId(c.wallet_id)}`,
     amount: toSom(c.amount),
     reason: c.reason,
     proposedById: c.created_by,
-    proposedByName: me && c.created_by === me.id ? me.name : `#${shortId(c.created_by)}`,
+    proposedByName: c.created_by_name?.trim() || (me && c.created_by === me.id ? me.name : `#${shortId(c.created_by)}`),
     status: APPROVAL[c.approval_status],
     createdAt: toMs(c.created_at),
+  };
+}
+
+export function approvalToApi(status: AdjustmentProposal["status"] | "all" | undefined): Api.ApprovalStatus | undefined {
+  if (status === "pending_second") return "pending_approval";
+  if (status === "approved" || status === "rejected") return status;
+  return undefined;
+}
+
+// ----------------------------------------------------------- complaints
+const COMPLAINT_STATUS_FROM_API: Record<Api.ComplaintStatus, ComplaintStatus> = {
+  open: "open",
+  in_progress: "reviewing",
+  resolved: "resolved",
+  rejected: "dismissed",
+};
+export const complaintStatusFromApi = (s: Api.ComplaintStatus): ComplaintStatus => COMPLAINT_STATUS_FROM_API[s] ?? "open";
+const COMPLAINT_STATUS_TO_API: Record<ComplaintStatus, Api.ComplaintStatus> = {
+  open: "open",
+  reviewing: "in_progress",
+  resolved: "resolved",
+  dismissed: "rejected",
+};
+export const complaintStatusToApi = (s: ComplaintStatus): Api.ComplaintStatus => COMPLAINT_STATUS_TO_API[s];
+
+const COMPLAINT_CATEGORIES: readonly string[] = ["driver_behavior", "passenger_behavior", "payment", "safety", "lost_item", "app_issue", "other"];
+
+export function complaintFromApi(c: Api.Complaint | Api.ComplaintDetail, nameOf: StaffNameOf): Complaint {
+  const notes = "notes" in c ? c.notes : [];
+  return {
+    id: c.id,
+    // Complaint.category is a plain string in responses: unknown → "other".
+    type: (COMPLAINT_CATEGORIES.includes(c.category) ? c.category : "other") as ComplaintType,
+    orderId: c.order_id ?? undefined,
+    driverId: c.subject_type === "driver" ? c.subject_id : undefined,
+    passengerId: c.subject_type === "passenger" ? c.subject_id : undefined,
+    subjectType: c.subject_type,
+    subjectId: c.subject_id,
+    status: complaintStatusFromApi(c.status),
+    description: c.description,
+    resolution: c.resolution ?? undefined,
+    createdAt: toMs(c.created_at),
+    assignedToId: c.assigned_to ?? undefined,
+    assignedToName: c.assigned_to ? staffLabel(c.assigned_to, nameOf) : undefined,
+    notes: notes.map((n) => ({
+      id: n.id,
+      text: n.text,
+      authorId: n.author_id,
+      authorName: staffLabel(n.author_id, nameOf),
+      createdAt: toMs(n.created_at),
+    })),
+  };
+}
+
+// ---------------------------------------------------------------- audit
+/** Snapshot keys whose values are safe to show in the one-line summary;
+ * every other changed key (names, phones, emails…) is listed by name only. */
+const AUDIT_VALUE_KEYS = new Set(["state", "status", "role", "approval_status", "active", "payment_method", "result", "kind", "car_class", "commission_percent"]);
+const short = (v: unknown) => {
+  const t = v === null || v === undefined ? "—" : typeof v === "object" ? "…" : String(v);
+  return t.length > 24 ? `${t.slice(0, 24)}…` : t;
+};
+
+function auditDetail(before: Record<string, unknown> | null, after: Record<string, unknown> | null): string {
+  if (!before && !after) return "—";
+  if (!before) return "Yangi yozuv";
+  const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after ?? {})]));
+  const changed = keys.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after?.[k]));
+  if (changed.length === 0) return "O'zgarishsiz";
+  return changed.map((k) => (AUDIT_VALUE_KEYS.has(k) ? `${k}: ${short(before[k])} → ${short(after?.[k])}` : k)).join(", ");
+}
+
+export function auditFromApi(e: Api.AuditEntry, nameOf: StaffNameOf): AuditEntry {
+  const role = (ROLE_FROM_API as Record<string, AdminRole | undefined>)[e.actor_role] ?? e.actor_role;
+  return {
+    id: e.id,
+    actorId: e.actor_id ?? "",
+    actorName: e.actor_id ? nameOf(e.actor_id) ?? `${role} #${shortId(e.actor_id)}` : "Tizim",
+    action: e.action,
+    targetType: e.entity_type,
+    targetId: e.entity_id,
+    detail: auditDetail(e.before, e.after),
+    createdAt: toMs(e.created_at),
   };
 }
 
@@ -377,11 +494,35 @@ export function statsRange(period: StatsPeriod, now = new Date()): Api.StatsQuer
   return { from_date: isoDate(from), to_date: isoDate(now) };
 }
 
-export function statsFromApi(s: Api.Stats, period: StatsPeriod): MarketingStats {
+const ORDER_STATUS_ORDER: Api.OrderStatus[] = ["searching", "accepted", "arrived", "in_progress", "completed", "cancelled", "expired"];
+
+/** Every date from `from` to `to` (YYYY-MM-DD, inclusive). */
+function datesBetween(from: string, to: string): string[] {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const out: string[] = [];
+  for (let d = new Date(fy, fm - 1, fd); isoDate(d) <= to && out.length < 400; d.setDate(d.getDate() + 1)) out.push(isoDate(d));
+  return out;
+}
+const dayLabel = (date: string) => {
+  const [y, m, d] = date.split("-").map(Number);
+  return formatDayShort(new Date(y, m - 1, d));
+};
+
+export function statsFromApi(s: Api.Stats, period: StatsPeriod, range: Api.StatsQuery = statsRange(period)): MarketingStats {
+  // `daily` lists only days that had orders (the contract says so): the
+  // missing days of the requested range are zero-order days.
+  let daily: NonNullable<Api.Stats["daily"]> | null = null;
+  if (s.daily) {
+    const byDate = new Map(s.daily.map((d) => [d.date, d]));
+    const dates = range.from_date && range.to_date ? datesBetween(range.from_date, range.to_date) : s.daily.map((d) => d.date);
+    daily = dates.map((date) => byDate.get(date) ?? { date, orders: 0, completed: 0, revenue: 0 });
+  }
+  const byStatus = s.orders_by_status;
   return {
     period,
     totalIncome: toSom(s.revenue),
     totalCommission: toSom(s.commission),
+    averageOrderValue: s.average_order_value !== undefined ? toSom(s.average_order_value) : null,
     driversActive: s.active_drivers,
     driversOnline: s.online_drivers,
     driversOverLimit: s.drivers_over_limit ?? null,
@@ -389,17 +530,20 @@ export function statsFromApi(s: Api.Stats, period: StatsPeriod): MarketingStats 
     ordersTotal: s.orders_total,
     ordersCompleted: s.orders_completed,
     ordersCancelled: s.orders_cancelled,
+    ordersExpired: s.orders_expired ?? null,
+    ordersByStatus: byStatus
+      ? ORDER_STATUS_ORDER.filter((st) => byStatus[st] !== undefined).map((st) => ({ status: st, count: byStatus[st] ?? 0 }))
+      : null,
+    ordersByRoute: s.top_routes ? s.top_routes.map((r) => ({ from: r.from_name, to: r.to_name, count: r.orders })) : null,
+    incomeOverTime: daily ? daily.map((d) => ({ date: dayLabel(d.date), income: toSom(d.revenue) })) : null,
+    ordersOverTime: daily ? daily.map((d) => ({ date: dayLabel(d.date), orders: d.orders, completed: d.completed })) : null,
     // Not in the contract's Stats (hidden on screen):
     passengersTotal: null,
     driversTotal: null,
     driversBlocked: null,
     driversNew: null,
-    averageOrderValue: null,
     walletTotalBalance: null,
-    ordersByStatus: null,
-    ordersByRoute: null,
     registrations: null,
-    incomeOverTime: null,
     incomeByRoute: null,
     incomeByCity: null,
   };

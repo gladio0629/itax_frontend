@@ -14,10 +14,11 @@ import { session } from "../httpSession";
 import * as map from "../httpMapper";
 import type {
   AdapterCapabilities,
-  AdjustmentProposal,
+  Complaint,
   LoginStartResult,
   LoginStepResult,
   Me,
+  OrderCancelReasonCode,
   ReviewKind,
   ReviewRequest,
   StaffRow,
@@ -39,11 +40,11 @@ const CAPABILITIES: AdapterCapabilities = {
   passengerCity: false,
   orderSearch: false,
   orderCreate: false,
-  orderEdit: false,
+  orderEdit: true,
   orderPassenger: false,
   walletLedgerFilters: false,
   walletDriverName: false,
-  adjustmentProposalsList: false,
+  adjustmentProposalsList: true,
   tariffSearch: false,
   tariffProposalValues: false,
   queueFilters: false,
@@ -54,7 +55,22 @@ const CAPABILITIES: AdapterCapabilities = {
   tariffFields: ["baseFare", "perKmCar", "perMin", "minFare", "commissionPct"],
   tariffCarClass: true,
   orderStatuses: ["searching", "accepted", "arrived", "in_progress", "completed", "cancelled", "expired"],
+  orderEditFields: ["note", "paymentMethod", "schedule"],
+  orderNoteMaxLength: 200,
+  orderCancelReasons: true,
+  adjustmentReasonMinLength: 5,
+  complaintSearch: false,
+  complaintCategoryFilter: false,
+  complaintSubjectFilter: true,
+  complaintAssigneeFilter: true,
+  complaintNotesInList: false,
+  complaintResolution: true,
+  auditSearch: false,
+  auditApiFilters: true,
 };
+
+const CANCEL_REASONS: readonly OrderCancelReasonCode[] = ["admin_decision", "passenger_request", "driver_request", "duplicate", "fraud", "other"];
+const LOGOUT_TIMEOUT_MS = 5_000;
 
 function fail(code: string, params: ErrorParams = {}): never {
   throw new ApiError(code, adminErrorMessage(code, params), { params });
@@ -85,6 +101,23 @@ async function currentMe(): Promise<Me> {
   return meCache;
 }
 
+/** Staff names for the bare ids on complaints and audit entries: the
+ * current admin, plus the staff list when this role may read it (loaded
+ * once per session; without the section ids stay "#1a2b3c4d"). */
+let staffNamesLoaded: Promise<void> | null = null;
+async function staffNameOf(): Promise<map.StaffNameOf> {
+  const me = await currentMe().catch(() => null);
+  if (me?.sections.includes("staff") && !staffNamesLoaded) {
+    staffNamesLoaded = fetchAll<Api.Staff>(API_PATHS.adminStaff)
+      .then((rows) => void remember(rawStaff, rows))
+      .catch(() => {
+        staffNamesLoaded = null;
+      });
+  }
+  await staffNamesLoaded;
+  return (id) => (me && id === me.id ? me.name : rawStaff.get(id)?.full_name);
+}
+
 /** Results of actions that are already final on the server, shown through
  * the shared ReviewStatus component (settled immediately — no timers). */
 const reviews = new Map<string, ReviewRequest>();
@@ -102,6 +135,9 @@ type LoginFlow =
 const logins = new Map<string, LoginFlow>();
 // The admin contract has no resend_after; this is only the UI cooldown (429 still applies).
 const RESEND_SECONDS = 60;
+/** The challenge's own code length, when the server says (4–6). */
+const codeLength = (ch: Api.AdminLoginChallenge) =>
+  typeof ch.code_length === "number" && ch.code_length >= 4 && ch.code_length <= 6 ? ch.code_length : undefined;
 
 function requirePhone(raw: string | undefined): string {
   const phone = normalizePhoneOrNull(raw);
@@ -123,7 +159,7 @@ function clearCaches() {
   rawStaff.clear();
   rawTariffs.clear();
   walletIds.clear();
-  createdCorrections.length = 0;
+  staffNamesLoaded = null;
   activeTask = null;
   logins.clear();
   reviews.clear();
@@ -137,10 +173,12 @@ const rawDrivers = new Map<string, Api.AdminDriver>();
 const rawPassengers = new Map<string, Api.AdminPassenger>();
 const rawStaff = new Map<string, Api.Staff>();
 const rawTariffs = new Map<string, Api.Tariff>();
+/** driverId → wallet_id, learned from the ledger (AdminDriver has no wallet_id). */
 const walletIds = new Map<string, string>();
-/** Corrections created in this tab: there is no endpoint listing pending
- * corrections (gap), so this is all the UI can show. */
-const createdCorrections: AdjustmentProposal[] = [];
+const driverOfWallet = (walletId: string) => {
+  for (const [driverId, w] of walletIds) if (w === walletId) return driverId;
+  return "";
+};
 let activeTask: Api.QueueItem | null = null;
 
 function remember<T extends { id: string }>(cache: Map<string, T>, rows: T[]): T[] {
@@ -195,6 +233,11 @@ const rejectReason = (reason?: string) => {
   return r;
 };
 
+async function complaintDetail(id: string): Promise<Complaint> {
+  const c = await http.get<Api.ComplaintDetail>(API_PATHS.adminComplaint(id));
+  return map.complaintFromApi(c, await staffNameOf());
+}
+
 // --------------------------------------------------------------- adapter
 export const httpAdapter: ApiAdapter = {
   capabilities: CAPABILITIES,
@@ -218,7 +261,8 @@ export const httpAdapter: ApiAdapter = {
         resendSeconds: RESEND_SECONDS,
         attemptsLeft: 0,
         needsPhone: true,
-        codeMinLength: 6,
+        codeMinLength: codeLength(ch) ?? 6,
+        codeLength: codeLength(ch),
       };
     }
     // Staff without an email (operators): phone + SMS only.
@@ -226,7 +270,15 @@ export const httpAdapter: ApiAdapter = {
     const send = () => http.post<Api.AdminLoginChallenge>(API_PATHS.adminLoginSms, { phone } satisfies Api.AdminLoginSms, { auth: false });
     const ch = await send();
     logins.set(requestId, { step: "phone_code", challengeId: ch.challenge_id, resend: send });
-    return { requestId, steps: ["phone_code"], maskedDestination: map.maskPhone(phone), resendSeconds: RESEND_SECONDS, attemptsLeft: 0, codeMinLength: 4 };
+    return {
+      requestId,
+      steps: ["phone_code"],
+      maskedDestination: map.maskPhone(phone),
+      resendSeconds: RESEND_SECONDS,
+      attemptsLeft: 0,
+      codeMinLength: codeLength(ch) ?? 4,
+      codeLength: codeLength(ch),
+    };
   },
 
   async verifyLoginStep(requestId, code, extra): Promise<LoginStepResult> {
@@ -244,7 +296,8 @@ export const httpAdapter: ApiAdapter = {
         maskedDestination: map.maskPhone(phone),
         resendSeconds: RESEND_SECONDS,
         attemptsLeft: 0,
-        codeMinLength: 4,
+        codeMinLength: codeLength(ch) ?? 4,
+        codeLength: codeLength(ch),
       };
     }
     const token = await http.post<Api.AdminToken>(
@@ -260,14 +313,12 @@ export const httpAdapter: ApiAdapter = {
 
   async resendLoginCode(requestId) {
     const flow = requireFlow(requestId);
-    if (flow.step === "email_code") {
-      const ch = await http.post<Api.AdminLoginChallenge>(API_PATHS.adminLoginEmail, { email: flow.email }, { auth: false });
-      flow.challengeId = ch.challenge_id;
-    } else {
-      const ch = await flow.resend();
-      flow.challengeId = ch.challenge_id;
-    }
-    return { resendSeconds: RESEND_SECONDS };
+    const ch =
+      flow.step === "email_code"
+        ? await http.post<Api.AdminLoginChallenge>(API_PATHS.adminLoginEmail, { email: flow.email }, { auth: false })
+        : await flow.resend();
+    flow.challengeId = ch.challenge_id;
+    return { resendSeconds: RESEND_SECONDS, codeLength: codeLength(ch) };
   },
 
   async getReviewStatus(reviewId) {
@@ -276,16 +327,23 @@ export const httpAdapter: ApiAdapter = {
     return r as ReviewRequest;
   },
 
-  // No admin logout endpoint in the contract (gap): clear this tab only.
-  logout: () => session.logout(),
+  // Revoke the token on the server first (same token gets 401 afterwards),
+  // then clear memory. Offline/timeout/401 still signs out locally.
+  async logout() {
+    if (session.hasSession()) {
+      await http.post(API_PATHS.adminLogout, undefined, { timeoutMs: LOGOUT_TIMEOUT_MS }).catch(() => undefined);
+    }
+    await session.logout();
+  },
   getMe: () => currentMe(),
   isAuthenticated: () => session.hasSession(),
   loginAsRole: notSupported,
 
   // --- stats ------------------------------------------------------------
   async getStats(period) {
-    const stats = await http.get<Api.Stats>(API_PATHS.adminStats, map.statsRange(period));
-    return map.statsFromApi(stats, period);
+    const range = map.statsRange(period);
+    const stats = await http.get<Api.Stats>(API_PATHS.adminStats, range);
+    return map.statsFromApi(stats, period, range);
   },
 
   getCities: notSupported,
@@ -406,15 +464,31 @@ export const httpAdapter: ApiAdapter = {
     return map.passengerFromApi(p);
   },
 
-  // --- orders (read-only in the contract) ------------------------------
+  // --- orders -----------------------------------------------------------
   async getOrders(query) {
     const status = query.status && query.status !== "all" && CAPABILITIES.orderStatuses.includes(query.status) ? query.status : undefined;
-    const rows = await fetchAll<Api.Order>(API_PATHS.adminOrders, { status });
+    const rows = await fetchAll<Api.AdminOrder>(API_PATHS.adminOrders, { status, passenger_id: query.passengerId || undefined });
     return rows.map(map.orderFromApi);
   },
+  // No endpoint creates an order for a passenger (capabilities.orderCreate).
   createOrderForPassenger: notSupported,
-  updateOrderFields: notSupported,
-  cancelOrder: notSupported,
+  async updateOrderFields(id, patch) {
+    // Comment, payment method and time only, while the order is searching;
+    // otherwise the server answers 403 driver_assigned | trip_started | order_closed.
+    const body = map.orderPatchToApi(patch);
+    if (Object.keys(body).length === 0) invalid("Hech narsa o'zgarmadi.");
+    if (body.comment !== undefined && body.comment.length > 200) invalid("Izoh 200 belgidan oshmasin.");
+    const o = await http.patch<Api.AdminOrder>(API_PATHS.adminOrder(id), body);
+    return map.orderFromApi(o);
+  },
+  async cancelOrder(id, reason, comment) {
+    if (!CANCEL_REASONS.includes(reason as OrderCancelReasonCode)) invalid("Bekor qilish sababini tanlang.");
+    const c = comment?.trim();
+    if (c && c.length > 500) invalid("Izoh 500 belgidan oshmasin.");
+    const body: Api.AdminOrderCancel = { reason: reason as OrderCancelReasonCode, ...(c ? { comment: c } : {}) };
+    const o = await http.post<Api.AdminOrder>(API_PATHS.adminOrderCancel(id), body);
+    return map.orderFromApi(o);
+  },
 
   // --- wallet -----------------------------------------------------------
   async getWalletLedger() {
@@ -427,31 +501,28 @@ export const httpAdapter: ApiAdapter = {
     return { balance: map.toSom(d.wallet_balance), debtLimit: null };
   },
   async proposeWalletAdjustment(driverId, amount, reason) {
-    const body: Api.CorrectionCreate = { wallet_id: await walletIdFor(driverId), amount: map.toTiyin(amount), reason: reason.trim() };
+    const r = reason.trim();
+    if (r.length < 5) invalid("Sababni kiriting (kamida 5 ta belgi).");
+    const body: Api.CorrectionCreate = { wallet_id: await walletIdFor(driverId), amount: map.toTiyin(amount), reason: r };
     const c = await session.idempotency.run("adminWalletCorrection", body, (key) =>
       http.post<Api.Correction>(API_PATHS.adminWalletCorrection, body, { idempotencyKey: key })
     );
-    const proposal = map.correctionFromApi(c, driverId, await currentMe().catch(() => null));
-    createdCorrections.unshift(proposal);
-    return proposal;
+    return map.correctionFromApi(c, driverId, await currentMe().catch(() => null));
   },
-  async getAdjustmentProposals() {
-    // No list endpoint (gap): only corrections created in this tab.
-    return [...createdCorrections];
+  async getAdjustmentProposals(query) {
+    const me = await currentMe().catch(() => null);
+    const rows = await fetchAll<Api.CorrectionListItem>(API_PATHS.adminWalletCorrection, { approval_status: map.approvalToApi(query.status) });
+    return rows.map((c) => map.correctionFromApi(c, driverOfWallet(c.wallet_id), me));
   },
   async approveAdjustment(proposalId) {
+    // The creator can't approve their own correction (403 self_approval).
     const c = await http.post<Api.Correction>(API_PATHS.adminWalletCorrectionApprove(proposalId.trim()));
-    const i = createdCorrections.findIndex((p) => p.id === c.id);
-    if (i >= 0) createdCorrections.splice(i, 1);
     return settledReview("wallet_adjust_second_approve", c.approval_status === "rejected" ? "rejected" : "approved");
   },
   async rejectAdjustment(proposalId, reason) {
     const body: Api.ApprovalReject = { reason: rejectReason(reason) };
     const c = await http.post<Api.Correction>(API_PATHS.adminWalletCorrectionReject(proposalId.trim()), body);
-    const i = createdCorrections.findIndex((p) => p.id === c.id);
-    const driverId = i >= 0 ? createdCorrections[i].driverId : "";
-    if (i >= 0) createdCorrections.splice(i, 1);
-    return map.correctionFromApi(c, driverId, meCache);
+    return map.correctionFromApi(c, driverOfWallet(c.wallet_id), meCache);
   },
 
   // --- tariffs ----------------------------------------------------------
@@ -498,12 +569,58 @@ export const httpAdapter: ApiAdapter = {
     return { ...(proposal ?? fail("INTERNAL_ERROR")), status: "rejected", resolvedAt: Date.now() };
   },
 
-  // --- complaints / audit: no endpoints --------------------------------
-  getComplaints: notSupported,
-  assignComplaint: notSupported,
-  setComplaintStatus: notSupported,
-  addComplaintNote: notSupported,
-  getAuditLog: notSupported,
+  // --- complaints -------------------------------------------------------
+  // The list has no notes; getComplaint() and every action return the
+  // complaint with its notes (GET /complaints/{id}).
+  async getComplaints(query) {
+    const me = query.assignedToMe ? await currentMe() : null;
+    const rows = await fetchAll<Api.Complaint>(API_PATHS.adminComplaints, {
+      status: query.status && query.status !== "all" ? map.complaintStatusToApi(query.status) : undefined,
+      subject_type: query.subjectType && query.subjectType !== "all" ? query.subjectType : undefined,
+      assigned_to: me?.id,
+    });
+    const nameOf = await staffNameOf();
+    return rows.map((c) => map.complaintFromApi(c, nameOf));
+  },
+  getComplaint: (id) => complaintDetail(id),
+  async assignComplaint(id, toId) {
+    await http.post<Api.Complaint>(API_PATHS.adminComplaintAssign(id), { staff_id: toId });
+    return complaintDetail(id);
+  },
+  async setComplaintStatus(id, status, resolution) {
+    // Transitions are the server's: open → in_progress | rejected,
+    // in_progress → resolved | rejected; anything else is 403 invalid_transition.
+    if (status === "open") invalid("Shikoyatni qayta ochib bo'lmaydi.");
+    const apiStatus = map.complaintStatusToApi(status) as Api.ComplaintStatusChange["status"];
+    const body: Api.ComplaintStatusChange = { status: apiStatus };
+    if (apiStatus !== "in_progress") {
+      const r = resolution?.trim() ?? "";
+      if (r.length < 3) invalid("Yakuniy izohni kiriting (kamida 3 ta belgi).");
+      if (r.length > 1000) invalid("Yakuniy izoh 1000 belgidan oshmasin.");
+      body.resolution = r;
+    }
+    await http.post<Api.Complaint>(API_PATHS.adminComplaintStatus(id), body);
+    return complaintDetail(id);
+  },
+  async addComplaintNote(id, text) {
+    const t = text.trim();
+    if (!t) invalid("Izoh matnini kiriting.");
+    if (t.length > 1000) invalid("Izoh 1000 belgidan oshmasin.");
+    await http.post<Api.ComplaintNote>(API_PATHS.adminComplaintNotes(id), { text: t });
+    return complaintDetail(id);
+  },
+
+  // --- audit --------------------------------------------------------------
+  async getAuditLog(query) {
+    const rows = await fetchAll<Api.AuditEntry>(API_PATHS.adminAudit, {
+      action: query.action && query.action !== "all" ? query.action : undefined,
+      entity_type: query.entityType && query.entityType !== "all" ? query.entityType : undefined,
+      from_date: query.dateFrom || undefined,
+      to_date: query.dateTo || undefined,
+    });
+    const nameOf = await staffNameOf();
+    return rows.map((e) => map.auditFromApi(e, nameOf));
+  },
 
   async revealPhone(entityType, entityId) {
     // Lists already carry the full number (no masked list + audited reveal

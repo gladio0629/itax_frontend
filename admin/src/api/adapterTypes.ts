@@ -26,6 +26,7 @@ import type {
   HistoryEntry,
   HistoryResult,
   OrderMode,
+  OrderFieldsPatch,
   PaymentMethod,
   StaffRow,
   StaffQuery,
@@ -66,7 +67,7 @@ export interface ApiAdapter {
   requestLogin(identifier: string): Promise<LoginStartResult>;
   /** `extra.phone` is sent when the step asked for it (`needsPhone`). */
   verifyLoginStep(requestId: string, code: string, extra?: { phone?: string }): Promise<LoginStepResult>;
-  resendLoginCode(requestId: string): Promise<{ testCode?: string; resendSeconds: number }>;
+  resendLoginCode(requestId: string): Promise<{ testCode?: string; resendSeconds: number; codeLength?: number }>;
   getReviewStatus(reviewId: string): Promise<ReviewRequest>;
   logout(): Promise<void>;
   getMe(): Promise<Me>;
@@ -116,8 +117,11 @@ export interface ApiAdapter {
     paymentMethod: Extract<PaymentMethod, "cash" | "card">;
     timeWindow?: { from: string; to: string };
   }): Promise<OrderWithNames>;
-  updateOrderFields(id: string, patch: { seatIds?: string[]; note?: string; timeWindow?: { from: string; to: string } | null }): Promise<OrderWithNames>;
-  cancelOrder(id: string, reason: string): Promise<OrderWithNames>;
+  /** Only the fields in `capabilities.orderEditFields` are sent. */
+  updateOrderFields(id: string, patch: OrderFieldsPatch): Promise<OrderWithNames>;
+  /** `reason`: free text, or an OrderCancelReasonCode when
+   * `capabilities.orderCancelReasons` (then `comment` is the free text). */
+  cancelOrder(id: string, reason: string, comment?: string): Promise<OrderWithNames>;
 
   // --- wallet ---
   getWalletLedger(query: WalletQuery): Promise<WalletLedgerRow[]>;
@@ -139,8 +143,14 @@ export interface ApiAdapter {
 
   // --- complaints ("Shikoyatlar") ---
   getComplaints(query: ComplaintQuery): Promise<Complaint[]>;
+  /** One complaint with its notes (lists may come without them:
+   * `capabilities.complaintNotesInList`). */
+  getComplaint(id: string): Promise<Complaint>;
+  /** These three return the complaint with its notes. */
   assignComplaint(id: string, toId: string): Promise<Complaint>;
-  setComplaintStatus(id: string, status: ComplaintStatus): Promise<Complaint>;
+  /** `resolution` is required by the server for resolved/dismissed when
+   * `capabilities.complaintResolution`. */
+  setComplaintStatus(id: string, status: ComplaintStatus, resolution?: string): Promise<Complaint>;
   addComplaintNote(id: string, text: string): Promise<Complaint>;
 
   // --- audit ---

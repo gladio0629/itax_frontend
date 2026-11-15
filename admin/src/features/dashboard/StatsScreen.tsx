@@ -97,6 +97,7 @@ export function StatsScreen() {
             {stats.ordersTotal != null && <StatCard icon={<RouteIcon className="h-5 w-5" />} label="Jami buyurtmalar" value={String(stats.ordersTotal)} tone="accent" />}
             {stats.ordersCompleted != null && <StatCard icon={<RouteIcon className="h-5 w-5" />} label="Yakunlangan buyurtmalar" value={String(stats.ordersCompleted)} tone="success" />}
             {stats.ordersCancelled != null && <StatCard icon={<RouteIcon className="h-5 w-5" />} label="Bekor qilingan buyurtmalar" value={String(stats.ordersCancelled)} />}
+            {stats.ordersExpired != null && <StatCard icon={<RouteIcon className="h-5 w-5" />} label="Muddati o'tgan buyurtmalar" value={String(stats.ordersExpired)} />}
             {stats.passengersTotal !== null ? (
               <StatCard
                 icon={<Users className="h-5 w-5" />}
@@ -153,8 +154,9 @@ export function StatsScreen() {
           </Card>
           )}
 
-          {stats.registrations && stats.ordersByStatus && (
+          {(stats.registrations || stats.ordersOverTime || stats.ordersByStatus) && (
           <div className="grid grid-cols-2 gap-6">
+            {stats.registrations ? (
             <Card>
               <CardTitle className="mb-4">Ro'yxatdan o'tishlar dinamikasi</CardTitle>
               <div className="h-64">
@@ -171,7 +173,28 @@ export function StatsScreen() {
                 </ResponsiveContainer>
               </div>
             </Card>
+            ) : (
+              stats.ordersOverTime && (
+                <Card>
+                  <CardTitle className="mb-4">Buyurtmalar dinamikasi</CardTitle>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={stats.ordersOverTime}>
+                        <CartesianGrid stroke={GRID} vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 12, fill: AXIS }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 12, fill: AXIS }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={CURSOR} />
+                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} formatter={(v: string) => <span style={{ color: "rgba(14,20,32,0.7)" }}>{v}</span>} />
+                        <Line type="monotone" animationDuration={400} dataKey="orders" name="Buyurtmalar" stroke={NAVY} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                        <Line type="monotone" animationDuration={400} dataKey="completed" name="Yakunlangan" stroke={YELLOW} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+              )
+            )}
 
+            {stats.ordersByStatus && (
             <Card>
               <CardTitle className="mb-4">Buyurtmalar holati bo'yicha</CardTitle>
               <div className="h-64">
@@ -190,20 +213,33 @@ export function StatsScreen() {
                 </ResponsiveContainer>
               </div>
             </Card>
+            )}
           </div>
           )}
 
-          {stats.incomeByRoute && stats.incomeByCity && (
+          {(stats.incomeByRoute || stats.ordersByRoute || stats.incomeByCity) && (
           <div className="grid grid-cols-2 gap-6">
-            <Card>
-              <CardTitle className="mb-4">Daromad bo'yicha yo'nalishlar</CardTitle>
-              <RankedList rows={stats.incomeByRoute.map((r) => ({ label: `${r.from} → ${r.to}`, value: r.income }))} />
-            </Card>
+            {/* One routes card: ranked by income when the backend reports it, else by order count. */}
+            {stats.incomeByRoute ? (
+              <Card>
+                <CardTitle className="mb-4">Daromad bo'yicha yo'nalishlar</CardTitle>
+                <RankedList rows={stats.incomeByRoute.map((r) => ({ label: `${r.from} → ${r.to}`, value: r.income }))} />
+              </Card>
+            ) : (
+              stats.ordersByRoute && (
+                <Card>
+                  <CardTitle className="mb-4">Eng ko'p buyurtma qilingan yo'nalishlar</CardTitle>
+                  <RankedList rows={stats.ordersByRoute.map((r) => ({ label: `${r.from} → ${r.to}`, value: r.count }))} format={formatCount} />
+                </Card>
+              )
+            )}
 
-            <Card>
-              <CardTitle className="mb-4">Daromad bo'yicha shaharlar</CardTitle>
-              <RankedList rows={stats.incomeByCity.map((c) => ({ label: c.city, value: c.income }))} />
-            </Card>
+            {stats.incomeByCity && (
+              <Card>
+                <CardTitle className="mb-4">Daromad bo'yicha shaharlar</CardTitle>
+                <RankedList rows={stats.incomeByCity.map((c) => ({ label: c.city, value: c.income }))} />
+              </Card>
+            )}
           </div>
           )}
         </>
@@ -213,7 +249,9 @@ export function StatsScreen() {
 }
 
 /** Top-N list with a thin share bar under each row (leader in yellow). */
-function RankedList({ rows }: { rows: { label: string; value: number }[] }) {
+const formatCount = (n: number) => `${n} ta`;
+
+function RankedList({ rows, format = formatSom }: { rows: { label: string; value: number }[]; format?: (v: number) => string }) {
   if (rows.length === 0) return <p className="py-8 text-center text-sm text-ink/50">Bu davr uchun ma'lumot yo'q.</p>;
   const max = Math.max(...rows.map((r) => r.value), 1);
   return (
@@ -225,7 +263,7 @@ function RankedList({ rows }: { rows: { label: string; value: number }[] }) {
               <span className="tabular w-4 shrink-0 text-xs text-ink/40">{i + 1}</span>
               <span className="truncate text-ink">{r.label}</span>
             </span>
-            <span className="tabular shrink-0 font-semibold text-ink">{formatSom(r.value)}</span>
+            <span className="tabular shrink-0 font-semibold text-ink">{format(r.value)}</span>
           </div>
           <div className="ml-7 mt-2 h-1 overflow-hidden rounded-full bg-ink/[0.05]">
             <div className={i === 0 ? "h-full rounded-full bg-brand-yellow" : "h-full rounded-full bg-accent/40"} style={{ width: `${(r.value / max) * 100}%` }} />
