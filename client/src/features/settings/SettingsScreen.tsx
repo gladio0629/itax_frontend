@@ -100,7 +100,9 @@ export function SettingsScreen() {
 
           <ListSection>
             <ListRow leading={<IconTile icon={Bell} tone="danger" />} title={t("settings.notifications")} to="/settings/notifications" />
-            <ListRow leading={<IconTile icon={ShieldCheck} />} title={t("settings.safety")} to="/settings/safety" />
+            {api.capabilities.safety && (
+              <ListRow leading={<IconTile icon={ShieldCheck} />} title={t("settings.safety")} to="/settings/safety" />
+            )}
           </ListSection>
 
           <ListSection>
@@ -125,7 +127,7 @@ export function SettingsScreen() {
           </ListSection>
 
           <ListSection>
-            <ListRow leading={<IconTile icon={HelpCircle} tone="gray" />} title={t("history.help")} to="/help" />
+            {api.capabilities.help && <ListRow leading={<IconTile icon={HelpCircle} tone="gray" />} title={t("history.help")} to="/help" />}
             <ListRow leading={<IconTile icon={Info} tone="gray" />} title={t("settings.about")} to="/settings/about" />
           </ListSection>
 
@@ -155,7 +157,7 @@ export function SettingsScreen() {
 
         <div className="mb-4 divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-softer">
           <Row icon={Bell} label={t("settings.notifications")} to="/settings/notifications" />
-          <Row icon={ShieldCheck} label={t("settings.safety")} to="/settings/safety" />
+          {api.capabilities.safety && <Row icon={ShieldCheck} label={t("settings.safety")} to="/settings/safety" />}
         </div>
 
         <div className="mb-4 divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-softer">
@@ -179,7 +181,7 @@ export function SettingsScreen() {
         </div>
 
         <div className="mb-4 divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-softer">
-          <Row icon={HelpCircle} label={t("history.help")} to="/help" />
+          {api.capabilities.help && <Row icon={HelpCircle} label={t("history.help")} to="/help" />}
           <Row icon={Info} label={t("settings.about")} to="/settings/about" />
         </div>
 

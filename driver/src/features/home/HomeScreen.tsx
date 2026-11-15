@@ -107,7 +107,8 @@ export default function HomeScreen() {
           </button>
         </div>
 
-        {/* Seat summary: computed by the adapter for the trip in focus. */}
+        {/* Seat summary: computed by the adapter for the trip in focus (hidden when the backend has none). */}
+        {api.capabilities.seatSummary && (
         <div className="absolute inset-x-4 bottom-2 flex items-center gap-3 rounded-card bg-surface/95 px-3 py-2 shadow-2 backdrop-blur">
           {seats ? (
             <>
@@ -128,9 +129,11 @@ export default function HomeScreen() {
             <Skeleton className="h-7 w-full" />
           )}
         </div>
+        )}
       </header>
 
       {/* Direction chips: the driver's own Yo'nalishlarim. */}
+      {api.capabilities.feedFilters && (
       <div className="no-scrollbar flex shrink-0 gap-2 overflow-x-auto px-4 pb-1 pt-2" role="group" aria-label={t("feed.directions")}>
         <Chip selected={direction === "all"} onClick={() => update({ dir: "all" })} className="h-10">
           {t("common.all")}
@@ -141,6 +144,7 @@ export default function HomeScreen() {
           </Chip>
         ))}
       </div>
+      )}
 
       <SwipeTabs
         label={t("feed.tabs")}

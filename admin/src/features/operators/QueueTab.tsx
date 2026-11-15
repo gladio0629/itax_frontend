@@ -12,10 +12,14 @@ import { useAdapterList } from "@/hooks/useAdapterList";
 import { api } from "@/api/client";
 import type { ActiveTask, HistoryResult, OperatorQueueQuery, QueueReason } from "@/api/types";
 
+const caps = api.capabilities;
+
 const REASON_LABEL: Record<QueueReason, string> = {
   login_issue: "Kirishda muammo",
   info_needed: "Ma'lumot kerak",
   complaint: "Shikoyat",
+  driver_application: "Haydovchi arizasi",
+  document_update: "Hujjat yangilanishi",
 };
 const REASON_OPTIONS: { value: QueueReason | "all"; label: string }[] = [
   { value: "all", label: "Barcha sabablar" },
@@ -45,23 +49,28 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
   const [pendingResult, setPendingResult] = useState<HistoryResult | null>(null);
   const [finishing, setFinishing] = useState<HistoryResult | null>(null);
   const [activeRejectReason, setActiveRejectReason] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
 
   useEffect(() => {
     if (!canWork) return;
-    api.getActiveTask().then((t) => {
-      setActive(t);
-      setActiveLoaded(true);
-    });
+    api
+      .getActiveTask()
+      .then(setActive, () => setActive(null))
+      .finally(() => setActiveLoaded(true));
   }, [canWork]);
 
   async function start(id: string) {
     setBusyId(id);
+    setActionError(null);
     try {
       const task = await api.startTask(id);
       setActive(task);
       setNote("");
       reload();
       onChanged();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setBusyId(null);
     }
@@ -70,12 +79,15 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
   async function rejectFromQueue(id: string) {
     if (!rejectReason.trim()) return;
     setBusyId(id);
+    setActionError(null);
     try {
       await api.rejectQueueItem(id, rejectReason.trim());
       setRejectingId(null);
       setRejectReason("");
       reload();
       onChanged();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setBusyId(null);
     }
@@ -89,6 +101,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
     }
     setBusyId(active.id);
     setPendingResult(result);
+    setActionError(null);
     try {
       await api.finishTask(active.id, result, note.trim(), result === "rejected" ? activeRejectReason.trim() : undefined);
       setActive(null);
@@ -97,6 +110,8 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
       setFinishing(null);
       reload();
       onChanged();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setBusyId(null);
       setPendingResult(null);
@@ -157,15 +172,22 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
         </Card>
       )}
 
+      {actionError && (
+        <p role="alert" className="text-sm font-semibold text-danger">
+          {actionError}
+        </p>
+      )}
+
       <ListToolbar
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Telefon bo'yicha qidirish…"
+        searchEnabled={caps.queueFilters}
         resultCount={queue.length}
         hasActiveFilters={hasActiveFilters}
         onClear={() => setReason("all")}
       >
-        <FilterSelect value={reason} onChange={setReason} options={REASON_OPTIONS} aria-label="Sabab bo'yicha filtr" />
+        {caps.queueFilters && <FilterSelect value={reason} onChange={setReason} options={REASON_OPTIONS} aria-label="Sabab bo'yicha filtr" />}
       </ListToolbar>
 
       {active && canWork && queue.length > 0 && (

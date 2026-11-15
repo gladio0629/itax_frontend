@@ -36,13 +36,15 @@ export function Tag({ icon: Icon, children, tone = "plain", label }: { icon?: Lu
 }
 
 /** Car class + "Boshqa odam uchun: <name>" (+ any extra tags, e.g. cargo badges). */
-export function OrderTags({ carClass, forOther, children }: { carClass: CarClass; forOther: { name: string } | null; children?: ReactNode }) {
+export function OrderTags({ carClass, forOther, children }: { carClass?: CarClass; forOther: { name: string } | null; children?: ReactNode }) {
   const { t } = useT();
   return (
     <div className="flex flex-wrap gap-1.5">
-      <Tag icon={Car} label={t("order.carClass", { cls: t(`carClass.${carClass}`) })}>
-        {t(`carClass.${carClass}`)}
-      </Tag>
+      {carClass && (
+        <Tag icon={Car} label={t("order.carClass", { cls: t(`carClass.${carClass}`) })}>
+          {t(`carClass.${carClass}`)}
+        </Tag>
+      )}
       {children}
       {forOther && (
         <Tag icon={UserRound} tone="accent">

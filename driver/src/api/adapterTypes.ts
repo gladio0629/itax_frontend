@@ -2,25 +2,74 @@ import type {
   AcceptedPage, BonusInfo, CancelReason, CapabilitiesInput, ChatSend, DriverCapabilities,
   DriverProfile, FeedPage, FeedQuery, HelpRequest, HelpTopic, HistoryFilter, HistoryPage, HomeSummary, LedgerPage, LedgerQuery,
   NotificationItem, NotificationPrefs, PayProvider, RegistrationOptions, RequestAlert, ReviewRequest, RoutesPage, Session,
-  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car,
+  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, CarClass, DocSlot,
 } from "./types";
 
 /**
+ * What the active backend supports. The sample-data adapter has everything;
+ * the real-backend adapter turns off what api/openapi.yml has no endpoint
+ * for, and screens hide those features instead of showing broken states.
+ */
+export type ApiCapabilities = {
+  routes: boolean;
+  rejectRequest: boolean;
+  /** Direction / date / type filters on the request feed. */
+  feedFilters: boolean;
+  /** "Bo'sh joylar" summary above the feed. */
+  seatSummary: boolean;
+  /** "Yetib keldim" trip step. */
+  arrivedStep: boolean;
+  cancelBooking: boolean;
+  tripChat: boolean;
+  tripSummary: boolean;
+  history: boolean;
+  bonus: boolean;
+  help: boolean;
+  /** "Imkoniyatlarim". */
+  driverCapabilities: boolean;
+  /** Phone / car changes from "Shaxsiy ma'lumotlar". */
+  profileChangePhone: boolean;
+  profileChangeCar: boolean;
+  /** In-app banner for new requests. */
+  requestAlerts: boolean;
+  /** Type / period filters and the total count on the wallet ledger. */
+  ledgerFilters: boolean;
+  /** Per-category notification switches (new orders, payments, bonus). */
+  notificationCategories: boolean;
+  /** GPS reporting while the feed is open or a trip is active. */
+  locationReporting: boolean;
+};
+
+/** Server-pushed events (WebSocket), already reduced to what screens refresh on. */
+export type ServerEvent = { type: "feed" | "trips" | "wallet" | "session" };
+
+/**
  * Every screen talks to the app only through this interface.
- * `mockAdapter` implements it against local state; `httpAdapter` is the
- * integration point for the real backend.
+ * `mockAdapter` implements it against local state; `httpAdapter` talks to
+ * the real backend (api/openapi.yml).
  */
 export interface ApiAdapter {
+  readonly capabilities: ApiCapabilities;
+  /** Server events; the sample-data adapter never emits any. */
+  subscribe(listener: (event: ServerEvent) => void): () => void;
+  /** The session ended outside the app's control (expired / revoked). */
+  onSessionEnd(listener: () => void): () => void;
+
   // Session & registration
   getSession(): Promise<Session>;
   getRegistrationOptions(): Promise<RegistrationOptions>;
   /** `testCode` is set only by the sample-data adapter (the screen autofills it). */
   requestOtp(phone: string): Promise<{ requestId: string; testCode?: string; resendInSec: number }>;
   verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;
-  savePersonal(input: { name: string; cityId: string }): Promise<Session>;
-  saveCar(input: { model: string; colorKey: string; plate: string; year: number }): Promise<Session>;
-  submitDocuments(input: { licenseFile: string; registrationFile: string }): Promise<ReviewRequest>;
+  savePersonal(input: { name: string; cityId: string; birthDate?: string }): Promise<Session>;
+  saveCar(input: { model: string; colorKey: string; plate: string; year: number; carClass?: CarClass; seats?: number }): Promise<Session>;
+  /** Uploads one document photo; `file` is null for the sample-data adapter's simulated picker.
+   * Returns the reference to pass to submitDocuments and a name to show. */
+  uploadDocument(slot: DocSlot, file: File | null): Promise<{ ref: string; name: string }>;
+  submitDocuments(input: { licenseFile: string; registrationFile: string; selfieFile?: string; acceptTerms?: boolean }): Promise<ReviewRequest>;
   logout(): Promise<Session>;
+  /** GPS fix while the feed is open or a trip is active (the caller throttles to ≥10 s). */
+  reportLocation(lat: number, lng: number): Promise<void>;
 
   // Yo'nalishlarim (city pairs the driver serves; at least one)
   getRoutes(): Promise<RoutesPage>;

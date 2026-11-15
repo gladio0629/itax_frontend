@@ -4,7 +4,7 @@ import { api } from "@/api/client";
 import { DEMO_MODE } from "@/config";
 import { TEST_PANEL_PATH } from "@/features/testPanel/paths";
 import { testPanelText } from "@/features/testPanel/strings";
-import type { RegistrationOptions, SessionStage } from "@/api/types";
+import type { CarClass, DocSlot, RegistrationOptions, SessionStage } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { errorMessage } from "@/lib/errors";
@@ -20,8 +20,10 @@ import { toast } from "@/lib/toast";
 import type { Session } from "@/api/types";
 import { cn } from "@/lib/cn";
 
-const STEP_OF: Record<SessionStage, number> = { signed_out: 1, personal: 2, car: 3, documents: 4, review: 4, routes: 5, active: 5 };
-const STEP_KEYS = ["reg.step1", "reg.step2", "reg.step3", "reg.step4", "reg.step5"] as const;
+const STEP_OF: Record<SessionStage, number> = { signed_out: 1, personal: 2, car: 3, documents: 4, review: 4, routes: 5, active: 5, blocked: 1 };
+const ALL_STEP_KEYS = ["reg.step1", "reg.step2", "reg.step3", "reg.step4", "reg.step5"] as const;
+// Without a routes endpoint there is no 5th step.
+const STEP_KEYS = api.capabilities.routes ? ALL_STEP_KEYS : ALL_STEP_KEYS.slice(0, 4);
 
 export default function RegistrationFlow() {
   const { t, locale } = useT();
@@ -48,7 +50,7 @@ export default function RegistrationFlow() {
             </Link>
           )}
         </div>
-        <ol className="mt-3 grid grid-cols-5 gap-2" aria-label={t("reg.title")}>
+        <ol className="mt-3 grid gap-2" style={{ gridTemplateColumns: `repeat(${STEP_KEYS.length}, minmax(0, 1fr))` }} aria-label={t("reg.title")}>
           {STEP_KEYS.map((k, i) => {
             const n = i + 1;
             const state = n < step || (welcome && n < 5) ? "done" : n === step ? "active" : "todo";
@@ -69,8 +71,15 @@ export default function RegistrationFlow() {
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div key={session.stage + String(welcome)} className="flex min-h-full animate-fade-up flex-col px-4 pb-6 pt-6">
+          {session.notice === "rejected" && !welcome && session.stage !== "review" && (
+            <p role="alert" className="mb-5 rounded-button bg-danger/10 px-3 py-2 text-sm text-ink">
+              {t("reg.rejectedNotice")}
+            </p>
+          )}
           {welcome ? (
             <Welcome onDone={() => (session.stage === "routes" ? setWelcome(false) : navigate("/", { replace: true }))} />
+          ) : session.stage === "blocked" ? (
+            <Blocked onSignedOut={setSession} />
           ) : session.stage === "signed_out" ? (
             <PhoneStep onVerified={() => refresh()} />
           ) : !options.data ? (
@@ -80,7 +89,7 @@ export default function RegistrationFlow() {
           ) : session.stage === "car" ? (
             <CarStep options={options.data} onSaved={setSession} />
           ) : session.stage === "documents" ? (
-            <DocsStep onSubmitted={() => refresh()} />
+            <DocsStep real={!!options.data.realDocuments} onSubmitted={() => refresh()} />
           ) : session.stage === "routes" ? (
             <RoutesStep
               onDone={(next) => {
@@ -93,12 +102,17 @@ export default function RegistrationFlow() {
               <ReviewStatus
                 reviewId={session.documentsReviewId}
                 title={t("reg.reviewTitle")}
-                description={t("reg.reviewDesc")}
+                description={options.data?.realDocuments ? t("reg.pendingDesc") : t("reg.reviewDesc")}
                 onApproved={() => {
                   setWelcome(true);
                   refresh();
                 }}
+                onRejected={() => refresh()}
               />
+            </div>
+          ) : session.stage === "review" ? (
+            <div className="flex flex-1 flex-col justify-center">
+              <StepTitle title={t("reg.reviewTitle")} desc={t("reg.pendingDesc")} />
             </div>
           ) : null}
         </div>
@@ -286,14 +300,16 @@ function PersonalStep({ options, onSaved }: { options: RegistrationOptions; onSa
   const { t } = useT();
   const [name, setName] = useState("");
   const [cityId, setCityId] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ code?: string; msg: string } | null>(null);
+  const fieldCodes = ["NAME_INVALID", "BIRTH_DATE_INVALID"];
 
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      onSaved(await api.savePersonal({ name, cityId }));
+      onSaved(await api.savePersonal({ name, cityId, birthDate: options.askBirthDate ? birthDate : undefined }));
     } catch (e) {
       setError({ code: (e as { code?: string }).code, msg: errorMessage(e, t) });
     } finally {
@@ -318,7 +334,21 @@ function PersonalStep({ options, onSaved }: { options: RegistrationOptions; onSa
         value={name}
         onChange={(e) => setName(e.target.value)}
         error={error?.code === "NAME_INVALID" ? error.msg : undefined}
+        hint={options.askBirthDate ? t("reg.lastNameHint") : undefined}
       />
+      {options.askBirthDate && (
+        <TextField
+          className="mt-5"
+          label={t("reg.birthDate")}
+          name="bday"
+          type="date"
+          autoComplete="bday"
+          max={new Date().toISOString().slice(0, 10)}
+          value={birthDate}
+          onChange={(e) => setBirthDate(e.target.value)}
+          error={error?.code === "BIRTH_DATE_INVALID" ? error.msg : undefined}
+        />
+      )}
       <fieldset className="mt-6">
         <legend className="mb-2 text-sm text-muted">{t("reg.city")}</legend>
         <div className="flex flex-wrap gap-2">
@@ -329,7 +359,7 @@ function PersonalStep({ options, onSaved }: { options: RegistrationOptions; onSa
           ))}
         </div>
       </fieldset>
-      {error && error.code !== "NAME_INVALID" && (
+      {error && !fieldCodes.includes(error.code ?? "") && (
         <p role="alert" className="mt-4 text-sm text-danger">
           {error.msg}
         </p>
@@ -351,6 +381,8 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
   const [colorKey, setColorKey] = useState("");
   const [plate, setPlate] = useState("");
   const [year, setYear] = useState(options.years[3]);
+  const [carClass, setCarClass] = useState<CarClass | undefined>(undefined);
+  const [seats, setSeats] = useState<number | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ code?: string; msg: string } | null>(null);
 
@@ -358,7 +390,7 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
     setBusy(true);
     setError(null);
     try {
-      onSaved(await api.saveCar({ model, colorKey, plate, year }));
+      onSaved(await api.saveCar({ model, colorKey, plate, year, carClass, seats }));
     } catch (e) {
       setError({ code: (e as { code?: string }).code, msg: errorMessage(e, t) });
     } finally {
@@ -442,6 +474,31 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
           </select>
         </div>
       </div>
+
+      {options.carClasses && (
+        <fieldset className="mt-5">
+          <legend className="mb-2 text-sm text-muted">{t("reg.carClass")}</legend>
+          <div className="flex flex-wrap gap-2">
+            {options.carClasses.map((c) => (
+              <Chip key={c} selected={carClass === c} onClick={() => setCarClass(c)}>
+                {t(`carClass.${c}`)}
+              </Chip>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {options.seatCounts && (
+        <fieldset className="mt-5">
+          <legend className="mb-2 text-sm text-muted">{t("reg.seats")}</legend>
+          <div className="flex flex-wrap gap-2">
+            {options.seatCounts.map((n) => (
+              <Chip key={n} selected={seats === n} onClick={() => setSeats(n)} className="tabular min-w-12 justify-center">
+                {n}
+              </Chip>
+            ))}
+          </div>
+        </fieldset>
+      )}
       {error && error.code !== "PLATE_INVALID" && (
         <p role="alert" className="mt-4 text-sm text-danger">
           {error.msg}
@@ -458,39 +515,52 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
 
 // ---------- Step 4: documents ----------
 
-type Upload = { name: string | null; progress: number };
+type Upload = { name: string | null; ref: string | null; uploading: boolean };
+const EMPTY_UPLOAD: Upload = { name: null, ref: null, uploading: false };
 
-function DocsStep({ onSubmitted }: { onSubmitted: () => void }) {
+/**
+ * `real`: the backend needs real photos (jpeg/png ≤ 10 MB, uploaded to a
+ * signed URL), a selfie and the terms checkbox. Otherwise the sample-data
+ * adapter "uploads" a placeholder without a file picker.
+ */
+function DocsStep({ real, onSubmitted }: { real: boolean; onSubmitted: () => void }) {
   const { t } = useT();
-  const [files, setFiles] = useState<Record<"license" | "registration", Upload>>({
-    license: { name: null, progress: 0 },
-    registration: { name: null, progress: 0 },
-  });
+  const slots: DocSlot[] = real ? ["license", "registration", "selfie"] : ["license", "registration"];
+  const [files, setFiles] = useState<Record<DocSlot, Upload>>({ license: EMPTY_UPLOAD, registration: EMPTY_UPLOAD, selfie: EMPTY_UPLOAD });
+  const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const timers = useRef<number[]>([]);
-  useEffect(() => () => timers.current.forEach(clearInterval), []);
+  const inputs = useRef<Partial<Record<DocSlot, HTMLInputElement | null>>>({});
 
-  function pick(kind: "license" | "registration") {
-    // Simulated picker: a fake file "uploads" locally in under a second.
-    const name = `${kind === "license" ? "guvohnoma" : "texpasport"}_${Math.floor(1000 + Math.random() * 9000)}.jpg`;
-    setFiles((f) => ({ ...f, [kind]: { name: null, progress: 0.05 } }));
-    let p = 0.05;
-    const id = window.setInterval(() => {
-      p = Math.min(1, p + 0.2);
-      setFiles((f) => ({ ...f, [kind]: { name: p >= 1 ? name : null, progress: p } }));
-      if (p >= 1) clearInterval(id);
-    }, 140);
-    timers.current.push(id);
+  async function upload(slot: DocSlot, file: File | null) {
+    setError(null);
+    setFiles((f) => ({ ...f, [slot]: { ...f[slot], uploading: true } }));
+    try {
+      const r = await api.uploadDocument(slot, file);
+      setFiles((f) => ({ ...f, [slot]: { name: r.name, ref: r.ref, uploading: false } }));
+    } catch (e) {
+      setFiles((f) => ({ ...f, [slot]: { ...f[slot], uploading: false } }));
+      setError(errorMessage(e, t));
+    }
   }
 
-  const uploadingAny = Object.values(files).some((f) => !f.name && f.progress > 0);
+  function pick(slot: DocSlot) {
+    if (real) inputs.current[slot]?.click();
+    else upload(slot, null);
+  }
+
+  const uploadingAny = slots.some((s) => files[s].uploading);
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
-      await api.submitDocuments({ licenseFile: files.license.name ?? "", registrationFile: files.registration.name ?? "" });
+      await api.submitDocuments({
+        licenseFile: files.license.ref ?? "",
+        registrationFile: files.registration.ref ?? "",
+        selfieFile: real ? files.selfie.ref ?? "" : undefined,
+        acceptTerms: real ? terms : undefined,
+      });
       onSubmitted();
     } catch (e) {
       setError(errorMessage(e, t));
@@ -503,29 +573,45 @@ function DocsStep({ onSubmitted }: { onSubmitted: () => void }) {
     <div className="flex flex-1 flex-col">
       <StepTitle title={t("reg.docsTitle")} desc={t("reg.docsDesc")} />
       <div className="space-y-3">
-        {(["license", "registration"] as const).map((kind) => {
-          const f = files[kind];
-          const Icon = kind === "license" ? IdCard : FileText;
-          const uploading = !f.name && f.progress > 0;
+        {slots.map((slot) => {
+          const f = files[slot];
+          const Icon = slot === "license" ? IdCard : slot === "selfie" ? Camera : FileText;
+          const label = slot === "selfie" ? t("reg.selfie") : t(`personal.doc.${slot}`);
           return (
-            <div key={kind} className="rounded-card bg-surface p-4 shadow-1">
+            <div key={slot} className="rounded-card bg-surface p-4 shadow-1">
               <div className="flex items-center gap-3">
                 <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-button", f.name ? "bg-success text-bg" : "bg-raised text-muted")}>
                   {f.name ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-base font-bold text-ink">{t(`personal.doc.${kind}`)}</p>
+                  <p className="text-base font-bold text-ink">{label}</p>
                   <p className="truncate text-sm text-muted" aria-live="polite">
-                    {f.name ? t("reg.uploaded", { name: f.name }) : uploading ? t("common.loading") : t("personal.docStatus.none")}
+                    {f.uploading ? t("common.loading") : f.name ? t("reg.uploaded", { name: f.name }) : real ? t("reg.pickFile") : t("personal.docStatus.none")}
                   </p>
                 </div>
               </div>
-              {uploading && (
+              {f.uploading && (
                 <span className="relative mt-3 block h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
-                  <span className="absolute inset-0 origin-left bg-yellow transition-transform duration-200" style={{ transform: `scaleX(${f.progress})` }} />
+                  <span className="absolute inset-y-0 left-0 w-1/3 animate-shimmer rounded-full bg-yellow" />
                 </span>
               )}
-              <Button variant="secondary" fullWidth className="mt-3" disabled={uploading || busy} onClick={() => pick(kind)}>
+              {real && (
+                <input
+                  ref={(el) => (inputs.current[slot] = el)}
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  capture={slot === "selfie" ? "user" : "environment"}
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    e.target.value = "";
+                    if (file) upload(slot, file);
+                  }}
+                />
+              )}
+              <Button variant="secondary" fullWidth className="mt-3" disabled={f.uploading || busy} onClick={() => pick(slot)}>
                 <Camera className="h-5 w-5" />
                 {f.name ? t("reg.replace") : t("reg.upload")}
               </Button>
@@ -533,13 +619,19 @@ function DocsStep({ onSubmitted }: { onSubmitted: () => void }) {
           );
         })}
       </div>
+      {real && (
+        <label className="mt-5 flex min-h-12 cursor-pointer items-center gap-3 text-base text-ink">
+          <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="h-6 w-6 shrink-0 accent-yellow" />
+          {t("reg.terms")}
+        </label>
+      )}
       {error && (
         <p role="alert" className="mt-4 text-sm text-danger">
           {error}
         </p>
       )}
       <BottomAction>
-        <Button size="lg" fullWidth loading={busy} disabled={uploadingAny} onClick={submit}>
+        <Button size="lg" fullWidth loading={busy} disabled={uploadingAny || (real && !terms)} onClick={submit}>
           {t("reg.submitDocs")}
         </Button>
       </BottomAction>
@@ -572,6 +664,35 @@ function RoutesStep({ onDone }: { onDone: (s: Session) => void }) {
         </Button>
       </BottomAction>
     </>
+  );
+}
+
+/** The server says the account is blocked: nothing to do here but sign out. */
+function Blocked({ onSignedOut }: { onSignedOut: (s: Session) => void }) {
+  const { t } = useT();
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="flex flex-1 flex-col" role="alert">
+      <StepTitle title={t("reg.blockedTitle")} desc={t("reg.blockedDesc")} />
+      <BottomAction>
+        <Button
+          size="lg"
+          variant="secondary"
+          fullWidth
+          loading={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              onSignedOut(await api.logout());
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t("profile.logout")}
+        </Button>
+      </BottomAction>
+    </div>
   );
 }
 

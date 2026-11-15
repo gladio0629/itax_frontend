@@ -20,6 +20,9 @@ import type { ArchivableStatusFilter, City, Passenger, PassengerQuery, Passenger
 
 type Confirm = { type: "block" | "unblock" | "archive" | "restore"; passenger: Passenger };
 
+const caps = api.capabilities;
+const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
+
 const STATUS_OPTIONS: { value: ArchivableStatusFilter<PassengerStatus>; label: string }[] = [
   { value: "all", label: "Barchasi" },
   { value: "active", label: "Faol" },
@@ -35,7 +38,7 @@ export function PassengersScreen() {
 
   const [cities, setCities] = useState<City[]>([]);
   useEffect(() => {
-    api.getCities().then(setCities).catch(() => {});
+    if (caps.passengerCity) api.getCities().then(setCities).catch(() => {});
   }, []);
 
   const [selected, setSelected] = useState<Passenger | null>(null);
@@ -46,7 +49,14 @@ export function PassengersScreen() {
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  function openConfirm(c: Confirm) {
+    setActionError(null);
+    setConfirm(c);
+  }
 
   function cityName(id: string) {
     return cities.find((c) => c.id === id)?.name ?? id;
@@ -57,6 +67,8 @@ export function PassengersScreen() {
     try {
       const res = await api.revealPhone("passenger", id);
       setPhone(res.phone);
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setRevealing(false);
     }
@@ -64,16 +76,19 @@ export function PassengersScreen() {
 
   function openCreate() {
     setForm({ name: "", phone: "", cityId: cities[0]?.id ?? "" });
+    setFormError(null);
     setDrawer("create");
   }
   function openEdit(p: Passenger) {
     setForm({ name: p.name, phone: "", cityId: p.cityId });
+    setFormError(null);
     setDrawer("edit");
   }
 
   async function handleSave() {
     if (!selected && drawer === "edit") return;
     setSaving(true);
+    setFormError(null);
     try {
       if (drawer === "create") {
         await api.createPassenger({ name: form.name.trim(), phone: form.phone.trim(), cityId: form.cityId });
@@ -85,18 +100,21 @@ export function PassengersScreen() {
       }
       setDrawer(null);
       reload();
+    } catch (e) {
+      setFormError(errorText(e));
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleConfirm() {
+  async function handleConfirm(reason?: string) {
     if (!confirm) return;
     setActing(true);
+    setActionError(null);
     try {
       const { type, passenger } = confirm;
       let updated: Passenger;
-      if (type === "block") updated = await api.setPassengerStatus(passenger.id, "blocked");
+      if (type === "block") updated = await api.setPassengerStatus(passenger.id, "blocked", reason);
       else if (type === "unblock") updated = await api.setPassengerStatus(passenger.id, "active");
       else if (type === "archive") updated = await api.archivePassenger(passenger.id);
       else updated = await api.restorePassenger(passenger.id);
@@ -104,6 +122,8 @@ export function PassengersScreen() {
       setToast(type === "block" ? "Bloklandi" : type === "unblock" ? "Blokdan chiqarildi" : type === "archive" ? "Arxivlandi" : "Tiklandi");
       setConfirm(null);
       reload();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setActing(false);
     }
@@ -125,9 +145,19 @@ export function PassengersScreen() {
         </div>
       ),
     },
-    { key: "city", header: "Shahar", render: (p) => <span className="block max-w-[140px] truncate" title={cityName(p.cityId)}>
-          {cityName(p.cityId)}
-        </span> },
+    ...(caps.passengerCity
+      ? [
+          {
+            key: "city",
+            header: "Shahar",
+            render: (p: Passenger) => (
+              <span className="block max-w-[140px] truncate" title={cityName(p.cityId)}>
+                {cityName(p.cityId)}
+              </span>
+            ),
+          } as Column<Passenger>,
+        ]
+      : []),
     { key: "rating", header: "Reyting", align: "right", sortValue: (p) => p.rating, render: (p) => <span className="tabular">{p.rating.toFixed(1)}</span> },
     { key: "trips", header: "Safarlar", align: "right", sortValue: (p) => p.totalTrips, render: (p) => <span className="tabular">{p.totalTrips}</span> },
     {
@@ -198,7 +228,7 @@ export function PassengersScreen() {
                 <Avatar seed={selected.avatarSeed} name={selected.name} size={48} />
                 <div>
                   <p className="font-semibold text-ink">{selected.name}</p>
-                  <p className="text-xs text-ink/50">{cityName(selected.cityId)}</p>
+                  {caps.passengerCity && <p className="text-xs text-ink/50">{cityName(selected.cityId)}</p>}
                 </div>
               </div>
               {!selected.archived && (
@@ -228,9 +258,10 @@ export function PassengersScreen() {
                 <p className="font-semibold text-ink">{selected.totalTrips}</p>
               </div>
             </div>
+            {actionError && !confirm && <p className="text-xs font-semibold text-danger">{actionError}</p>}
             <div className="flex gap-2 border-t border-border pt-4">
               {selected.archived ? (
-                <Button variant="secondary" size="sm" onClick={() => setConfirm({ type: "restore", passenger: selected })}>
+                <Button variant="secondary" size="sm" onClick={() => openConfirm({ type: "restore", passenger: selected })}>
                   <RotateCcw className="h-4 w-4" /> Tiklash
                 </Button>
               ) : (
@@ -238,12 +269,12 @@ export function PassengersScreen() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setConfirm({ type: selected.status === "blocked" ? "unblock" : "block", passenger: selected })}
+                    onClick={() => openConfirm({ type: selected.status === "blocked" ? "unblock" : "block", passenger: selected })}
                   >
                     {selected.status === "blocked" ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                     {selected.status === "blocked" ? "Blokdan chiqarish" : "Bloklash"}
                   </Button>
-                  <Button variant="danger" size="sm" onClick={() => setConfirm({ type: "archive", passenger: selected })}>
+                  <Button variant="danger" size="sm" onClick={() => openConfirm({ type: "archive", passenger: selected })}>
                     <Trash2 className="h-4 w-4" /> Arxivlash
                   </Button>
                 </>
@@ -259,9 +290,17 @@ export function PassengersScreen() {
         title={drawer === "create" ? "Yangi yo'lovchi" : "Tahrirlash"}
         onSubmit={handleSave}
         loading={saving}
+        error={formError}
         disabled={!form.name.trim() || (drawer === "create" && !form.phone.trim())}
       >
-        <Input label="To'liq ism" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+        <Input
+          label="To'liq ism"
+          required
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          hint={caps.passengerCity ? undefined : "Ism va familiya, masalan: Aziz Karimov"}
+          autoFocus
+        />
         {drawer === "create" && (
           <Input
             label="Telefon"
@@ -274,20 +313,22 @@ export function PassengersScreen() {
             placeholder="+998 90 000 00 00"
           />
         )}
-        <div>
-          <label htmlFor="fld-shahar" className="mb-2 block text-sm font-semibold text-ink/80">Shahar</label>
-          <select id="fld-shahar"
-            value={form.cityId}
-            onChange={(e) => setForm((f) => ({ ...f, cityId: e.target.value }))}
-            className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
-          >
-            {cities.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {caps.passengerCity && (
+          <div>
+            <label htmlFor="fld-shahar" className="mb-2 block text-sm font-semibold text-ink/80">Shahar</label>
+            <select id="fld-shahar"
+              value={form.cityId}
+              onChange={(e) => setForm((f) => ({ ...f, cityId: e.target.value }))}
+              className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+            >
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </FormDrawer>
 
       <ConfirmDialog
@@ -297,6 +338,8 @@ export function PassengersScreen() {
         }
         description={`${confirm?.passenger.name ?? ""} uchun amalni tasdiqlaysizmi?`}
         tone={confirm?.type === "block" || confirm?.type === "archive" ? "danger" : "accent"}
+        reasonLabel={confirm?.type === "block" ? "Bloklash sababi (shart)…" : undefined}
+        error={actionError}
         loading={acting}
         onConfirm={handleConfirm}
         onCancel={() => setConfirm(null)}

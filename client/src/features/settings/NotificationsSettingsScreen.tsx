@@ -18,6 +18,8 @@ export function NotificationsSettingsScreen() {
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const ios = useIsIOS();
+  // Separate order-status / bonus switches only where the adapter has them.
+  const topics = api.capabilities.notificationTopics;
 
   function load() {
     setLoadError(false);
@@ -63,7 +65,7 @@ export function NotificationsSettingsScreen() {
               ["orderStatus", Car, "notifPrefs.orderStatus", "notifPrefs.orderStatusDesc"],
               ["news", Megaphone, "notifPrefs.news", "notifPrefs.newsDesc"],
               ["bonus", Gift, "notifPrefs.bonus", "notifPrefs.bonusDesc"],
-            ] as const).map(([key, Icon, title, desc]) => (
+            ] as const).filter(([key]) => topics || key === "news").map(([key, Icon, title, desc]) => (
               <ListRow
                 key={key}
                 leading={<IconTile icon={Icon} tone={key === "bonus" ? "yellow" : "accent"} />}
@@ -94,7 +96,7 @@ export function NotificationsSettingsScreen() {
         </Card>
 
         <Card className="divide-y divide-border" padded={false}>
-          <div className="flex items-center gap-3 p-4">
+          {topics && <div className="flex items-center gap-3 p-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
               <Car className="h-4 w-4" />
             </span>
@@ -104,7 +106,7 @@ export function NotificationsSettingsScreen() {
             </div>
             <Switch checked={prefs.master && prefs.orderStatus} disabled={!prefs.master}
               onChange={() => patch("orderStatus")} label={t("notifPrefs.orderStatus")} />
-          </div>
+          </div>}
           <div className="flex items-center gap-3 p-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
               <Megaphone className="h-4 w-4" />
@@ -116,7 +118,7 @@ export function NotificationsSettingsScreen() {
             <Switch checked={prefs.master && prefs.news} disabled={!prefs.master}
               onChange={() => patch("news")} label={t("notifPrefs.news")} />
           </div>
-          <div className="flex items-center gap-3 p-4">
+          {topics && <div className="flex items-center gap-3 p-4">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
               <Gift className="h-4 w-4" />
             </span>
@@ -126,7 +128,7 @@ export function NotificationsSettingsScreen() {
             </div>
             <Switch checked={prefs.master && prefs.bonus} disabled={!prefs.master}
               onChange={() => patch("bonus")} label={t("notifPrefs.bonus")} />
-          </div>
+          </div>}
         </Card>
       </div>
       )}

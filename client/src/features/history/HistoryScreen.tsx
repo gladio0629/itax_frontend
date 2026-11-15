@@ -24,8 +24,11 @@ const STATUS_TONE: Record<string, { tone: "accent" | "danger" | "neutral" | "war
   searching: { tone: "neutral", labelKey: "history.status.searching" },
 };
 
-const FILTERS = ["all", "completed", "cancelled"] as const;
-type Filter = (typeof FILTERS)[number];
+const ALL_FILTERS = ["all", "completed", "cancelled"] as const;
+type Filter = (typeof ALL_FILTERS)[number];
+// The status tabs need a server-side filter; without one there's a single list.
+const FILTERS: readonly Filter[] = api.capabilities.historyStatusFilter ? ALL_FILTERS : ["all"];
+const SHOW_TABS = FILTERS.length > 1;
 const FILTER_KEY: Record<Filter, TranslationKey> = {
   all: "history.filter.all",
   completed: "history.filter.completed",
@@ -186,7 +189,7 @@ export function HistoryScreen() {
       <PageTitle
         scrollKey={activeIndex}
         accessory={
-          ios ? (
+          ios && SHOW_TABS ? (
             <Segmented
               ariaLabel={t("history.tabsLabel")}
               value={FILTERS[activeIndex]}
@@ -202,7 +205,7 @@ export function HistoryScreen() {
         {ios ? t("drawer.tarix") : t("history.title")}
       </PageTitle>
 
-      {!ios && (
+      {!ios && SHOW_TABS && (
       <div
         role="tablist"
         aria-label={t("history.tabsLabel")}
@@ -259,8 +262,8 @@ export function HistoryScreen() {
             <div
               key={f}
               id={`history-panel-${f}`}
-              role="tabpanel"
-              aria-labelledby={`history-tab-${f}`}
+              role={SHOW_TABS ? "tabpanel" : undefined}
+              aria-labelledby={SHOW_TABS ? `history-tab-${f}` : undefined}
               // Off-screen panes stay out of the tab order (React 18 types lack `inert`).
               {...((i !== activeIndex ? { inert: "" } : {}) as Record<string, string>)}
               style={{ width: `${100 / FILTERS.length}%` }}

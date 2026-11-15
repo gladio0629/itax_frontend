@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { api } from "@/api/client";
 import type { Booking } from "@/api/types";
 import { isKey, useT } from "@/lib/i18n/provider";
 import { formatAmount } from "@/lib/format";
@@ -21,37 +22,44 @@ export function BookingCard({ booking: b, confirming, onAction, onCancel }: Prop
   const PayIcon = b.payment === "cash" ? Banknote : CreditCard;
   const cargo = b.kind === "delivery";
   const points = b.freight ? [...b.stops, b.dropoff] : b.stops;
+  const p = b.passenger;
+  const route = `${b.pickup.city.name} – ${b.dropoff.city.name}`;
 
   return (
-    <article aria-label={t("booking.label", { name: b.passenger.name })} className="rounded-card bg-surface p-4 shadow-1">
-      <div className="flex items-center gap-3">
-        <Avatar seed={b.passenger.avatarSeed} name={b.passenger.name} size={44} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-bold text-ink">{b.passenger.name}</p>
-          <Stars value={b.passenger.rating} size={14} />
+    <article aria-label={p ? t("booking.label", { name: p.name }) : route} className="rounded-card bg-surface p-4 shadow-1">
+      {/* The real backend doesn't share the passenger yet: no identity row then. */}
+      {p && (
+        <div className="mb-3 flex items-center gap-3">
+          <Avatar seed={p.avatarSeed} name={p.name} size={44} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-bold text-ink">{p.name}</p>
+            <Stars value={p.rating} size={14} />
+          </div>
+          {b.contactMode === "text" && api.capabilities.tripChat ? (
+            // Text-only passenger: the call button becomes "Yozish" (chat).
+            <Link
+              to={`/trip/chat/${b.id}`}
+              aria-label={t("trip.writeTo", { name: p.name })}
+              className="press flex h-12 shrink-0 items-center gap-2 rounded-full bg-accent/15 px-4 text-base font-bold text-accent"
+            >
+              <MessageCircle className="h-5 w-5" />
+              {t("trip.write")}
+            </Link>
+          ) : (
+            p.phoneMasked && <CallButton name={p.name} phoneMasked={p.phoneMasked} />
+          )}
         </div>
-        {b.contactMode === "text" ? (
-          // Text-only passenger: the call button becomes "Yozish" (chat).
-          <Link
-            to={`/trip/chat/${b.id}`}
-            aria-label={t("trip.writeTo", { name: b.passenger.name })}
-            className="press flex h-12 shrink-0 items-center gap-2 rounded-full bg-accent/15 px-4 text-base font-bold text-accent"
-          >
-            <MessageCircle className="h-5 w-5" />
-            {t("trip.write")}
-          </Link>
-        ) : (
-          <CallButton name={b.passenger.name} phoneMasked={b.passenger.phoneMasked} />
-        )}
-      </div>
+      )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <Tag icon={cargo ? Truck : b.wholeCar ? Car : Users} tone="yellow">
           {cargo ? t("feed.kind.cargo") : b.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: b.seats })}
         </Tag>
-        <Tag icon={CalendarDays}>
-          {dayText(b.when, t)}, {timeText(b.when, t)}
-        </Tag>
+        {b.when && (
+          <Tag icon={CalendarDays}>
+            {dayText(b.when, t)}, {timeText(b.when, t)}
+          </Tag>
+        )}
       </div>
       <div className="mt-1.5">
         <OrderTags carClass={b.carClass} forOther={b.forOther}>
@@ -122,27 +130,37 @@ export function BookingCard({ booking: b, confirming, onAction, onCancel }: Prop
       )}
 
       <div className="mt-3 flex items-center justify-between gap-3 px-1 text-sm">
-        <span className="inline-flex items-center gap-2 text-muted">
-          <PayIcon className="h-4 w-4" />
-          {b.payment === "cash" ? t("pay.cash") : t("pay.card")}
-        </span>
+        {b.payment ? (
+          <span className="inline-flex items-center gap-2 text-muted">
+            <PayIcon className="h-4 w-4" />
+            {b.payment === "cash" ? t("pay.cash") : t("pay.card")}
+          </span>
+        ) : (
+          <span />
+        )}
         <span className="text-right">
           <span className="tabular block text-lg font-bold text-gold">
             {formatAmount(b.price)} <span className="text-xs font-medium text-muted">{t("common.som")}</span>
           </span>
-          <span className="tabular block text-xs text-muted">{t("feed.net", { amount: formatAmount(b.earnings.net), pct: b.earnings.commissionPct })}</span>
+          <span className="tabular block text-xs text-muted">
+            {b.earnings.commissionPct == null
+              ? t("feed.netOnly", { amount: formatAmount(b.earnings.net) })
+              : t("feed.net", { amount: formatAmount(b.earnings.net), pct: b.earnings.commissionPct })}
+          </span>
         </span>
       </div>
 
       <StepButton action={b.nextAction} confirming={confirming} onClick={onAction} />
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={confirming}
-        className="press mt-1 flex h-12 w-full items-center justify-center rounded-button text-sm font-medium text-muted disabled:opacity-40"
-      >
-        {t("trip.cancel")}
-      </button>
+      {api.capabilities.cancelBooking && (
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={confirming}
+          className="press mt-1 flex h-12 w-full items-center justify-center rounded-button text-sm font-medium text-muted disabled:opacity-40"
+        >
+          {t("trip.cancel")}
+        </button>
+      )}
     </article>
   );
 }

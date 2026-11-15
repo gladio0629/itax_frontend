@@ -5,7 +5,9 @@ import { AppShell } from "@/components/AppShell";
 import { OnboardingScreen } from "@/features/onboarding/OnboardingScreen";
 import { PhoneScreen } from "@/features/auth/PhoneScreen";
 import { OtpScreen } from "@/features/auth/OtpScreen";
-import { HomeScreen } from "@/features/home/HomeScreen";
+import { HomeScreen } from "@/features/home/Home";
+import { api } from "@/api/client";
+import type { ClientCapabilities } from "@/api/types";
 import { OrderTrackScreen } from "@/features/order/OrderTrackScreen";
 import { OrderFinishedScreen } from "@/features/order/OrderFinishedScreen";
 import { BonusScreen } from "@/features/bonus/BonusScreen";
@@ -25,6 +27,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   if (!isAuthenticated) return <Navigate to="/auth/phone" replace />;
   return <>{children}</>;
+}
+
+/** A screen the active adapter can't serve (no endpoint yet) isn't
+ * reachable: an old link or bookmark lands on Home instead. */
+function When({ can, children }: { can: keyof ClientCapabilities; children: React.ReactNode }) {
+  return api.capabilities[can] ? <>{children}</> : <Navigate to="/home" replace />;
 }
 
 function IndexRedirect() {
@@ -48,12 +56,12 @@ export const router = createBrowserRouter(
         }
       >
         <Route path="/home" element={<HomeScreen />} />
-        <Route path="/bonus" element={<BonusScreen />} />
+        <Route path="/bonus" element={<When can="bonuses"><BonusScreen /></When>} />
         <Route path="/order/track/:orderId" element={<OrderTrackScreen />} />
         <Route path="/order/finished/:orderId" element={<OrderFinishedScreen />} />
 
-        <Route path="/cards" element={<CardsScreen />} />
-        <Route path="/cards/link" element={<CardLinkScreen />} />
+        <Route path="/cards" element={<When can="savedCards"><CardsScreen /></When>} />
+        <Route path="/cards/link" element={<When can="savedCards"><CardLinkScreen /></When>} />
 
         <Route path="/notifications" element={<NotificationsScreen />} />
         <Route path="/history" element={<HistoryScreen />} />
@@ -62,8 +70,8 @@ export const router = createBrowserRouter(
         <Route path="/settings/account" element={<AccountScreen />} />
         <Route path="/settings/notifications" element={<NotificationsSettingsScreen />} />
         <Route path="/settings/about" element={<AboutScreen />} />
-        <Route path="/settings/safety" element={<SafetySettingsScreen />} />
-        <Route path="/help" element={<HelpScreen />} />
+        <Route path="/settings/safety" element={<When can="safety"><SafetySettingsScreen /></When>} />
+        <Route path="/help" element={<When can="help"><HelpScreen /></When>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

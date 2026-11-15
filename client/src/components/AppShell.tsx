@@ -18,7 +18,8 @@ const APP_VERSION = "1.1.0";
 
 const NAV_ITEMS = [
   { to: "/home", labelKey: "drawer.asosiy" as const, icon: Home },
-  { to: "/bonus", labelKey: "drawer.bonuslar" as const, icon: Gift },
+  // Bonuses only where the adapter supports them (no endpoint in the API yet).
+  ...(api.capabilities.bonuses ? [{ to: "/bonus", labelKey: "drawer.bonuslar" as const, icon: Gift }] : []),
   { to: "/history", labelKey: "drawer.tarix" as const, icon: Clock },
   { to: "/settings", labelKey: "drawer.sozlamalar" as const, icon: Settings },
 ];

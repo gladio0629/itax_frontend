@@ -33,7 +33,7 @@ export function AdminLayout() {
   const [badges, setBadges] = useState<SectionBadges>({});
 
   useEffect(() => {
-    if (!me) return;
+    if (!me || !api.capabilities.sectionBadges) return;
     api.getSectionBadges().then(setBadges).catch(() => {});
   }, [me, location.pathname]);
 

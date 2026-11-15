@@ -1,5 +1,6 @@
 import { Suspense, useEffect } from "react";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useSearchParams } from "react-router-dom";
+import { useLocationReporting } from "@/lib/useLocationReporting";
 import { TabBar } from "./TabBar";
 import { useSession } from "@/stores/sessionStore";
 import { useQuery } from "@/lib/useQuery";
@@ -16,11 +17,28 @@ export function AppShell() {
   const { t } = useT();
   const location = useLocation();
   const signal = useFeedSignal((s) => s.version);
+  const bump = useFeedSignal((s) => s.bump);
+  const refreshSession = useSession((s) => s.refresh);
+  const [params] = useSearchParams();
   const summary = useQuery(() => api.getHomeSummary(), [location.pathname, signal], { pollMs: 15000 });
 
   useEffect(() => {
     document.getElementById("app-main")?.focus({ preventScroll: true });
   }, [location.pathname]);
+
+  // Server pushes (WebSocket): refetch what changed.
+  useEffect(
+    () =>
+      api.subscribe((e) => {
+        if (e.type === "session") refreshSession().catch(() => {});
+        else bump();
+      }),
+    [bump, refreshSession]
+  );
+
+  // GPS only while the request feed is open or a trip is underway.
+  const feedOpen = location.pathname === "/" && params.get("tab") !== "accepted";
+  useLocationReporting(feedOpen || !!summary.data?.tripActive);
 
   if (session && session.stage !== "active") return <Navigate to="/register" replace />;
 

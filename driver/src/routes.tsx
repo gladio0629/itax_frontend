@@ -1,6 +1,9 @@
 import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
+import { ComingSoon } from "@/components/ComingSoon";
+import { api } from "@/api/client";
+import type { TranslationKey } from "@/lib/i18n/provider";
 import { DEMO_MODE } from "@/config";
 import { TEST_PANEL_PATH, TEST_PANEL_PROFILE_PATH } from "@/features/testPanel/paths";
 
@@ -26,7 +29,12 @@ const TripChatScreen = lazy(() => import("@/features/chat/TripChatScreen"));
 const TestPanelScreen = DEMO_MODE ? lazy(() => import("@/features/testPanel/TestPanelScreen")) : null;
 const RegistrationFlow = lazy(() => import("@/features/registration/RegistrationFlow"));
 
+/** A screen whose backend endpoints don't exist yet shows "Tez orada" instead. */
+const when = (supported: boolean, screen: JSX.Element, titleKey: TranslationKey, back?: string | true) =>
+  supported ? screen : <ComingSoon titleKey={titleKey} back={back} />;
+
 export function AppRoutes() {
+  const c = api.capabilities;
   return (
     <Routes>
       <Route path="/register" element={<RegistrationFlow />} />
@@ -34,9 +42,9 @@ export function AppRoutes() {
       {TestPanelScreen && <Route path={TEST_PANEL_PATH} element={<TestPanelScreen />} />}
       <Route element={<AppShell />}>
         <Route path="/" element={<HomeScreen />} />
-        <Route path="/trip/chat/:bookingId" element={<TripChatScreen />} />
-        <Route path="/history" element={<HistoryScreen />} />
-        <Route path="/history/:tripId" element={<TripDetailScreen />} />
+        <Route path="/trip/chat/:bookingId" element={when(c.tripChat, <TripChatScreen />, "chat.title", true)} />
+        <Route path="/history" element={when(c.history, <HistoryScreen />, "orders.title")} />
+        <Route path="/history/:tripId" element={when(c.history, <TripDetailScreen />, "detail.title", "/history")} />
         {/* Old "Buyurtmalar" links. */}
         <Route path="/orders/*" element={<Navigate to="/history" replace />} />
         <Route path="/wallet" element={<WalletScreen />} />
@@ -45,11 +53,11 @@ export function AppRoutes() {
         <Route path="/wallet/cards/link" element={<CardLinkScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/profile/personal" element={<PersonalScreen />} />
-        <Route path="/profile/bonus" element={<BonusScreen />} />
-        <Route path="/profile/capabilities" element={<CapabilitiesScreen />} />
-        <Route path="/profile/routes" element={<RoutesScreen />} />
+        <Route path="/profile/bonus" element={when(c.bonus, <BonusScreen />, "bonus.title", "/profile")} />
+        <Route path="/profile/capabilities" element={when(c.driverCapabilities, <CapabilitiesScreen />, "profile.capabilities", "/profile")} />
+        <Route path="/profile/routes" element={when(c.routes, <RoutesScreen />, "routes.title", "/profile")} />
         <Route path="/profile/notifications" element={<NotificationPrefsScreen />} />
-        <Route path="/profile/help" element={<HelpScreen />} />
+        <Route path="/profile/help" element={when(c.help, <HelpScreen />, "help.title", "/profile")} />
         <Route path="/profile/about" element={<AboutScreen />} />
         {TestPanelScreen && <Route path={TEST_PANEL_PROFILE_PATH} element={<TestPanelScreen />} />}
       </Route>

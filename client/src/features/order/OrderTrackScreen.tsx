@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Search, SearchX, Check, Clock3, Navigation, ShieldCheck } from "@/lib/icons";
 import { api } from "@/api/client";
@@ -12,12 +12,18 @@ import { ErrorState } from "@/components/ErrorState";
 import { Toast } from "@/components/Toast";
 import { formatClock, formatSom } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
-import { defaultAddressesForCity } from "@/clientData/addresses";
 import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
+import { serverErrorKey } from "@/lib/apiError";
+import { DEMO_MODE } from "@/config";
 import { DriverCard } from "./DriverCard";
 import { CancelSheet } from "./CancelSheet";
-import { TafsilotlarSheet } from "./TafsilotlarSheet";
 import { SafetySheet } from "./SafetySheet";
+
+// "Tafsilotlar" edits addresses, stops and seats from the sample address
+// book; the contract can't express those changes yet, so only the
+// sample-data build loads it (see features/home/Home.tsx).
+const TafsilotlarSheet = DEMO_MODE ? lazy(() => import("./TafsilotlarSheet").then((m) => ({ default: m.TafsilotlarSheet }))) : null;
 
 const SEARCH_TIMEOUT_S = 300; // 5 minutes, per spec — server usually resolves far sooner
 
@@ -57,11 +63,17 @@ export function OrderTrackScreen() {
   useEffect(() => {
     startRef.current = Date.now();
     poll();
-    const interval = setInterval(poll, 1500);
+    // The server pushes order changes over the WebSocket; the interval is
+    // only a safety net (the sample data has no push, so it polls fast).
+    const interval = setInterval(poll, DEMO_MODE ? 1500 : 15000);
+    const unsubscribe = api.onOrderEvent((e) => {
+      if (e.orderId === orderId) poll();
+    });
     const tick = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000);
     return () => {
       clearInterval(interval);
       clearInterval(tick);
+      unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
@@ -69,37 +81,19 @@ export function OrderTrackScreen() {
   async function retrySearch() {
     setRetrying(true);
     try {
-      // Re-order exactly what was ordered: the order's extras hold the route,
-      // stops, details, class, options and promo (the draft was reset on submit).
-      const x = order?.extras;
-      const fromAddressId = x?.fromAddressId || defaultAddressesForCity(order?.fromCityId ?? "")[0]?.id || "";
-      const toAddressId = x?.toAddressId || defaultAddressesForCity(order?.toCityId ?? "")[0]?.id || "";
-      const serviceType = x?.serviceType ?? draft.serviceType;
-      const res = await api.createOrder({
-        serviceType,
-        fromAddressId,
-        toAddressId,
-        mode: order?.mode ?? draft.mode,
-        seatIds: order?.seatIds ?? draft.seatIds,
-        cargo: x?.cargo ?? (serviceType === "delivery" ? draft.cargo : undefined),
-        paymentMethod: order?.paymentMethod ?? draft.paymentMethod,
-        timing: x?.timing ?? draft.timing,
-        fromDetails: x?.fromDetails,
-        toDetails: x?.toDetails,
-        stops: x?.stops,
-        comment: x?.comment,
-        optionIds: x?.optionIds,
-        optionVariants: x?.optionVariants,
-        carClass: x?.carClass,
-        luggage: x?.luggage,
-        rider: x?.rider,
-        promoCode: x?.promoCode,
-        sender: x?.sender,
-        receiver: x?.receiver,
+      // The adapter re-sends exactly what was ordered; the draft only fills
+      // what an old sample order doesn't record (it was reset on submit).
+      const res = await api.repeatOrder(orderId, {
+        serviceType: draft.serviceType,
+        mode: draft.mode,
+        seatIds: draft.seatIds,
+        cargo: draft.cargo,
+        paymentMethod: draft.paymentMethod,
+        timing: draft.timing,
       });
       navigate(`/order/track/${res.id}`, { replace: true });
-    } catch {
-      setToast(t("track.retryError"));
+    } catch (e) {
+      setToast(serverErrorKey(e) ? t(serverErrorKey(e) as TranslationKey) : t("track.retryError"));
     } finally {
       setRetrying(false);
     }
@@ -110,8 +104,8 @@ export function OrderTrackScreen() {
     try {
       await api.cancelOrder(orderId, reason);
       navigate("/home", { replace: true });
-    } catch {
-      setToast(t("track.cancelError"));
+    } catch (e) {
+      setToast(serverErrorKey(e) ? t(serverErrorKey(e) as TranslationKey) : t("track.cancelError"));
     } finally {
       setCancelling(false);
     }
@@ -127,7 +121,9 @@ export function OrderTrackScreen() {
   }
   if (!order) return null;
 
-  const timedOut = order.status === "searching" && elapsed >= SEARCH_TIMEOUT_S;
+  // The real backend decides "no driver" itself (status expired); the local
+  // 5-minute cut-off is for the sample data only.
+  const timedOut = DEMO_MODE && order.status === "searching" && elapsed >= SEARCH_TIMEOUT_S;
   const showNoDriver = order.status === "no_driver" || timedOut;
 
   let tripProgress = 0.5;
@@ -142,7 +138,7 @@ export function OrderTrackScreen() {
         title={showNoDriver ? t("track.notFound") : t("track.title")}
         right={
           // Safety tools while a driver is assigned or the trip is on.
-          (order.status === "accepted" || order.status === "in_progress") && (
+          api.capabilities.safety && (order.status === "accepted" || order.status === "in_progress") && (
             <button
               type="button"
               onClick={() => setSafetyOpen(true)}
@@ -191,9 +187,11 @@ export function OrderTrackScreen() {
         {(order.status === "accepted" || order.status === "in_progress") && order.driver && (
           <div className="space-y-4 animate-slide-up">
             <DriverCard driver={order.driver} />
-            <Button fullWidth variant="secondary" onClick={() => setDetailsOpen(true)}>
-              {t("track.details")}
-            </Button>
+            {TafsilotlarSheet && api.capabilities.orderDetails && (
+              <Button fullWidth variant="secondary" onClick={() => setDetailsOpen(true)}>
+                {t("track.details")}
+              </Button>
+            )}
             <Card className="p-4">
               <p className="mb-3 text-xs font-semibold text-ink/60">{t("track.statusTitle")}</p>
               <ol className="flex items-start">
@@ -229,9 +227,15 @@ export function OrderTrackScreen() {
 
       <BottomBar>
         {showNoDriver ? (
-          <Button fullWidth loading={retrying} onClick={retrySearch}>
-            {t("common.retry")}
-          </Button>
+          api.capabilities.repeatOrder ? (
+            <Button fullWidth loading={retrying} onClick={retrySearch}>
+              {t("common.retry")}
+            </Button>
+          ) : (
+            <Button fullWidth variant="secondary" onClick={() => navigate("/home", { replace: true })}>
+              {t("common.back")}
+            </Button>
+          )
         ) : order.status === "searching" ? (
           <Button fullWidth variant="secondary" onClick={() => setCancelOpen(true)}>
             {t("cancel.confirmAction")}
@@ -254,19 +258,21 @@ export function OrderTrackScreen() {
       {cancelOpen && (
         <CancelSheet loading={cancelling} onClose={() => setCancelOpen(false)} onConfirm={confirmCancel} />
       )}
-      {detailsOpen && (
-        <TafsilotlarSheet
-          order={order}
-          onClose={() => setDetailsOpen(false)}
-          onUpdated={(updated) => {
-            setOrder(updated);
-            setDetailsOpen(false);
-          }}
-          onCancel={() => {
-            setDetailsOpen(false);
-            setCancelOpen(true);
-          }}
-        />
+      {detailsOpen && TafsilotlarSheet && (
+        <Suspense fallback={null}>
+          <TafsilotlarSheet
+            order={order}
+            onClose={() => setDetailsOpen(false)}
+            onUpdated={(updated) => {
+              setOrder(updated);
+              setDetailsOpen(false);
+            }}
+            onCancel={() => {
+              setDetailsOpen(false);
+              setCancelOpen(true);
+            }}
+          />
+        </Suspense>
       )}
       {safetyOpen && <SafetySheet orderId={orderId} onClose={() => setSafetyOpen(false)} onToast={setToast} />}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}

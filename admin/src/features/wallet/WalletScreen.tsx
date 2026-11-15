@@ -5,6 +5,7 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { FormDrawer } from "@/components/FormDrawer";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Card } from "@/components/Card";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { ExportButton } from "@/components/ExportButton";
@@ -19,12 +20,16 @@ import { formatDateTime, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { AdjustmentProposal, Driver, WalletEntryType, WalletLedgerRow, WalletQuery } from "@/api/types";
 
+const caps = api.capabilities;
+
 const TYPE_LABEL: Record<WalletEntryType, string> = {
   cash: "Naqd to'lov",
   card: "Karta to'lovi",
   commission: "Komissiya",
   topup: "Hamyon to'ldirish",
   adjustment: "Tuzatish",
+  trip_payment: "Safar to'lovi",
+  bonus: "Bonus",
 };
 const TYPE_TONE: Record<WalletEntryType, "accent" | "info" | "danger" | "warning"> = {
   cash: "accent",
@@ -32,11 +37,15 @@ const TYPE_TONE: Record<WalletEntryType, "accent" | "info" | "danger" | "warning
   commission: "danger",
   topup: "accent",
   adjustment: "warning",
+  trip_payment: "accent",
+  bonus: "info",
 };
+// The sample data's own entry types (the real API's ledger can't be filtered).
 const TYPE_OPTIONS: { value: WalletEntryType | "all"; label: string }[] = [
   { value: "all", label: "Barcha turlar" },
-  ...(Object.keys(TYPE_LABEL) as WalletEntryType[]).map((t) => ({ value: t, label: TYPE_LABEL[t] })),
+  ...(["cash", "card", "commission", "topup", "adjustment"] as WalletEntryType[]).map((t) => ({ value: t, label: TYPE_LABEL[t] })),
 ];
+const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
 
 export function WalletScreen() {
   const [search, setSearch] = useState("");
@@ -47,9 +56,13 @@ export function WalletScreen() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [proposals, setProposals] = useState<AdjustmentProposal[]>([]);
   async function loadSide() {
-    const [driverList, adj] = await Promise.all([api.getDrivers({}), api.getAdjustmentProposals({ status: "pending_second" })]);
-    setDrivers(driverList);
-    setProposals(adj);
+    try {
+      const [driverList, adj] = await Promise.all([api.getDrivers({}), api.getAdjustmentProposals({ status: "pending_second" })]);
+      setDrivers(driverList);
+      setProposals(adj);
+    } catch {
+      /* the ledger below shows its own error state */
+    }
   }
   useEffect(() => {
     loadSide();
@@ -57,15 +70,20 @@ export function WalletScreen() {
 
   const [drawer, setDrawer] = useState(false);
   const [form, setForm] = useState({ driverId: "", amount: "", reason: "" });
-  const [walletInfo, setWalletInfo] = useState<{ balance: number; debtLimit: number } | null>(null);
+  const [walletInfo, setWalletInfo] = useState<{ balance: number; debtLimit: number | null } | null>(null);
   const [proposing, setProposing] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [lookupId, setLookupId] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
   function openCreate() {
     const driverId = drivers[0]?.id ?? "";
     setForm({ driverId, amount: "", reason: "" });
+    setFormError(null);
     setDrawer(true);
   }
 
@@ -74,45 +92,68 @@ export function WalletScreen() {
       setWalletInfo(null);
       return;
     }
-    api.getDriverWalletInfo(form.driverId).then(setWalletInfo);
+    api.getDriverWalletInfo(form.driverId).then(setWalletInfo, () => setWalletInfo(null));
   }, [drawer, form.driverId]);
 
   async function handlePropose() {
     const amount = Number(form.amount);
     if (!form.driverId || !amount || !form.reason.trim()) return;
     setProposing(true);
+    setFormError(null);
     try {
-      await api.proposeWalletAdjustment(form.driverId, amount, form.reason.trim());
+      const created = await api.proposeWalletAdjustment(form.driverId, amount, form.reason.trim());
       setDrawer(false);
-      setToast("Tuzatish ikkinchi adminga yuborildi");
+      // With no list of pending corrections on the server, the second admin
+      // needs the id to find it.
+      setToast(caps.adjustmentProposalsList ? "Tuzatish ikkinchi adminga yuborildi" : `Tuzatish yaratildi (ID: ${created.id}). Ikkinchi admin tasdiqlaydi.`);
       loadSide();
+    } catch (e) {
+      setFormError(errorText(e));
     } finally {
       setProposing(false);
     }
   }
 
   async function handleApprove(proposalId: string) {
+    if (!proposalId.trim()) return;
     setActingId(proposalId);
+    setActionError(null);
     try {
       const review = await api.approveAdjustment(proposalId);
+      setLookupId("");
       setReviewId(review.id);
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setActingId(null);
     }
   }
 
-  async function handleReject(proposalId: string) {
-    setActingId(proposalId);
+  async function handleReject(reason?: string) {
+    if (!rejectingId) return;
+    setActingId(rejectingId);
+    setActionError(null);
     try {
-      await api.rejectAdjustment(proposalId);
+      await api.rejectAdjustment(rejectingId, reason);
+      setRejectingId(null);
+      setLookupId("");
+      setToast("Tuzatish rad etildi");
       loadSide();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setActingId(null);
     }
   }
 
   const columns: Column<WalletLedgerRow>[] = [
-    { key: "driver", header: "Haydovchi", sortValue: (r) => r.driverName, render: (r) => <span className="block max-w-[180px] truncate">{r.driverName}</span> },
+    {
+      key: "driver",
+      // The real ledger only names the wallet, not the driver.
+      header: caps.walletDriverName ? "Haydovchi" : "Hamyon",
+      sortValue: (r) => r.driverName,
+      render: (r) => <span className="block max-w-[180px] truncate">{r.driverName}</span>,
+    },
     { key: "type", header: "Turi", render: (r) => <Badge tone={TYPE_TONE[r.type]} dot={false}>{TYPE_LABEL[r.type]}</Badge> },
     {
       key: "amount",
@@ -169,9 +210,45 @@ export function WalletScreen() {
         </Card>
       )}
 
+      {actionError && !rejectingId && (
+        <p role="alert" className="text-sm font-semibold text-danger">
+          {actionError}
+        </p>
+      )}
+
+      {!caps.adjustmentProposalsList && (
+        // No endpoint lists pending corrections yet: the second admin opens
+        // one by the id the first admin passes on.
+        <Card className="space-y-3">
+          <p className="text-sm font-semibold text-ink">Tuzatishni tasdiqlash yoki rad etish</p>
+          <p className="text-xs text-ink/60">Tuzatishni yaratgan xodim bergan ID ni kiriting. O'zingiz yaratgan tuzatishni tasdiqlay olmaysiz.</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="w-96 max-w-full">
+              <Input label="Tuzatish ID" value={lookupId} onChange={(e) => setLookupId(e.target.value)} autoComplete="off" spellCheck={false} />
+            </div>
+            <Button size="sm" disabled={!lookupId.trim()} loading={actingId === lookupId.trim()} onClick={() => handleApprove(lookupId.trim())}>
+              <Check className="h-4 w-4" /> Tasdiqlash
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!lookupId.trim()}
+              onClick={() => {
+                setActionError(null);
+                setRejectingId(lookupId.trim());
+              }}
+            >
+              <X className="h-4 w-4" /> Rad etish
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {proposals.length > 0 && (
         <Card className="space-y-3">
-          <p className="text-sm font-semibold text-ink">Tasdiqlashni kutayotgan tuzatishlar</p>
+          <p className="text-sm font-semibold text-ink">
+            {caps.adjustmentProposalsList ? "Tasdiqlashni kutayotgan tuzatishlar" : "Shu oynada yaratilgan tuzatishlar (ikkinchi admin tasdiqlaydi)"}
+          </p>
           {proposals.map((p) => {
             const driver = drivers.find((d) => d.id === p.driverId);
             return (
@@ -188,14 +265,25 @@ export function WalletScreen() {
                   </span>
                 </p>
                 <p className="mt-1 text-xs text-ink/60">{p.reason}</p>
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" loading={actingId === p.id} onClick={() => handleApprove(p.id)}>
-                    <Check className="h-4 w-4" /> Tasdiqlash
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => handleReject(p.id)}>
-                    <X className="h-4 w-4" /> Rad etish
-                  </Button>
-                </div>
+                {caps.adjustmentProposalsList ? (
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" loading={actingId === p.id} onClick={() => handleApprove(p.id)}>
+                      <Check className="h-4 w-4" /> Tasdiqlash
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setActionError(null);
+                        setRejectingId(p.id);
+                      }}
+                    >
+                      <X className="h-4 w-4" /> Rad etish
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="tabular mt-2 select-all text-xs text-ink/50">ID: {p.id}</p>
+                )}
               </div>
             );
           })}
@@ -207,11 +295,12 @@ export function WalletScreen() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Haydovchi bo'yicha qidirish…"
+          searchEnabled={caps.walletLedgerFilters}
           resultCount={rows.length}
           hasActiveFilters={hasActiveFilters}
           onClear={() => setType("all")}
         >
-          <FilterSelect value={type} onChange={setType} options={TYPE_OPTIONS} aria-label="Turi bo'yicha filtr" />
+          {caps.walletLedgerFilters && <FilterSelect value={type} onChange={setType} options={TYPE_OPTIONS} aria-label="Turi bo'yicha filtr" />}
         </ListToolbar>
         <div className="flex shrink-0 items-center gap-2">
           <ExportButton
@@ -244,7 +333,8 @@ export function WalletScreen() {
         onSubmit={handlePropose}
         submitLabel="Taklif qilish"
         loading={proposing}
-        disabled={!form.driverId || !Number(form.amount) || !form.reason.trim()}
+        error={formError}
+        disabled={!form.driverId || !Number(form.amount) || form.reason.trim().length < (caps.adjustmentProposalsList ? 1 : 5)}
       >
         <p className="text-xs text-ink/60">Yozuv faqat ikkinchi admin tasdiqlagandan so'ng qo'llaniladi. Hamyon jurnali faqat qo'shish uchun — mavjud yozuvlarni tahrirlash yoki o'chirish mumkin emas.</p>
         <div>
@@ -266,11 +356,16 @@ export function WalletScreen() {
         {walletInfo && (
           <div className="flex items-center justify-between rounded-button bg-ink/5 px-4 py-3 text-xs">
             <span className="text-ink/60">
-              Joriy balans: <span className={cn("font-semibold", walletInfo.balance < walletInfo.debtLimit ? "text-danger" : "text-ink")}>{formatSom(walletInfo.balance)}</span>
+              Joriy balans:{" "}
+              <span className={cn("font-semibold", walletInfo.debtLimit !== null && walletInfo.balance < walletInfo.debtLimit ? "text-danger" : "text-ink")}>
+                {formatSom(walletInfo.balance)}
+              </span>
             </span>
-            <span className="text-ink/60">
-              Qarz limiti: <span className="font-semibold text-ink">{formatSom(walletInfo.debtLimit)}</span>
-            </span>
+            {walletInfo.debtLimit !== null && (
+              <span className="text-ink/60">
+                Qarz limiti: <span className="font-semibold text-ink">{formatSom(walletInfo.debtLimit)}</span>
+              </span>
+            )}
           </div>
         )}
         <Input
@@ -280,8 +375,27 @@ export function WalletScreen() {
           value={form.amount}
           onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
         />
-        <Input label="Sabab" required value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} />
+        <Input
+          label="Sabab"
+          required
+          value={form.reason}
+          onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
+          hint={caps.adjustmentProposalsList ? undefined : "Kamida 5 ta belgi."}
+        />
       </FormDrawer>
+
+      <ConfirmDialog
+        open={rejectingId !== null}
+        title="Tuzatishni rad etish"
+        description="Tuzatish balansga ta'sir qilmaydi va yopiladi."
+        confirmLabel="Rad etish"
+        reasonLabel="Rad etish sababi (kamida 3 ta belgi)…"
+        reasonMinLength={3}
+        loading={actingId === rejectingId}
+        error={actionError}
+        onConfirm={handleReject}
+        onCancel={() => setRejectingId(null)}
+      />
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>

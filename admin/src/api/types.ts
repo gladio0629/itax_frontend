@@ -1,20 +1,20 @@
 import type {
   City,
-  Order,
+  Order as SeedOrder,
   OrderMode,
-  OrderStatus,
-  PaymentMethod,
+  OrderStatus as SeedOrderStatus,
+  PaymentMethod as SeedPaymentMethod,
   Passenger,
   PassengerStatus,
-  Driver,
-  DriverStatus,
-  WalletEntry,
-  WalletEntryType,
+  Driver as SeedDriver,
+  DriverStatus as SeedDriverStatus,
+  WalletEntry as SeedWalletEntry,
+  WalletEntryType as SeedWalletEntryType,
   Complaint,
   ComplaintType,
   ComplaintStatus,
   ComplaintNote,
-  Tariff,
+  Tariff as SeedTariff,
 } from "@/seed/generate";
 import type {
   AdminUser,
@@ -24,17 +24,82 @@ import type {
   Action,
   AuditEntry,
   AuditAction,
-  TariffProposal,
+  TariffProposal as SeedTariffProposal,
   TariffProposalType,
   AdjustmentProposal,
   ReviewKind,
   ReviewRequest,
-  QueueItem,
-  QueueReason,
+  QueueItem as SeedQueueItem,
+  QueueReason as SeedQueueReason,
   QueueStatus,
-  HistoryEntry,
+  HistoryEntry as SeedHistoryEntry,
   HistoryResult,
 } from "@/mockDb/db";
+
+// The seed types are shared with the mock. The real API knows a few more
+// values (driver "rejected", order "arrived"/"expired", ledger "bonus"…), so
+// the UI types below widen them; the mock simply never produces the extras.
+export type DriverStatus = SeedDriverStatus | "rejected";
+export type Driver = Omit<SeedDriver, "status"> & { status: DriverStatus };
+export type OrderStatus = SeedOrderStatus | "arrived" | "expired";
+export type PaymentMethod = SeedPaymentMethod | "wallet" | "payme" | "click";
+export type Order = Omit<SeedOrder, "status" | "paymentMethod"> & {
+  status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  /** Requested pickup time (epoch ms), when the order has one. */
+  scheduledAt?: number;
+};
+export type WalletEntryType = SeedWalletEntryType | "trip_payment" | "bonus";
+export type WalletEntry = Omit<SeedWalletEntry, "type"> & { type: WalletEntryType };
+export type QueueReason = SeedQueueReason | "driver_application" | "document_update";
+export type QueueItem = Omit<SeedQueueItem, "reason"> & { reason: QueueReason };
+export type HistoryEntry = Omit<SeedHistoryEntry, "reason"> & { reason: QueueReason };
+/** Contract car classes (tariffs). */
+export type TariffCarClass = "economy" | "comfort" | "business" | "minivan";
+export type Tariff = SeedTariff & {
+  perMin?: number;
+  minFare?: number;
+  carClass?: TariffCarClass;
+};
+export type TariffProposal = Omit<SeedTariffProposal, "patch"> & { patch: Partial<Tariff> };
+export type TariffNumericField = "baseFare" | "perKmCar" | "perKmSeat" | "frontSeatSurcharge" | "fuelAdjustmentPct" | "commissionPct" | "perMin" | "minFare";
+
+/**
+ * What the active adapter can do. The mock can do everything; the http
+ * adapter only what api/openapi.yml has endpoints/fields for. Screens hide
+ * (never fake) whatever is false. See docs/backend-gaps/admin.md.
+ */
+export type AdapterCapabilities = {
+  staffSearch: boolean;
+  staffStatusFilter: boolean;
+  staffEmailEdit: boolean;
+  staffLastLogin: boolean;
+  restoreStaff: boolean;
+  driverReviewFilter: boolean;
+  driverOnline: boolean;
+  driverDebtLimit: boolean;
+  driverCarEdit: boolean;
+  passengerCity: boolean;
+  orderSearch: boolean;
+  orderCreate: boolean;
+  orderEdit: boolean;
+  orderPassenger: boolean;
+  walletLedgerFilters: boolean;
+  walletDriverName: boolean;
+  adjustmentProposalsList: boolean;
+  tariffSearch: boolean;
+  tariffProposalValues: boolean;
+  queueFilters: boolean;
+  historyFilters: boolean;
+  historyEdit: boolean;
+  operatorCounts: boolean;
+  sectionBadges: boolean;
+  /** Tariff fields this backend knows, in display order. */
+  tariffFields: readonly TariffNumericField[];
+  tariffCarClass: boolean;
+  /** Order statuses the list can be filtered by. */
+  orderStatuses: readonly OrderStatus[];
+};
 
 export type QueueListItem = Omit<QueueItem, "phoneFull">;
 /** Only returned by startTask() — the one place the mock "server" reveals a
@@ -43,21 +108,13 @@ export type ActiveTask = QueueItem;
 
 export type {
   City,
-  Order,
   OrderMode,
-  OrderStatus,
-  PaymentMethod,
   Passenger,
   PassengerStatus,
-  Driver,
-  DriverStatus,
-  WalletEntry,
-  WalletEntryType,
   Complaint,
   ComplaintType,
   ComplaintStatus,
   ComplaintNote,
-  Tariff,
   AdminUser,
   AdminRole,
   StaffStatus,
@@ -65,15 +122,11 @@ export type {
   Action,
   AuditEntry,
   AuditAction,
-  TariffProposal,
   TariffProposalType,
   AdjustmentProposal,
   ReviewKind,
   ReviewRequest,
-  QueueItem,
-  QueueReason,
   QueueStatus,
-  HistoryEntry,
   HistoryResult,
 };
 
@@ -118,24 +171,33 @@ export type StatsPeriod = "7d" | "30d" | "90d";
  * wallet totals, income by route/city). superadmin/owner/menejer have "all
  * statistics" per the permissions matrix and marketolog's statistics are no
  * longer money-free, so everyone gets the same shape from getStats(). */
+/** `null` = this backend doesn't report the figure; the screen hides it
+ * (never shows a made-up 0). */
 export type MarketingStats = {
   period: StatsPeriod;
-  passengersTotal: number;
-  passengersNew: number;
-  driversTotal: number;
-  driversActive: number;
-  driversBlocked: number;
-  driversNew: number;
-  ordersByStatus: { status: OrderStatus; count: number }[];
-  ordersByRoute: { from: string; to: string; count: number }[];
-  registrations: { date: string; passengers: number; drivers: number }[];
-  totalIncome: number;
-  totalCommission: number;
-  averageOrderValue: number;
-  walletTotalBalance: number;
-  incomeOverTime: { date: string; income: number }[];
-  incomeByRoute: { from: string; to: string; income: number }[];
-  incomeByCity: { city: string; income: number }[];
+  passengersTotal: number | null;
+  passengersNew: number | null;
+  driversTotal: number | null;
+  driversActive: number | null;
+  driversBlocked: number | null;
+  driversNew: number | null;
+  /** Real API only: drivers online right now / at the debt limit. */
+  driversOnline?: number | null;
+  driversOverLimit?: number | null;
+  /** Real API only: order totals for the period. */
+  ordersTotal?: number | null;
+  ordersCompleted?: number | null;
+  ordersCancelled?: number | null;
+  ordersByStatus: { status: OrderStatus; count: number }[] | null;
+  ordersByRoute: { from: string; to: string; count: number }[] | null;
+  registrations: { date: string; passengers: number; drivers: number }[] | null;
+  totalIncome: number | null;
+  totalCommission: number | null;
+  averageOrderValue: number | null;
+  walletTotalBalance: number | null;
+  incomeOverTime: { date: string; income: number }[] | null;
+  incomeByRoute: { from: string; to: string; income: number }[] | null;
+  incomeByCity: { city: string; income: number }[] | null;
 };
 
 export type LoginStep = "email_code" | "phone_code";
@@ -148,10 +210,25 @@ export type LoginStartResult = {
   testCode?: string;
   resendSeconds: number;
   attemptsLeft: number;
+  /** The code step must also collect the staff phone (real API: email code
+   * and phone go together in step 2). */
+  needsPhone?: boolean;
+  /** Shortest accepted code (SMS codes may be 4–6 digits); default 6. */
+  codeMinLength?: number;
 };
 
 export type LoginStepResult =
-  | { done: false; requestId: string; step: LoginStep; maskedDestination: string; testCode?: string; resendSeconds: number; attemptsLeft: number }
+  | {
+      done: false;
+      requestId: string;
+      step: LoginStep;
+      maskedDestination: string;
+      testCode?: string;
+      resendSeconds: number;
+      attemptsLeft: number;
+      needsPhone?: boolean;
+      codeMinLength?: number;
+    }
   | { done: true; reviewId: string };
 
 // ---------------------------------------------------------------------

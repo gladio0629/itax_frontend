@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { SkeletonList } from "@/components/Skeleton";
 import { formatRelativeDay } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
+import { uz, type TranslationKey } from "@/lib/i18n/uz";
 
 const KIND_ICON: Record<NotificationItem["kind"], typeof Bell> = {
   order: Bell,
@@ -22,6 +23,14 @@ export function NotificationsScreen() {
   const { t, intlTag } = useT();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [state, setState] = useState<LoadState>("loading");
+
+  // Server notifications arrive as translation keys + params. A key this
+  // app doesn't know yet shows a generic title for its kind (never the raw key).
+  const known = (key: string | undefined): key is TranslationKey => !!key && key in uz;
+  const titleOf = (n: NotificationItem) =>
+    n.titleKey === undefined ? n.title : known(n.titleKey) ? t(n.titleKey, n.params) : t(`notifications.generic.${n.kind}`);
+  const bodyOf = (n: NotificationItem) =>
+    n.titleKey === undefined ? n.body : known(n.bodyKey) ? t(n.bodyKey, n.params) : "";
 
   function load() {
     setState("loading");
@@ -69,8 +78,8 @@ export function NotificationsScreen() {
                     {!n.read && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-card" role="img" aria-label={t("inbox.unread")} />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink">{n.title}</p>
-                    <p className="mt-0.5 text-xs text-ink/60">{n.body}</p>
+                    <p className="text-sm font-semibold text-ink">{titleOf(n)}</p>
+                    {bodyOf(n) && <p className="mt-0.5 text-xs text-ink/60">{bodyOf(n)}</p>}
                     <p className="mt-1 text-xs text-ink/60">{formatRelativeDay(n.createdAt, intlTag)}</p>
                   </div>
                 </button>

@@ -26,6 +26,7 @@ export function OperatorsScreen() {
   const [counts, setCounts] = useState<OperatorCounts | null>(null);
 
   async function loadCounts() {
+    if (!api.capabilities.operatorCounts) return;
     try {
       setCounts(await api.getOperatorCounts());
     } catch {

@@ -18,26 +18,36 @@ import { formatDateTime, formatKm, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { City, OrderMode, OrderQuery, OrderStatus, OrderWithNames, Passenger, PaymentMethod } from "@/api/types";
 
+const caps = api.capabilities;
+
 const STATUS_TONE: Record<OrderStatus, BadgeTone> = {
   completed: "success",
   cancelled: "neutral",
   in_progress: "accent",
   accepted: "accent",
+  arrived: "accent",
   searching: "pending",
   no_driver: "danger",
+  expired: "danger",
 };
 const STATUS_LABEL: Record<OrderStatus, string> = {
   completed: "Yakunlangan",
   cancelled: "Bekor qilingan",
   in_progress: "Yo'lda",
   accepted: "Qabul qilingan",
+  arrived: "Haydovchi yetib keldi",
   searching: "Qidirilmoqda",
   no_driver: "Haydovchi topilmadi",
+  expired: "Muddati o'tgan",
 };
+// Only the statuses this backend can filter by.
 const STATUS_OPTIONS: { value: OrderStatus | "all"; label: string }[] = [
   { value: "all", label: "Barcha holatlar" },
-  ...(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+  ...caps.orderStatuses.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
 ];
+/** Short display number: sample ids are "ord_123", real ones are UUIDs. */
+const orderNo = (id: string) => (id.startsWith("ord_") ? id.slice(4) : id.slice(0, 8));
+const PAYMENT_LABEL: Record<PaymentMethod, string> = { cash: "Naqd", card: "Karta", wallet: "Hamyon", payme: "Payme", click: "Click" };
 
 const SEATS = [
   { id: "front", label: "Old o'rindiq" },
@@ -57,10 +67,14 @@ export function OrdersScreen() {
   const [cities, setCities] = useState<City[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   useEffect(() => {
-    Promise.all([api.getCities(), api.getPassengers({})]).then(([c, p]) => {
-      setCities(c);
-      setPassengers(p);
-    });
+    // Only the create form needs these.
+    if (!caps.orderCreate) return;
+    Promise.all([api.getCities(), api.getPassengers({})])
+      .then(([c, p]) => {
+        setCities(c);
+        setPassengers(p);
+      })
+      .catch(() => {});
   }, []);
 
   const [selected, setSelected] = useState<OrderWithNames | null>(null);
@@ -77,7 +91,7 @@ export function OrdersScreen() {
     toCityId: "",
     mode: "car" as OrderMode,
     seatIds: [] as string[],
-    paymentMethod: "cash" as PaymentMethod,
+    paymentMethod: "cash" as "cash" | "card",
     setTimeWindow: false,
     timeFrom: "08:00",
     timeTo: "10:00",
@@ -164,7 +178,7 @@ export function OrdersScreen() {
   }
 
   const columns: Column<OrderWithNames>[] = [
-    { key: "id", header: "Buyurtma", render: (o) => <span className="font-semibold text-ink">#{o.id.replace("ord_", "")}</span> },
+    { key: "id", header: "Buyurtma", render: (o) => <span className="font-semibold text-ink">#{orderNo(o.id)}</span> },
     {
       key: "route",
       header: "Yo'nalish",
@@ -175,12 +189,20 @@ export function OrdersScreen() {
         </span>
       ),
     },
-    {
-      key: "passenger",
-      header: "Yo'lovchi",
-      sortValue: (o) => o.passengerName,
-      render: (o) => <span className="block max-w-[140px] truncate" title={o.passengerName}>{o.passengerName}</span>,
-    },
+    ...(caps.orderPassenger
+      ? [
+          {
+            key: "passenger",
+            header: "Yo'lovchi",
+            sortValue: (o: OrderWithNames) => o.passengerName,
+            render: (o: OrderWithNames) => (
+              <span className="block max-w-[140px] truncate" title={o.passengerName}>
+                {o.passengerName}
+              </span>
+            ),
+          } as Column<OrderWithNames>,
+        ]
+      : []),
     {
       key: "driver",
       header: "Haydovchi",
@@ -217,6 +239,7 @@ export function OrdersScreen() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Buyurtma, ism yoki shahar…"
+          searchEnabled={caps.orderSearch}
           resultCount={orders.length}
           hasActiveFilters={hasActiveFilters}
           onClear={() => setStatus("all")}
@@ -230,9 +253,11 @@ export function OrdersScreen() {
             filenamePrefix="buyurtmalar"
             buildRow={(o) => ({ ID: o.id, Yolnalish: `${o.fromCityName}-${o.toCityName}`, Yolovchi: o.passengerName, Narx: o.price, Holat: o.status })}
           />
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" /> Yangi buyurtma
-          </Button>
+          {caps.orderCreate && (
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" /> Yangi buyurtma
+            </Button>
+          )}
         </div>
       </div>
 
@@ -247,7 +272,11 @@ export function OrdersScreen() {
         onRowClick={openDetail}
       />
 
-      <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? `Buyurtma #${selected.id.replace("ord_", "")}` : ""}>
+      <Drawer
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected ? `Buyurtma #${orderNo(selected.id)}` : ""}
+      >
         {selected && !editingOrder && (
           <div className="space-y-5">
             <div className="h-56 overflow-hidden rounded-card">
@@ -268,10 +297,12 @@ export function OrdersScreen() {
                 <p className="text-xs text-ink/50">Masofa</p>
                 <p className="font-semibold text-ink">{formatKm(selected.distanceKm)}</p>
               </div>
-              <div>
-                <p className="text-xs text-ink/50">Yo'lovchi</p>
-                <p className="font-semibold text-ink">{selected.passengerName}</p>
-              </div>
+              {caps.orderPassenger && (
+                <div>
+                  <p className="text-xs text-ink/50">Yo'lovchi</p>
+                  <p className="font-semibold text-ink">{selected.passengerName}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-ink/50">Haydovchi</p>
                 <p className="font-semibold text-ink">{selected.driverName ?? "—"}</p>
@@ -282,12 +313,19 @@ export function OrdersScreen() {
               </div>
               <div>
                 <p className="text-xs text-ink/50">To'lov</p>
-                <p className="font-semibold text-ink">{selected.paymentMethod === "cash" ? "Naqd" : "Karta"}</p>
+                <p className="font-semibold text-ink">{PAYMENT_LABEL[selected.paymentMethod]}</p>
               </div>
-              <div>
-                <p className="text-xs text-ink/50">Vaqt oralig'i</p>
-                <p className="font-semibold text-ink">{selected.timeWindow ? `${selected.timeWindow.from} – ${selected.timeWindow.to}` : "Tez orada"}</p>
-              </div>
+              {selected.scheduledAt ? (
+                <div>
+                  <p className="text-xs text-ink/50">Jo'nash vaqti</p>
+                  <p className="font-semibold text-ink">{formatDateTime(selected.scheduledAt)}</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-ink/50">Vaqt oralig'i</p>
+                  <p className="font-semibold text-ink">{selected.timeWindow ? `${selected.timeWindow.from} – ${selected.timeWindow.to}` : "Tez orada"}</p>
+                </div>
+              )}
               {selected.mode === "seat" && (
                 <div>
                   <p className="text-xs text-ink/50">O'rindiqlar</p>
@@ -300,9 +338,11 @@ export function OrdersScreen() {
             <div className="border-t border-border pt-4">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold text-ink/50">Izoh</p>
-                <button type="button" onClick={() => startEditOrder(selected)} className="flex items-center gap-1 text-xs font-semibold text-accent">
-                  <Pencil className="h-3 w-3" /> Tahrirlash
-                </button>
+                {caps.orderEdit && (
+                  <button type="button" onClick={() => startEditOrder(selected)} className="flex items-center gap-1 text-xs font-semibold text-accent">
+                    <Pencil className="h-3 w-3" /> Tahrirlash
+                  </button>
+                )}
               </div>
               <p className="text-sm text-ink/70">{selected.note || "Izoh yo'q"}</p>
             </div>

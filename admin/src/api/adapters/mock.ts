@@ -62,6 +62,7 @@ import type {
   SectionBadges,
   OperatorCounts,
   ArchivableStatusFilter,
+  AdapterCapabilities,
 } from "../types";
 
 const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
@@ -234,7 +235,41 @@ function toQueueListItem(q: QueueItem): QueueListItem {
   return rest;
 }
 
+const MOCK_CAPABILITIES: AdapterCapabilities = {
+  staffSearch: true,
+  staffStatusFilter: true,
+  staffEmailEdit: true,
+  staffLastLogin: true,
+  restoreStaff: true,
+  driverReviewFilter: true,
+  driverOnline: true,
+  driverDebtLimit: true,
+  driverCarEdit: true,
+  passengerCity: true,
+  orderSearch: true,
+  orderCreate: true,
+  orderEdit: true,
+  orderPassenger: true,
+  walletLedgerFilters: true,
+  walletDriverName: true,
+  adjustmentProposalsList: true,
+  tariffSearch: true,
+  tariffProposalValues: true,
+  queueFilters: true,
+  historyFilters: true,
+  historyEdit: true,
+  operatorCounts: true,
+  sectionBadges: true,
+  tariffFields: ["baseFare", "perKmCar", "perKmSeat", "frontSeatSurcharge", "fuelAdjustmentPct", "commissionPct"],
+  tariffCarClass: false,
+  orderStatuses: ["completed", "cancelled", "in_progress", "accepted", "searching", "no_driver"],
+};
+
 export const mockAdapter: ApiAdapter = {
+  capabilities: MOCK_CAPABILITIES,
+  // The mock session never expires on its own (idle logout is UI-side).
+  onSessionEnd: () => () => {},
+
   requestLogin: (identifier) =>
     withLatency<LoginStartResult>(() => {
       const user = findStaffByEmailOrPhone(identifier);

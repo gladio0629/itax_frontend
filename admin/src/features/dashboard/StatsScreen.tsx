@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Car, TrendingUp, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
+import { Car, Route as RouteIcon, TrendingUp, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { Card, CardTitle } from "@/components/Card";
@@ -18,6 +18,8 @@ const STATUS_LABEL: Record<string, string> = {
   accepted: "Qabul qilingan",
   searching: "Qidirilmoqda",
   no_driver: "Haydovchi topilmadi",
+  arrived: "Haydovchi yetib keldi",
+  expired: "Muddati o'tgan",
 };
 // Chart palette derived from the brand: navy series, yellow highlight, muted slate for the rest.
 const NAVY = "#264A9F";
@@ -75,22 +77,54 @@ export function StatsScreen() {
         </div>
       ) : (
         <>
+          {/* Each card renders only when the backend reports the figure (null = not available). */}
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-            <StatCard icon={<Wallet className="h-5 w-5" />} label="Davr daromadi" value={formatSom(stats.totalIncome)} tone="accent" highlight />
-            <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Komissiya" value={formatSom(stats.totalCommission)} />
-            <StatCard icon={<Wallet className="h-5 w-5" />} label="O'rtacha buyurtma qiymati" value={formatSom(stats.averageOrderValue)} />
-            <StatCard
-              icon={<Wallet className="h-5 w-5" />}
-              label="Haydovchilar hamyoni (jami)"
-              value={formatSom(stats.walletTotalBalance)}
-              tone={stats.walletTotalBalance < 0 ? "danger" : "neutral"}
-            />
-            <StatCard icon={<Users className="h-5 w-5" />} label="Jami yo'lovchilar" value={String(stats.passengersTotal)} hint={`+${stats.passengersNew} yangi`} tone="accent" />
-            <StatCard icon={<Car className="h-5 w-5" />} label="Jami haydovchilar" value={String(stats.driversTotal)} hint={`+${stats.driversNew} yangi`} />
-            <StatCard icon={<UserCheck className="h-5 w-5" />} label="Faol haydovchilar" value={String(stats.driversActive)} tone="success" />
-            <StatCard icon={<UserPlus className="h-5 w-5" />} label="Bloklangan haydovchilar" value={String(stats.driversBlocked)} tone="danger" />
+            {stats.totalIncome !== null && (
+              <StatCard icon={<Wallet className="h-5 w-5" />} label="Davr daromadi" value={formatSom(stats.totalIncome)} tone="accent" highlight />
+            )}
+            {stats.totalCommission !== null && <StatCard icon={<TrendingUp className="h-5 w-5" />} label="Komissiya" value={formatSom(stats.totalCommission)} />}
+            {stats.averageOrderValue !== null && (
+              <StatCard icon={<Wallet className="h-5 w-5" />} label="O'rtacha buyurtma qiymati" value={formatSom(stats.averageOrderValue)} />
+            )}
+            {stats.walletTotalBalance !== null && (
+              <StatCard
+                icon={<Wallet className="h-5 w-5" />}
+                label="Haydovchilar hamyoni (jami)"
+                value={formatSom(stats.walletTotalBalance)}
+                tone={stats.walletTotalBalance < 0 ? "danger" : "neutral"}
+              />
+            )}
+            {stats.ordersTotal != null && <StatCard icon={<RouteIcon className="h-5 w-5" />} label="Jami buyurtmalar" value={String(stats.ordersTotal)} tone="accent" />}
+            {stats.ordersCompleted != null && <StatCard icon={<RouteIcon className="h-5 w-5" />} label="Yakunlangan buyurtmalar" value={String(stats.ordersCompleted)} tone="success" />}
+            {stats.ordersCancelled != null && <StatCard icon={<RouteIcon className="h-5 w-5" />} label="Bekor qilingan buyurtmalar" value={String(stats.ordersCancelled)} />}
+            {stats.passengersTotal !== null ? (
+              <StatCard
+                icon={<Users className="h-5 w-5" />}
+                label="Jami yo'lovchilar"
+                value={String(stats.passengersTotal)}
+                hint={stats.passengersNew !== null ? `+${stats.passengersNew} yangi` : undefined}
+                tone="accent"
+              />
+            ) : (
+              stats.passengersNew !== null && <StatCard icon={<Users className="h-5 w-5" />} label="Yangi yo'lovchilar" value={String(stats.passengersNew)} tone="accent" />
+            )}
+            {stats.driversTotal !== null && (
+              <StatCard
+                icon={<Car className="h-5 w-5" />}
+                label="Jami haydovchilar"
+                value={String(stats.driversTotal)}
+                hint={stats.driversNew !== null ? `+${stats.driversNew} yangi` : undefined}
+              />
+            )}
+            {stats.driversActive !== null && <StatCard icon={<UserCheck className="h-5 w-5" />} label="Faol haydovchilar" value={String(stats.driversActive)} tone="success" />}
+            {stats.driversOnline != null && <StatCard icon={<Car className="h-5 w-5" />} label="Hozir onlayn haydovchilar" value={String(stats.driversOnline)} />}
+            {stats.driversBlocked !== null && <StatCard icon={<UserPlus className="h-5 w-5" />} label="Bloklangan haydovchilar" value={String(stats.driversBlocked)} tone="danger" />}
+            {stats.driversOverLimit != null && (
+              <StatCard icon={<Wallet className="h-5 w-5" />} label="Qarz limitiga yetgan haydovchilar" value={String(stats.driversOverLimit)} tone="danger" />
+            )}
           </div>
 
+          {stats.incomeOverTime && (
           <Card>
             <CardTitle className="mb-4">Daromad dinamikasi</CardTitle>
             <div className="h-72">
@@ -117,7 +151,9 @@ export function StatsScreen() {
               </ResponsiveContainer>
             </div>
           </Card>
+          )}
 
+          {stats.registrations && stats.ordersByStatus && (
           <div className="grid grid-cols-2 gap-6">
             <Card>
               <CardTitle className="mb-4">Ro'yxatdan o'tishlar dinamikasi</CardTitle>
@@ -155,7 +191,9 @@ export function StatsScreen() {
               </div>
             </Card>
           </div>
+          )}
 
+          {stats.incomeByRoute && stats.incomeByCity && (
           <div className="grid grid-cols-2 gap-6">
             <Card>
               <CardTitle className="mb-4">Daromad bo'yicha yo'nalishlar</CardTitle>
@@ -167,6 +205,7 @@ export function StatsScreen() {
               <RankedList rows={stats.incomeByCity.map((c) => ({ label: c.city, value: c.income }))} />
             </Card>
           </div>
+          )}
         </>
       )}
     </div>

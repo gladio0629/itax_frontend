@@ -14,6 +14,7 @@ export function ListToolbar({
   resultCount,
   hasActiveFilters,
   onClear,
+  searchEnabled = true,
 }: {
   search: string;
   onSearchChange: (v: string) => void;
@@ -22,22 +23,26 @@ export function ListToolbar({
   resultCount?: number;
   hasActiveFilters: boolean;
   onClear: () => void;
+  /** false when the backend can't search this list (the field is hidden). */
+  searchEnabled?: boolean;
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="w-72 max-w-full">
-          <Input
-            type="search"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={searchPlaceholder}
-            aria-label={searchPlaceholder.replace(/\.{3}|…/g, "")}
-            leftIcon={<Search className="h-4 w-4" />}
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
+        {searchEnabled && (
+          <div className="w-72 max-w-full">
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder.replace(/\.{3}|…/g, "")}
+              leftIcon={<Search className="h-4 w-4" />}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+        )}
         {children}
         {hasActiveFilters && (
           <button

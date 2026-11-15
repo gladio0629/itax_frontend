@@ -29,7 +29,7 @@ export default function WalletScreen() {
   const wallet = useQuery(() => api.getWallet(), []);
   const w = wallet.data;
   const balance = useCountUp(w?.balance);
-  const todayEarnings = useCountUp(w?.today.earnings);
+  const todayEarnings = useCountUp(w?.today?.earnings);
 
   return (
     <div className="flex h-full flex-col">
@@ -50,7 +50,8 @@ export default function WalletScreen() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Bugungi daromad — the glance number, first thing on Hamyon. */}
+            {/* Bugungi daromad — the glance number, first thing on Hamyon (when the backend has it). */}
+            {w.today && (
             <section aria-labelledby="today-h" className="rounded-card bg-surface p-5 shadow-1">
               <p id="today-h" className="text-sm text-muted">{t("wallet.today")}</p>
               <p className="tabular mt-1 text-4xl font-bold text-gold">
@@ -70,6 +71,7 @@ export default function WalletScreen() {
                 </div>
               </dl>
             </section>
+            )}
 
             {/* Hero — always a navy card, in both themes, so yellow text stays AA. */}
             <section
@@ -99,6 +101,7 @@ export default function WalletScreen() {
               </Button>
             </section>
 
+            {w.commission && api.capabilities.bonus && (
             <Link to="/profile/bonus" className="press flex items-center gap-3 rounded-card bg-surface p-4 shadow-1" aria-label={`${t("wallet.commission", { pct: w.commission.pct })}. ${t("wallet.openBonus")}`}>
               <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-button", TILE.yellow)}>
                 <Percent className="h-5 w-5" />
@@ -118,6 +121,7 @@ export default function WalletScreen() {
               </div>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted" />
             </Link>
+            )}
 
             <Link to="/wallet/cards" className="press flex items-center gap-3 rounded-card bg-surface p-4 shadow-1">
               <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-button", TILE.blue)}>
@@ -125,9 +129,11 @@ export default function WalletScreen() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-base font-bold text-ink">{t("wallet.cards")}</p>
-                <p className="tabular text-sm text-muted">
-                  {w.cards.length ? `${t("wallet.cardsCount", { n: w.cards.length })}: ${w.cards.map((c) => `•••• ${c.last4}`).join(", ")}` : t("wallet.noCards")}
-                </p>
+                {w.cards && (
+                  <p className="tabular text-sm text-muted">
+                    {w.cards.length ? `${t("wallet.cardsCount", { n: w.cards.length })}: ${w.cards.map((c) => `•••• ${c.last4}`).join(", ")}` : t("wallet.noCards")}
+                  </p>
+                )}
               </div>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted" />
             </Link>
@@ -147,6 +153,7 @@ const TYPE_ICON: Record<LedgerType, { icon: typeof Car; tile: keyof typeof TILE 
   topup: { icon: Wallet, tile: "blue" },
   bonus: { icon: Gift, tile: "yellow" },
   payout: { icon: Banknote, tile: "teal" },
+  correction: { icon: Receipt, tile: "purple" },
 };
 
 function Ledger() {
@@ -178,7 +185,8 @@ function Ledger() {
         {t("wallet.ledger")}
       </SectionLabel>
       <p className="mb-3 px-1 text-sm text-muted">{t("wallet.ledgerHint")}</p>
-
+      {api.capabilities.ledgerFilters && (
+      <>
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4" role="group" aria-label={t("wallet.typeFilter")}>
         {TYPES.map((ty) => (
           <Chip key={ty} selected={type === ty} onClick={() => setType(ty)}>
@@ -193,6 +201,8 @@ function Ledger() {
           </Chip>
         ))}
       </div>
+      </>
+      )}
 
       <div className="mt-3" aria-busy={q.loading}>
         {q.error && !data ? (
@@ -212,7 +222,7 @@ function Ledger() {
                 <LedgerRow key={e.id} entry={e} />
               ))}
             </ul>
-            <p className="tabular mt-3 text-center text-sm text-muted">{t("wallet.shown", { shown: data.items.length, total: data.total })}</p>
+            {data.total != null && <p className="tabular mt-3 text-center text-sm text-muted">{t("wallet.shown", { shown: data.items.length, total: data.total })}</p>}
             {data.page < data.pageCount && (
               <Button variant="secondary" fullWidth className="mt-3" loading={q.loading} onClick={() => setPage((p) => p + 1)}>
                 {t("common.loadMore")}

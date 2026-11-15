@@ -48,16 +48,23 @@ export function AccountScreen() {
 
   const [loadError, setLoadError] = useState(false);
   const ios = useIsIOS();
+  const caps = api.capabilities;
 
   function load() {
     setLoadError(false);
     api.getProfile().then((p) => {
       setProfile(p);
-      const [f, ...rest] = p.name.split(" ");
-      setFirstName(f ?? "");
-      setLastName(rest.join(" "));
+      if (p.firstName !== undefined || p.lastName !== undefined) {
+        setFirstName(p.firstName ?? "");
+        setLastName(p.lastName ?? "");
+      } else {
+        const [f, ...rest] = p.name.split(" ");
+        setFirstName(f ?? "");
+        setLastName(rest.join(" "));
+      }
     }).catch(() => setLoadError(true));
-    api.getAccounts().then(setAccounts).catch(() => setLoadError(true));
+    // Several accounts on one device: only where the adapter supports it.
+    if (caps.accounts) api.getAccounts().then(setAccounts).catch(() => setLoadError(true));
   }
 
   useEffect(load, []);
@@ -105,12 +112,14 @@ export function AccountScreen() {
     <>
       <Input label={t("account.firstName")} name="given-name" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
       <Input label={t("account.lastName")} name="family-name" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-      <button
-        onClick={() => setPhoneSheetOpen(true)}
-        className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-dashed border-accent/40 px-4 py-3 text-xs font-semibold text-accent"
-      >
-        {t("account.changePhone")}
-      </button>
+      {caps.phoneChange && (
+        <button
+          onClick={() => setPhoneSheetOpen(true)}
+          className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-dashed border-accent/40 px-4 py-3 text-xs font-semibold text-accent"
+        >
+          {t("account.changePhone")}
+        </button>
+      )}
       <div className="flex gap-2 pt-1">
         <Button variant="secondary" fullWidth onClick={() => setEditing(false)}>
           {t("common.cancel")}
@@ -191,13 +200,17 @@ export function AccountScreen() {
             </ListSection>
           )}
 
-          <ListSection>
-            <ListRow action leading={<IconTile icon={Plus} />} title={t("account.addAccount")} onClick={() => setAddOpen(true)} />
-          </ListSection>
+          {caps.accounts && (
+            <ListSection>
+              <ListRow action leading={<IconTile icon={Plus} />} title={t("account.addAccount")} onClick={() => setAddOpen(true)} />
+            </ListSection>
+          )}
 
-          <ListSection header={t("account.dangerZone")} headerTone="danger" footer={t("account.deleteSelfWarning")}>
-            <ListRow centered destructive title={t("account.deleteSelfAction")} onClick={() => setSelfDeleteOpen(true)} />
-          </ListSection>
+          {caps.accountDeletion && (
+            <ListSection header={t("account.dangerZone")} headerTone="danger" footer={t("account.deleteSelfWarning")}>
+              <ListRow centered destructive title={t("account.deleteSelfAction")} onClick={() => setSelfDeleteOpen(true)} />
+            </ListSection>
+          )}
         </div>
       ) : (
       <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
@@ -253,23 +266,29 @@ export function AccountScreen() {
             </Card>
           </>
         )}
-        <button
-          onClick={() => setAddOpen(true)}
-          className="mb-5 flex w-full items-center gap-3 rounded-xl bg-card p-4 text-left text-accent shadow-softer"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5">
-            <Plus className="h-4 w-4" />
-          </span>
-          <span className="text-sm font-semibold">{t("account.addAccount")}</span>
-        </button>
+        {caps.accounts && (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="mb-5 flex w-full items-center gap-3 rounded-xl bg-card p-4 text-left text-accent shadow-softer"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5">
+              <Plus className="h-4 w-4" />
+            </span>
+            <span className="text-sm font-semibold">{t("account.addAccount")}</span>
+          </button>
+        )}
 
-        <p className="mb-2 px-1 text-xs font-semibold text-danger">{t("account.dangerZone")}</p>
-        <Card className="p-4">
-          <p className="mb-3 text-xs text-ink/60">{t("account.deleteSelfWarning")}</p>
-          <Button variant="danger" fullWidth onClick={() => setSelfDeleteOpen(true)}>
-            {t("account.deleteSelfAction")}
-          </Button>
-        </Card>
+        {caps.accountDeletion && (
+          <>
+            <p className="mb-2 px-1 text-xs font-semibold text-danger">{t("account.dangerZone")}</p>
+            <Card className="p-4">
+              <p className="mb-3 text-xs text-ink/60">{t("account.deleteSelfWarning")}</p>
+              <Button variant="danger" fullWidth onClick={() => setSelfDeleteOpen(true)}>
+                {t("account.deleteSelfAction")}
+              </Button>
+            </Card>
+          </>
+        )}
       </div>
       )}
 

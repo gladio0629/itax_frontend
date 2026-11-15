@@ -7,6 +7,8 @@ import { Logo } from "@/components/Logo";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
+import { serverErrorKey } from "@/lib/apiError";
 import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import { formatPhoneInput } from "@/lib/phone";
 
@@ -31,9 +33,12 @@ export function PhoneScreen() {
       const fullPhone = `+998 ${value}`;
       const res = await api.requestOtp(fullPhone);
       setPhone(fullPhone);
-      navigate("/auth/otp", { state: { requestId: res.requestId, testCode: res.testCode, phone: fullPhone } });
-    } catch {
-      setError(t("auth.otpSendError"));
+      navigate("/auth/otp", {
+        state: { requestId: res.requestId, testCode: res.testCode, resendAfterSec: res.resendAfterSec, phone: fullPhone },
+      });
+    } catch (e) {
+      const key = serverErrorKey(e);
+      setError(key ? t(key as TranslationKey) : t("auth.otpSendError"));
     } finally {
       setLoading(false);
     }

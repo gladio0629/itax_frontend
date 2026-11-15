@@ -7,11 +7,15 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
+import { serverErrorKey } from "@/lib/apiError";
 import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import { cn } from "@/lib/cn";
 
 /** `testCode` comes only from the sample-data adapter; a real backend sends the code by SMS. */
-type LocationState = { requestId: string; testCode?: string; phone: string };
+type LocationState = { requestId: string; testCode?: string; resendAfterSec?: number; phone: string };
+
+const DEFAULT_RESEND_SEC = 30;
 
 export function OtpScreen() {
   const footerRef = useRef<HTMLDivElement>(null);
@@ -27,7 +31,10 @@ export function OtpScreen() {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [seconds, setSeconds] = useState(30);
+  const [seconds, setSeconds] = useState(state?.resendAfterSec ?? DEFAULT_RESEND_SEC);
+  // A resend issues a new request id (the code it sends replaces the old one).
+  const [requestId, setRequestId] = useState(state?.requestId ?? "");
+  const [resending, setResending] = useState(false);
   const inputsRef = useRef<HTMLInputElement[]>([]);
 
   useEffect(() => {
@@ -55,15 +62,33 @@ export function OtpScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      const review = await api.verifyOtp(state.requestId, code);
+      const review = await api.verifyOtp(requestId, code);
       setReviewId(review.id);
       setPhase("review");
-    } catch {
-      setError(t("auth.otpError"));
+    } catch (e) {
+      const key = serverErrorKey(e);
+      setError(key ? t(key as TranslationKey) : t("auth.otpError"));
       setDigits(["", "", "", ""]);
       inputsRef.current[0]?.focus();
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function resend() {
+    if (!state || resending) return;
+    setResending(true);
+    setError(null);
+    try {
+      const res = await api.requestOtp(state.phone);
+      setRequestId(res.requestId);
+      setSeconds(res.resendAfterSec ?? DEFAULT_RESEND_SEC);
+      if (res.testCode) setDigits(res.testCode.split(""));
+    } catch (e) {
+      const key = serverErrorKey(e);
+      setError(key ? t(key as TranslationKey) : t("auth.otpSendError"));
+    } finally {
+      setResending(false);
     }
   }
 
@@ -129,8 +154,8 @@ export function OtpScreen() {
         {error && <p className="mt-3 text-xs font-normal text-danger">{error}</p>}
 
         <button
-          disabled={seconds > 0}
-          onClick={() => setSeconds(30)}
+          disabled={seconds > 0 || resending}
+          onClick={resend}
           className="mt-6 text-sm font-semibold text-accent disabled:text-ink/40"
         >
           {seconds > 0 ? (

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "@/api/client";
 import type { DocumentStatus } from "@/api/types";
-import { useT } from "@/lib/i18n/provider";
+import { isKey, useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { errorMessage } from "@/lib/errors";
 import { Car, FileText, IdCard, Pencil, ShieldCheck, Timer } from "@/lib/icons";
@@ -36,20 +36,31 @@ export default function PersonalScreen() {
           <div className="animate-fade-up space-y-5">
             <Card className="divide-y divide-line">
               <InfoRow label={t("personal.name")} value={p.name} onEdit={() => setEdit("name")} editLabel={`${t("common.edit")}: ${t("personal.name")}`} />
-              <InfoRow label={t("personal.phone")} value={p.phoneMasked} onEdit={() => setEdit("phone")} editLabel={`${t("common.edit")}: ${t("personal.phone")}`} />
-              <InfoRow label={t("personal.city")} value={p.city.name} />
+              <InfoRow
+                label={t("personal.phone")}
+                value={p.phoneMasked}
+                onEdit={api.capabilities.profileChangePhone ? () => setEdit("phone") : undefined}
+                editLabel={`${t("common.edit")}: ${t("personal.phone")}`}
+              />
+              {p.city && <InfoRow label={t("personal.city")} value={p.city.name} />}
             </Card>
 
+            {p.car && (
             <section aria-labelledby="car-h">
               <SectionLabel id="car-h">{t("personal.car")}</SectionLabel>
               <Card className="divide-y divide-line">
-                <InfoRow label={t("personal.carModel")} value={p.car.model} onEdit={() => setEdit("car")} editLabel={`${t("common.edit")}: ${t("personal.car")}`} />
+                <InfoRow
+                  label={t("personal.carModel")}
+                  value={p.car.model}
+                  onEdit={api.capabilities.profileChangeCar ? () => setEdit("car") : undefined}
+                  editLabel={`${t("common.edit")}: ${t("personal.car")}`}
+                />
                 <InfoRow
                   label={t("personal.carColor")}
                   value={
                     <span className="inline-flex items-center gap-2">
                       <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full ring-1 ring-ink/20" style={{ background: p.car.colorHex }} />
-                      {t(`color.${p.car.color}` as never)}
+                      {isKey(`color.${p.car.color}`) ? t(`color.${p.car.color}` as never) : p.car.color}
                     </span>
                   }
                 />
@@ -57,7 +68,9 @@ export default function PersonalScreen() {
                 <InfoRow label={t("personal.year")} value={<span className="tabular">{p.car.year}</span>} />
               </Card>
             </section>
+            )}
 
+            {p.documents.length > 0 && (
             <section aria-labelledby="docs-h">
               <SectionLabel id="docs-h">{t("personal.documents")}</SectionLabel>
               <Card className="divide-y divide-line">
@@ -72,6 +85,7 @@ export default function PersonalScreen() {
                 ))}
               </Card>
             </section>
+            )}
 
             <p className="flex gap-2 px-1 text-sm text-muted">
               <Car className="mt-0.5 h-4 w-4 shrink-0" />

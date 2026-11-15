@@ -1,12 +1,9 @@
 import { getTestNetwork } from "@/stores/testControlsStore";
+import { ApiError } from "@shared/http/errors";
 
-export class ApiError extends Error {
-  code: string;
-  constructor(code: string, message?: string) {
-    super(message ?? code);
-    this.code = code;
-  }
-}
+// One error type for both adapters (the real-backend adapter never imports
+// this file, so the test-panel store stays out of its bundle).
+export { ApiError };
 
 /**
  * Fakes a server round-trip with a local timer — never touches the network.

@@ -9,7 +9,7 @@ export type OrderKind = "passengers" | "delivery";
 export type Cargo = { labelKey: string; weightKg: number };
 
 /** Class the order was placed in (matches the driver's car class). */
-export type CarClass = "economy" | "comfort" | "business";
+export type CarClass = "economy" | "comfort" | "business" | "minivan";
 /** Child-seat age groups: 0–1, 1–4, 4–12 years. */
 export type ChildSeatAge = "infant" | "toddler" | "booster";
 
@@ -51,7 +51,8 @@ export type Freight = {
 
 /** Order details shared by the incoming offer and the active trip. */
 export type OrderExtras<P extends Place> = {
-  carClass: CarClass;
+  /** Absent when the server didn't send one (per-seat orders). */
+  carClass?: CarClass;
   /** Intermediate stops, in driving order (pickup and final dropoff excluded). */
   stops: P[];
   comment: string | null;
@@ -84,6 +85,8 @@ export type ReviewRequest = {
   applied?: boolean;
   /** Translation key explaining a rejection (e.g. another driver took the request). */
   resultKey?: string;
+  /** Real backend only: the payment provider page to open (top-up, card link). */
+  redirectUrl?: string;
 };
 
 export type DocumentStatus = "none" | "auto_review" | "approved";
@@ -97,12 +100,14 @@ export type DriverProfile = {
   phoneMasked: string;
   avatarSeed: string;
   rating: number;
-  ratingCount: number;
-  totalTrips: number;
-  city: CityRef;
-  car: Car;
+  // Optional: the real backend's profile doesn't carry these (see docs/backend-gaps).
+  ratingCount?: number;
+  totalTrips?: number;
+  city?: CityRef;
+  /** Absent until registration step 2 is saved. */
+  car?: Car;
   documents: DriverDocument[];
-  memberSinceYear: number;
+  memberSinceYear?: number;
 };
 
 /** "Imkoniyatlarim": what the driver offers. Car class and cargo body are read-only (from the car). */
@@ -141,6 +146,8 @@ export type HomeSummary = {
   bonusActive: boolean;
   /** New matching requests the driver hasn't looked at yet (Asosiy tab badge). */
   newRequests: number;
+  /** A trip was accepted and isn't finished yet (drives GPS reporting). */
+  tripActive?: boolean;
 };
 
 export type TripStage = "to_pickup" | "waiting" | "in_progress" | "completed";
@@ -171,7 +178,8 @@ export type RideRequest = OrderExtras<OfferPlace> & {
   directionId: string;
   pickup: OfferPlace;
   dropoff: OfferPlace;
-  when: TripWhen;
+  /** Absent when the server doesn't say when (the real API's offers carry no time). */
+  when?: TripWhen;
   kind: OrderKind;
   /** Seats the request takes (whole car = all seats). 0 for cargo. */
   seats: number;
@@ -179,13 +187,15 @@ export type RideRequest = OrderExtras<OfferPlace> & {
   cargo?: Cargo;
   /** What the passenger pays, as the adapter prices it. */
   price: number;
-  /** What the driver keeps after commission. */
-  earnings: { net: number; commissionPct: number };
-  payment: PaymentType;
-  pickupDistanceKm: number;
+  /** What the driver keeps after commission (pct only when the server gives it). */
+  earnings: { net: number; commissionPct?: number };
+  payment?: PaymentType;
+  pickupDistanceKm?: number;
+  /** Minutes to the pickup, when the server gives an ETA instead of a distance. */
+  pickupEtaMin?: number;
   distanceKm: number;
   durationMin: number;
-  postedAt: number;
+  postedAt?: number;
   /** "taken": another driver got it — shown briefly, then the adapter drops it. */
   status: "open" | "taken";
   acceptBlock: AcceptBlock | null;
@@ -197,7 +207,8 @@ export type FeedQuery = { direction: string; date: FeedDate; type: FeedType };
 export type SeatSummary = { free: number; total: number; direction: Direction | null; when: { date: string; dayOffset: number; dayStart: number } };
 export type FeedPage = {
   items: RideRequest[];
-  seats: SeatSummary;
+  /** null when the server has no seat summary. */
+  seats: SeatSummary | null;
   directions: Direction[];
   /** Dates offered under "Sana". */
   dates: { date: string; dayOffset: number; dayStart: number }[];
@@ -211,21 +222,24 @@ export type Booking = OrderExtras<TripPlace> & {
   steps: TripStep[];
   nextAction: TripAction | null;
   pendingReviewId: string | null;
-  passenger: PassengerInfo;
+  /** Absent when the server doesn't share the passenger (real API: no field yet). */
+  passenger?: PassengerInfo;
   pickup: TripPlace;
   dropoff: TripPlace;
-  when: TripWhen;
+  when?: TripWhen;
   kind: OrderKind;
   seats: number;
   wholeCar: boolean;
   cargo?: Cargo;
   price: number;
-  earnings: { net: number; commissionPct: number };
-  payment: PaymentType;
+  earnings: { net: number; commissionPct?: number };
+  payment?: PaymentType;
   acceptedAt: number;
 };
+/** seats.total 0 = unknown (not shown). */
 export type BookingTrip = { direction: Direction; seats: { used: number; total: number }; bookings: Booking[] };
-export type BookingDay = { date: string; dayOffset: number; dayStart: number; trips: BookingTrip[] };
+/** `undated`: the server gave no trip date; the day heading is hidden. */
+export type BookingDay = { date: string; dayOffset: number; dayStart: number; trips: BookingTrip[]; undated?: boolean };
 export type AcceptedPage = { days: BookingDay[]; count: number };
 
 /** In-app banner / system notification for a new request. Minimal on purpose: no names or phones. */
@@ -298,7 +312,7 @@ export type TripDetail = HistoryItem & {
   cancelReasonKey?: string;
 };
 
-export type LedgerType = "trip" | "commission" | "tip" | "topup" | "bonus" | "payout";
+export type LedgerType = "trip" | "commission" | "tip" | "topup" | "bonus" | "payout" | "correction";
 export type LedgerEntry = {
   id: string;
   type: LedgerType;
@@ -309,7 +323,8 @@ export type LedgerEntry = {
   balanceAfter: number;
 };
 export type LedgerQuery = { type: LedgerType | "all"; range: HistoryRange; page: number };
-export type LedgerPage = { items: LedgerEntry[]; page: number; pageCount: number; total: number };
+/** `total` only when the server reports it (cursor pages don't). */
+export type LedgerPage = { items: LedgerEntry[]; page: number; pageCount: number; total?: number };
 
 export type LinkedCard = { id: string; brand: "uzcard" | "humo"; last4: string; provider: PayProvider };
 export type PayProvider = "payme" | "click";
@@ -317,9 +332,10 @@ export type PayProvider = "payme" | "click";
 export type WalletSummary = {
   balance: number;
   debt: DebtState;
-  today: { earnings: number; trips: number; avgPerTrip: number };
-  commission: { pct: number; bonusPct: number; bonusActive: boolean };
-  cards: LinkedCard[];
+  // Optional: the real backend has no today stats, commission info or card list yet.
+  today?: { earnings: number; trips: number; avgPerTrip: number };
+  commission?: { pct: number; bonusPct: number; bonusActive: boolean };
+  cards?: LinkedCard[];
 };
 
 export type TopupOptions = { presets: number[]; min: number; max: number; providers: PayProvider[] };
@@ -373,8 +389,10 @@ export type HelpTopic = "order" | "payment" | "app" | "docs";
 export type HelpRequest = { id: string; topic: HelpTopic; message?: string; createdAt: number; status: "in_review" | "resolved" };
 
 /** "routes": verified, but the driver still has to pick Yo'nalishlarim before requests arrive. */
-export type SessionStage = "signed_out" | "personal" | "car" | "documents" | "review" | "routes" | "active";
-export type Session = { stage: SessionStage; phone?: string; documentsReviewId?: string };
+/** "blocked": the account is blocked; only logout is possible. */
+export type SessionStage = "signed_out" | "personal" | "car" | "documents" | "review" | "routes" | "active" | "blocked";
+/** `notice: "rejected"`: the application came back rejected — registration is open again. */
+export type Session = { stage: SessionStage; phone?: string; documentsReviewId?: string; notice?: "rejected" };
 
 export type RegistrationOptions = {
   cities: CityRef[];
@@ -382,7 +400,16 @@ export type RegistrationOptions = {
   carColors: { key: string; hex: string }[];
   years: number[];
   platePattern: string;
+  /** Extra inputs the real backend needs (absent: not asked). */
+  askBirthDate?: boolean;
+  carClasses?: CarClass[];
+  seatCounts?: number[];
+  /** Real backend: real photo files, a selfie, and the terms checkbox. */
+  realDocuments?: boolean;
 };
+
+/** Document slots in registration step 4. */
+export type DocSlot = "license" | "registration" | "selfie";
 
 export type CancelReason = { key: string };
 

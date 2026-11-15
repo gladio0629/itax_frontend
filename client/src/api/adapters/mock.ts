@@ -9,6 +9,7 @@ import {
   WAREHOUSES,
   addressById,
   addressesForQuery,
+  defaultAddressesForCity,
   nearestAddress,
   savedAddresses,
   type Address,
@@ -702,6 +703,62 @@ function routeSuggestion(fromId: string, toId: string): RouteSuggestion {
 }
 
 export const mockAdapter: ApiAdapter = {
+  capabilities: {
+    ordering: true,
+    orderDetails: true,
+    repeatOrder: true,
+    historyStatusFilter: true,
+    tips: true,
+    safety: true,
+    popularRoutes: true,
+    promo: true,
+    bonuses: true,
+    help: true,
+    savedCards: true,
+    accounts: true,
+    phoneChange: true,
+    accountDeletion: true,
+    notificationTopics: true,
+  },
+
+  // The sample data keeps no server session: the auth store's own flag
+  // decides, and there is nothing to revoke or push.
+  hasSession: () => null,
+  resumeSession: async () => {},
+  logout: async () => {},
+  onSessionEnd: () => () => {},
+  onOrderEvent: () => () => {},
+
+  repeatOrder: async (orderId, fallback) => {
+    // Re-order exactly what was ordered: the order's extras hold the route,
+    // stops, details, class, options and promo (the draft was reset on submit).
+    const order = await mockAdapter.getOrder(orderId);
+    const x = order.extras;
+    const serviceType = x?.serviceType ?? fallback.serviceType;
+    return mockAdapter.createOrder({
+      serviceType,
+      fromAddressId: x?.fromAddressId || defaultAddressesForCity(order.fromCityId)[0]?.id || "",
+      toAddressId: x?.toAddressId || defaultAddressesForCity(order.toCityId)[0]?.id || "",
+      mode: order.mode ?? fallback.mode,
+      seatIds: order.seatIds ?? fallback.seatIds,
+      cargo: x?.cargo ?? (serviceType === "delivery" ? fallback.cargo : undefined),
+      paymentMethod: order.paymentMethod ?? fallback.paymentMethod,
+      timing: x?.timing ?? fallback.timing,
+      fromDetails: x?.fromDetails,
+      toDetails: x?.toDetails,
+      stops: x?.stops,
+      comment: x?.comment,
+      optionIds: x?.optionIds,
+      optionVariants: x?.optionVariants,
+      carClass: x?.carClass,
+      luggage: x?.luggage,
+      rider: x?.rider,
+      promoCode: x?.promoCode,
+      sender: x?.sender,
+      receiver: x?.receiver,
+    });
+  },
+
   getCities: () => withLatency(() => db.cities()),
 
   getPopularRoutes: () =>

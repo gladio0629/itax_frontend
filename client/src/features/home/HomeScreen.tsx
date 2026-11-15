@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Bell, ChevronRight, LocateFixed, MapPin, PersonStanding } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Address, AddressDetails, SavedAddressInfo } from "@/api/types";
-import { addressById } from "@/clientData/addresses";
+import { ADDRESSES, addressById } from "@/clientData/addresses";
 import { MapCanvas } from "@/components/MapCanvas";
 import { Skeleton } from "@/components/Skeleton";
 import { Logo } from "@/components/Logo";
@@ -12,13 +12,17 @@ import { MapButton } from "@/components/ui/MapButton";
 import { SearchPill } from "@/components/ui/SearchPill";
 import { ListRow } from "@/components/ui/ListRow";
 import { PinBubble } from "@/components/ui/PinBubble";
-import { useOrderStore } from "@/stores/orderStore";
+import { setDefaultFromAddress, useOrderStore } from "@/stores/orderStore";
 import { useFloatingControl } from "@/stores/floatingControlStore";
 import { useT } from "@/lib/i18n/provider";
 import { OrderSheet } from "@/features/order/OrderSheet";
 import { SearchScreen } from "@/features/order/SearchScreen";
 import { detailsSummary } from "@/features/order/addressDetails";
 import { formatDuration } from "@/features/order/duration";
+
+// New drafts start from Toshkent. This module only loads where the ordering
+// flow exists (see ./Home.tsx), so http builds don't carry the address book.
+setDefaultFromAddress(ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "");
 
 /**
  * Home (reference structure): full-screen map, the pickup caption at the top,
@@ -29,7 +33,7 @@ import { formatDuration } from "@/features/order/duration";
  * browser's swipe-back step search → home and route → home without leaving
  * the order; the draft itself is in the store.
  */
-export function HomeScreen() {
+export default function OrderingHome() {
   const navigate = useNavigate();
   const { t } = useT();
   const { draft, setField, reset } = useOrderStore();

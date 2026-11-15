@@ -18,6 +18,14 @@ const RULE_CODES = new Set([
   "CARGO_RIDE_ALONG",
 ]);
 
+/** The translation key for a server error (api/openapi.yml keys mapped by
+ * the http adapter to `errors.<KEY>`, unknown keys to errors.generic), or
+ * null for anything else (sample-data errors keep their own texts). */
+export function serverErrorKey(err: unknown): string | null {
+  const m = (err as { message?: unknown } | null)?.message;
+  return typeof m === "string" && m.startsWith("errors.") ? m : null;
+}
+
 /** The translation key to show for a rule error, or null for "retry". */
 export function ruleErrorKey(err: unknown): string | null {
   const e = err as { code?: string; message?: string } | null;

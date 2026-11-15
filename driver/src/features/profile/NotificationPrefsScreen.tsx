@@ -60,7 +60,8 @@ export default function NotificationPrefsScreen() {
             </span>
             <div className={prefs.master ? "" : "opacity-50"} aria-disabled={!prefs.master || undefined}>
               <SettingsGroup>
-                {ITEMS.map((it) => (
+                {/* The real backend stores only push (master) and promo (news). */}
+                {ITEMS.filter((it) => api.capabilities.notificationCategories || it.key === "news").map((it) => (
                   <SettingsRow
                     key={it.key}
                     icon={it.icon}

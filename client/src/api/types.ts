@@ -357,12 +357,17 @@ export type NotificationItem = {
   createdAt: number;
   read: boolean;
   kind: "order" | "wallet" | "promo" | "system";
+  /** Server notifications carry translation keys + params instead of text;
+   * the screen translates them (or falls back to a generic title per kind). */
+  titleKey?: string;
+  bodyKey?: string;
+  params?: Record<string, string | number>;
 };
 
 // Passenger wallet — distinct from the driver app's WalletEntry (which is
 // seeded per-driver in seed/generate.ts and carries commission/debt
 // concepts that don't apply to passengers). This type is client-only.
-export type PassengerWalletEntryType = "topup" | "trip_payment" | "refund" | "bonus";
+export type PassengerWalletEntryType = "topup" | "trip_payment" | "refund" | "bonus" | "commission" | "correction";
 
 export type PassengerWalletEntry = {
   id: string;
@@ -389,17 +394,55 @@ export type SavedCard = {
 export type Profile = {
   id: string;
   name: string;
+  /** Set when the source keeps them apart (the API does). */
+  firstName?: string;
+  lastName?: string;
   phoneMasked: string;
   avatarSeed: string;
   rating: number;
   totalTrips: number;
 };
 
+/** What the active adapter can do. The sample-data adapter does everything;
+ * the http adapter only what api/openapi.yml has endpoints for. Screens hide
+ * or disable a feature whose flag is false (no faked data, no broken screen). */
+export type ClientCapabilities = {
+  /** Quote, cities, address search/reverse geocoding, saved addresses, seat
+   * map, classes, options, stops, cargo: the whole order-building flow. */
+  ordering: boolean;
+  /** "Tafsilotlar" editing of a live order (addresses, stops, seats, options). */
+  orderDetails: boolean;
+  /** Re-run "search again" for a no-driver order. */
+  repeatOrder: boolean;
+  /** Server-side status filter on the order history. */
+  historyStatusFilter: boolean;
+  tips: boolean;
+  /** Trip share link, emergency contacts, support phone. */
+  safety: boolean;
+  popularRoutes: boolean;
+  promo: boolean;
+  bonuses: boolean;
+  help: boolean;
+  /** List of linked cards (linking itself is walletCardLink). */
+  savedCards: boolean;
+  /** Several accounts on one device. */
+  accounts: boolean;
+  phoneChange: boolean;
+  accountDeletion: boolean;
+  /** Separate "order status" and "bonus" notification switches. */
+  notificationTopics: boolean;
+};
+
+/** A live order change pushed by the server (WebSocket) — screens refetch. */
+export type OrderEvent = { orderId: string };
+
 export type OtpRequestResult = {
   requestId: string;
   /** Sample-data adapter only: the code to autofill. A real backend never
    * returns it (the code arrives by SMS). */
   testCode?: string;
+  /** Seconds until "resend" is allowed (server's resend_after). */
+  resendAfterSec?: number;
 };
 
 export type NotificationPrefs = {

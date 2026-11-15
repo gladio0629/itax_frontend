@@ -85,10 +85,12 @@ export function AcceptedTab({ accepted, onChanged, onSummary, onShowNew }: { acc
             />
           ) : (
             page.days.map((day) => (
-              <section key={day.date} aria-labelledby={`day-${day.date}`} className="mb-6">
-                <h2 id={`day-${day.date}`} className="mb-2 px-1 text-lg font-bold text-ink">
-                  {day.dayOffset <= 1 ? `${dayText(day, t)}, ${formatDate(day.dayStart, t)}` : formatDate(day.dayStart, t)}
-                </h2>
+              <section key={day.date} aria-labelledby={day.undated ? undefined : `day-${day.date}`} aria-label={day.undated ? t("feed.tabAccepted") : undefined} className="mb-6">
+                {!day.undated && (
+                  <h2 id={`day-${day.date}`} className="mb-2 px-1 text-lg font-bold text-ink">
+                    {day.dayOffset <= 1 ? `${dayText(day, t)}, ${formatDate(day.dayStart, t)}` : formatDate(day.dayStart, t)}
+                  </h2>
+                )}
                 {day.trips.map((trip) => (
                   <div key={trip.direction.id} className="mb-4">
                     <div className="mb-2 flex items-center justify-between gap-2 px-1">
@@ -98,10 +100,12 @@ export function AcceptedTab({ accepted, onChanged, onSummary, onShowNew }: { acc
                         <span className="sr-only">–</span>
                         {trip.direction.to.name}
                       </h3>
-                      <span className="tabular flex shrink-0 items-center gap-1.5 text-sm text-muted">
-                        <Armchair className="h-4 w-4" />
-                        {t("accepted.seatsUsed", { used: trip.seats.used, total: trip.seats.total })}
-                      </span>
+                      {trip.seats.total > 0 && (
+                        <span className="tabular flex shrink-0 items-center gap-1.5 text-sm text-muted">
+                          <Armchair className="h-4 w-4" />
+                          {t("accepted.seatsUsed", { used: trip.seats.used, total: trip.seats.total })}
+                        </span>
+                      )}
                     </div>
                     <div className="space-y-3">
                       {trip.bookings.map((b) => (

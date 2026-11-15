@@ -15,10 +15,14 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { formatDateTime } from "@/lib/format";
 import type { HistoryEntry, HistoryResult, OperatorApprovedQuery, QueueReason } from "@/api/types";
 
+const caps = api.capabilities;
+
 const REASON_LABEL: Record<QueueReason, string> = {
   login_issue: "Kirishda muammo",
   info_needed: "Ma'lumot kerak",
   complaint: "Shikoyat",
+  driver_application: "Haydovchi arizasi",
+  document_update: "Hujjat yangilanishi",
 };
 const RESULT_LABEL: Record<HistoryResult, string> = {
   resolved: "Hal qilindi",
@@ -48,9 +52,11 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
   // A supervisor's "Bugungi tasdiqlanganlar" defaults to today + Hal
   // qilindi; an operator's own "Tarix" starts unfiltered.
   const [search, setSearch] = useState("");
-  const [result, setResult] = useState<HistoryResult | "all">(canSupervise ? "resolved" : "all");
-  const [dateFrom, setDateFrom] = useState(canSupervise ? todayStr() : "");
-  const [dateTo, setDateTo] = useState(canSupervise ? todayStr() : "");
+  // Without server-side filters (real API) the lists start unfiltered.
+  const supervisorDefaults = canSupervise && caps.historyFilters;
+  const [result, setResult] = useState<HistoryResult | "all">(supervisorDefaults ? "resolved" : "all");
+  const [dateFrom, setDateFrom] = useState(supervisorDefaults ? todayStr() : "");
+  const [dateTo, setDateTo] = useState(supervisorDefaults ? todayStr() : "");
   const [operatorId, setOperatorId] = useState<string>("all");
   const [operators, setOperators] = useState<{ id: string; name: string }[]>([]);
 
@@ -114,7 +120,7 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
       render: (e) => (
         <div className="flex items-center justify-end gap-2" onClick={(ev) => ev.stopPropagation()}>
           {e.edited && <Badge tone="neutral">tahrirlandi</Badge>}
-          {canWork && e.operatorId === me?.id && (
+          {caps.historyEdit && canWork && e.operatorId === me?.id && (
             <button type="button" aria-label="Tahrirlash" onClick={() => openEdit(e)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
               <Pencil className="h-4 w-4" />
             </button>
@@ -141,10 +147,13 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Telefon, izoh yoki operator…"
+        searchEnabled={caps.historyFilters}
         resultCount={items.length}
-        hasActiveFilters={hasActiveFilters}
+        hasActiveFilters={caps.historyFilters && hasActiveFilters}
         onClear={clearFilters}
       >
+        {caps.historyFilters && (
+          <>
         <FilterSelect value={result} onChange={setResult} options={RESULT_OPTIONS} aria-label="Natija bo'yicha filtr" />
         <input
           type="date"
@@ -167,6 +176,8 @@ export function HistoryTab({ canSupervise, onChanged }: { canSupervise: boolean;
             options={[{ value: "all", label: "Barcha operatorlar" }, ...operators.map((o) => ({ value: o.id, label: o.name }))]}
             aria-label="Operator bo'yicha filtr"
           />
+        )}
+          </>
         )}
       </ListToolbar>
 

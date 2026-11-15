@@ -49,15 +49,39 @@ import type { DeliveryVehicleSpec,
   Seat,
   UpdateOrderInput,
   WalletSummary,
+  ClientCapabilities,
+  OrderEvent,
 } from "./types";
 
 /**
  * Every screen talks to the app exclusively through this interface.
- * `mockAdapter` implements it fully against the local mock DB.
- * `httpAdapter` is the integration point for a real backend later —
- * it currently throws NotImplemented for every method.
+ * `mockAdapter` implements it fully against the local sample data.
+ * `httpAdapter` implements what api/openapi.yml has endpoints for; the rest
+ * rejects with ApiError("NOT_SUPPORTED") and `capabilities` tells screens
+ * to hide those features.
  */
 export interface ApiAdapter {
+  readonly capabilities: ClientCapabilities;
+
+  // --- session (the sample-data adapter keeps no session: null / no-ops) ---
+  /** null when the adapter doesn't track sessions (the store's flag decides). */
+  hasSession(): boolean | null;
+  /** After a reload: refresh tokens and reconnect realtime. Never throws. */
+  resumeSession(): Promise<void>;
+  /** Revoke on the server, then clear tokens, storage and the socket. */
+  logout(): Promise<void>;
+  /** The session ended (expired, revoked, logout) — go to login. */
+  onSessionEnd(listener: () => void): () => void;
+  /** Server-pushed order changes (WebSocket). */
+  onOrderEvent(listener: (event: OrderEvent) => void): () => void;
+
+  /** "Search again" for an order that found no driver: re-sends it. The
+   * fallback fills what an old order doesn't record (sample data only). */
+  repeatOrder(
+    orderId: string,
+    fallback: Pick<CreateOrderInput, "serviceType" | "mode" | "seatIds" | "cargo" | "paymentMethod" | "timing">
+  ): Promise<OrderWithDetails>;
+
   getCities(): Promise<City[]>;
   getPopularRoutes(): Promise<RouteSuggestion[]>;
   getRecentRoutes(): Promise<RouteSuggestion[]>;
@@ -129,7 +153,9 @@ export interface ApiAdapter {
   getOrderHistory(params?: { status?: OrderStatus; cursor?: number }): Promise<OrderHistoryPage>;
 
   getSavedCards(): Promise<SavedCard[]>;
-  linkCard(payload: { label: string }): Promise<ReviewRequest>;
+  /** `provider` is required by the real backend (walletCardLink); the
+   * response redirects to the provider's page. */
+  linkCard(payload: { label: string; provider?: "payme" | "click" }): Promise<ReviewRequest>;
 
   getNotifications(): Promise<NotificationItem[]>;
   markNotificationRead(id: string): Promise<void>;

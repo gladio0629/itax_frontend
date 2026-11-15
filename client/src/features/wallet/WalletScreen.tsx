@@ -19,6 +19,8 @@ const TYPE_LABEL: Record<PassengerWalletEntry["type"], string> = {
   trip_payment: "Safar uchun to'lov",
   refund: "Qaytarilgan to'lov",
   bonus: "Bonus",
+  commission: "Komissiya",
+  correction: "Tuzatish",
 };
 
 const TYPE_ICON: Record<PassengerWalletEntry["type"], typeof ArrowDownLeft> = {
@@ -26,6 +28,8 @@ const TYPE_ICON: Record<PassengerWalletEntry["type"], typeof ArrowDownLeft> = {
   trip_payment: ArrowUpRight,
   refund: ArrowDownLeft,
   bonus: Gift,
+  commission: ArrowUpRight,
+  correction: ArrowDownLeft,
 };
 
 type LoadState = "loading" | "error" | "ready";

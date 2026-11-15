@@ -18,7 +18,8 @@ type Props = {
   leaving: "taken" | "out" | null;
   highlight?: boolean;
   onAccept: () => void;
-  onReject: () => void;
+  /** Absent when the backend can't hide a request for one driver. */
+  onReject?: () => void;
   onGone: () => void;
 };
 
@@ -59,7 +60,7 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
         <Tag icon={cargo ? Truck : r.wholeCar ? Car : Users} tone="yellow">
           {cargo ? t("feed.kind.cargo") : r.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: r.seats })}
         </Tag>
-        <span className="tabular shrink-0 text-xs text-muted">{sinceTime(r.postedAt, t)}</span>
+        {r.postedAt != null && <span className="tabular shrink-0 text-xs text-muted">{sinceTime(r.postedAt, t)}</span>}
       </div>
 
       <RouteLine
@@ -73,28 +74,36 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
       />
 
       <dl className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-        <div className="flex items-center gap-1.5">
-          <dt className="sr-only">{t("feed.when")}</dt>
-          <CalendarDays className="h-4 w-4 text-muted" />
-          <dd className="tabular font-bold text-ink">
-            {dayText(r.when, t)}, {timeText(r.when, t)}
-          </dd>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <dt className="sr-only">{t("feed.toPickup")}</dt>
-          <MapPin className="h-4 w-4 text-muted" />
-          <dd className="tabular text-ink">{t("feed.kmAway", { km: r.pickupDistanceKm })}</dd>
-        </div>
+        {r.when && (
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">{t("feed.when")}</dt>
+            <CalendarDays className="h-4 w-4 text-muted" />
+            <dd className="tabular font-bold text-ink">
+              {dayText(r.when, t)}, {timeText(r.when, t)}
+            </dd>
+          </div>
+        )}
+        {(r.pickupDistanceKm != null || r.pickupEtaMin != null) && (
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">{t("feed.toPickup")}</dt>
+            <MapPin className="h-4 w-4 text-muted" />
+            <dd className="tabular text-ink">
+              {r.pickupDistanceKm != null ? t("feed.kmAway", { km: r.pickupDistanceKm }) : t("feed.etaAway", { min: r.pickupEtaMin ?? 0 })}
+            </dd>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <dt className="sr-only">{t("offer.distance")}</dt>
           <Route className="h-4 w-4 text-muted" />
           <dd className="tabular text-ink">{r.distanceKm}&nbsp;{t("common.km")}</dd>
         </div>
-        <div className="flex items-center gap-1.5">
-          <dt className="sr-only">{t("feed.payment")}</dt>
-          <PayIcon className="h-4 w-4 text-muted" />
-          <dd className="text-ink">{r.payment === "cash" ? t("pay.cash") : t("pay.card")}</dd>
-        </div>
+        {r.payment && (
+          <div className="flex items-center gap-1.5">
+            <dt className="sr-only">{t("feed.payment")}</dt>
+            <PayIcon className="h-4 w-4 text-muted" />
+            <dd className="text-ink">{r.payment === "cash" ? t("pay.cash") : t("pay.card")}</dd>
+          </div>
+        )}
       </dl>
 
       <div className="mt-3">
@@ -127,7 +136,11 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
             {formatAmount(r.price)}
             <span className="ml-1 text-sm font-medium text-muted">{t("common.som")}</span>
           </p>
-          <p className="tabular text-sm text-muted">{t("feed.net", { amount: formatAmount(r.earnings.net), pct: r.earnings.commissionPct })}</p>
+          <p className="tabular text-sm text-muted">
+            {r.earnings.commissionPct == null
+              ? t("feed.netOnly", { amount: formatAmount(r.earnings.net) })
+              : t("feed.net", { amount: formatAmount(r.earnings.net), pct: r.earnings.commissionPct })}
+          </p>
         </div>
       </div>
 
@@ -148,13 +161,15 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
         </p>
       )}
 
-      <div className="mt-3 grid grid-cols-[2fr_1fr] gap-2">
+      <div className={cn("mt-3 grid gap-2", onReject ? "grid-cols-[2fr_1fr]" : "grid-cols-1")}>
         <Button size="lg" loading={accepting} disabled={!!block || taken || !!leaving} onClick={onAccept}>
           {t("feed.accept")}
         </Button>
-        <Button size="lg" variant="secondary" className="px-3" disabled={accepting || taken || !!leaving} onClick={onReject}>
-          {t("feed.reject")}
-        </Button>
+        {onReject && (
+          <Button size="lg" variant="secondary" className="px-3" disabled={accepting || taken || !!leaving} onClick={onReject}>
+            {t("feed.reject")}
+          </Button>
+        )}
       </div>
 
       {taken && (

@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import type { OrderMode, PaymentMethod } from "@/seed/generate";
 import type { AddressDetails, CargoContact, CargoInput, CarClassId, OptionVariants, OrderOptionId, OrderTiming, Rider, ServiceType } from "@/api/types";
-import { ADDRESSES } from "@/clientData/addresses";
 
-const DEFAULT_FROM_ADDRESS = ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "";
+// The pickup a new draft starts from. The ordering flow sets it when it
+// loads (from its address book), so this store doesn't pull address data
+// into builds that have no ordering flow.
+let defaultFromAddress = "";
 
 /** An intermediate stop in the draft. `uid` is a client-side key for React
  * and drag-to-reorder; the adapter only ever sees the address id. */
@@ -49,7 +51,7 @@ type OrderDraftState = {
 
 const initialDraft: OrderDraft = {
   serviceType: "passenger",
-  fromAddressId: DEFAULT_FROM_ADDRESS,
+  fromAddressId: "",
   toAddressId: "",
   fromDetails: {},
   toDetails: {},
@@ -75,6 +77,14 @@ export const useOrderStore = create<OrderDraftState>((set, get) => ({
   draft: { ...initialDraft },
   activeOrderId: null,
   setField: (key, value) => set({ draft: { ...get().draft, [key]: value } }),
-  reset: () => set({ draft: { ...initialDraft } }),
+  reset: () => set({ draft: { ...initialDraft, fromAddressId: defaultFromAddress } }),
   setActiveOrderId: (id) => set({ activeOrderId: id }),
 }));
+
+/** Called once by the ordering flow when it loads: new drafts (and the
+ * current one, if it has no pickup yet) start from this address. */
+export function setDefaultFromAddress(id: string) {
+  defaultFromAddress = id;
+  const { draft } = useOrderStore.getState();
+  if (!draft.fromAddressId) useOrderStore.setState({ draft: { ...draft, fromAddressId: id } });
+}

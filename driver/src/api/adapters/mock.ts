@@ -840,7 +840,40 @@ function findBooking(s: DriverState, id: string) {
 
 // ---------- adapter ----------
 
+const noop = () => {};
+
 export const mockAdapter: ApiAdapter = {
+  capabilities: {
+    routes: true,
+    rejectRequest: true,
+    feedFilters: true,
+    seatSummary: true,
+    arrivedStep: true,
+    cancelBooking: true,
+    tripChat: true,
+    tripSummary: true,
+    history: true,
+    bonus: true,
+    help: true,
+    driverCapabilities: true,
+    profileChangePhone: true,
+    profileChangeCar: true,
+    requestAlerts: true,
+    ledgerFilters: true,
+    notificationCategories: true,
+    // Sample data has no server to report GPS to.
+    locationReporting: false,
+  },
+  subscribe: () => noop,
+  onSessionEnd: () => noop,
+  reportLocation: () => Promise.resolve(),
+  // Simulated picker: no real file, a local name "uploads" in under a second.
+  uploadDocument: (slot) =>
+    withLatency(() => {
+      const name = `${slot === "license" ? "guvohnoma" : slot === "registration" ? "texpasport" : "selfi"}_${Math.floor(1000 + Math.random() * 9000)}.jpg`;
+      return { ref: name, name };
+    }, { minMs: 500, maxMs: 800, noFail: true }),
+
   getSession: () => withLatency(() => {
     const s0 = state();
     settleReviews(s0);

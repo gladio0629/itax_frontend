@@ -25,6 +25,8 @@ const EMPTY_FORM: FormState = { name: "", email: "", phone: "", role: "" };
 
 type Confirm = { type: "block" | "unblock" | "archive" | "restore"; user: AdminUser };
 
+const caps = api.capabilities;
+
 const STATUS_OPTIONS: { value: ArchivableStatusFilter<StaffStatus>; label: string }[] = [
   { value: "all", label: "Barchasi" },
   { value: "active", label: "Faol" },
@@ -46,6 +48,7 @@ export function StaffScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [acting, setActing] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   function openCreate() {
@@ -83,9 +86,15 @@ export function StaffScreen() {
     }
   }
 
+  function openConfirm(c: Confirm) {
+    setConfirmError(null);
+    setConfirm(c);
+  }
+
   async function handleConfirm() {
     if (!confirm) return;
     setActing(true);
+    setConfirmError(null);
     try {
       const { type, user } = confirm;
       if (type === "block") await api.setStaffStatus(user.id, "blocked");
@@ -97,6 +106,8 @@ export function StaffScreen() {
       );
       setConfirm(null);
       reload();
+    } catch (e) {
+      setConfirmError(e instanceof Error ? e.message : "Xatolik yuz berdi");
     } finally {
       setActing(false);
     }
@@ -143,12 +154,16 @@ export function StaffScreen() {
         </Badge>
       ),
     },
-    {
-      key: "lastLogin",
-      header: "Oxirgi kirish",
-      sortValue: (u) => u.lastLoginAt ?? 0,
-      render: (u) => <span className="text-ink/60">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "—"}</span>,
-    },
+    ...(caps.staffLastLogin
+      ? [
+          {
+            key: "lastLogin",
+            header: "Oxirgi kirish",
+            sortValue: (u: StaffRow) => u.lastLoginAt ?? 0,
+            render: (u: StaffRow) => <span className="text-ink/60">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "—"}</span>,
+          } as Column<StaffRow>,
+        ]
+      : []),
     {
       key: "actions",
       header: "",
@@ -163,19 +178,21 @@ export function StaffScreen() {
               </button>
             )}
             {u.archived ? (
-              <button type="button" aria-label="Tiklash" onClick={() => setConfirm({ type: "restore", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-accent">
-                <RotateCcw className="h-4 w-4" />
-              </button>
+              caps.restoreStaff && (
+                <button type="button" aria-label="Tiklash" onClick={() => openConfirm({ type: "restore", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-accent">
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              )
             ) : (
               <>
                 <button type="button"
                   aria-label={u.status === "active" ? "Bloklash" : "Blokdan chiqarish"}
-                  onClick={() => setConfirm({ type: u.status === "active" ? "block" : "unblock", user: u })}
+                  onClick={() => openConfirm({ type: u.status === "active" ? "block" : "unblock", user: u })}
                   className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-warning"
                 >
                   {u.status === "active" ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                 </button>
-                <button type="button" aria-label="Arxivlash" onClick={() => setConfirm({ type: "archive", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-danger">
+                <button type="button" aria-label="Arxivlash" onClick={() => openConfirm({ type: "archive", user: u })} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-danger">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </>
@@ -193,6 +210,7 @@ export function StaffScreen() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Ism, email yoki telefon…"
+          searchEnabled={caps.staffSearch}
           resultCount={staff.length}
           hasActiveFilters={hasActiveFilters}
           onClear={() => {
@@ -206,7 +224,7 @@ export function StaffScreen() {
             options={[{ value: "all", label: "Barcha rollar" }, ...(Object.keys(ROLE_LABEL) as AdminRole[]).map((r) => ({ value: r, label: ROLE_LABEL[r] }))]}
             aria-label="Rol bo'yicha filtr"
           />
-          <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />
+          {caps.staffStatusFilter && <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />}
         </ListToolbar>
         <div className="flex shrink-0 items-center gap-2">
           <ExportButton
@@ -280,7 +298,15 @@ export function StaffScreen() {
           autoComplete="email"
           value={form.email}
           onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-          hint={!emailRequired ? "Operatorlar faqat telefon SMS kodi bilan kiradi — email shart emas." : undefined}
+          // The real API can't change an email after creation.
+          disabled={drawer !== "create" && !caps.staffEmailEdit}
+          hint={
+            drawer !== "create" && !caps.staffEmailEdit
+              ? "Emailni yaratilgandan keyin o'zgartirib bo'lmaydi."
+              : !emailRequired
+                ? "Operatorlar faqat telefon SMS kodi bilan kiradi — email shart emas."
+                : undefined
+          }
         />
       </FormDrawer>
 
@@ -297,10 +323,11 @@ export function StaffScreen() {
         }
         description={
           confirm?.type === "archive"
-            ? `${confirm.user.name} arxivlanadi. Keyinroq tiklashingiz mumkin.`
+            ? `${confirm.user.name} arxivlanadi.${caps.restoreStaff ? " Keyinroq tiklashingiz mumkin." : ""}`
             : `${confirm?.user.name ?? ""} uchun amalni tasdiqlaysizmi?`
         }
         tone={confirm?.type === "block" || confirm?.type === "archive" ? "danger" : "accent"}
+        error={confirmError}
         loading={acting}
         onConfirm={handleConfirm}
         onCancel={() => setConfirm(null)}

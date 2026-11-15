@@ -39,6 +39,11 @@ export default function TopupScreen() {
     setError(null);
     try {
       const r = await api.requestTopup(amount, provider);
+      // Real backend: pay on the provider's page (Payme / Click), then return.
+      if (r.redirectUrl) {
+        window.location.assign(r.redirectUrl);
+        return;
+      }
       setReviewId(r.id);
     } catch (e) {
       setError(errorMessage(e, t));

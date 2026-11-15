@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
-import { useT } from "@/lib/i18n/provider";
+import { isKey, useT } from "@/lib/i18n/provider";
 import { useTheme } from "@/lib/theme";
 import { useQuery } from "@/lib/useQuery";
 import { useSession } from "@/stores/sessionStore";
@@ -26,7 +26,7 @@ export default function ProfileScreen() {
   const navigate = useNavigate();
   const setSession = useSession((s) => s.set);
   const profile = useQuery(() => api.getProfile(), []);
-  const bonus = useQuery(() => api.getBonus(), []);
+  const bonus = useQuery(() => (api.capabilities.bonus ? api.getBonus() : Promise.resolve(null)), []);
   const [langOpen, setLangOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -59,18 +59,27 @@ export default function ProfileScreen() {
                 <h2 className="mt-3 text-xl font-bold text-ink">{p.name}</h2>
                 <div className="mt-1 flex items-center gap-2">
                   <Stars value={p.rating} />
-                  <span className="tabular text-sm text-muted">({t("profile.ratingCount", { n: p.ratingCount })})</span>
+                  {p.ratingCount != null && <span className="tabular text-sm text-muted">({t("profile.ratingCount", { n: p.ratingCount })})</span>}
                 </div>
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                  <span className="inline-flex h-8 items-center gap-2 rounded-button bg-surface px-3 text-sm text-ink shadow-1">
-                    <span aria-hidden="true" className="h-3 w-3 rounded-full ring-1 ring-ink/20" style={{ background: p.car.colorHex }} />
-                    {p.car.model}, {t(`color.${p.car.color}` as never)}
-                  </span>
-                  <span translate="no" className="tabular inline-flex h-8 items-center rounded-button border-2 border-ink/80 bg-white px-2 text-sm font-bold tracking-wide text-[#0e1630]">{p.car.plate}</span>
-                </div>
-                <p className="tabular mt-2 text-sm text-muted">
-                  {t("profile.trips", { n: p.totalTrips })}, {t("profile.since", { year: p.memberSinceYear })}
-                </p>
+                {p.car && (
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    <span className="inline-flex h-8 items-center gap-2 rounded-button bg-surface px-3 text-sm text-ink shadow-1">
+                      <span aria-hidden="true" className="h-3 w-3 rounded-full ring-1 ring-ink/20" style={{ background: p.car.colorHex }} />
+                      {p.car.model}, {isKey(`color.${p.car.color}`) ? t(`color.${p.car.color}` as never) : p.car.color}
+                    </span>
+                    <span translate="no" className="tabular inline-flex h-8 items-center rounded-button border-2 border-ink/80 bg-white px-2 text-sm font-bold tracking-wide text-[#0e1630]">{p.car.plate}</span>
+                  </div>
+                )}
+                {(p.totalTrips != null || p.memberSinceYear != null) && (
+                  <p className="tabular mt-2 text-sm text-muted">
+                    {[
+                      p.totalTrips != null ? t("profile.trips", { n: p.totalTrips }) : null,
+                      p.memberSinceYear != null ? t("profile.since", { year: p.memberSinceYear }) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
               </>
             ) : (
               <>
@@ -83,15 +92,19 @@ export default function ProfileScreen() {
 
         <SettingsGroup label={t("profile.groupAccount")}>
           <SettingsRow icon={User} tile="blue" label={t("profile.personal")} to="/profile/personal" />
-          <SettingsRow icon={Route} tile="teal" label={t("routes.title")} to="/profile/routes" />
-          <SettingsRow icon={SlidersHorizontal} tile="green" label={t("profile.capabilities")} to="/profile/capabilities" />
-          <SettingsRow
-            icon={Gift}
-            tile="yellow"
-            label={t("profile.bonus")}
-            value={bonus.data ? t("profile.bonusValue", { pct: bonus.data.commissionPct }) : undefined}
-            to="/profile/bonus"
-          />
+          {api.capabilities.routes && <SettingsRow icon={Route} tile="teal" label={t("routes.title")} to="/profile/routes" />}
+          {api.capabilities.driverCapabilities && (
+            <SettingsRow icon={SlidersHorizontal} tile="green" label={t("profile.capabilities")} to="/profile/capabilities" />
+          )}
+          {api.capabilities.bonus && (
+            <SettingsRow
+              icon={Gift}
+              tile="yellow"
+              label={t("profile.bonus")}
+              value={bonus.data ? t("profile.bonusValue", { pct: bonus.data.commissionPct }) : undefined}
+              to="/profile/bonus"
+            />
+          )}
           <SettingsRow icon={Bell} tile="red" label={t("profile.notifications")} to="/profile/notifications" />
         </SettingsGroup>
 
@@ -107,7 +120,7 @@ export default function ProfileScreen() {
         </SettingsGroup>
 
         <SettingsGroup label={t("profile.groupSupport")}>
-          <SettingsRow icon={LifeBuoy} tile="green" label={t("profile.help")} to="/profile/help" />
+          {api.capabilities.help && <SettingsRow icon={LifeBuoy} tile="green" label={t("profile.help")} to="/profile/help" />}
           <SettingsRow icon={Info} tile="slate" label={t("profile.about")} to="/profile/about" />
           {DEMO_MODE && <SettingsRow icon={FlaskConical} tile="orange" label={testPanelText(locale, "title")} to={TEST_PANEL_PROFILE_PATH} />}
         </SettingsGroup>

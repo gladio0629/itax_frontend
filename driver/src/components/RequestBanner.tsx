@@ -28,6 +28,8 @@ export function RequestBanner() {
   const hideTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
+    // The real backend has no alert queue (WebSocket offer.created just refreshes the feed).
+    if (!api.capabilities.requestAlerts) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {

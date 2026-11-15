@@ -27,6 +27,11 @@ export default function CardLinkScreen() {
     setError(null);
     try {
       const r = await api.linkCard(provider);
+      // Real backend: the provider's own page links the card, then returns to the app.
+      if (r.redirectUrl) {
+        window.location.assign(r.redirectUrl);
+        return;
+      }
       setReviewId(r.id);
       setStep("review");
     } catch (e) {

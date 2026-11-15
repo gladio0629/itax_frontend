@@ -15,35 +15,65 @@ import { Toast } from "@/components/Toast";
 import { ListToolbar } from "@/components/ListToolbar";
 import { api } from "@/api/client";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import type { Tariff, TariffProposal } from "@/api/types";
+import type { Tariff, TariffCarClass, TariffNumericField, TariffProposal } from "@/api/types";
 
-const FIELD_LABEL: Record<keyof Omit<Tariff, "id" | "archived">, string> = {
+const caps = api.capabilities;
+
+const FIELD_LABEL: Record<TariffNumericField | "name" | "carClass", string> = {
   name: "Nomi",
+  carClass: "Mashina klassi",
   baseFare: "Bazaviy narx",
-  perKmCar: "Km narxi (avtomobil)",
+  perKmCar: caps.tariffFields.includes("perKmSeat") ? "Km narxi (avtomobil)" : "Km narxi",
   perKmSeat: "Km narxi (o'rindiq)",
   frontSeatSurcharge: "Old o'rindiq ustamasi",
   fuelAdjustmentPct: "Yoqilg'i ustamasi (%)",
   commissionPct: "Komissiya (%)",
+  perMin: "Daqiqa narxi",
+  minFare: "Minimal narx",
 };
-const NUMERIC_FIELDS = (Object.keys(FIELD_LABEL) as (keyof typeof FIELD_LABEL)[]).filter((k) => k !== "name") as Exclude<keyof typeof FIELD_LABEL, "name">[];
-function formatTariffValue(k: (typeof NUMERIC_FIELDS)[number], v: number): string {
-  return k === "fuelAdjustmentPct" || k === "commissionPct" ? `${v}%` : formatSom(v);
+const CAR_CLASS_LABEL: Record<TariffCarClass, string> = {
+  economy: "Ekonom",
+  comfort: "Komfort",
+  business: "Biznes",
+  minivan: "Miniven",
+};
+/** The fields this backend knows, in display order (mock: the sample set;
+ * real API: base fare, per km, per minute, minimum, commission). */
+const NUMERIC_FIELDS = caps.tariffFields;
+function formatTariffValue(k: TariffNumericField, v: number | undefined): string {
+  const n = v ?? 0;
+  return k === "fuelAdjustmentPct" || k === "commissionPct" ? `${n}%` : formatSom(n);
 }
 
-type FormState = { name: string; baseFare: string; perKmCar: string; perKmSeat: string; frontSeatSurcharge: string; fuelAdjustmentPct: string; commissionPct: string };
+type FormState = Record<TariffNumericField, string> & { name: string; carClass: TariffCarClass | "" };
 function tariffToForm(t: Tariff): FormState {
   return {
     name: t.name,
+    carClass: t.carClass ?? "",
     baseFare: String(t.baseFare),
     perKmCar: String(t.perKmCar),
     perKmSeat: String(t.perKmSeat),
     frontSeatSurcharge: String(t.frontSeatSurcharge),
     fuelAdjustmentPct: String(t.fuelAdjustmentPct),
     commissionPct: String(t.commissionPct),
+    perMin: String(t.perMin ?? 0),
+    minFare: String(t.minFare ?? 0),
   };
 }
-const EMPTY_FORM: FormState = { name: "", baseFare: "15000", perKmCar: "850", perKmSeat: "230", frontSeatSurcharge: "15000", fuelAdjustmentPct: "0", commissionPct: "10" };
+const EMPTY_FORM: FormState = {
+  name: "",
+  carClass: "",
+  baseFare: "15000",
+  perKmCar: "850",
+  perKmSeat: "230",
+  frontSeatSurcharge: "15000",
+  fuelAdjustmentPct: "0",
+  commissionPct: "10",
+  perMin: "0",
+  minFare: "0",
+};
+
+const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
 
 export function TariffsScreen() {
   const [search, setSearch] = useState("");
@@ -55,8 +85,11 @@ export function TariffsScreen() {
   const [drawer, setDrawer] = useState<"create" | Tariff | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState<Tariff | null>(null);
+  const [rejecting, setRejecting] = useState<TariffProposal | null>(null);
   const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -82,43 +115,59 @@ export function TariffsScreen() {
 
   function openCreate() {
     setForm(EMPTY_FORM);
+    setFormError(null);
     setDrawer("create");
   }
   function openEdit(t: Tariff) {
     setForm(tariffToForm(t));
+    setFormError(null);
     setDrawer(t);
   }
 
   async function handleSave() {
-    const patch = {
-      name: form.name.trim(),
-      baseFare: Number(form.baseFare),
-      perKmCar: Number(form.perKmCar),
-      perKmSeat: Number(form.perKmSeat),
-      frontSeatSurcharge: Number(form.frontSeatSurcharge),
-      fuelAdjustmentPct: Number(form.fuelAdjustmentPct),
-      commissionPct: Number(form.commissionPct),
-    };
+    // Only the fields this backend knows are sent.
+    const patch: Partial<Tariff> = { name: form.name.trim() };
+    for (const k of NUMERIC_FIELDS) patch[k] = Number(form[k]);
+    if (caps.tariffCarClass && form.carClass) patch.carClass = form.carClass;
     setSaving(true);
+    setFormError(null);
     try {
-      if (drawer === "create") await api.proposeTariffCreate(patch);
+      if (drawer === "create") await api.proposeTariffCreate({ ...tariffToCreate(), ...patch } as Omit<Tariff, "id" | "archived">);
       else if (drawer) await api.proposeTariffEdit(drawer.id, patch);
       setDrawer(null);
       setToast("Taklif ikkinchi adminga yuborildi");
       await load();
+    } catch (e) {
+      setFormError(errorText(e));
     } finally {
       setSaving(false);
     }
   }
 
+  /** Defaults for the fields a create form doesn't show (mock-only fields). */
+  function tariffToCreate(): Omit<Tariff, "id" | "archived"> {
+    return {
+      name: "",
+      baseFare: Number(EMPTY_FORM.baseFare),
+      perKmCar: Number(EMPTY_FORM.perKmCar),
+      perKmSeat: Number(EMPTY_FORM.perKmSeat),
+      frontSeatSurcharge: Number(EMPTY_FORM.frontSeatSurcharge),
+      fuelAdjustmentPct: Number(EMPTY_FORM.fuelAdjustmentPct),
+      commissionPct: Number(EMPTY_FORM.commissionPct),
+    };
+  }
+
   async function handleArchive() {
     if (!archiving) return;
     setActing(true);
+    setActionError(null);
     try {
       await api.proposeTariffArchive(archiving.id);
       setArchiving(null);
       setToast("Arxivlash taklifi yuborildi");
       await load();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setActing(false);
     }
@@ -126,19 +175,27 @@ export function TariffsScreen() {
 
   async function handleApprove(proposalId: string) {
     setActing(true);
+    setActionError(null);
     try {
       const review = await api.approveTariffProposal(proposalId);
       setReviewId(review.id);
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setActing(false);
     }
   }
 
-  async function handleReject(proposalId: string) {
+  async function handleReject(reason?: string) {
+    if (!rejecting) return;
     setActing(true);
+    setActionError(null);
     try {
-      await api.rejectTariffProposal(proposalId);
+      await api.rejectTariffProposal(rejecting.id, reason);
+      setRejecting(null);
       await load();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setActing(false);
     }
@@ -177,6 +234,12 @@ export function TariffsScreen() {
 
   return (
     <div className="space-y-6">
+      {actionError && !archiving && !rejecting && (
+        <p role="alert" className="text-sm font-semibold text-danger">
+          {actionError}
+        </p>
+      )}
+
       {proposals.length > 0 && (
         <Card className="space-y-3">
           <p className="text-sm font-semibold text-ink">Tasdiqlashni kutayotgan o'zgarishlar</p>
@@ -188,23 +251,37 @@ export function TariffsScreen() {
                 </Badge>
                 <span className="text-xs text-ink/50">{p.proposedByName}</span>
               </div>
-              {p.type !== "archive" && (
-                <ul className="mb-3 space-y-1 text-sm text-ink/70">
-                  {Object.entries(p.patch).map(([k, v]) => (
-                    <li key={k}>
-                      {FIELD_LABEL[k as keyof typeof FIELD_LABEL] ?? k}:{" "}
-                      <span className="tabular font-semibold text-ink">
-                        {(NUMERIC_FIELDS as string[]).includes(k) ? formatTariffValue(k as (typeof NUMERIC_FIELDS)[number], Number(v)) : String(v)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {p.type !== "archive" &&
+                (caps.tariffProposalValues ? (
+                  <ul className="mb-3 space-y-1 text-sm text-ink/70">
+                    {Object.entries(p.patch).map(([k, v]) => (
+                      <li key={k}>
+                        {FIELD_LABEL[k as keyof typeof FIELD_LABEL] ?? k}:{" "}
+                        <span className="tabular font-semibold text-ink">
+                          {(NUMERIC_FIELDS as readonly string[]).includes(k) ? formatTariffValue(k as TariffNumericField, Number(v)) : String(v)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  // The real API doesn't return the proposed values yet (gap).
+                  <p className="mb-3 text-sm text-ink/70">
+                    <span className="font-semibold text-ink">{p.patch.name}</span> — yangi qiymatlar server javobida ko'rsatilmaydi.
+                  </p>
+                ))}
+              {p.type === "archive" && <p className="mb-3 text-sm font-semibold text-ink">{p.patch.name}</p>}
               <div className="flex gap-2">
                 <Button size="sm" loading={acting} onClick={() => handleApprove(p.id)}>
                   <Check className="h-4 w-4" /> Tasdiqlash
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => handleReject(p.id)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setActionError(null);
+                    setRejecting(p);
+                  }}
+                >
                   <X className="h-4 w-4" /> Rad etish
                 </Button>
               </div>
@@ -214,7 +291,15 @@ export function TariffsScreen() {
       )}
 
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <ListToolbar search={search} onSearchChange={setSearch} searchPlaceholder="Tarif nomi…" resultCount={active.length + archived.length} hasActiveFilters={false} onClear={() => {}} />
+        <ListToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Tarif nomi…"
+          searchEnabled={caps.tariffSearch}
+          resultCount={active.length + archived.length}
+          hasActiveFilters={false}
+          onClear={() => {}}
+        />
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" /> Yangi tarif
         </Button>
@@ -227,12 +312,22 @@ export function TariffsScreen() {
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-semibold text-ink">{t.name}</h2>
                 <Badge tone="success">Faol</Badge>
+                {caps.tariffCarClass && t.carClass && <Badge tone="info">{CAR_CLASS_LABEL[t.carClass]}</Badge>}
               </div>
               <div className="flex gap-2">
                 <Button size="sm" variant="secondary" onClick={() => openEdit(t)}>
                   Tahrirlash
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setArchiving(t)} aria-label={`${t.name} tarifini arxivlash`} title="Arxivlash">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setActionError(null);
+                    setArchiving(t);
+                  }}
+                  aria-label={`${t.name} tarifini arxivlash`}
+                  title="Arxivlash"
+                >
                   <Archive className="h-4 w-4" />
                 </Button>
               </div>
@@ -277,9 +372,35 @@ export function TariffsScreen() {
         onSubmit={handleSave}
         submitLabel="Taklif qilish"
         loading={saving}
-        disabled={!form.name.trim()}
+        error={formError}
+        disabled={!form.name.trim() || (caps.tariffCarClass && !form.carClass)}
       >
         <Input label="Nomi" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} autoFocus />
+        {caps.tariffCarClass && (
+          <div>
+            <label htmlFor="fld-klass" className="mb-2 block text-sm font-semibold text-ink/80">
+              {FIELD_LABEL.carClass}
+              <span className="ml-1 text-danger" aria-hidden>
+                *
+              </span>
+            </label>
+            <select
+              id="fld-klass"
+              value={form.carClass}
+              onChange={(e) => setForm((f) => ({ ...f, carClass: e.target.value as TariffCarClass }))}
+              className="h-10 w-full rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+            >
+              <option value="" disabled>
+                Tanlang…
+              </option>
+              {(Object.keys(CAR_CLASS_LABEL) as TariffCarClass[]).map((c) => (
+                <option key={c} value={c}>
+                  {CAR_CLASS_LABEL[c]}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {NUMERIC_FIELDS.map((key) => (
           <Input
             key={key}
@@ -298,8 +419,22 @@ export function TariffsScreen() {
         description={`"${archiving?.name ?? ""}" arxivlash taklifi ikkinchi adminga yuboriladi.`}
         confirmLabel="Taklif qilish"
         loading={acting}
+        error={actionError}
         onConfirm={handleArchive}
         onCancel={() => setArchiving(null)}
+      />
+
+      <ConfirmDialog
+        open={rejecting !== null}
+        title="O'zgarishni rad etish"
+        description={`"${rejecting?.patch.name ?? ""}" bo'yicha taklif rad etiladi.`}
+        confirmLabel="Rad etish"
+        reasonLabel="Rad etish sababi (kamida 3 ta belgi)…"
+        reasonMinLength={3}
+        loading={acting}
+        error={actionError}
+        onConfirm={handleReject}
+        onCancel={() => setRejecting(null)}
       />
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}

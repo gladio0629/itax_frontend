@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 export function TripSteps({ steps }: { steps: TripStep[] }) {
   const { t } = useT();
   return (
-    <ol className="grid grid-cols-4 gap-1" aria-label={t("trip.progressLabel")}>
+    <ol className="grid gap-1" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }} aria-label={t("trip.progressLabel")}>
       {steps.map((s, i) => (
         <li key={s.stage} className="flex flex-col items-center gap-1.5 text-center" aria-current={s.state === "active" ? "step" : undefined}>
           <div className="flex w-full items-center">

@@ -13,6 +13,8 @@ const REASON_LABEL: Record<QueueReason, string> = {
   login_issue: "Kirishda muammo",
   info_needed: "Ma'lumot kerak",
   complaint: "Shikoyat",
+  driver_application: "Haydovchi arizasi",
+  document_update: "Hujjat yangilanishi",
 };
 
 function elapsed(startedAt: number, tickMs: number): string {

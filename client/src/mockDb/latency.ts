@@ -1,12 +1,9 @@
 import { getTestScenarios } from "@/stores/testScenariosStore";
+import { ApiError } from "@shared/http/errors";
 
-export class ApiError extends Error {
-  code: string;
-  constructor(code: string, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
+// One error type for both adapters (shared/http/errors.ts), so screens see
+// the same `code` / `message` shape whichever adapter is active.
+export { ApiError };
 
 /**
  * Simulates a network round-trip to the mock server: 300-900ms latency

@@ -44,20 +44,28 @@ import type {
   OperatorApprovedQuery,
   SectionBadges,
   OperatorCounts,
+  AdapterCapabilities,
 } from "./types";
 
 /**
  * Every admin screen talks to the app exclusively through this interface.
  * `mockAdapter` implements it fully against the local mock DB and plays the
  * role of the server: it decides prices, statuses, permissions, search/
- * filter results and statistics. `httpAdapter` is the integration point for
- * a real backend later — it currently throws NotImplemented for every
- * method.
+ * filter results and statistics. `httpAdapter` talks to the real backend
+ * (api/openapi.yml) and rejects with ApiError("NOT_SUPPORTED") where the
+ * contract has no endpoint; `capabilities` tells screens what to hide.
  */
 export interface ApiAdapter {
+  /** What this adapter can do; screens hide whatever is false. */
+  readonly capabilities: AdapterCapabilities;
+  /** Called when the server ends the session (token expired/rejected) so
+   * the app returns to login. Returns an unsubscribe function. */
+  onSessionEnd(listener: () => void): () => void;
+
   // --- auth / session ---
   requestLogin(identifier: string): Promise<LoginStartResult>;
-  verifyLoginStep(requestId: string, code: string): Promise<LoginStepResult>;
+  /** `extra.phone` is sent when the step asked for it (`needsPhone`). */
+  verifyLoginStep(requestId: string, code: string, extra?: { phone?: string }): Promise<LoginStepResult>;
   resendLoginCode(requestId: string): Promise<{ testCode?: string; resendSeconds: number }>;
   getReviewStatus(reviewId: string): Promise<ReviewRequest>;
   logout(): Promise<void>;
@@ -84,7 +92,8 @@ export interface ApiAdapter {
   // --- drivers ---
   getDrivers(query: DriverQuery): Promise<Driver[]>;
   updateDriverProfile(id: string, patch: { name?: string; carModel?: string; carColor?: string; plate?: string }): Promise<Driver>;
-  setDriverStatus(id: string, status: Exclude<DriverStatus, "auto_review">): Promise<Driver>;
+  /** `reason` is required by the server when blocking. */
+  setDriverStatus(id: string, status: "active" | "blocked", reason?: string): Promise<Driver>;
   archiveDriver(id: string): Promise<Driver>;
   restoreDriver(id: string): Promise<Driver>;
 
@@ -92,7 +101,7 @@ export interface ApiAdapter {
   getPassengers(query: PassengerQuery): Promise<Passenger[]>;
   createPassenger(input: { name: string; phone: string; cityId: string }): Promise<Passenger>;
   updatePassenger(id: string, patch: { name?: string; cityId?: string }): Promise<Passenger>;
-  setPassengerStatus(id: string, status: PassengerStatus): Promise<Passenger>;
+  setPassengerStatus(id: string, status: PassengerStatus, reason?: string): Promise<Passenger>;
   archivePassenger(id: string): Promise<Passenger>;
   restorePassenger(id: string): Promise<Passenger>;
 
@@ -104,7 +113,7 @@ export interface ApiAdapter {
     toCityId: string;
     mode: OrderMode;
     seatIds: string[];
-    paymentMethod: PaymentMethod;
+    paymentMethod: Extract<PaymentMethod, "cash" | "card">;
     timeWindow?: { from: string; to: string };
   }): Promise<OrderWithNames>;
   updateOrderFields(id: string, patch: { seatIds?: string[]; note?: string; timeWindow?: { from: string; to: string } | null }): Promise<OrderWithNames>;
@@ -112,11 +121,12 @@ export interface ApiAdapter {
 
   // --- wallet ---
   getWalletLedger(query: WalletQuery): Promise<WalletLedgerRow[]>;
-  getDriverWalletInfo(driverId: string): Promise<{ balance: number; debtLimit: number }>;
+  /** `debtLimit: null` = the backend doesn't report it. */
+  getDriverWalletInfo(driverId: string): Promise<{ balance: number; debtLimit: number | null }>;
   proposeWalletAdjustment(driverId: string, amount: number, reason: string): Promise<AdjustmentProposal>;
   getAdjustmentProposals(query: AdjustmentProposalQuery): Promise<AdjustmentProposal[]>;
   approveAdjustment(proposalId: string): Promise<ReviewRequest>;
-  rejectAdjustment(proposalId: string): Promise<AdjustmentProposal>;
+  rejectAdjustment(proposalId: string, reason?: string): Promise<AdjustmentProposal>;
 
   // --- tariffs ---
   getTariffs(query: TariffQuery): Promise<Tariff[]>;
@@ -125,7 +135,7 @@ export interface ApiAdapter {
   proposeTariffEdit(tariffId: string, patch: Partial<Tariff>): Promise<TariffProposal>;
   proposeTariffArchive(tariffId: string): Promise<TariffProposal>;
   approveTariffProposal(proposalId: string): Promise<ReviewRequest>;
-  rejectTariffProposal(proposalId: string): Promise<TariffProposal>;
+  rejectTariffProposal(proposalId: string, reason?: string): Promise<TariffProposal>;
 
   // --- complaints ("Shikoyatlar") ---
   getComplaints(query: ComplaintQuery): Promise<Complaint[]>;

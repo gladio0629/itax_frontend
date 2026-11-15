@@ -103,6 +103,7 @@ export function NewRequestsTab({ feed, date, type, highlightId, summary, onFilte
     <>
       <PullList ref={scroller} onRefresh={() => feed.reload(true)} pullLabel={t("feed.pull")} releaseLabel={t("feed.release")}>
         <div className="space-y-3 px-4 pb-6 pt-3">
+          {api.capabilities.feedFilters && (
           <div className="space-y-2" role="group" aria-label={t("feed.filters")}>
             <div className="flex items-center gap-2">
               <Chip selected={date === "today"} onClick={() => onFilter({ date: "today" })} className="h-10 px-3">
@@ -133,6 +134,7 @@ export function NewRequestsTab({ feed, date, type, highlightId, summary, onFilte
               ))}
             </div>
           </div>
+          )}
 
           {summary && summary.debt.level !== "ok" && <DebtBanner level={summary.debt.level} onTopup={() => navigate("/wallet/topup")} />}
           <NotifyPrompt />
@@ -149,7 +151,7 @@ export function NewRequestsTab({ feed, date, type, highlightId, summary, onFilte
               <EmptyState
                 icon={Inbox}
                 title={t("feed.empty")}
-                description={t("feed.emptyDesc", { day: dayText(page.seats.when, t) })}
+                description={page.seats ? t("feed.emptyDesc", { day: dayText(page.seats.when, t) }) : undefined}
                 action={
                   <Button variant="secondary" fullWidth onClick={() => feed.reload()}>
                     <RefreshCw className="h-5 w-5" />
@@ -166,7 +168,7 @@ export function NewRequestsTab({ feed, date, type, highlightId, summary, onFilte
                   leaving={leaving[r.id] ?? null}
                   highlight={highlightId === r.id}
                   onAccept={() => accept(r)}
-                  onReject={() => setRejecting(r)}
+                  onReject={api.capabilities.rejectRequest ? () => setRejecting(r) : undefined}
                   onGone={() => {
                     setGone((s) => new Set(s).add(r.id));
                     feed.reload(true);

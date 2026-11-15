@@ -19,25 +19,33 @@ import { formatDate, formatSom } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { ArchivableStatusFilter, Driver, DriverQuery, DriverStatus } from "@/api/types";
 
+const caps = api.capabilities;
+
 const STATUS_TONE: Record<DriverStatus, BadgeTone> = {
   active: "success",
   auto_review: "pending",
   blocked: "danger",
+  rejected: "danger",
 };
 const STATUS_LABEL: Record<DriverStatus, string> = {
   active: "Faol",
-  auto_review: "Avtomatik tekshiruvda",
+  // The real API's draft / pending_review: the driver isn't approved yet.
+  auto_review: caps.driverReviewFilter ? "Avtomatik tekshiruvda" : "Tekshiruvda",
   blocked: "Bloklangan",
+  rejected: "Rad etilgan",
 };
 const STATUS_OPTIONS: { value: ArchivableStatusFilter<DriverStatus>; label: string }[] = [
   { value: "all", label: "Barchasi" },
   { value: "active", label: STATUS_LABEL.active },
-  { value: "auto_review", label: STATUS_LABEL.auto_review },
+  // The contract filters by account state only (active/blocked/archived).
+  ...(caps.driverReviewFilter ? [{ value: "auto_review" as const, label: STATUS_LABEL.auto_review }] : []),
   { value: "blocked", label: STATUS_LABEL.blocked },
   { value: "archived", label: "Arxivlangan" },
 ];
 
 type Confirm = { type: "block" | "unblock" | "archive" | "restore"; driver: Driver };
+
+const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
 
 export function DriversScreen() {
   const [search, setSearch] = useState("");
@@ -53,16 +61,23 @@ export function DriversScreen() {
   const [revealing, setRevealing] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   function openDetail(d: Driver) {
     setSelected(d);
     setPhone(null);
     setEditing(false);
+    setActionError(null);
   }
   function startEdit(d: Driver) {
     setForm({ name: d.name, carModel: d.carModel, carColor: d.carColor, plate: d.plate });
+    setActionError(null);
     setEditing(true);
+  }
+  function openConfirm(c: Confirm) {
+    setActionError(null);
+    setConfirm(c);
   }
 
   async function handleReveal(driverId: string) {
@@ -70,6 +85,8 @@ export function DriversScreen() {
     try {
       const res = await api.revealPhone("driver", driverId);
       setPhone(res.phone);
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setRevealing(false);
     }
@@ -78,24 +95,30 @@ export function DriversScreen() {
   async function handleSave() {
     if (!selected) return;
     setSaving(true);
+    setActionError(null);
     try {
-      const updated = await api.updateDriverProfile(selected.id, form);
+      // Car fields go only to a backend that can change them.
+      const patch = caps.driverCarEdit ? form : { name: form.name };
+      const updated = await api.updateDriverProfile(selected.id, patch);
       setSelected(updated);
       setEditing(false);
       setToast("Profil saqlandi");
       reload();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleConfirm() {
+  async function handleConfirm(reason?: string) {
     if (!confirm) return;
     setActing(true);
+    setActionError(null);
     try {
       const { type, driver } = confirm;
       let updated: Driver;
-      if (type === "block") updated = await api.setDriverStatus(driver.id, "blocked");
+      if (type === "block") updated = await api.setDriverStatus(driver.id, "blocked", reason);
       else if (type === "unblock") updated = await api.setDriverStatus(driver.id, "active");
       else if (type === "archive") updated = await api.archiveDriver(driver.id);
       else updated = await api.restoreDriver(driver.id);
@@ -103,6 +126,8 @@ export function DriversScreen() {
       setToast(type === "block" ? "Bloklandi" : type === "unblock" ? "Blokdan chiqarildi" : type === "archive" ? "Arxivlandi" : "Tiklandi");
       setConfirm(null);
       reload();
+    } catch (e) {
+      setActionError(errorText(e));
     } finally {
       setActing(false);
     }
@@ -140,13 +165,17 @@ export function DriversScreen() {
       header: "Hamyon",
       align: "right",
       sortValue: (d) => d.walletBalance,
-      render: (d) => <span className={cn("tabular", d.walletBalance < d.debtLimit && "text-danger")}>{formatSom(d.walletBalance)}</span>,
+      render: (d) => <span className={cn("tabular", caps.driverDebtLimit && d.walletBalance < d.debtLimit && "text-danger")}>{formatSom(d.walletBalance)}</span>,
     },
-    {
-      key: "online",
-      header: "Onlayn",
-      render: (d) => <Badge tone={d.online ? "accent" : "neutral"}>{d.online ? "Onlayn" : "Oflayn"}</Badge>,
-    },
+    ...(caps.driverOnline
+      ? [
+          {
+            key: "online",
+            header: "Onlayn",
+            render: (d: Driver) => <Badge tone={d.online ? "accent" : "neutral"}>{d.online ? "Onlayn" : "Oflayn"}</Badge>,
+          } as Column<Driver>,
+        ]
+      : []),
     {
       key: "status",
       header: "Holat",
@@ -240,12 +269,16 @@ export function DriversScreen() {
               </div>
               <div>
                 <p className="text-xs text-ink/50">Hamyon balansi</p>
-                <p className={cn("font-semibold", selected.walletBalance < selected.debtLimit ? "text-danger" : "text-ink")}>{formatSom(selected.walletBalance)}</p>
+                <p className={cn("font-semibold", caps.driverDebtLimit && selected.walletBalance < selected.debtLimit ? "text-danger" : "text-ink")}>
+                  {formatSom(selected.walletBalance)}
+                </p>
               </div>
-              <div>
-                <p className="text-xs text-ink/50">Qarz limiti</p>
-                <p className="font-semibold text-ink">{formatSom(selected.debtLimit)}</p>
-              </div>
+              {caps.driverDebtLimit && (
+                <div>
+                  <p className="text-xs text-ink/50">Qarz limiti</p>
+                  <p className="font-semibold text-ink">{formatSom(selected.debtLimit)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-ink/50">Qo'shilgan sana</p>
                 <p className="font-semibold text-ink">{formatDate(selected.joinedAt)}</p>
@@ -254,10 +287,11 @@ export function DriversScreen() {
             <Badge tone={selected.archived ? "neutral" : STATUS_TONE[selected.status]}>
               {selected.archived ? "Arxivlangan" : STATUS_LABEL[selected.status]}
             </Badge>
+            {actionError && !confirm && <p className="text-xs font-semibold text-danger">{actionError}</p>}
 
             <div className="flex gap-2 border-t border-border pt-4">
               {selected.archived ? (
-                <Button variant="secondary" size="sm" onClick={() => setConfirm({ type: "restore", driver: selected })}>
+                <Button variant="secondary" size="sm" onClick={() => openConfirm({ type: "restore", driver: selected })}>
                   <RotateCcw className="h-4 w-4" /> Tiklash
                 </Button>
               ) : (
@@ -265,12 +299,12 @@ export function DriversScreen() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setConfirm({ type: selected.status === "blocked" ? "unblock" : "block", driver: selected })}
+                    onClick={() => openConfirm({ type: selected.status === "blocked" ? "unblock" : "block", driver: selected })}
                   >
                     {selected.status === "blocked" ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                     {selected.status === "blocked" ? "Blokdan chiqarish" : "Bloklash"}
                   </Button>
-                  <Button variant="danger" size="sm" onClick={() => setConfirm({ type: "archive", driver: selected })}>
+                  <Button variant="danger" size="sm" onClick={() => openConfirm({ type: "archive", driver: selected })}>
                     <Trash2 className="h-4 w-4" /> Arxivlash
                   </Button>
                 </>
@@ -280,10 +314,21 @@ export function DriversScreen() {
         )}
         {selected && editing && (
           <div className="space-y-4">
-            <Input label="Ism" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-            <Input label="Avtomobil modeli" value={form.carModel} onChange={(e) => setForm((f) => ({ ...f, carModel: e.target.value }))} />
-            <Input label="Rangi" value={form.carColor} onChange={(e) => setForm((f) => ({ ...f, carColor: e.target.value }))} />
-            <Input label="Davlat raqami" value={form.plate} onChange={(e) => setForm((f) => ({ ...f, plate: e.target.value }))} />
+            <Input
+              label={caps.driverCarEdit ? "Ism" : "Ism va familiya"}
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            />
+            {caps.driverCarEdit ? (
+              <>
+                <Input label="Avtomobil modeli" value={form.carModel} onChange={(e) => setForm((f) => ({ ...f, carModel: e.target.value }))} />
+                <Input label="Rangi" value={form.carColor} onChange={(e) => setForm((f) => ({ ...f, carColor: e.target.value }))} />
+                <Input label="Davlat raqami" value={form.plate} onChange={(e) => setForm((f) => ({ ...f, plate: e.target.value }))} />
+              </>
+            ) : (
+              <p className="text-xs text-ink/50">Avtomobil ma'lumotlari haydovchi ilovasida qayta tekshiruv orqali o'zgartiriladi.</p>
+            )}
+            {actionError && <p className="text-xs font-semibold text-danger">{actionError}</p>}
             <div className="flex gap-2">
               <Button variant="ghost" fullWidth onClick={() => setEditing(false)}>
                 Bekor qilish
@@ -303,6 +348,8 @@ export function DriversScreen() {
         }
         description={`${confirm?.driver.name ?? ""} uchun amalni tasdiqlaysizmi?`}
         tone={confirm?.type === "block" || confirm?.type === "archive" ? "danger" : "accent"}
+        reasonLabel={confirm?.type === "block" ? "Bloklash sababi (shart)…" : undefined}
+        error={actionError}
         loading={acting}
         onConfirm={handleConfirm}
         onCancel={() => setConfirm(null)}

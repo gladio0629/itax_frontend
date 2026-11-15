@@ -32,7 +32,14 @@ export function LoginScreen() {
   const [resendSeconds, setResendSeconds] = useState(0);
   const [resending, setResending] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
+  // Real API: the email-code step also needs the staff phone, and SMS codes
+  // may be shorter than 6 digits. The adapter says so per step.
+  const [needsPhone, setNeedsPhone] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [codeMinLength, setCodeMinLength] = useState(6);
   const inputsRef = useRef<HTMLInputElement[]>([]);
+  const code = digits.join("");
+  const canSubmit = code.length >= codeMinLength && (!needsPhone || phone.trim().length > 0);
 
   useEffect(() => {
     if (phase !== "code" || resendSeconds <= 0) return;
@@ -50,6 +57,8 @@ export function LoginScreen() {
       setDestination(res.maskedDestination);
       setTestCode(res.testCode);
       setResendSeconds(res.resendSeconds);
+      setNeedsPhone(!!res.needsPhone);
+      setCodeMinLength(res.codeMinLength ?? 6);
       setDigits(Array(6).fill(""));
       setPhase("code");
       setTimeout(() => inputsRef.current[0]?.focus(), 0);
@@ -65,7 +74,7 @@ export function LoginScreen() {
     setLoading(true);
     setCodeError(null);
     try {
-      const res = await api.verifyLoginStep(requestId, code);
+      const res = await api.verifyLoginStep(requestId, code, needsPhone ? { phone: phone.trim() } : undefined);
       if (res.done) {
         setReviewId(res.reviewId);
         setPhase("review");
@@ -74,6 +83,8 @@ export function LoginScreen() {
         setDestination(res.maskedDestination);
         setTestCode(res.testCode);
         setResendSeconds(res.resendSeconds);
+        setNeedsPhone(!!res.needsPhone);
+        setCodeMinLength(res.codeMinLength ?? 6);
         setDigits(Array(6).fill(""));
         setTimeout(() => inputsRef.current[0]?.focus(), 0);
       }
@@ -89,10 +100,13 @@ export function LoginScreen() {
   async function handleResend() {
     if (!requestId || resendSeconds > 0) return;
     setResending(true);
+    setCodeError(null);
     try {
       const res = await api.resendLoginCode(requestId);
       setTestCode(res.testCode);
       setResendSeconds(res.resendSeconds);
+    } catch (e) {
+      setCodeError(e instanceof Error ? e.message : "Kodni qayta yuborib bo'lmadi.");
     } finally {
       setResending(false);
     }
@@ -104,7 +118,8 @@ export function LoginScreen() {
     next[i] = v;
     setDigits(next);
     if (v && i < 5) inputsRef.current[i + 1]?.focus();
-    if (next.every((d) => d) && next.join("").length === 6) handleVerify(next.join(""));
+    // Auto-submit once all six boxes are filled, unless a phone is still needed.
+    if (!needsPhone && next.every((d) => d) && next.join("").length === 6) handleVerify(next.join(""));
   }
 
   return (
@@ -150,10 +165,22 @@ export function LoginScreen() {
             <div>
               <p className="text-sm font-semibold text-ink">Tasdiqlash kodi</p>
               <p className="mt-1 text-xs text-ink/60">
-                {destination} manziliga yuborilgan 6 xonali kodni kiriting.
+                {destination} manziliga yuborilgan {codeMinLength < 6 ? "tasdiqlash kodini" : "6 xonali kodni"} kiriting.
                 {testCode && ` (Sinov kodi: ${testCode})`}
               </p>
             </div>
+            {needsPhone && (
+              <Input
+                label="Telefon raqamingiz"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+998 90 000 00 00"
+                hint="Keyingi qadamda shu raqamga SMS kod yuboriladi."
+              />
+            )}
             <div className="flex gap-2">
               {digits.map((d, i) => (
                 <input
@@ -185,7 +212,7 @@ export function LoginScreen() {
                 Orqaga
               </button>
             </div>
-            <Button fullWidth loading={loading} disabled={digits.some((d) => !d)} onClick={() => handleVerify(digits.join(""))}>
+            <Button fullWidth loading={loading} disabled={!canSubmit} onClick={() => handleVerify(code)}>
               Tasdiqlash
             </Button>
           </div>

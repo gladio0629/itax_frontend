@@ -11,6 +11,8 @@ import { ErrorState } from "@/components/ErrorState";
 import { formatSom, formatKm } from "@/lib/format";
 import { useOrderStore } from "@/stores/orderStore";
 import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
+import { serverErrorKey } from "@/lib/apiError";
 import { RatingReasonsSheet } from "@/features/history/RatingReasonsSheet";
 import { TipCard } from "./TipCard";
 
@@ -24,13 +26,15 @@ export function OrderFinishedScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [suggestion, setSuggestion] = useState<RouteSuggestion | null>(null);
   const [error, setError] = useState(false);
-  const [ratingError, setRatingError] = useState(false);
+  const [ratingError, setRatingError] = useState<string | false>(false);
   const [pendingFive, setPendingFive] = useState(false);
 
   function load() {
     setError(false);
     api.getOrder(orderId).then(setOrder).catch(() => setError(true));
-    api.getPopularRoutes().then((routes) => setSuggestion(routes[0] ?? null)).catch(() => {});
+    if (api.capabilities.popularRoutes) {
+      api.getPopularRoutes().then((routes) => setSuggestion(routes[0] ?? null)).catch(() => {});
+    }
   }
 
   useEffect(load, [orderId]);
@@ -41,8 +45,8 @@ export function OrderFinishedScreen() {
     try {
       await api.rateOrder(orderId, value, reasons, note);
       setSubmitted(true);
-    } catch {
-      setRatingError(true);
+    } catch (e) {
+      setRatingError(serverErrorKey(e) ?? "order.submitError");
     }
   }
 
@@ -90,10 +94,10 @@ export function OrderFinishedScreen() {
           ))}
         </div>
         {submitted && <p className="mt-3 text-center text-xs font-normal text-accent">{t("finished.ratingThanks")}</p>}
-        {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t("order.submitError")}</p>}
+        {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t(ratingError as TranslationKey)}</p>}
       </Card>
 
-      <TipCard orderId={orderId} className="mb-4" />
+      {api.capabilities.tips && <TipCard orderId={orderId} className="mb-4" />}
 
       <Card className="mb-4 space-y-3 p-5">
         <p className="text-xs font-semibold text-ink/60">{t("finished.receiptTitle")}</p>

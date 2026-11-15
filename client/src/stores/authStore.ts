@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { readJSON, writeJSON } from "@/mockDb/storage";
+import { api } from "@/api/client";
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -8,28 +9,38 @@ type AuthState = {
   setPhone: (phone: string) => void;
   completeAuth: () => void;
   completeOnboarding: () => void;
+  /** User action: revoke the session on the server, then sign out here. */
   logout: () => void;
+  /** The session already ended (expired / revoked): local state only. */
+  clearSession: () => void;
 };
 
 const KEY = "auth";
 
+// The http adapter knows whether a session exists (a stored refresh token);
+// the sample-data adapter returns null and the stored flag decides.
+const sessionNow = api.hasSession();
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  isAuthenticated: readJSON(KEY, { isAuthenticated: false }).isAuthenticated,
-  phone: readJSON(KEY, { phone: "" }).phone,
+  isAuthenticated: sessionNow ?? readJSON(KEY, { isAuthenticated: false }).isAuthenticated,
+  // The phone is only kept in memory (never written to storage).
+  phone: "",
   onboardingSeen: readJSON(KEY, { onboardingSeen: false }).onboardingSeen,
   setPhone: (phone) => set({ phone }),
   completeAuth: () => {
-    const next = { isAuthenticated: true, phone: get().phone, onboardingSeen: true };
-    writeJSON(KEY, next);
-    set(next);
+    writeJSON(KEY, { isAuthenticated: true, onboardingSeen: true });
+    set({ isAuthenticated: true, onboardingSeen: true });
   },
   completeOnboarding: () => {
-    const next = { isAuthenticated: get().isAuthenticated, phone: get().phone, onboardingSeen: true };
-    writeJSON(KEY, next);
+    writeJSON(KEY, { isAuthenticated: get().isAuthenticated, onboardingSeen: true });
     set({ onboardingSeen: true });
   },
   logout: () => {
-    writeJSON(KEY, { isAuthenticated: false, phone: "", onboardingSeen: true });
-    set({ isAuthenticated: false });
+    get().clearSession();
+    void api.logout();
+  },
+  clearSession: () => {
+    writeJSON(KEY, { isAuthenticated: false, onboardingSeen: true });
+    set({ isAuthenticated: false, phone: "" });
   },
 }));

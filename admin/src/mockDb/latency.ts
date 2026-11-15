@@ -1,12 +1,10 @@
 import { getScenarios } from "@/stores/scenarioStore";
 
-export class ApiError extends Error {
-  code: string;
-  constructor(code: string, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
+// One error type for both adapters (code + message, plus params/status for
+// the real API). The http path imports it from @shared directly, so it never
+// pulls in this mock-only module.
+export { ApiError } from "@shared/http/errors";
+import { ApiError } from "@shared/http/errors";
 
 /**
  * Simulates a network round-trip to the mock server: 300-900ms latency

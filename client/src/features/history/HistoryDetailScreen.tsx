@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { formatSom, formatKm, formatRelativeDay, formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
+import { serverErrorKey } from "@/lib/apiError";
 import { RatingReasonsSheet } from "./RatingReasonsSheet";
 import { TipCard } from "@/features/order/TipCard";
 
@@ -30,7 +31,7 @@ export function HistoryDetailScreen() {
   const { t, intlTag } = useT();
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
   const [pendingFive, setPendingFive] = useState(false);
-  const [ratingError, setRatingError] = useState(false);
+  const [ratingError, setRatingError] = useState<string | false>(false);
 
   const [loadError, setLoadError] = useState(false);
 
@@ -47,8 +48,8 @@ export function HistoryDetailScreen() {
     try {
       const updated = await api.rateOrder(orderId, value, reasons, note);
       setOrder(updated);
-    } catch {
-      setRatingError(true);
+    } catch (e) {
+      setRatingError(serverErrorKey(e) ?? "order.submitError");
     }
   }
 
@@ -138,18 +139,20 @@ export function HistoryDetailScreen() {
                 <Lock className="h-3.5 w-3.5" /> {t("history.rating.lockedReason")}
               </p>
             )}
-            {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t("order.submitError")}</p>}
+            {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t(ratingError as TranslationKey)}</p>}
           </Card>
         )}
 
-        {order.status === "completed" && order.driver && <TipCard orderId={orderId} className="mt-4" />}
+        {api.capabilities.tips && order.status === "completed" && order.driver && <TipCard orderId={orderId} className="mt-4" />}
 
-        <Link
-          to="/help"
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-ink/5 py-3.5 text-sm font-semibold text-ink/80"
-        >
-          <HelpCircle className="h-4 w-4" /> {t("history.help")}
-        </Link>
+        {api.capabilities.help && (
+          <Link
+            to="/help"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-ink/5 py-3.5 text-sm font-semibold text-ink/80"
+          >
+            <HelpCircle className="h-4 w-4" /> {t("history.help")}
+          </Link>
+        )}
       </div>
 
       {pendingFive && (

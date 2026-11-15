@@ -23,7 +23,7 @@ export function AccountScreen() {
             <div>
               <p className="font-semibold text-ink">{me.name}</p>
               {me.email && <p className="text-sm text-ink/60">{me.email}</p>}
-              <p className="tabular text-sm text-ink/60">{me.phone}</p>
+              {me.phone && <p className="tabular text-sm text-ink/60">{me.phone}</p>}
               <Badge tone="accent" className="mt-2">
                 {ROLE_LABEL[me.role]}
               </Badge>
