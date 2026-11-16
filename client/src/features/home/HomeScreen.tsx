@@ -71,6 +71,8 @@ export default function OrderingHome() {
   // coordinates) and the pickup, which the camera centres on.
   const me = useGeolocation({ enabled: LIVE_MAP, simulated: api.simulatedPosition() });
   const pickupPoint = addressPoint(fromAddress);
+  /** Bumped by "where am I": brings the camera back to the pickup. */
+  const [recentre, setRecentre] = useState(0);
   // A route needs a drop-off; a stale ?flow=route falls back to home.
   const view = flow === "search" ? "search" : flow === "route" && toAddress ? "route" : "home";
 
@@ -234,6 +236,10 @@ export default function OrderingHome() {
         ariaLabel={t("map.label")}
         center={pickupPoint ?? me}
         zoom={15}
+        // The camera moves when the pickup changes, when the first GPS fix
+        // arrives (no pickup yet) and on "where am I" — not on every fix,
+        // which would pull the map back while the passenger is panning it.
+        fitKey={`${pickupPoint ? draft.fromAddressId : me ? "me" : "none"}:${recentre}`}
         markers={markers}
         // The sheet covers the bottom, the pickup caption the top.
         padding={{ top: 88, bottom: panelH }}
@@ -284,7 +290,10 @@ export default function OrderingHome() {
         onClick={() =>
           api
             .locateMe()
-            .then((a) => setPoint("from", a))
+            .then((a) => {
+              setPoint("from", a);
+              setRecentre((n) => n + 1);
+            })
             .catch((e) => setToast(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey)))
         }
       >
