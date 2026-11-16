@@ -51,6 +51,7 @@ export const en: Dictionary = {
   "common.errorMessage": "A connection error occurred",
   "common.loadFailedRetry": "Couldn't load — try again",
   "map.routeLabel": "Route map",
+  "map.label": "Map",
 
   "theme.toggleToDark": "Switch to dark mode",
   "theme.toggleToLight": "Switch to light mode",

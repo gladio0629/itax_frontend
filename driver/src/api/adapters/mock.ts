@@ -10,6 +10,7 @@ import {
   type BookingRecord, type DetailsRecord, type DriverState, type RequestRecord, type StopRecord, type TripRecord, type WhenRecord,
 } from "@/mockDb/driverDb";
 import { makeRng } from "@/lib/prng";
+import { offsetPoint } from "@shared/map/geo";
 import { groupDigits } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
@@ -127,14 +128,46 @@ function passengerInfo(id: string): PassengerInfo {
 }
 
 /** Before acceptance the intercom code is withheld — only its existence is shown. */
+/** Mock coordinates for the map: the sample addresses are only names, so each gets a fixed
+ * spot within ~3 km of its city's centre (the same address always lands on the same spot). */
+function mockCoords(cityId: string, address: string): { lat: number; lng: number } {
+  const city = CITIES.find((c) => c.id === cityId) ?? CITIES[0];
+  let h = 0;
+  for (const ch of `${cityId}|${address}`) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const rng = makeRng(h >>> 0);
+  const angle = rng.float(0, Math.PI * 2, 3);
+  const far = rng.int(400, 3000);
+  const p = offsetPoint({ lat: city.lat, lng: city.lng }, Math.cos(angle) * far, Math.sin(angle) * far);
+  return { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) };
+}
+
 function offerPlace(cityId: string, address: string, d?: DetailsRecord): OfferPlace {
-  if (!d) return { city: cityRef(cityId), address };
+  const base = { city: cityRef(cityId), address, ...mockCoords(cityId, address) };
+  if (!d) return base;
   const { intercom, ...rest } = d;
-  return { city: cityRef(cityId), address, details: { ...rest, intercomOnAccept: intercom ? true : undefined } };
+  return { ...base, details: { ...rest, intercomOnAccept: intercom ? true : undefined } };
 }
 
 function tripPlace(cityId: string, address: string, d?: DetailsRecord): TripPlace {
-  return d ? { city: cityRef(cityId), address, details: { ...d } } : { city: cityRef(cityId), address };
+  const base = { city: cityRef(cityId), address, ...mockCoords(cityId, address) };
+  return d ? { ...base, details: { ...d } } : base;
+}
+
+/** Where the demo driver "is": no GPS in the sample data, so the position follows the trip in
+ * focus — a couple of kilometres from the pickup while heading there, at the pickup while
+ * waiting and at the start of the trip; in the driver's own city when nothing is accepted. */
+function mockDriverPosition(): { lat: number; lng: number } {
+  const s = state();
+  const rank = { in_progress: 0, waiting: 1, to_pickup: 2 } as const;
+  const b = [...s.bookings].sort((x, y) => rank[x.stage] - rank[y.stage] || x.when.dayStart - y.when.dayStart || x.acceptedAt - y.acceptedAt)[0];
+  if (!b) return mockCoords(s.profile.cityId, "driver");
+  const pickup = mockCoords(b.fromCityId, b.pickupAddr);
+  if (b.stage !== "to_pickup") return pickup;
+  const rng = makeRng(b.acceptedAt % 1_000_000);
+  const angle = rng.float(0, Math.PI * 2, 3);
+  const far = rng.int(1500, 2500);
+  const p = offsetPoint(pickup, Math.cos(angle) * far, Math.sin(angle) * far);
+  return { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) };
 }
 
 /**
@@ -870,6 +903,13 @@ export const mockAdapter: ApiAdapter = {
   subscribe: () => noop,
   onSessionEnd: () => noop,
   reportLocation: () => Promise.resolve(),
+  simulatedPosition: () => {
+    try {
+      return mockDriverPosition();
+    } catch {
+      return null; // not signed in yet: no state
+    }
+  },
   // Simulated picker: no real file, a local name "uploads" in under a second.
   uploadDocument: (slot) =>
     withLatency(() => {

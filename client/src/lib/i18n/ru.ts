@@ -51,6 +51,7 @@ export const ru: Dictionary = {
   "common.errorMessage": "Произошла ошибка соединения",
   "common.loadFailedRetry": "Не удалось загрузить — повторить",
   "map.routeLabel": "Карта маршрута",
+  "map.label": "Карта",
 
   "theme.toggleToDark": "Включить тёмный режим",
   "theme.toggleToLight": "Включить светлый режим",

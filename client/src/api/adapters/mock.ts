@@ -8,6 +8,7 @@ import {
   ADDRESSES,
   WAREHOUSES,
   addressById,
+  mockCoords,
   addressesForQuery,
   defaultAddressesForCity,
   nearestAddress,
@@ -15,6 +16,7 @@ import {
   type Address,
 } from "@/clientData/addresses";
 import { makeRng } from "@/lib/prng";
+import { offsetPoint } from "@shared/map/geo";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   AddressDetails,
@@ -639,6 +641,17 @@ function hashSeed(id: string): number {
   return h >>> 0;
 }
 
+/** Mock coordinates the assigned driver starts from: 1.5–3 km from the
+ * pickup, in a direction fixed per order. */
+function driverStartPoint(order: Order): { lat: number; lng: number } {
+  const pickupAddress = addressById(loadOrderExtras()[order.id]?.fromAddressId ?? "");
+  const pickup = pickupAddress ?? cityOf(order.fromCityId);
+  const rng = makeRng(hashSeed(order.id));
+  const angle = rng.float(0, Math.PI * 2, 3);
+  const far = rng.int(1500, 3000);
+  return offsetPoint({ lat: pickup.lat, lng: pickup.lng }, Math.cos(angle) * far, Math.sin(angle) * far);
+}
+
 function currentPassengerId(): string {
   return db.passengers()[2].id; // fixed demo passenger: a stable "me"
 }
@@ -752,6 +765,24 @@ export const mockAdapter: ApiAdapter = {
   onSessionEnd: () => () => {},
   onOrderEvent: () => () => {},
 
+  // No GPS in the sample data: the car's place follows the order's own
+  // timeline — the share of the way to the pickup, then of the trip. The
+  // driver "sets off" from mock coordinates a couple of kilometres away.
+  onDriverLocation: (orderId, listener) => {
+    const tick = () => {
+      const order = db.getOrder(orderId);
+      const t = order?.timeline;
+      if (!order || !t?.acceptedAt || !t.tripStartsAt || !t.tripEndsAt) return;
+      const share = (from: number, to: number) => Math.min(1, Math.max(0, (Date.now() - from) / Math.max(1, to - from)));
+      const start = driverStartPoint(order);
+      if (order.status === "accepted") listener({ orderId, kind: "progress", leg: "to_pickup", fraction: share(t.acceptedAt, t.tripStartsAt), start });
+      else if (order.status === "in_progress") listener({ orderId, kind: "progress", leg: "trip", fraction: share(t.tripStartsAt, t.tripEndsAt), start });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  },
+
   repeatOrder: async (orderId, fallback) => {
     // Re-order exactly what was ordered: the order's extras hold the route,
     // stops, details, class, options and promo (the draft was reset on submit).
@@ -787,6 +818,8 @@ export const mockAdapter: ApiAdapter = {
   defaultPickupId: () => ADDRESSES.find((a) => a.cityId === "tsh")?.id ?? ADDRESSES[0]?.id ?? "",
   // The device position is the map's centre in the sample data.
   locateMe: () => mockAdapter.reverseGeocode(50, 50),
+  // The demo passenger "stands" at the centre of Toshkent (69.2401, 41.2995).
+  simulatedPosition: () => mockCoords("tsh", 50, 50),
 
   getCities: () => withLatency(() => db.cities()),
 

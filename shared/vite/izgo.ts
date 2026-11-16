@@ -75,21 +75,35 @@ export function apiOrigins(apiUrl: string | undefined): string[] {
   }
 }
 
+/** What Mapbox GL JS needs from connect-src (its CSP guide): the API (styles,
+ * tiles, Directions), telemetry and the tile hosts. Kept in step with
+ * shared/scripts/check-no-network.mjs. */
+export const MAPBOX_CONNECT_SRC = ["https://api.mapbox.com", "https://events.mapbox.com", "https://*.tiles.mapbox.com"];
+
+/** True when the build gets the interactive map: VITE_MAPBOX_TOKEN is set. */
+export const mapboxEnabled = (token: string | undefined): boolean => (token ?? "").trim() !== "";
+
 /** The page CSP. connect-src is 'self' plus the API origin and its wss
  * origin, generated from VITE_API_URL at build time ('self' only while it
  * is empty). Dev adds ws:/wss: for Vite's hot reload (older Safari doesn't
- * count same-host ws:// as 'self'). */
-export function contentSecurityPolicy(opts: { apiUrl: string | undefined; dev: boolean; header: boolean }): string {
+ * count same-host ws:// as 'self').
+ *
+ * `mapbox` (client and driver with VITE_MAPBOX_TOKEN): adds the Mapbox hosts
+ * to connect-src, and blob: for the map's web worker and the images it
+ * builds — nothing else is opened, script-src stays 'self'. */
+export function contentSecurityPolicy(opts: { apiUrl: string | undefined; dev: boolean; header: boolean; mapbox?: boolean }): string {
   const origins = apiOrigins(opts.apiUrl);
-  const connect = ["'self'", ...(opts.dev ? ["ws:", "wss:"] : []), ...origins];
+  const connect = ["'self'", ...(opts.dev ? ["ws:", "wss:"] : []), ...origins, ...(opts.mapbox ? MAPBOX_CONNECT_SRC : [])];
   const directives = [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     // Driver avatars (avatar_url) may be served by the API host.
-    `img-src 'self' data:${origins[0] ? ` ${origins[0]}` : ""}`,
+    `img-src 'self' data:${opts.mapbox ? " blob:" : ""}${origins[0] ? ` ${origins[0]}` : ""}`,
     "font-src 'self' data:",
     `connect-src ${connect.join(" ")}`,
+    // child-src: the worker fallback of browsers without worker-src.
+    ...(opts.mapbox ? ["worker-src 'self' blob:", "child-src blob:"] : []),
     "frame-src 'none'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -104,10 +118,10 @@ export function contentSecurityPolicy(opts: { apiUrl: string | undefined; dev: b
  * reads vercel.json from the repo before the build, so there the static
  * vercel.json sends these headers (without connect-src) and the meta CSP
  * below, generated at build time, restricts connect-src. */
-export function headersFile(apiUrl: string | undefined): string {
+export function headersFile(apiUrl: string | undefined, mapbox = false): string {
   return [
     "/*",
-    `  Content-Security-Policy: ${contentSecurityPolicy({ apiUrl, dev: false, header: true })}`,
+    `  Content-Security-Policy: ${contentSecurityPolicy({ apiUrl, dev: false, header: true, mapbox })}`,
     "  X-Content-Type-Options: nosniff",
     "  Referrer-Policy: strict-origin-when-cross-origin",
     "  X-Frame-Options: DENY",
@@ -116,8 +130,9 @@ export function headersFile(apiUrl: string | undefined): string {
 }
 
 /** Rewrites the CSP <meta> in index.html from VITE_API_URL (dev and build)
- * and emits dist/_headers on build. */
-export function izgoSecurity(apiUrl: string | undefined): Plugin {
+ * and emits dist/_headers on build. `mapbox`: see contentSecurityPolicy. */
+export function izgoSecurity(apiUrl: string | undefined, opts: { mapbox?: boolean } = {}): Plugin {
+  const mapbox = opts.mapbox === true;
   let dev = false;
   return {
     name: "izgo-security-headers",
@@ -125,11 +140,11 @@ export function izgoSecurity(apiUrl: string | undefined): Plugin {
       dev = config.command === "serve";
     },
     transformIndexHtml(html) {
-      const csp = contentSecurityPolicy({ apiUrl, dev, header: false });
+      const csp = contentSecurityPolicy({ apiUrl, dev, header: false, mapbox });
       return html.replace(/(<meta\s+http-equiv="Content-Security-Policy"\s+content=")[^"]*(")/, `$1${csp}$2`);
     },
     generateBundle() {
-      this.emitFile({ type: "asset", fileName: "_headers", source: headersFile(apiUrl) });
+      this.emitFile({ type: "asset", fileName: "_headers", source: headersFile(apiUrl, mapbox) });
     },
   };
 }

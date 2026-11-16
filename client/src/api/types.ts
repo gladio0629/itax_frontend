@@ -21,6 +21,10 @@ export type Address = {
    * geographic, so a real point has none). */
   x?: number;
   y?: number;
+  /** Where the point is on the real map (sample data: mock coordinates
+   * around the city's centre). */
+  lat?: number;
+  lng?: number;
   /** Marketplace warehouse (Kargo "Marketpleysga" drop-offs only). */
   warehouse?: { marketplace: string };
 };
@@ -479,6 +483,15 @@ export type ClientCapabilities = {
 
 /** A live order change pushed by the server (WebSocket) — screens refetch. */
 export type OrderEvent = { orderId: string };
+
+/** Where the driver of an order is, for the map.
+ * - "position": a GPS fix pushed by the server.
+ * - "progress": the sample data has no GPS — it says how far along the leg
+ *   the car is (0…1) and where the driver set off from; the screen places
+ *   the car on the route it has drawn. */
+export type DriverLocation =
+  | { orderId: string; kind: "position"; lat: number; lng: number }
+  | { orderId: string; kind: "progress"; leg: "to_pickup" | "trip"; fraction: number; start: { lat: number; lng: number } };
 
 export type OtpRequestResult = {
   requestId: string;

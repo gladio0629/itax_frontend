@@ -6,7 +6,7 @@ import type { OrderWithDetails } from "@/api/types";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { BottomBar } from "@/components/BottomBar";
 import { Button } from "@/components/Button";
-import { MapView } from "@/components/MapView";
+import { StaticMap } from "@/components/StaticMap";
 import { Card } from "@/components/Card";
 import { ErrorState } from "@/components/ErrorState";
 import { Toast } from "@/components/Toast";
@@ -17,6 +17,7 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 import { serverErrorKey } from "@/lib/apiError";
 import { DEMO_MODE } from "@/config";
 import { DriverCard } from "./DriverCard";
+import { TrackMap } from "./TrackMap";
 import { CancelSheet } from "./CancelSheet";
 import { SafetySheet } from "./SafetySheet";
 
@@ -152,7 +153,11 @@ export function OrderTrackScreen() {
 
       <div className="scroll-pb-bar flex-1 overflow-y-auto overscroll-contain px-4">
         <div className="relative mb-4 h-48 overflow-hidden rounded-2xl">
-          <MapView showCar={order.status === "in_progress" || order.status === "accepted"} carProgress={order.status === "in_progress" ? tripProgress : 0.08} dim={order.status === "searching"} />
+          {/* Live map: the route and the driver's car as its position arrives. The drawn map is the fallback. */}
+          <TrackMap
+            order={order}
+            fallback={<StaticMap showCar={order.status === "in_progress" || order.status === "accepted"} carProgress={order.status === "in_progress" ? tripProgress : 0.08} dim={order.status === "searching"} />}
+          />
         </div>
 
         {order.status === "searching" && !showNoDriver && (

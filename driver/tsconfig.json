@@ -29,13 +29,29 @@
       ],
       "@active-adapter": [
         "src/api/adapters/http.ts"
+      ],
+      "@map-provider": [
+        "../shared/map/provider.mapbox.ts"
+      ],
+      "react": [
+        "node_modules/@types/react"
+      ],
+      "react/jsx-runtime": [
+        "node_modules/@types/react/jsx-runtime"
+      ],
+      "react-dom": [
+        "node_modules/@types/react-dom"
+      ],
+      "mapbox-gl": [
+        "node_modules/mapbox-gl"
       ]
     }
   },
   "include": [
     "src",
     "../shared/http",
-    "../shared/api"
+    "../shared/api",
+    "../shared/map"
   ],
   "exclude": [
     "../shared/**/*.test.ts"

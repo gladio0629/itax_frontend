@@ -67,6 +67,10 @@ export const uz = {
   "home.notifications": "Bildirishnomalar",
   "home.notificationsUnread": "Bildirishnomalar, {{n}} ta o'qilmagan",
   "home.mapLabel": "Xarita: sizning joylashuvingiz",
+  "home.mapRouteLabel": "Xarita: joylashuvingiz va yo'nalish",
+  "home.mapOpen": "Xaritani ochish",
+  "home.mapClose": "Ro'yxatga qaytish",
+  "home.mapRecenter": "Xaritani markazlash",
 
   "offer.pickup": "Olib ketish",
   "offer.dropoff": "Manzil",

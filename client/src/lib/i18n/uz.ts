@@ -52,6 +52,7 @@ export const uz = {
   "common.errorMessage": "Ulanishda xatolik yuz berdi",
   "common.loadFailedRetry": "Yuklab bo'lmadi — qayta urinish",
   "map.routeLabel": "Yo'nalish xaritasi",
+  "map.label": "Xarita",
 
   "theme.toggleToDark": "Tungi rejimga o'tish",
   "theme.toggleToLight": "Kunduzgi rejimga o'tish",

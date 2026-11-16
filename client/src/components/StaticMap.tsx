@@ -5,6 +5,8 @@ import { useT } from "@/lib/i18n/provider";
 // Stylized, fully static SVG "map" — no real map tiles or external service.
 // A single cubic bezier represents the route; cubicPoint() lets us place a
 // car marker anywhere along it for the trip-progress animation.
+// Shown where the interactive map (LiveMap) is not available: a build
+// without VITE_MAPBOX_TOKEN, no WebGL, or the map failed to load.
 const PATH = { p0: [40, 300], p1: [120, 80], p2: [260, 340], p3: [340, 60] };
 
 function cubicPoint(t: number): [number, number] {
@@ -17,7 +19,7 @@ function cubicPoint(t: number): [number, number] {
   return [x, y];
 }
 
-export function MapView({
+export function StaticMap({
   showCar = false,
   carProgress = 0.5,
   className,

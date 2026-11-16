@@ -469,6 +469,8 @@ export const httpAdapter: ApiAdapter = {
   },
 
   reportLocation: (lat, lng) => http.post<void>(API_PATHS.locationUpdate, { lat, lng }),
+  // The real position is the device's GPS.
+  simulatedPosition: () => null,
 
   // ---------- Yo'nalishlarim: GET/PUT /drivers/me/routes (whole set) ----------
   getRoutes: () => readRoutes(),

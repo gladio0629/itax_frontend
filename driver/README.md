@@ -13,6 +13,11 @@ npm run check:no-network
 ## Structure
 
 - Bottom tabs: **Asosiy** (passenger request feed: Yangi so'rovlar / Qabul qilinganlar), **Hamyon** (Bugungi daromad, balance, ledger), **Tarix** (past trips), **Profil**.
+- **Asosiy** sits on a full-screen map (`src/features/home/HomeMap.tsx`): the feed is a sheet over
+  it, and the sheet's handle opens the whole map. It shows the driver's position and, for the
+  accepted trip, the road to the passenger and on to the destination. With `VITE_MAPBOX_TOKEN`
+  (in `.env.local`) it is the interactive Mapbox map from `../shared/map`; without it, the drawn
+  night-city map. In sample-data mode the positions are mock coordinates from the mock adapter.
 - `src/api/adapterTypes.ts` is the whole contract between screens and the backend. Screens
   render what the adapter returns and send requests; commission, debt limit and level, which
   requests a driver sees (Yo'nalishlarim + Imkoniyatlarim), seats, first-accept-wins, trip

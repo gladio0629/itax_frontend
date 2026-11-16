@@ -8,6 +8,7 @@ import { API_PATHS } from "@shared/api/openapi";
 import type * as Api from "@shared/api/openapi";
 import { ApiError } from "@shared/http/errors";
 import { uuidV4 } from "@shared/http/uuid";
+import { toLatLng } from "@shared/map/geo";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   Address,
@@ -17,6 +18,7 @@ import type {
   CarClassId,
   ClientCapabilities,
   CreateOrderInput,
+  DriverLocation,
   OrderEvent,
   OrderHistoryPage,
   OrderTiming,
@@ -123,6 +125,9 @@ type Point = { address: Address; lat: number; lng: number; area: string; details
 const points = new Map<string, Point>();
 
 function remember(p: Point): Address {
+  // Screens get the coordinates with the address (for the map).
+  p.address.lat = p.lat;
+  p.address.lng = p.lng;
   points.set(p.address.id, p);
   return p.address;
 }
@@ -307,6 +312,17 @@ session.realtime?.subscribe((event) => {
   for (const l of orderListeners) l({ orderId: event.order_id });
 });
 
+// The driver's GPS fix for the passenger's map: a "driver.location" frame
+// with the order id and lat/lng. It is not an order change, so it never
+// triggers a re-read. (Not sent by the backend yet — docs/backend-gaps.md.)
+const driverLocationListeners = new Set<(e: DriverLocation) => void>();
+session.realtime?.subscribe((event) => {
+  if (event.type !== "driver.location" || !event.order_id) return;
+  const fix = toLatLng(event.lat, event.lng);
+  if (!fix) return;
+  for (const l of driverLocationListeners) l({ orderId: event.order_id, kind: "position", lat: fix.lat, lng: fix.lng });
+});
+
 /** Only http(s) redirects to a payment provider page. */
 function redirectTo(url: string) {
   const target = new URL(url, window.location.href);
@@ -379,6 +395,13 @@ export const httpAdapter: ApiAdapter = {
     orderListeners.add(listener);
     return () => orderListeners.delete(listener);
   },
+  onDriverLocation: (orderId, listener) => {
+    const forOrder = (e: DriverLocation) => {
+      if (e.orderId === orderId) listener(e);
+    };
+    driverLocationListeners.add(forOrder);
+    return () => driverLocationListeners.delete(forOrder);
+  },
 
   // ----------------------------------------------------------------- auth
   requestOtp: async (phone) => {
@@ -406,6 +429,7 @@ export const httpAdapter: ApiAdapter = {
   addressById: (id) => points.get(id)?.address,
   // No default pickup: the passenger picks one or taps "where am I".
   defaultPickupId: () => "",
+  simulatedPosition: () => null,
   locateMe: async () => {
     const pos = await devicePosition();
     const place = await http.get<Api.Place>(API_PATHS.placesReverse, { lat: pos.lat, lng: pos.lng });

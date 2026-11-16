@@ -79,6 +79,9 @@ export interface ApiAdapter {
   logout(): Promise<Session>;
   /** GPS fix while the feed is open or a trip is active (the caller throttles to ≥10 s). */
   reportLocation(lat: number, lng: number): Promise<void>;
+  /** The driver's position when the adapter has one without GPS (sample data: mock coordinates
+   * that follow the active trip's stage). null: the map reads the device's GPS. */
+  simulatedPosition(): { lat: number; lng: number } | null;
 
   // Yo'nalishlarim (city pairs the driver serves; at least one)
   getRoutes(): Promise<RoutesPage>;

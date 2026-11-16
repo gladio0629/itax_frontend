@@ -51,6 +51,7 @@ import type { DeliveryVehicleSpec,
   WalletSummary,
   ClientCapabilities,
   OrderEvent,
+  DriverLocation,
 } from "./types";
 
 /**
@@ -76,6 +77,9 @@ export interface ApiAdapter {
   onSessionEnd(listener: () => void): () => void;
   /** Server-pushed order changes (WebSocket). */
   onOrderEvent(listener: (event: OrderEvent) => void): () => void;
+  /** The driver's position while an order is accepted or in progress, as
+   * it changes (WebSocket; the sample data simulates the drive). */
+  onDriverLocation(orderId: string, listener: (event: DriverLocation) => void): () => void;
 
   /** "Search again" for an order that found no driver: re-sends it. The
    * fallback fills what an old order doesn't record (sample data only). */
@@ -92,6 +96,9 @@ export interface ApiAdapter {
   defaultPickupId(): string;
   /** "Where am I": the device position as a pickup point. */
   locateMe(): Promise<Address>;
+  /** The passenger's position when the adapter has one without GPS (sample
+   * data: mock coordinates). null: the map reads the device's GPS. */
+  simulatedPosition(): { lat: number; lng: number } | null;
 
   getCities(): Promise<City[]>;
   getPopularRoutes(): Promise<RouteSuggestion[]>;
