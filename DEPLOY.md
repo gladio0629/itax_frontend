@@ -19,12 +19,21 @@ the Root Directory in the Build Step"** turned on (also the default).
 |---|---|---|
 | `VITE_API_URL` | *(leave empty)* | Backend base URL, e.g. `https://api.example.com` |
 | `VITE_DEMO_MODE` | `false` | `true` would ship the built-in sample data instead of the backend |
+| `VITE_MAPBOX_TOKEN` | *(client and driver only)* | Mapbox **public** token (`pk.…`) for the interactive map. Empty: the apps show the drawn map and the build contains no Mapbox code |
 | `NODE_VERSION` | `20` | Only needed on Cloudflare Pages / Netlify if their default is older |
 
 While `VITE_API_URL` is empty, the deployed apps open and show "Server bilan aloqa yo'q.
 Keyinroq urinib ko'ring." with a retry button. That is expected.
 
 `VITE_*` values are baked in at **build** time. After changing one, redeploy.
+
+### The map token
+
+`VITE_MAPBOX_TOKEN` ends up in the JavaScript every visitor downloads — that is how a Mapbox
+public token is meant to be used, and why it must be a `pk.` token, never a secret `sk.` one.
+In the Mapbox account, restrict it to the 3 site URLs (*Tokens → URL restrictions*) so it cannot
+be reused elsewhere. Set it in the host's environment variables (or in `.env.local` for local
+work, which is gitignored) — never in a tracked file. Admin has no map and ignores it.
 
 ## Vercel
 
@@ -77,6 +86,10 @@ Content-Security-Policy `connect-src` automatically. You don't need to edit any 
 - `Content-Security-Policy`: scripts, styles and fonts load from the site itself only.
   `connect-src` is `'self'` plus the `VITE_API_URL` origin and its `wss://` origin, or only `'self'`
   while it is empty. `frame-ancestors 'none'` blocks embedding.
+- With `VITE_MAPBOX_TOKEN` (client and driver), the build adds exactly what Mapbox GL JS needs:
+  `connect-src https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com`,
+  `worker-src 'self' blob:` / `child-src blob:` for the map's web worker and `blob:` in `img-src`.
+  `script-src` stays `'self'`. Without the token none of this is added.
 - `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`.
 - Netlify and Cloudflare send all of these from the generated `dist/_headers`. Vercel reads
   `vercel.json` before the build, so it can't use a generated file. There, `vercel.json` sends

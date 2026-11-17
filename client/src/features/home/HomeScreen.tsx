@@ -4,6 +4,10 @@ import { Bell, ChevronRight, LocateFixed, MapPin, PersonStanding } from "@/lib/i
 import { api } from "@/api/client";
 import type { Address, AddressDetails, SavedAddressInfo } from "@/api/types";
 import { MapCanvas } from "@/components/MapCanvas";
+import { LiveMap, LIVE_MAP } from "@/components/LiveMap";
+import { useGeolocation } from "@shared/map/useGeolocation";
+import type { MapMarker } from "@shared/map/MapView";
+import { addressPoint } from "@/features/order/mapPoints";
 import { Skeleton } from "@/components/Skeleton";
 import { Logo } from "@/components/Logo";
 import { LowConnectionBanner } from "@/components/LowConnectionBanner";
@@ -63,6 +67,12 @@ export default function OrderingHome() {
 
   const fromAddress = api.addressById(draft.fromAddressId) ?? null;
   const toAddress = api.addressById(draft.toAddressId) ?? null;
+  // The map: the passenger's own position (GPS; the sample data's mock
+  // coordinates) and the pickup, which the camera centres on.
+  const me = useGeolocation({ enabled: LIVE_MAP, simulated: api.simulatedPosition() });
+  const pickupPoint = addressPoint(fromAddress);
+  /** Bumped by "where am I": brings the camera back to the pickup. */
+  const [recentre, setRecentre] = useState(0);
   // A route needs a drop-off; a stale ?flow=route falls back to home.
   const view = flow === "search" ? "search" : flow === "route" && toAddress ? "route" : "home";
 
@@ -202,17 +212,55 @@ export default function OrderingHome() {
     );
   }
 
+  // The pickup pin with its ETA bubble: a marker on the interactive map,
+  // centred over the drawn one.
+  const pickupPin = (
+    <span className="flex flex-col items-center">
+      {api.capabilities.pickupEta && (
+        <PinBubble icon={<PersonStanding className="h-5 w-5" />} caption={t("pin.pickup")} value={eta != null ? t("pin.eta", { n: eta }) : "…"} />
+      )}
+      <span className="mt-1 h-5 w-[3px] rounded-full bg-ink" aria-hidden="true" />
+      <span className="-mt-1 h-3 w-3 rounded-full border-[3px] border-ink bg-card" aria-hidden="true" />
+    </span>
+  );
+  const markers: MapMarker[] = [];
+  if (me) markers.push({ id: "me", position: me, kind: "user", animate: true });
+  // The dot's centre (6px above the pin's bottom edge) sits on the point.
+  if (pickupPoint) markers.push({ id: "pickup", position: pickupPoint, anchor: "bottom", content: <span className="-mb-[6px] block">{pickupPin}</span> });
+
   return (
     <div className="relative h-full overflow-hidden bg-bg">
-      <MapCanvas className="absolute inset-0" />
+      {/* Full-screen interactive map behind the sheet; the drawn map where it isn't available. */}
+      <LiveMap
+        className="absolute inset-0"
+        ariaLabel={t("map.label")}
+        center={pickupPoint ?? me}
+        zoom={15}
+        // The camera moves when the pickup changes, when the first GPS fix
+        // arrives (no pickup yet) and on "where am I" — not on every fix,
+        // which would pull the map back while the passenger is panning it.
+        fitKey={`${pickupPoint ? draft.fromAddressId : me ? "me" : "none"}:${recentre}`}
+        markers={markers}
+        // The sheet covers the bottom, the pickup caption the top.
+        padding={{ top: 88, bottom: panelH }}
+        fallback={
+          <>
+            <MapCanvas className="absolute inset-0" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center" style={{ height: `calc(100% - ${panelH}px)` }}>
+              <div className="mb-auto mt-auto">{pickupPin}</div>
+            </div>
+          </>
+        }
+      />
 
       {/* Pickup caption, top centre. */}
       <button
         type="button"
         onClick={() => go({ flow: "search", target: "from" })}
         aria-label={`${t("home.pickupChange")}: ${fromAddress?.label ?? ""}`}
-        className="absolute left-1/2 max-w-[60%] -translate-x-1/2 text-center"
-        style={{ top: "calc(var(--safe-top) + 16px)" }}
+        // Over real map labels the caption needs its own backing.
+        className={`absolute left-1/2 max-w-[60%] -translate-x-1/2 text-center ${LIVE_MAP ? "rounded-card bg-card/85 px-3 py-1 shadow-[0_2px_12px_rgba(0,0,0,0.12)] backdrop-blur-sm" : ""}`}
+        style={{ top: `calc(var(--safe-top) + ${LIVE_MAP ? 10 : 16}px)` }}
       >
         <span className="flex items-center justify-center gap-0.5 text-sub text-ink/70">
           {t("order.pickupCaption")} <ChevronRight className="h-3.5 w-3.5" />
@@ -233,17 +281,6 @@ export default function OrderingHome() {
         <LowConnectionBanner />
       </div>
 
-      {/* Pickup pin and its bubble, centred on the visible map. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center" style={{ height: `calc(100% - ${panelH}px)` }}>
-        <div className="mt-auto mb-auto flex flex-col items-center">
-          {api.capabilities.pickupEta && (
-            <PinBubble icon={<PersonStanding className="h-5 w-5" />} caption={t("pin.pickup")} value={eta != null ? t("pin.eta", { n: eta }) : "…"} />
-          )}
-          <span className="mt-1 h-5 w-[3px] rounded-full bg-ink" aria-hidden="true" />
-          <span className="-mt-1 h-3 w-3 rounded-full border-[3px] border-ink bg-card" aria-hidden="true" />
-        </div>
-      </div>
-
       <MapButton
         aria-label={t("home.locateMe")}
         className="absolute right-3"
@@ -253,7 +290,10 @@ export default function OrderingHome() {
         onClick={() =>
           api
             .locateMe()
-            .then((a) => setPoint("from", a))
+            .then((a) => {
+              setPoint("from", a);
+              setRecentre((n) => n + 1);
+            })
             .catch((e) => setToast(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey)))
         }
       >

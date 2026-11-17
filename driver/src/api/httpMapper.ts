@@ -136,8 +136,9 @@ export type CityNames = ReadonlyMap<string, string>;
 export function placeOf(p: Api.GeoPoint, cityId: string | null | undefined, cities: CityNames): OfferPlace {
   const address = p.address?.trim() ?? "";
   const cityName = cityId ? cities.get(cityId) : undefined;
-  if (cityName && cityId) return { city: { id: cityId, name: cityName }, address: address === cityName ? "" : address };
-  return { city: { id: "", name: address || `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}` }, address: "" };
+  // The coordinates go along for the map.
+  if (cityName && cityId) return { city: { id: cityId, name: cityName }, address: address === cityName ? "" : address, lat: p.lat, lng: p.lng };
+  return { city: { id: "", name: address || `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}` }, address: "", lat: p.lat, lng: p.lng };
 }
 
 // ------------------------------------------------------------------ times

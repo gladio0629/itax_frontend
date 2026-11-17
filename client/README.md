@@ -17,7 +17,8 @@ Phone screen accepts any valid Uzbek phone number. The OTP code is always **0000
 ## Key flows
 
 - Home → choose origin/destination → order (regular or "Butun mashina")
-- Order matching → driver found → live trip tracking (static local SVG map)
+- Order matching → driver found → live trip tracking on the map (Mapbox with `VITE_MAPBOX_TOKEN`:
+  the road route and the car moving along it; the static local SVG map without it)
 - Wallet top-up and card linking both use the shared "submitForReview" pattern
   (`Tekshiruvga yuborildi` → auto-approves in 2–4s)
 - Trip history, ratings, profile, notifications

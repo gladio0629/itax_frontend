@@ -7,7 +7,7 @@ import { Button } from "@/components/Button";
 import { Sheet } from "@/components/Sheet";
 import { Alert } from "@/components/ios/Alert";
 import { Skeleton } from "@/components/Skeleton";
-import { MapCanvas, ROUTE } from "@/components/MapCanvas";
+import { RouteMap } from "./RouteMap";
 import { MapButton } from "@/components/ui/MapButton";
 import { TextTabs } from "@/components/ui/TextTabs";
 import { Chip } from "@/components/ui/Chip";
@@ -731,33 +731,30 @@ export function OrderSheet({
   }
 
   // ── Taxi: map + sheet + bottom bar ───────────────────────────────────────
-  const point = (x: number, y: number) => ({
-    // MapCanvas is "slice"-fitted: a 0–100 point lands at 50% + (p−50) of the
-    // larger side (container query units).
-    left: `calc(50% + (${x} - 50) * max(1cqw, 1cqh))`,
-    top: `calc(50% + (${y} - 50) * max(1cqw, 1cqh))`,
-  });
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-bg" role="dialog" aria-modal="true" aria-label={t("home.orderSheet")}>
       <div className="relative min-h-[120px] flex-1 [container-type:size]">
-        <MapCanvas route className="absolute inset-0" />
-        {quote.status === "success" && quote.data.arrivalAt && (
-          <span
-            className="absolute -translate-x-1/2 -translate-y-[calc(100%+10px)] whitespace-nowrap rounded-chip bg-card px-3 py-1 text-control font-medium text-ink shadow-[0_2px_10px_rgba(0,0,0,0.14)] tabular"
-            style={point(ROUTE.to[0], ROUTE.to[1])}
-          >
-            {t("order.arrival", { time: formatTime(quote.data.arrivalAt) })}
-          </span>
-        )}
-        {selectedClass?.etaMinutes != null && (
-          <span
-            className="absolute flex -translate-x-1/2 -translate-y-[calc(100%+8px)] flex-col items-center rounded-[13px] bg-brand-yellow px-2.5 py-1 text-center leading-tight text-on-yellow shadow-[0_2px_10px_rgba(0,0,0,0.14)]"
-            style={point(ROUTE.from[0], ROUTE.from[1])}
-          >
-            <span className="text-lead font-bold tabular">{selectedClass.etaMinutes}</span>
-            <span className="text-[11px]">{t("order.minutesShort")}</span>
-          </span>
-        )}
+        {/* The interactive map with the road route; the drawn map where it isn't available. */}
+        <RouteMap
+          from={addresses.from}
+          to={addresses.to}
+          stops={draft.stops.map((st) => api.addressById(st.addressId))}
+          toBubble={
+            quote.status === "success" && quote.data.arrivalAt ? (
+              <span className="block whitespace-nowrap rounded-chip bg-card px-3 py-1 text-control font-medium text-ink shadow-[0_2px_10px_rgba(0,0,0,0.14)] tabular">
+                {t("order.arrival", { time: formatTime(quote.data.arrivalAt) })}
+              </span>
+            ) : undefined
+          }
+          fromBubble={
+            selectedClass?.etaMinutes != null ? (
+              <span className="flex flex-col items-center rounded-[13px] bg-brand-yellow px-2.5 py-1 text-center leading-tight text-on-yellow shadow-[0_2px_10px_rgba(0,0,0,0.14)]">
+                <span className="text-lead font-bold tabular">{selectedClass.etaMinutes}</span>
+                <span className="text-[11px]">{t("order.minutesShort")}</span>
+              </span>
+            ) : undefined
+          }
+        />
         <MapButton onClick={onClose} aria-label={t("order.back")} className="absolute bottom-8 left-3">
           <ArrowLeft className="h-5 w-5" />
         </MapButton>

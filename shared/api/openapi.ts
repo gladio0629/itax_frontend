@@ -359,8 +359,13 @@ export type RealtimeEventType =
   | "trip.cancelled"
   | "order.cancelled"
   | "wallet.limit_reached"
-  | "driver.approved";
-export type RealtimeEvent = { type: RealtimeEventType; id: string; status?: string; order_id?: string };
+  | "driver.approved"
+  // The driver's position during an order, for the passenger's map. The
+  // client listens for it; the backend does not send it yet
+  // (docs/backend-gaps.md, "Driver location push").
+  | "driver.location";
+/** `lat` / `lng` / `heading`: on "driver.location" only (strings, like every value). */
+export type RealtimeEvent = { type: RealtimeEventType; id: string; status?: string; order_id?: string; lat?: string; lng?: string; heading?: string };
 
 // ----------------------------------------------------------------- profile
 export type Settings = {

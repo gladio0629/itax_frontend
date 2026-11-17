@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { FeedType, TripSummary } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { useFeedSignal } from "@/stores/feedSignal";
-import { Armchair, Bell } from "@/lib/icons";
+import { Armchair, Bell, ChevronDown, ChevronUp, LocateFixed } from "@/lib/icons";
 import { Avatar } from "@/components/Avatar";
 import { Skeleton } from "@/components/Skeleton";
 import { Chip } from "@/components/Chip";
 import { SwipeTabs } from "@/components/SwipeTabs";
 import { cn } from "@/lib/cn";
-import { DriverMap } from "./DriverMap";
+import { HomeMap } from "./HomeMap";
 import { NewRequestsTab } from "./NewRequestsTab";
 import { AcceptedTab } from "./AcceptedTab";
 import { TripSummaryCard } from "./TripSummaryCard";
@@ -20,10 +20,20 @@ import { dayText } from "./whenText";
 
 const TYPES: FeedType[] = ["all", "passengers", "delivery"];
 
+/** Map visible above the feed, without the safe-area inset. */
+const MAP_STRIP_PX = 156;
+/** The seat summary card at the bottom of the map, with its margin. */
+const SEAT_CARD_PX = 64;
+/** What stays of the feed while the map is open: its handle, chips and tabs. */
+const FEED_PEEK_PX = 136;
+
 /**
- * Asosiy: the request feed. Map as a small header, seat summary and
- * direction chips on top, then "Yangi so'rovlar" / "Qabul qilinganlar".
- * Tab and filters live in the URL (?tab=&dir=&date=&type=&request=).
+ * Asosiy: a full-screen map with the request feed as a sheet over it. By
+ * default the sheet leaves a strip of the map on top; its handle opens the
+ * whole map (the driver's position, and the route of the accepted trip).
+ * The feed: seat summary and direction chips, then "Yangi so'rovlar" /
+ * "Qabul qilinganlar". Tab and filters live in the URL
+ * (?tab=&dir=&date=&type=&request=).
  */
 export default function HomeScreen() {
   const { t } = useT();
@@ -44,6 +54,32 @@ export default function HomeScreen() {
   const accepted = useQuery(() => api.getAccepted(), [signal], { pollMs: 5000 });
   const [notifOpen, setNotifOpen] = useState(false);
   const [done, setDone] = useState<TripSummary | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [refit, setRefit] = useState(0);
+  // How much of the map the feed sheet covers: the camera stays above it.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const [covered, setCovered] = useState(0);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const header = headerRef.current;
+    if (!root || !header) return;
+    const read = () => setCovered(Math.max(0, root.clientHeight - header.clientHeight));
+    read();
+    let timer: ReturnType<typeof setTimeout>;
+    // After the open/close transition settles, not on each of its frames.
+    const measure = () => {
+      clearTimeout(timer);
+      timer = setTimeout(read, 120);
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(root);
+    ro.observe(header);
+    return () => {
+      clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, []);
 
   const update = useCallback(
     (next: Record<string, string | null>) => {
@@ -78,11 +114,25 @@ export default function HomeScreen() {
   const s = summary.data;
 
   return (
-    <div className="flex h-full flex-col">
+    <div ref={rootRef} className="relative flex h-full flex-col overflow-hidden">
       <h1 className="sr-only">{t("home.title")}</h1>
-      <header className="relative shrink-0 overflow-hidden" style={{ height: "calc(var(--safe-top) + 156px)" }}>
-        <DriverMap label={t("home.mapLabel")} />
-        <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-bg to-transparent" />
+      {/* The map fills the screen; the header and the feed sheet lie over it. */}
+      <HomeMap
+        label={t("home.mapLabel")}
+        routeLabel={t("home.mapRouteLabel")}
+        accepted={accepted.data}
+        // Clear of the feed sheet and the seat card; of the top buttons too
+        // once the map is open (the strip is too low for that).
+        padding={{ top: mapOpen ? 72 : 0, bottom: covered + (api.capabilities.seatSummary ? SEAT_CARD_PX : 0) }}
+        refit={refit}
+      />
+      {/* Transparent: map gestures pass through, its own buttons don't. */}
+      <header
+        ref={headerRef}
+        className="pointer-events-none relative shrink-0 transition-[height] duration-300 ease-out motion-reduce:transition-none [&_button]:pointer-events-auto"
+        style={{ height: mapOpen ? `calc(100% - ${FEED_PEEK_PX}px)` : `calc(var(--safe-top) + ${MAP_STRIP_PX}px)` }}
+      >
+        {!mapOpen && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-bg to-transparent" />}
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4" style={{ paddingTop: "calc(var(--safe-top) + 10px)" }}>
           <button
             type="button"
@@ -106,6 +156,17 @@ export default function HomeScreen() {
             )}
           </button>
         </div>
+
+        {mapOpen && (
+          <button
+            type="button"
+            onClick={() => setRefit((n) => n + 1)}
+            aria-label={t("home.mapRecenter")}
+            className={cn("press absolute right-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface text-ink shadow-2", api.capabilities.seatSummary ? "bottom-[76px]" : "bottom-4")}
+          >
+            <LocateFixed className="h-6 w-6" />
+          </button>
+        )}
 
         {/* Seat summary: computed by the adapter for the trip in focus (hidden when the backend has none). */}
         {api.capabilities.seatSummary && (
@@ -131,6 +192,18 @@ export default function HomeScreen() {
         </div>
         )}
       </header>
+
+      {/* The feed sheet. */}
+      <div className="relative flex min-h-0 flex-1 flex-col bg-bg">
+      <button
+        type="button"
+        onClick={() => setMapOpen((v) => !v)}
+        aria-expanded={mapOpen}
+        aria-label={mapOpen ? t("home.mapClose") : t("home.mapOpen")}
+        className="press flex h-7 w-full shrink-0 items-center justify-center text-muted"
+      >
+        {mapOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+      </button>
 
       {/* Direction chips: the driver's own Yo'nalishlarim. */}
       {api.capabilities.feedFilters && (
@@ -193,6 +266,7 @@ export default function HomeScreen() {
           },
         ]}
       />
+      </div>
 
       {done && (
         <div className="absolute inset-x-4 bottom-4 z-30">

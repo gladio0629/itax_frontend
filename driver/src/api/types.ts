@@ -3,7 +3,9 @@
 // the adapter. Screens only render and send requests.
 
 export type CityRef = { id: string; name: string };
-export type Place = { city: CityRef; address: string };
+/** `lat`/`lng`: where the place is on the map, when the adapter knows
+ * (sample data: mock coordinates around the city's centre). */
+export type Place = { city: CityRef; address: string; lat?: number; lng?: number };
 export type PaymentType = "cash" | "card";
 export type OrderKind = "passengers" | "delivery";
 export type Cargo = { labelKey: string; weightKg: number };

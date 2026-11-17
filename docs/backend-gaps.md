@@ -75,6 +75,13 @@ capabilities need to be switched on per item.
 - [x] Dev test accounts with a fixed code and seed data: `onlyback/docs/dev-testing.md`
 
 **Still open**
+- [ ] **Driver location push** for the passenger's map. The driver app already reports its GPS
+  (`POST /api/v1/location/update`), but nothing forwards it to the passenger. The client listens on `/ws` for
+  `{"type":"driver.location","id":"<order_id>","order_id":"<order_id>","lat":"41.31","lng":"69.28"}` (optional
+  `heading`), sent to the order's passenger while the order is `accepted` … `in_progress`, a few seconds apart.
+  Until the backend sends it (matching-geo → notification), the map shows the route and both ends but no car.
+  The event also needs a row in `onlyback/docs/websocket-events.md`. Unlike the other frames with an `order_id`,
+  it is not a reason to re-read the order, and the client doesn't
 - [ ] Real geocoder (street addresses). Search covers cities and a small landmark list only
 - [ ] Seat pooling: seat-map `taken` is always `false`. No front-seat surcharge
 - [ ] Order extras: stops, options, address details on the order, luggage, rider, promo code, cargo (loaders, hourly,

@@ -5,14 +5,22 @@
 //   otherwise (http)     → network code only in the shared transport files,
 //                          and the only origin it may reach is VITE_API_URL.
 //
-// 1. Source scan (src/, index.html, ../shared/http, ../shared/api): no
-//    third-party hosts, and fetch / WebSocket / XHR only in the transport
-//    allowlist below.
+// 1. Source scan (src/, index.html, ../shared/http, ../shared/api,
+//    ../shared/map): no third-party hosts, and fetch / WebSocket / XHR only
+//    in the transport allowlist below.
 // 2. Build scan (dist/, when present): in demo mode the bundle has no
 //    fetch/WebSocket; every absolute URL is either the API origin (http
 //    mode) or a known non-network string (XML namespaces, React's error
 //    docs); index.html and _headers allow connect-src 'self' + the API
 //    origin only, and match the current env (else: rebuild).
+//
+// The interactive map (client and driver, `mapbox: true`) is the one
+// exception, and only when the build has VITE_MAPBOX_TOKEN:
+//   - sources: mapbox-gl and the Mapbox host may appear only in the map
+//     transport files of ../shared/map (always checked, token or not);
+//   - build: Mapbox code and hosts may appear only in the lazily loaded
+//     mapboxRuntime chunk, and connect-src gains exactly the Mapbox hosts.
+// Without the token nothing changes: no Mapbox code may be in the build.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 
@@ -29,15 +37,26 @@ const THIRD_PARTY = [
   [/\baxios\b/, "axios"],
   [/googleapis\.com/, "googleapis.com"],
   [/maps\.google/, "maps.google"],
-  [/mapbox/i, "mapbox"],
   [/fonts\.gstatic/, "fonts.gstatic"],
   [/cdn\.jsdelivr/, "cdn.jsdelivr"],
   [/unpkg\.com/, "unpkg.com"],
   [/sentry\.io/, "sentry.io"],
   [/google-analytics/, "google-analytics"],
-  // example.com is reserved (RFC 2606) and only appears in hints.
-  [/\bhttps?:\/\/(?!localhost\b|127\.0\.0\.1\b|(?:[a-z0-9-]+\.)*example\.com\b)[a-z0-9.-]+/i, "hardcoded external URL"],
 ];
+// example.com is reserved (RFC 2606) and only appears in hints.
+const EXTERNAL_URL = /\bhttps?:\/\/(?!localhost\b|127\.0\.0\.1\b|(?:[a-z0-9-]+\.)*example\.com\b)[a-z0-9.-]+/gi;
+// The map library: importing it pulls network code into the bundle.
+const MAPBOX_IMPORT = /["']mapbox-gl(?:\/[^"']*\.js)?["']/;
+// connect-src additions for the map; the same list as MAPBOX_CONNECT_SRC in
+// shared/vite/izgo.ts.
+const MAPBOX_CONNECT_SRC = ["https://api.mapbox.com", "https://events.mapbox.com", "https://*.tiles.mapbox.com"];
+const isMapboxHost = (host) => host === "mapbox.com" || host.endsWith(".mapbox.com");
+// Named inside the mapbox-gl bundle but never requested: its telemetry host
+// for the China region, used only with a mapbox.cn API URL — and connect-src
+// does not allow it.
+const MAPBOX_CHUNK_INERT_HOSTS = ["events.mapbox.cn"];
+// The chunk Vite emits for ../shared/map/mapboxRuntime.ts (mapbox-gl + Directions).
+const MAPBOX_CHUNK = /(?:^|\/)(?:mapboxRuntime|mapbox-gl)-[\w-]+\.js$/;
 // Absolute URLs that occur in third-party bundles as plain text (XML
 // namespaces, React/router error links). They are never requested.
 const INERT_HOSTS = ["www.w3.org", "reactjs.org", "react.dev", "fb.me", "github.com", "localhost", "127.0.0.1", "example.com"];
@@ -71,14 +90,22 @@ function hostOf(url) {
 const inert = (host) => INERT_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
 
 /** `loadEnv` is passed in by the app script: `vite` resolves from the app's
- * node_modules, not from shared/. */
-export function checkNoNetwork({ loadEnv, appDir = process.cwd() }) {
+ * node_modules, not from shared/. `mapbox`: the app has the interactive map
+ * (client, driver); admin never passes it, so its rules never change. */
+export function checkNoNetwork({ loadEnv, appDir = process.cwd(), mapbox = false }) {
   const sharedDir = resolve(appDir, "../shared");
   const env = loadEnv("production", appDir, "VITE_");
   const demoMode = env.VITE_DEMO_MODE === "true";
   const allowedOrigins = demoMode ? [] : apiOrigins((env.VITE_API_URL ?? "").trim());
+  // The build contains the map: the app has one and the token is set.
+  const mapboxOn = mapbox && (env.VITE_MAPBOX_TOKEN ?? "").trim() !== "";
   // Files that may call the network in http mode (everything else: never).
   const transport = new Set(["client.ts", "realtime.ts", "devProbe.ts"].map((f) => join(sharedDir, "http", f)));
+  // The map's own transport: the only files that may import mapbox-gl, call
+  // fetch for Directions or name the Mapbox host.
+  const mapRuntime = join(sharedDir, "map", "mapboxRuntime.ts");
+  // (provider.types.ts: type-only imports, erased at build time.)
+  const mapTransport = new Set(["mapboxRuntime.ts", "provider.mapbox.ts", "provider.types.ts", "directions.ts"].map((f) => join(sharedDir, "map", f)));
   const violations = [];
   const rel = (p) => relative(appDir, p).split(sep).join("/");
 
@@ -86,14 +113,20 @@ export function checkNoNetwork({ loadEnv, appDir = process.cwd() }) {
   const scanSource = (path) => {
     if (!SRC_EXT.test(path) || /\.test\.ts$/.test(path)) return;
     const text = readFileSync(path, "utf-8");
+    const inMap = mapTransport.has(path);
     for (const [re, label] of THIRD_PARTY) if (re.test(text)) violations.push(`${rel(path)}: contains "${label}"`);
-    if (transport.has(path)) return;
+    for (const m of text.matchAll(EXTERNAL_URL)) {
+      if (inMap && isMapboxHost(hostOf(m[0]))) continue;
+      violations.push(`${rel(path)}: contains "hardcoded external URL" (${m[0]})`);
+    }
+    if (!inMap && MAPBOX_IMPORT.test(text)) violations.push(`${rel(path)}: imports mapbox-gl outside the map transport (shared/map/mapboxRuntime.ts)`);
+    if (transport.has(path) || path === mapRuntime) return;
     for (const [re, label] of NETWORK_CALLS) {
       if (re.test(text)) violations.push(`${rel(path)}: "${label}" outside the shared transport (shared/http)`);
     }
   };
   for (const root of ["src", "index.html"]) walk(join(appDir, root), scanSource);
-  for (const root of ["http", "api"]) walk(join(sharedDir, root), scanSource);
+  for (const root of ["http", "api", "map"]) walk(join(sharedDir, root), scanSource);
 
   // --------------------------------------------------------------- 2. build
   const dist = join(appDir, "dist");
@@ -102,19 +135,27 @@ export function checkNoNetwork({ loadEnv, appDir = process.cwd() }) {
     walk(dist, (path) => {
       if (!/\.(js|html|css)$/.test(path)) return;
       const text = readFileSync(path, "utf-8");
-      if (demoMode) {
+      // With the map built in, its chunk is the one place that may hold
+      // network code in a demo build and name the Mapbox hosts; index.html
+      // names them in its CSP.
+      const mapChunk = mapboxOn && MAPBOX_CHUNK.test(rel(path));
+      const mapHostsAllowed = mapChunk || (mapboxOn && rel(path) === "dist/index.html");
+      if (demoMode && !mapChunk) {
         for (const [re, label] of NETWORK_CALLS) {
           if (re.test(text)) violations.push(`${rel(path)}: "${label}" in a VITE_DEMO_MODE=true build`);
         }
       }
       for (const m of text.matchAll(/\b(?:https?|wss?):\/\/[a-z0-9.-]+(?::\d+)?/gi)) {
         const url = m[0];
-        if (allowedOrigins.includes(url.toLowerCase()) || inert(hostOf(url))) continue;
+        const host = hostOf(url);
+        if (allowedOrigins.includes(url.toLowerCase()) || inert(host)) continue;
+        if (mapHostsAllowed && isMapboxHost(host)) continue;
+        if (mapChunk && MAPBOX_CHUNK_INERT_HOSTS.includes(host)) continue;
         violations.push(`${rel(path)}: reaches "${url}" (allowed: ${allowedOrigins.join(", ") || "none"})`);
       }
     });
 
-    const expected = ["'self'", ...allowedOrigins];
+    const expected = ["'self'", ...allowedOrigins, ...(mapboxOn ? MAPBOX_CONNECT_SRC : [])];
     const checkConnectSrc = (label, policy) => {
       const m = /connect-src ([^;]*)/.exec(policy ?? "");
       if (!m) return violations.push(`${label}: no connect-src`);
@@ -130,7 +171,9 @@ export function checkNoNetwork({ loadEnv, appDir = process.cwd() }) {
     else violations.push("dist/_headers missing — rebuild");
   }
 
-  const mode = demoMode ? "VITE_DEMO_MODE=true (no network)" : `http mode, API origin: ${allowedOrigins[0] ?? "none (VITE_API_URL empty)"}`;
+  const mode =
+    (demoMode ? "VITE_DEMO_MODE=true (no network)" : `http mode, API origin: ${allowedOrigins[0] ?? "none (VITE_API_URL empty)"}`) +
+    (mapboxOn ? " + Mapbox map" : "");
   if (violations.length > 0) {
     console.error(`check:no-network FAILED [${mode}]:\n`);
     for (const v of violations) console.error("  " + v);

@@ -10,3 +10,7 @@ export const apiConfig = resolveApiConfig({ apiUrl: import.meta.env.VITE_API_URL
 // The one dev-time hint for an empty VITE_API_URL. The DEV guard lets the
 // production build drop the message text entirely.
 if (import.meta.env.DEV && !DEMO_MODE && apiConfig.viaDevProxy) console.warn(DEV_EMPTY_URL_WARNING);
+
+/** Mapbox public token for the interactive map; "" = the drawn map (set it in
+ * .env.local — never in code or in a tracked .env file). */
+export const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN ?? "").trim();

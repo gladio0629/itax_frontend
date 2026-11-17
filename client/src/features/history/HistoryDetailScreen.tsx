@@ -7,7 +7,8 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
 import { Avatar } from "@/components/Avatar";
-import { MapView } from "@/components/MapView";
+import { StaticMap } from "@/components/StaticMap";
+import { TrackMap } from "@/features/order/TrackMap";
 import { SkeletonList } from "@/components/Skeleton";
 import { ErrorState } from "@/components/ErrorState";
 import { formatSom, formatKm, formatRelativeDay, formatTime } from "@/lib/format";
@@ -73,7 +74,7 @@ export function HistoryDetailScreen() {
       <ScreenHeader title={t("history.detailTitle")} />
       <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
         <div className="relative mb-4 h-40 overflow-hidden rounded-2xl">
-          <MapView />
+          <TrackMap order={order} interactive={false} fallback={<StaticMap />} />
         </div>
 
         <Card className="mb-4 p-5">
