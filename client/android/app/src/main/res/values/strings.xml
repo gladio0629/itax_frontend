@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">IZGO</string>
+    <string name="title_activity_main">IZGO</string>
+    <string name="package_name">uz.izgo.client</string>
+    <string name="custom_url_scheme">uz.izgo.client</string>
+</resources>

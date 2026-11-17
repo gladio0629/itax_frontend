@@ -11,6 +11,10 @@
     "check:no-network": "node scripts/check-no-network.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/ios": "^8.6.2",
     "@fontsource-variable/inter": "^5.1.0",
     "lucide-react": "^0.462.0",
     "mapbox-gl": "^3.35.0",

@@ -4,3 +4,11 @@ dist/
 .DS_Store
 .env.local
 .env.*.local
+
+# Native release secrets (never commit)
+*.jks
+*.keystore
+keystore.properties
+google-services.json
+GoogleService-Info.plist
+release-output/

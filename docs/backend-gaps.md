@@ -219,3 +219,10 @@ stats; logout, after which the old token gets 401. Client and driver logout retu
   reconnects with backoff from 1 s up to 30 s, and reconnects after every token refresh. It handles
   `4401 token_expired` / `token_invalid` with a refresh, `4401 session_revoked` with a logout and `4403` with
   the longest backoff. It never sends frames.
+
+## Mobile push notifications (2026-11-17)
+
+Native apps (Capacitor) need an endpoint to register a device push token:
+`POST /api/v1/devices` `{ platform: "ios"|"android", token, app: "client"|"driver" }`
+and `DELETE` on logout. Notification service then sends via FCM/APNs with minimal
+payload (event ID only, F-21). Until then the apps ship without push.
