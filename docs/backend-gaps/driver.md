@@ -123,8 +123,10 @@ by reading the list.
 
 **Trip (`GET /api/v1/trips` items, and a new `GET /api/v1/trips/{id}`)** — today one trip is found by reading the list.
 - `passenger`: `{ name, rating, call_number }`. `call_number` must be dialable (e.g. a masked-call proxy); without it
-  there is no call button (the app never dials a masked number). Same `call_number` on freight `sender` / `receiver`
-  after acceptance.
+  there is no call button (the app never dials a masked number). The http adapter already reads this object from the
+  trip item (`httpMapper.ts` `tripPassenger`), so the passenger row and the call button appear as soon as the server
+  sends it. Until then a trip shows no passenger row and no call button. Same `call_number` on freight `sender` /
+  `receiver` after acceptance.
 - `eta`: `{ minutes, distance_km? }` — to the pickup (assigned) or to the next stop (in progress).
 - `waiting` (after `arrive`): `{ arrived_at, free_minutes, price_per_minute, charge?, passenger_notified? }`. The app
   only runs the clock; the charge is the server's.
@@ -175,7 +177,8 @@ phone's navigator instead (geo: / Apple Maps link, no web request).
   available_body_sizes?: string[], loader_help: boolean }`; 422 on an unknown size. Matching should use these for
   cargo offers. Until it exists the screen shows "Tez orada" in http mode (`capabilities.driverCapabilities = false`).
 - **Delete account** (Google Play requirement): `DELETE /api/v1/drivers/me` → 204, then the session ends;
-  409 `TRIP_ACTIVE` while a trip is open. Until then Sozlamalar → "Akkauntni o'chirish" opens
+  409 `TRIP_ACTIVE` while a trip is open, 409 `WALLET_DEBT` while the wallet is in debt (the app shows the server's
+  reason in the dialog). Until then Sozlamalar → "Akkauntni o'chirish" opens
   `${VITE_SITE_URL}/delete-account` in the system browser.
 - **Profile** (`GET /api/v1/drivers/me`): `acceptance_pct` (0–100), `member_since` (year), `rating_count`, and the
   documents' review status (already listed above). Missing ones are hidden.

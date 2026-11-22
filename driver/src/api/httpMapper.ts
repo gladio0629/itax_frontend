@@ -19,6 +19,7 @@ import type {
   NotificationItem,
   NotificationKind,
   OfferPlace,
+  PassengerInfo,
   PaymentType,
   RideRequest,
   RideTime,
@@ -218,13 +219,14 @@ function orderFields(o: Api.Offer | Api.Order, cities: CityNames) {
 // ----------------------------------------------------------------- offers
 export function offerToRequest(o: Api.Offer, cities: CityNames): RideRequest {
   const price = toSom(o.price);
-  const net = o.commission == null ? price : toSom(o.price - o.commission);
+  // No commission from the server: no "after commission" figure (never the price instead).
+  const earnings = o.commission == null ? undefined : { net: toSom(o.price - o.commission) };
   return {
     ...orderFields(o, cities),
     id: o.id,
     directionId: "",
     price,
-    earnings: { net },
+    earnings,
     distanceKm: km(o.distance_m),
     durationMin: 0,
     pickupEtaMin: o.pickup_eta_s == null ? undefined : Math.max(1, Math.round(o.pickup_eta_s / 60)),
@@ -269,6 +271,17 @@ function stageOf(t: Api.Trip): TripStage {
   return t.arrived_at ? "waiting" : "to_pickup";
 }
 
+/** Not in the contract yet (docs/backend-gaps/driver.md, Trip `passenger`): used when the server sends it.
+ * `call_number` is the dialable number (e.g. a masked-call proxy); without it there is no call button. */
+type ApiTripPassenger = { name?: string | null; rating?: number | null; call_number?: string | null };
+
+function tripPassenger(t: Api.TripWithOrder): PassengerInfo | undefined {
+  const p = (t as Api.TripWithOrder & { passenger?: ApiTripPassenger | null }).passenger;
+  const name = p?.name?.trim();
+  if (!p || !name) return undefined;
+  return { name, rating: p.rating ?? 0, phoneMasked: "", avatarSeed: t.id, callNumber: p.call_number?.trim() || undefined };
+}
+
 /** A trip with its order. The step button is the first step the server lists in
  * `next_actions` (in its order); cancel only when the server lists it. */
 export function tripToBooking(t: Api.TripWithOrder, cities: CityNames): Booking {
@@ -288,8 +301,8 @@ export function tripToBooking(t: Api.TripWithOrder, cities: CityNames): Booking 
     nextAction: step,
     canCancel: actions.includes("cancel"),
     pendingReviewId: null,
-    // Not in the contract: no passenger row, no call button.
-    passenger: undefined,
+    // Not in the contract yet: no passenger row and no call button until the server sends `passenger`.
+    passenger: tripPassenger(t),
     price,
     // The order carries no commission; the server gives it on completion.
     earnings: t.final_price != null && t.commission != null ? { net: toSom(t.final_price - t.commission) } : undefined,

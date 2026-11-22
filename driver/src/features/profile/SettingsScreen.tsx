@@ -34,6 +34,7 @@ export default function SettingsScreen() {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function logout() {
     setBusy(true);
@@ -49,13 +50,15 @@ export default function SettingsScreen() {
 
   async function deleteAccount() {
     setBusy(true);
+    setDeleteError(null);
     try {
       const s = await api.deleteAccount();
       toast(t("delete.done"), "success");
       setSession(s);
       navigate("/register", { replace: true });
     } catch (e) {
-      toast(errorMessage(e, t), "danger");
+      // The server may refuse (an open trip, a wallet debt): its reason, in the sheet.
+      setDeleteError(errorMessage(e, t));
     } finally {
       setBusy(false);
     }
@@ -102,7 +105,15 @@ export default function SettingsScreen() {
 
         <div className="flex flex-col">
           <SettingsRow icon={LogOut} label={t("profile.logout")} danger onClick={() => setLogoutOpen(true)} />
-          <SettingsRow icon={Trash2} label={t("settings.delete")} danger onClick={() => setDeleteOpen(true)} />
+          <SettingsRow
+            icon={Trash2}
+            label={t("settings.delete")}
+            danger
+            onClick={() => {
+              setDeleteError(null);
+              setDeleteOpen(true);
+            }}
+          />
         </div>
         {info.data && <p className="tabular py-3 text-center text-xs font-semibold text-muted">{t("settings.version", { v: info.data.version })}</p>}
       </div>
@@ -145,6 +156,11 @@ export default function SettingsScreen() {
 
       <Sheet open={deleteOpen} onClose={() => setDeleteOpen(false)} title={t("delete.title")}>
         <p className="mb-5 text-sm text-muted">{t("delete.desc")}</p>
+        {deleteError && (
+          <p role="alert" className="mb-4 rounded-field bg-danger-soft px-4 py-3 text-sm font-semibold text-danger">
+            {deleteError}
+          </p>
+        )}
         {api.capabilities.deleteAccount ? (
           <div className="grid grid-cols-2 gap-3 pb-1">
             <Button variant="secondary" onClick={() => setDeleteOpen(false)}>

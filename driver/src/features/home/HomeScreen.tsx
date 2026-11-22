@@ -22,6 +22,7 @@ import { Button } from "@/components/Button";
 import { DebtBanner } from "@/features/wallet/DebtBanner";
 import { Monogram } from "@/features/trip/parts";
 import { cn } from "@/lib/cn";
+import { HomeMap } from "./HomeMap";
 import { RequestCard } from "./RequestCard";
 import { RejectSheet } from "./RejectSheet";
 import { NotifyPrompt } from "./NotifyPrompt";
@@ -202,7 +203,13 @@ export default function HomeScreen() {
           {s && s.debt.level !== "ok" && <DebtBanner level={s.debt.level} onTopup={() => navigate("/wallet/debt")} />}
           <NotifyPrompt />
 
-          <AcceptedTrips page={accepted.data} />
+          {accepted.error && !accepted.data ? (
+            <AcceptedError error={accepted.error} onRetry={() => accepted.reload()} />
+          ) : (
+            <AcceptedTrips page={accepted.data} />
+          )}
+
+          <HomeMap accepted={accepted.data} />
 
           {/* Mening yo'nalishim: the direction in focus, its day and free seats. */}
           <section aria-labelledby="my-route" className="flex items-center gap-2 rounded-card bg-raised p-4 pr-3">
@@ -439,6 +446,24 @@ function AcceptedTrips({ page }: { page: AcceptedPage | undefined }) {
           );
         })
       )}
+    </section>
+  );
+}
+
+/** The accepted trips didn't load: say so (an accepted trip never just vanishes), with retry. */
+function AcceptedError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const { t } = useT();
+  const offline = (error as { code?: string } | null)?.code === "NETWORK_ERROR";
+  return (
+    <section role="alert" className="flex items-center gap-3 rounded-card bg-danger-soft p-4">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-15 font-extrabold text-ink">{t("home.acceptedError")}</span>
+        <span className="text-13 font-semibold text-muted">{offline ? t("state.offlineDesc") : errorMessage(error, t)}</span>
+      </span>
+      <Button variant="secondary" size="sm" onClick={onRetry} className="shrink-0">
+        <RefreshCw className="h-4 w-4" />
+        {t("common.retry")}
+      </Button>
     </section>
   );
 }

@@ -201,8 +201,8 @@ export type RideRequest = OrderExtras<OfferPlace> & {
   cargo?: Cargo;
   /** What the passenger pays, as the adapter prices it. */
   price: number;
-  /** What the driver keeps after commission (pct only when the server gives it). */
-  earnings: { net: number; commissionPct?: number };
+  /** What the driver keeps after commission, when the server gives the commission (pct only when it says). */
+  earnings?: { net: number; commissionPct?: number };
   payment?: PaymentType;
   pickupDistanceKm?: number;
   /** Minutes to the pickup, when the server gives an ETA instead of a distance. */

@@ -14,6 +14,7 @@ import { formatAmount } from "@/lib/format";
 import { Banknote, Check, Star } from "@/lib/icons";
 import { Screen } from "@/components/Screen";
 import { Button } from "@/components/Button";
+import { Stars } from "@/components/Stars";
 import { cn } from "@/lib/cn";
 
 export default function FinishedScreen() {
@@ -35,8 +36,8 @@ export default function FinishedScreen() {
   const payment = s?.payment;
   const name = s?.passengerName;
   const city = s?.destination;
-  // Cash the passenger pays: the server's figure, else the final fare of a cash trip.
-  const cash = s?.cashToCollect ?? (payment === "cash" ? gross : undefined);
+  // Cash the passenger pays: only the server's figure (promos and discounts are the server's).
+  const cash = s?.cashToCollect;
   // Next: another passenger of this same car trip, still open on the server.
   const open = new Set(accepted.data?.days.flatMap((d) => d.trips.flatMap((tr) => tr.bookings.map((b) => b.id))) ?? []);
   const nextId = mateIds.find((m) => open.has(m));
@@ -115,6 +116,14 @@ export default function FinishedScreen() {
                 <dt className="text-15 font-bold text-ink">{t("price.net")}</dt>
                 <dd className="tabular text-17 font-extrabold text-brand-ink">
                   {formatAmount(net)} {t("common.som")}
+                </dd>
+              </div>
+            )}
+            {s?.ratingReceived != null && (
+              <div className="flex min-h-[48px] items-center justify-between border-t border-line">
+                <dt className="text-sm font-semibold text-muted">{t("done.ratingReceived")}</dt>
+                <dd>
+                  <Stars value={s.ratingReceived} size={16} />
                 </dd>
               </div>
             )}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
-import type { DebtLevel, HistoryRange, LedgerEntry, LedgerType } from "@/api/types";
+import type { DebtLevel, HistoryRange, LedgerEntry, LedgerType, WalletSummary } from "@/api/types";
 import { useT, isKey } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { useCountUp } from "@/lib/useCountUp";
@@ -73,8 +73,16 @@ export default function WalletScreen() {
                 />
               </span>
               <span className="flex justify-between gap-3 text-xs font-semibold text-night-muted">
-                <span className="tabular">{t("wallet.limitLine", { amount: formatAmount(w.debt.limit) })}</span>
-                {w.debt.headroom != null && <span className="tabular">{t("wallet.headroom", { amount: formatAmount(w.debt.headroom) })}</span>}
+                {w.debt.debtAmount > 0 ? (
+                  <span className="tabular font-bold text-night-danger">{t("wallet.debt", { amount: `${formatAmount(-w.debt.debtAmount)} ${t("common.som")}` })}</span>
+                ) : (
+                  <span className="tabular">{t("wallet.limitLine", { amount: formatAmount(w.debt.limit) })}</span>
+                )}
+                {w.debt.debtAmount > 0 ? (
+                  <span className="tabular">{t("wallet.debtLimit", { amount: formatAmount(w.debt.limit) })}</span>
+                ) : (
+                  w.debt.headroom != null && <span className="tabular">{t("wallet.headroom", { amount: formatAmount(w.debt.headroom) })}</span>
+                )}
               </span>
             </Link>
             <div className="grid grid-cols-2 gap-2.5">
@@ -87,6 +95,11 @@ export default function WalletScreen() {
                 {t("wallet.cards")}
               </Link>
             </div>
+            {w.cards && (
+              <p className="tabular -mt-2 truncate text-center text-xs font-semibold text-night-muted">
+                {w.cards.length ? `${t("wallet.cardsCount", { n: w.cards.length })}: ${w.cards.map((c) => `•••• ${c.last4}`).join(", ")}` : t("wallet.noCards")}
+              </p>
+            )}
           </div>
         ) : !wallet.error ? (
           <Skeleton className="h-40 w-full rounded-card bg-night-2" />
@@ -97,6 +110,7 @@ export default function WalletScreen() {
         <ErrorState error={wallet.error} onRetry={() => wallet.reload()} />
       ) : (
         <div className="flex flex-col gap-5">
+          {w?.today && <TodayCard today={w.today} />}
           {(w?.week || w?.commission) && (
             <div className="grid grid-cols-2 gap-2.5">
               {w.week && (
@@ -126,6 +140,34 @@ export default function WalletScreen() {
         </div>
       )}
     </Screen>
+  );
+}
+
+/** "Bugungi daromad": today's earnings, trips and the average per trip (server). */
+function TodayCard({ today }: { today: NonNullable<WalletSummary["today"]> }) {
+  const { t } = useT();
+  const earnings = useCountUp(today.earnings);
+  return (
+    <section aria-labelledby="today-h" className="flex items-end justify-between gap-3 rounded-field bg-raised p-4">
+      <span className="flex min-w-0 flex-col gap-1">
+        <span id="today-h" className="label-caps text-muted">
+          {t("wallet.today")}
+        </span>
+        <span className="tabular whitespace-nowrap text-2xl font-extrabold text-ink">
+          {formatAmount(earnings)} <span className="text-13 font-bold text-muted">{t("common.som")}</span>
+        </span>
+      </span>
+      <dl className="flex shrink-0 gap-4 text-right">
+        <span className="flex flex-col gap-0.5">
+          <dt className="text-xs font-semibold text-muted">{t("wallet.trips")}</dt>
+          <dd className="tabular text-15 font-extrabold text-ink">{today.trips}</dd>
+        </span>
+        <span className="flex flex-col gap-0.5">
+          <dt className="text-xs font-semibold text-muted">{t("wallet.avg")}</dt>
+          <dd className="tabular text-15 font-extrabold text-ink">{formatAmount(today.avgPerTrip)}</dd>
+        </span>
+      </dl>
+    </section>
   );
 }
 
@@ -258,7 +300,10 @@ function LedgerRow({ entry: e }: { entry: LedgerEntry }) {
           {desc} · {relativeTime(e.createdAt, t)}
         </span>
       </span>
-      <span className={cn("tabular shrink-0 text-15 font-extrabold", positive ? "text-brand-ink" : "text-ink")}>{formatAmount(e.amount, { signed: true })}</span>
+      <span className="flex shrink-0 flex-col items-end gap-0.5">
+        <span className={cn("tabular text-15 font-extrabold", positive ? "text-brand-ink" : "text-ink")}>{formatAmount(e.amount, { signed: true })}</span>
+        <span className="tabular text-xs font-semibold text-muted">{t("wallet.balanceAfter", { amount: formatAmount(e.balanceAfter) })}</span>
+      </span>
     </li>
   );
 }

@@ -15,7 +15,7 @@ import { offsetPoint } from "@shared/map/geo";
 import { groupDigits } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
-  DocSlot, HistorySummary, RegistrationReview,
+  DocSlot, HistorySummary, RegistrationReview, SeatPosition,
   AcceptBlock, AcceptedPage, BonusInfo, Booking, BookingDay, CapabilitiesInput, DebtState, TestOrderVariant, TestPreset, Direction,
   DriverCapabilities, DriverProfile, FeedPage, FeedQuery, HistoryItem, HistoryPage, HomeSummary, LedgerPage, OfferPlace,
   OrderExtras, OrderKind, PassengerInfo, Place, RequestAlert, ReviewKind, ReviewRequest, RideRequest, RoutesPage,
@@ -393,6 +393,7 @@ function fullRequest(s: DriverState, r: RequestRecord, now: number): RideRequest
     kind: r.kind,
     seats: r.seats,
     wholeCar: r.wholeCar,
+    seatIds: sampleSeatIds(r),
     cargo: r.cargo,
     price: r.price,
     earnings: earningsOf(s, r.price),
@@ -419,7 +420,7 @@ function leanRequest(r: RideRequest): RideRequest {
   if (!lean()) return r;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { expiresAt, requester, carSeats, priceLines, when, pickupDistanceKm, ...rest } = r;
-  return { ...rest, earnings: { net: r.earnings.net } };
+  return { ...rest, earnings: r.earnings && { net: r.earnings.net } };
 }
 function leanBooking(b: Booking): Booking {
   if (!lean()) return b;
@@ -471,6 +472,11 @@ function makeWhen(dayOffset: number, now: number): WhenRecord {
   }
   return { dayStart, time: { kind: "any" } };
 }
+
+const SAMPLE_SEATS: SeatPosition[] = ["back-left", "back-right", "front", "back-mid"];
+/** Sample: which seats a passenger booked (the server's `seat_ids`). */
+const sampleSeatIds = (r: { kind: OrderKind; wholeCar: boolean; seats: number }): SeatPosition[] | undefined =>
+  r.kind === "passengers" && !r.wholeCar && r.seats > 0 ? SAMPLE_SEATS.slice(0, r.seats) : undefined;
 
 type MakeOpts = { variant?: TestOrderVariant; dayOffset?: number; direction?: Direction; postedAt?: number; seats?: number; neverTaken?: boolean };
 
@@ -677,6 +683,7 @@ function fullBooking(s: DriverState, b: BookingRecord): Booking {
     kind: b.kind,
     seats: b.seats,
     wholeCar: b.wholeCar,
+    seatIds: sampleSeatIds(b),
     cargo: b.cargo,
     price: b.price,
     earnings: earningsOf(s, b.price),

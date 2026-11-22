@@ -51,6 +51,8 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
   const sub = cargo
     ? joinDots([r.freight && t("feed.bodyShort", { size: r.freight.body.sizeLabel }), pay])
     : joinDots([r.wholeCar ? t("feed.wholeCar") : t("feed.seatsShort", { n: r.seats }), pay]);
+  // Which seats the passenger booked, as the server lists them ("Old o'rindiq, Orqa chap").
+  const seatNames = !cargo && r.seatIds?.length ? r.seatIds.map((x) => t(`seat.${x}`)).join(", ") : null;
   const points = [
     { kind: "pickup" as const, label: cargo ? t("cargoReq.load") : t("request.pickup"), place: r.pickup },
     { kind: "dropoff" as const, label: cargo ? t("cargoReq.drop") : t("request.dropoff"), place: r.dropoff },
@@ -101,8 +103,15 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
         </div>
       </div>
 
-      {(r.luggageCount > 0 || r.forOther || (cargo && r.freight) || r.stops.length > 0 || (cargo && r.cargo && isKey(r.cargo.labelKey))) && (
+      {(seatNames || r.luggageCount > 0 || r.forOther || (cargo && r.freight) || r.stops.length > 0 || (cargo && r.cargo && isKey(r.cargo.labelKey))) && (
         <div className="pointer-events-none relative flex flex-wrap gap-1.5">
+          {seatNames && (
+            <Tag>
+              <Armchair className="h-3.5 w-3.5" />
+              <span className="sr-only">{t("feed.seatIds", { seats: seatNames })}</span>
+              <span aria-hidden="true">{seatNames}</span>
+            </Tag>
+          )}
           {r.stops.length > 0 && <Tag>{t("order.stops")}: {r.stops.length}</Tag>}
           {r.luggageCount > 0 && <Tag>{t("order.luggage", { n: r.luggageCount })}</Tag>}
           {r.forOther && (

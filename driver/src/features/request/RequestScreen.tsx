@@ -33,9 +33,13 @@ export default function RequestScreen() {
   const [rejectBusy, setRejectBusy] = useState(false);
   const leave = () => (window.history.state?.idx > 0 ? navigate(-1) : navigate("/", { replace: true }));
 
+  // While accepting (and after), a poll may already miss the offer: that is our own accept, not "gone".
+  const acceptingRef = useRef(false);
+
   // Gone (taken, rejected elsewhere, expired by the server): back to the list.
   const code = (q.error as { code?: string } | null)?.code;
   useEffect(() => {
+    if (acceptingRef.current) return;
     if (code === "REQUEST_NOT_FOUND") {
       toast(t("request.gone"));
       navigate("/", { replace: true });
@@ -45,7 +49,7 @@ export default function RequestScreen() {
   const r = q.data;
   const taken = r?.status === "taken";
   useEffect(() => {
-    if (!taken) return;
+    if (!taken || acceptingRef.current) return;
     toast(t("feed.taken"), "danger");
     const id2 = setTimeout(() => navigate("/", { replace: true }), 1500);
     return () => clearTimeout(id2);
@@ -53,17 +57,20 @@ export default function RequestScreen() {
 
   async function accept() {
     if (!r) return;
+    acceptingRef.current = true;
     setAccepting(true);
     try {
       const done = await waitReview(await api.acceptRequest(r.id));
       if (done.status === "approved") {
         toast(t("feed.accepted"), "success");
         navigate("/", { replace: true });
-      } else {
-        toast(done.resultKey && isKey(done.resultKey) ? t(done.resultKey) : t("error.generic"), "danger");
-        q.reload(true);
+        return;
       }
+      acceptingRef.current = false;
+      toast(done.resultKey && isKey(done.resultKey) ? t(done.resultKey) : t("error.generic"), "danger");
+      q.reload(true);
     } catch (e) {
+      acceptingRef.current = false;
       toast(errorMessage(e, t), "danger");
       q.reload(true);
     } finally {
@@ -193,7 +200,7 @@ function PassengerView({ r, footer, onClose, onExpired }: ViewProps & { onExpire
               <span className="tabular whitespace-nowrap text-[40px] font-extrabold leading-[1.05] tracking-[-0.5px] text-white">
                 {formatAmount(r.price)} <span className="text-15 font-bold tracking-normal text-night-muted">{t("common.som")}</span>
               </span>
-              <span className="tabular text-13 font-semibold text-night-muted">{t("request.afterCommission", { amount: formatAmount(r.earnings.net) })}</span>
+              {r.earnings && <span className="tabular text-13 font-semibold text-night-muted">{t("request.afterCommission", { amount: formatAmount(r.earnings.net) })}</span>}
             </div>
           </div>
           <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
@@ -227,6 +234,7 @@ function PassengerView({ r, footer, onClose, onExpired }: ViewProps & { onExpire
                 </span>
               ))}
             </span>
+            {r.seatIds?.length ? <span className="text-xs font-semibold text-ink">{r.seatIds.map((x) => t(`seat.${x}`)).join(", ")}</span> : null}
           </div>
           <div className="flex flex-col gap-2.5 rounded-field bg-raised p-3.5">
             <span className="label-caps text-muted">{t("request.luggage")}</span>
@@ -292,9 +300,9 @@ function CargoView({ r, footer, onClose }: ViewProps) {
       top={
         <div className="flex items-end justify-between gap-3">
           <span className="flex min-w-0 flex-col gap-1">
-            <span className="label-caps text-night-muted">{t("cargoReq.youGet")}</span>
+            <span className="label-caps text-night-muted">{r.earnings ? t("cargoReq.youGet") : t("request.offer")}</span>
             <span className="tabular whitespace-nowrap text-4xl font-extrabold leading-[1.1] text-white">
-              {formatAmount(r.earnings.net)} <span className="text-15 font-bold text-night-muted">{t("common.som")}</span>
+              {formatAmount(r.earnings?.net ?? r.price)} <span className="text-15 font-bold text-night-muted">{t("common.som")}</span>
             </span>
           </span>
           <span className="flex shrink-0 flex-col items-end gap-2">
@@ -356,9 +364,9 @@ function CargoView({ r, footer, onClose }: ViewProps) {
         )}
         {r.comment && <CommentNote text={r.comment} />}
         {r.priceLines ? (
-          <PriceLines lines={r.priceLines} net={r.earnings.net} />
+          <PriceLines lines={r.priceLines} net={r.earnings?.net} />
         ) : (
-          <PriceLines lines={[{ key: "trip", amount: r.price }]} net={r.earnings.net} />
+          <PriceLines lines={[{ key: "trip", amount: r.price }]} net={r.earnings?.net} />
         )}
       </div>
     </Screen>
