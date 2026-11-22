@@ -231,7 +231,8 @@ export type FeedPage = {
   items: RideRequest[];
   /** null when the server has no seat summary. */
   seats: SeatSummary | null;
-  directions: Direction[];
+  /** The directions the driver serves; null = unknown right now (the routes could not be read). */
+  directions: Direction[] | null;
   /** Dates offered under "Sana". */
   dates: { date: string; dayOffset: number; dayStart: number }[];
 };

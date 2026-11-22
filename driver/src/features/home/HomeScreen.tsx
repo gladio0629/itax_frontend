@@ -232,7 +232,10 @@ export default function HomeScreen() {
                     <ArrowRight className="h-4 w-4 shrink-0 text-brand-ink" />
                     <span className="truncate">{current.to.name}</span>
                   </>
-                ) : dirs.length > 1 ? (
+                ) : !page ? (
+                  <Skeleton className="h-6 w-44 bg-surface" />
+                ) : direction === "all" && (dirs.length > 1 || page.directions === null) ? (
+                  // Several directions, or unknown right now: the feed shows all of them.
                   t("home.allDirections")
                 ) : (
                   t("home.noRoute")

@@ -251,14 +251,13 @@ function remember(page: RoutesPage): RoutesPage {
   return page;
 }
 
-/** Never a guessed "no route": a failed re-read keeps the last known list; with none yet, the feed read fails (retry). */
-async function feedDirections(): Promise<Direction[]> {
+/** Never a guessed "no route": a failed re-read keeps the last known list, else null (unknown). The offers load either way. */
+async function feedDirections(): Promise<Direction[] | null> {
   if (directionsCache && Date.now() - directionsCache.at < DIRECTIONS_MAX_AGE_MS) return directionsCache.value;
   try {
     return routesToDirections((await readRoutes()).routes);
-  } catch (err) {
-    if (directionsCache) return directionsCache.value;
-    throw err;
+  } catch {
+    return directionsCache?.value ?? null;
   }
 }
 
