@@ -242,6 +242,16 @@ const CANCEL_REASON_KEY: Record<string, string> = {
 };
 
 /** `points`: the adapter's ids for the order's from/to (its address book). */
+/** Only an https link is opened in the browser. */
+function httpsUrl(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  try {
+    return new URL(v).protocol === "https:" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function toUiOrder(o: Api.Order, extra: { rating?: number; fromAddressId?: string; toAddressId?: string } = {}): OrderWithDetails {
   const seatIds = o.seat_ids?.length ? [...o.seat_ids] : Array.from({ length: o.seats ?? 0 }, (_, i) => `seat-${i + 1}`);
   const perSeat = o.type === "passenger" && (o.seat_ids?.length || o.seats);
@@ -271,6 +281,8 @@ export function toUiOrder(o: Api.Order, extra: { rating?: number; fromAddressId?
     canCancel: o.can_cancel === true,
     driverArrived: o.status === "arrived",
     priceLines: o.price_lines?.length ? o.price_lines.map(toUiLine) : undefined,
+    // Not in the contract yet (backend-gaps/client.md, Payme / Click): used if present.
+    paymentUrl: httpsUrl((o as { payment?: { redirect_url?: unknown } }).payment?.redirect_url),
     extras: {
       fromAddressId: extra.fromAddressId ?? "",
       toAddressId: extra.toAddressId ?? "",

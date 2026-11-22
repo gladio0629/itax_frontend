@@ -14,7 +14,7 @@ import type { AddressTarget } from "./AddressSearch";
 function Pin({ caption }: { caption: string }) {
   return (
     <span className="flex flex-col items-center">
-      <span className="flex h-9 items-center gap-2 whitespace-nowrap rounded-[18px] bg-iz-map-pin px-3.5 text-[13px] font-bold text-white shadow-[0_6px_16px_var(--iz-shadow-strong)]">
+      <span className="flex h-9 items-center gap-2 whitespace-nowrap rounded-[18px] bg-iz-map-pin px-3.5 text-[13px] font-bold text-iz-head-text shadow-[0_6px_16px_var(--iz-shadow-strong)]">
         <span className="h-2 w-2 rounded-full bg-iz-green" />
         {caption}
       </span>
@@ -42,6 +42,9 @@ export function MapPick({
   onDetails,
   onSearch,
   onConfirm,
+  onMoved,
+  initialPin,
+  onPin,
 }: {
   target: AddressTarget;
   excludeCityId?: string;
@@ -54,17 +57,28 @@ export function MapPick({
   /** Back to the text search (top-left arrow and the search pill). */
   onSearch: () => void;
   onConfirm: (address: Address) => void;
+  /** The pin moved to another point (details typed for the old one no longer apply). */
+  onMoved?: () => void;
+  /** Where the pin starts (kept by the parent across the details step). */
+  initialPin?: { x: number; y: number };
+  onPin?: (pin: { x: number; y: number }) => void;
 }) {
   const { t } = useT();
   useShellChrome();
   useStatusBar("map");
-  const [pin, setPin] = useState({ x: 50, y: 42 });
+  const [pin, setPin] = useState(initialPin ?? { x: 50, y: 42 });
+  const onPinRef = useRef(onPin);
+  onPinRef.current = onPin;
+  useEffect(() => onPinRef.current?.(pin), [pin]);
   const [address, setAddress] = useState<Address | null>(null);
   const [resolving, setResolving] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sheetH, setSheetH] = useState(0);
   const sheetRef = useRef<HTMLDivElement>(null);
   const req = useRef(0);
+  const lastId = useRef<string | null>(null);
+  const onMovedRef = useRef(onMoved);
+  onMovedRef.current = onMoved;
   useLiftFloatingControl(sheetRef);
 
   useEffect(() => {
@@ -80,11 +94,23 @@ export function MapPick({
     const id = ++req.current;
     setResolving(true);
     setError(null);
+    // The old name is not under the pin any more: nothing to confirm until
+    // the server names the new point.
+    setAddress(null);
     const timer = window.setTimeout(() => {
       api
         .reverseGeocode(pin.x, pin.y, excludeCityId, onlyCityId)
-        .then((a) => id === req.current && setAddress(a))
-        .catch((e) => id === req.current && setError(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey)))
+        .then((a) => {
+          if (id !== req.current) return;
+          setAddress(a);
+          if (lastId.current && lastId.current !== a.id) onMovedRef.current?.();
+          lastId.current = a.id;
+        })
+        .catch((e) => {
+          if (id !== req.current) return;
+          setAddress(null);
+          setError(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey));
+        })
         .finally(() => id === req.current && setResolving(false));
     }, 250);
     return () => window.clearTimeout(timer);
@@ -95,9 +121,17 @@ export function MapPick({
       .locateMe()
       .then((a) => {
         if (a.x != null && a.y != null) setPin({ x: a.x, y: a.y });
-        else setAddress(a);
+        else {
+          req.current++;
+          setResolving(false);
+          setError(null);
+          setAddress(a);
+        }
       })
-      .catch((e) => setError(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey)));
+      .catch((e) => {
+        setAddress(null);
+        setError(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey));
+      });
   }
 
   const caption = target === "from" ? t("address.pinFrom") : target === "save" ? t("address.pinSave") : t("address.pinTo");
@@ -136,7 +170,7 @@ export function MapPick({
           type="button"
           onClick={onSearch}
           aria-label={t("common.back")}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-iz-map-pin text-white shadow-[0_8px_20px_var(--iz-shadow-strong)] active:scale-95"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-iz-map-pin text-iz-head-text shadow-[0_8px_20px_var(--iz-shadow-strong)] active:scale-95"
         >
           <Icon name="back" />
         </button>
@@ -168,7 +202,7 @@ export function MapPick({
         <div className="flex flex-col gap-1" aria-live="polite">
           <SectionLabel>{pointLabel}</SectionLabel>
           <h1 className="truncate text-[22px] font-extrabold leading-[30px] text-iz-ink">
-            {resolving && !address ? t("address.locating") : address?.label ?? "—"}
+            {resolving ? t("address.locating") : address?.label ?? "—"}
           </h1>
           {error ? (
             <span role="alert" className="text-[14px] font-semibold text-iz-danger">

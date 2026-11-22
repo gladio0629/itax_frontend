@@ -18,10 +18,7 @@ import type { DeliveryVehicleSpec,
   Rider,
   TipOptions,
   TripShare,
-  CommentHint,
   OrderDetailsRules,
-  OrderOption,
-  OrderOptionId,
   ServiceType,
   SchedulingRules,
   AccountSummary,
@@ -122,14 +119,6 @@ export interface ApiAdapter {
   getSchedulingRules(): Promise<SchedulingRules>;
 
   getOrderDetailsRules(): Promise<OrderDetailsRules>;
-  /** Add-ons available for a service type (none for Dostavka). */
-  getOrderOptions(input: { serviceType: ServiceType; carClass?: CarClassId }): Promise<OrderOption[]>;
-  getCommentHints(input: {
-    text: string;
-    serviceType: ServiceType;
-    carClass?: CarClassId;
-    selectedOptionIds: OrderOptionId[];
-  }): Promise<CommentHint[]>;
   /** Class cards for the current order; each price is that class's total. */
   getCarClasses(input: QuoteInput): Promise<CarClass[]>;
   getLuggageRules(route: { fromAddressId: string; toAddressId: string }): Promise<LuggageRules>;

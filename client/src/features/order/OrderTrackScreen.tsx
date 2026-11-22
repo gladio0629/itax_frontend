@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Search, SearchX, Check, Clock3, Navigation, ShieldCheck, X } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { OrderWithDetails } from "@/api/types";
@@ -46,7 +46,11 @@ export function OrderTrackScreen() {
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const location = useLocation();
+  // Payme / Click without a payment page from the server: say it comes later.
+  const [toast, setToast] = useState<string | null>(() =>
+    (location.state as { paymentLater?: boolean } | null)?.paymentLater ? t("pay.later") : null
+  );
   const startRef = useRef(Date.now());
 
   async function poll() {

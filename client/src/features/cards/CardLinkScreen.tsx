@@ -51,7 +51,7 @@ export function CardLinkScreen() {
             <Icon name="shield" />
           </span>
           <span className="flex min-w-0 flex-col gap-1">
-            <span className="text-[15px] font-extrabold text-white">{t("cardLink.providerTitle")}</span>
+            <span className="text-[15px] font-extrabold text-iz-head-text">{t("cardLink.providerTitle")}</span>
             <span className="text-[13px] leading-[19px] text-iz-head-muted">{t("cardLink.providerDesc")}</span>
           </span>
         </div>

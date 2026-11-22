@@ -68,6 +68,8 @@ const capabilities: ClientCapabilities = {
   tips: false,
   safety: false,
   popularRoutes: true,
+  // No endpoint yet (docs/backend-gaps/client.md, Redesign v2).
+  recentRoutes: false,
   promo: false,
   bonuses: false,
   help: false,
@@ -483,7 +485,7 @@ export const httpAdapter: ApiAdapter = {
     return res.seats.map(toUiSeat);
   },
   getQuote: async (input: QuoteInput) => {
-    if (input.stops?.length || input.optionIds?.length || input.promoCode) return unsupported();
+    if (input.stops?.length || input.promoCode) return unsupported();
     const body = quoteBody(input);
     const q = await fetchQuote(body);
     shownQuotes.set(JSON.stringify(body), q);
@@ -533,15 +535,13 @@ export const httpAdapter: ApiAdapter = {
     riderNameMaxLength: 100,
   }),
   // The order can't carry options, so none are offered.
-  getOrderOptions: async () => [],
-  getCommentHints: async () => [],
   getLuggageRules: async () => null,
 
   // --------------------------------------------------------------- orders
   createOrder: async (input: CreateOrderInput) => {
     // Extras the order can't carry yet are never dropped silently.
     const hasDetails = [input.fromDetails, input.toDetails].some((d) => d && Object.values(d).some((v) => v?.trim()));
-    if (input.stops?.length || input.optionIds?.length || input.promoCode || input.rider?.kind === "other" || (input.luggage ?? 0) > 0 || hasDetails) {
+    if (input.stops?.length || input.promoCode || input.rider?.kind === "other" || (input.luggage ?? 0) > 0 || hasDetails) {
       return unsupported();
     }
     const q = quoteBody(input);

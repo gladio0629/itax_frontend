@@ -139,7 +139,7 @@ export function AddressDetailsScreen({
             <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-iz-green text-iz-on-green">
               <Icon name="pin" />
             </span>
-            <span className="min-w-0 truncate text-[16px] font-extrabold text-white">{address.label}</span>
+            <span className="min-w-0 truncate text-[16px] font-extrabold text-iz-head-text">{address.label}</span>
           </div>
         }
         footer={

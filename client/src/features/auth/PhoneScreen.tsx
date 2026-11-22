@@ -27,10 +27,10 @@ function HeroArt({ from, to }: { from: string; to: string }) {
         <circle cx="292" cy="66" r="12" fill="#FFFFFF" />
         <circle cx="292" cy="66" r="4.5" fill="#0B1524" />
       </svg>
-      <span className="absolute bottom-[18px] left-[82px] flex h-[30px] items-center rounded-[15px] bg-iz-head-card px-3 text-[12px] font-bold text-white">
+      <span className="absolute bottom-[18px] left-[82px] flex h-[30px] items-center rounded-[15px] bg-iz-head-card px-3 text-[12px] font-bold text-iz-head-text">
         {from}
       </span>
-      <span className="absolute bottom-[70px] right-0 flex h-[30px] items-center rounded-[15px] bg-iz-head-card px-3 text-[12px] font-bold text-white">
+      <span className="absolute bottom-[70px] right-0 flex h-[30px] items-center rounded-[15px] bg-iz-head-card px-3 text-[12px] font-bold text-iz-head-text">
         {to}
       </span>
     </div>
@@ -103,14 +103,14 @@ export function PhoneScreen() {
             type="button"
             onClick={() => navigate("/language")}
             aria-label={`${t("language.title")}: ${t(`language.name.${locale}` as TranslationKey)}`}
-            className="flex h-11 items-center gap-2 rounded-full border border-iz-head-border px-3.5 text-[13px] font-bold text-white active:opacity-70"
+            className="flex h-11 items-center gap-2 rounded-full border border-iz-head-border px-3.5 text-[13px] font-bold text-iz-head-text active:opacity-70"
           >
             <Icon name="globe" size={18} className="text-iz-green" />
             {t(`language.name.${locale}` as TranslationKey)}
           </button>
         </div>
         <HeroArt from={t("auth.heroFrom")} to={t("auth.heroTo")} />
-        <h1 className="mt-auto text-[32px] font-extrabold leading-10 text-white kb:text-[24px] kb:leading-8">
+        <h1 className="mt-auto text-[32px] font-extrabold leading-10 text-iz-head-text kb:text-[24px] kb:leading-8">
           {t("auth.heroTitle")} <span className="text-iz-green">{t("auth.heroAccent")}</span>
         </h1>
       </div>

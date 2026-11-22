@@ -164,3 +164,19 @@ lines and total. Needed beyond what the contract has today:
   so those rows are hidden or rejected before sending).
 - **Saved cards list** — `GET /api/v1/wallet/cards` → `{ data: [{ id, label, brand, last4 }] }`; "Karta" in Payment
   opens this list (capability `savedCards`).
+
+### Delivery: Yuk, Kontakt, Shartlar (group 6)
+
+The redesigned delivery flow keeps every Kargo input of the current app (scope tabs, drop-offs, body S–3XL, sender /
+receiver, receiver's address details, note, loaders, route / hourly with hours, ride-along) — all still behind
+`capabilities.cargoExtras`, as listed above. New from the design:
+
+- **Insurance switch** ("Sug'urta", design CargoTerms). Proposal:
+  - `CargoRules` (`GET /api/v1/delivery/rules` or wherever the Kargo rules come from): `"insurance": { "available": true }`.
+  - `QuoteRequest` / `OrderCreate` cargo block: `"insurance": true | false`.
+  - Quote line `{ "key": "quote.insurance", "amount": <tiyin> }` when on; terms text from the existing info topic
+    `insurance` (`GET /api/v1/delivery/info/insurance` → `{ title_key, paragraph_keys }` or plain localized text).
+  - Error key when it can't be added: `CARGO_INSURANCE_UNAVAILABLE`.
+- **Payment link after ordering** (Payme / Click, owner 2026-11-22): if the created order carries
+  `payment: { "redirect_url": "https://…" }`, the app opens it in the system browser; otherwise it says payment will be
+  asked later. Nothing else is built on the client.

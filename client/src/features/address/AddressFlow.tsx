@@ -47,6 +47,8 @@ export function AddressFlow({
   const [step, setStep] = useState<Step>(startOnMap && canMap ? { kind: "map" } : { kind: "search" });
   /** Details typed on the map step, kept while the pin moves. */
   const [mapDetails, setMapDetails] = useState<AddressDetails | undefined>(undefined);
+  /** The pin survives the trip to AddressDetails and back. */
+  const [mapPin, setMapPin] = useState<{ x: number; y: number } | undefined>(undefined);
 
   if (step.kind === "details") {
     return (
@@ -78,6 +80,10 @@ export function AddressFlow({
         allowDetails={target !== "save" && api.capabilities.addressDetails}
         onDetails={(address) => setStep({ kind: "details", address, back: "map" })}
         onSearch={() => setStep({ kind: "search" })}
+        // Details belong to the point they were typed for.
+        onMoved={() => setMapDetails(undefined)}
+        initialPin={mapPin}
+        onPin={setMapPin}
         onConfirm={(address) => {
           if (target === "save") setStep({ kind: "details", address, back: "map" });
           else onDone(address, undefined, mapDetails);

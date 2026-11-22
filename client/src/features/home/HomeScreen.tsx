@@ -12,20 +12,22 @@ import { setDefaultFromAddress, useOrderStore } from "@/stores/orderStore";
 import { useFloatingControl } from "@/stores/floatingControlStore";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
-import { OrderSheet } from "@/features/order/OrderSheet";
+import { CargoFlow } from "@/features/cargo/CargoFlow";
 import { Toast } from "@/components/Toast";
 import { AddressFlow } from "@/features/address/AddressFlow";
 import { PassengerFlow } from "@/features/trip/PassengerFlow";
-import { detailsSummary } from "@/features/order/addressDetails";
 import { isApiError } from "@shared/http/errors";
 import { ruleErrorKey, serverErrorKey } from "@/lib/apiError";
 import { HomeSheet, PickupPin, HomeTopBar } from "./HomeView";
 import { Icon } from "@/ui";
-import type { QuoteRenewal } from "@/features/order/OrderSheet";
+
 
 // Where new drafts start: the adapter's default pickup (sample data:
 // Toshkent; real backend: none until the passenger picks or locates one).
 setDefaultFromAddress(api.defaultPickupId());
+
+/** The quoted price couldn't be used: the server's new total, awaiting a yes. */
+export type QuoteRenewal = { messageKey: string; total: number };
 
 const QUOTE_ERRORS = new Set(["QUOTE_NOT_FOUND", "QUOTE_EXPIRED", "QUOTE_ALREADY_USED", "QUOTE_MISMATCH"]);
 
@@ -53,7 +55,10 @@ export default function OrderingHome() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [cityNames, setCityNames] = useState<Record<string, string>>({});
   const [recent, setRecent] = useState<RouteSuggestion[]>([]);
-  const [recentLoading, setRecentLoading] = useState(true);
+  const [recentLoading, setRecentLoading] = useState(api.capabilities.recentRoutes);
+  const [recentError, setRecentError] = useState(false);
+  const [recentReload, setRecentReload] = useState(0);
+  const [eta, setEta] = useState<number | null>(null);
   const [saved, setSaved] = useState<SavedAddressInfo[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState(false);
@@ -85,13 +90,24 @@ export default function OrderingHome() {
       .getCities()
       .then((cs) => setCityNames(Object.fromEntries(cs.map((c) => [c.id, c.name]))))
       .catch(() => setCityNames({}));
-    // Recent routes: no endpoint on the real backend yet (backend-gaps/client.md) — the section hides.
+    // Pickup ETA for the pin (where the adapter has one).
+    if (api.capabilities.pickupEta) api.getPickupEta().then((r) => setEta(r.minutes)).catch(() => setEta(null));
+  }, []);
+
+  // Recent routes: only where the adapter has them (capabilities.recentRoutes).
+  useEffect(() => {
+    if (!api.capabilities.recentRoutes) return;
+    setRecentLoading(true);
+    setRecentError(false);
     api
       .getRecentRoutes()
       .then(setRecent)
-      .catch(() => setRecent([]))
+      .catch(() => {
+        setRecent([]);
+        setRecentError(true);
+      })
       .finally(() => setRecentLoading(false));
-  }, []);
+  }, [recentReload]);
 
   // Back on Home after the order flow: refetch saved addresses, since the
   // flow may have changed one's Tafsilotlar.
@@ -190,7 +206,11 @@ export default function OrderingHome() {
         receiver: draft.serviceType === "delivery" && api.capabilities.cargoExtras ? draft.receiver : undefined,
         rider: draft.serviceType === "passenger" && api.capabilities.rider ? draft.rider : undefined,
       });
-      navigate(`/order/track/${order.id}`, { replace: true });
+      // Payme / Click: pay on the provider's page when the server gives one
+      // (system browser); otherwise the tracking screen says it comes later.
+      const paysInApp = draft.paymentMethod === "payme" || draft.paymentMethod === "click";
+      if (paysInApp && order.paymentUrl) window.open(order.paymentUrl, "_blank", "noopener,noreferrer");
+      navigate(`/order/track/${order.id}`, { replace: true, state: paysInApp && !order.paymentUrl ? { paymentLater: true } : undefined });
       reset();
     } catch (e) {
       // The quote behind the shown price is gone (expired, used, changed):
@@ -223,7 +243,7 @@ export default function OrderingHome() {
             onClose={back}
           />
         ) : (
-        <OrderSheet
+        <CargoFlow
           draft={draft}
           setField={setField}
           addresses={{ from: fromAddress, to: toAddress }}
@@ -242,7 +262,7 @@ export default function OrderingHome() {
 
   const markers: MapMarker[] = [];
   if (me) markers.push({ id: "me", position: me, kind: "user", animate: true });
-  if (pickupPoint) markers.push({ id: "pickup", position: pickupPoint, content: <PickupPin /> });
+  if (pickupPoint) markers.push({ id: "pickup", position: pickupPoint, content: <PickupPin eta={eta} /> });
 
   function swap() {
     const d = useOrderStore.getState().draft;
@@ -275,7 +295,7 @@ export default function OrderingHome() {
             <MapCanvas className="absolute inset-0" />
             <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center" style={{ height: `calc(100% - ${panelH}px)` }}>
               <div className="mb-auto mt-auto">
-                <PickupPin />
+                <PickupPin eta={eta} />
               </div>
             </div>
           </>
@@ -332,6 +352,8 @@ export default function OrderingHome() {
         onAddSaved={() => go({ flow: "search", target: "save", map: "1" })}
         recent={recent}
         recentLoading={recentLoading}
+        recentError={recentError}
+        onRetryRecent={() => setRecentReload((n) => n + 1)}
         cityNames={cityNames}
         onRecent={(r) => go({ flow: "search", target: "to", city: r.toCityId })}
       />

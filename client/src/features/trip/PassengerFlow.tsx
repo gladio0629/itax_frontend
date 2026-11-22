@@ -10,7 +10,7 @@ import { formatSom } from "@/lib/format";
 import { BottomSheet, PrimaryButton, Screen, StateError, StateLoading, TextButton } from "@/ui";
 import { AddressFlow } from "@/features/address/AddressFlow";
 import { AddressDetailsScreen } from "@/features/address/AddressDetailsScreen";
-import type { QuoteRenewal } from "@/features/order/OrderSheet";
+import type { QuoteRenewal } from "@/features/home/HomeScreen";
 import { TripScreen, type RoutePoint } from "./TripScreen";
 import { ExtrasScreen } from "./ExtrasScreen";
 import { TimeScreen } from "./TimeScreen";
@@ -19,6 +19,33 @@ import { PaymentScreen } from "./PaymentScreen";
 const caps = api.capabilities;
 
 type Overlay = { kind: "pick"; target: RoutePoint | "newStop" } | { kind: "details"; target: RoutePoint } | { kind: "extras" } | { kind: "time" } | null;
+
+/** Overlays live in the URL (?sheet=…) so the Android back button closes
+ * only the open one. */
+function encodePoint(p: RoutePoint | "newStop"): string {
+  return typeof p === "object" ? `stop:${p.stop}` : p === "newStop" ? "new" : p;
+}
+function decodePoint(s: string): RoutePoint | "newStop" | null {
+  if (s === "from" || s === "to") return s;
+  if (s === "new") return "newStop";
+  if (s.startsWith("stop:")) return { stop: s.slice(5) };
+  return null;
+}
+function encodeOverlay(o: NonNullable<Overlay>): string {
+  if (o.kind === "pick") return `pick:${encodePoint(o.target)}`;
+  if (o.kind === "details") return `details:${encodePoint(o.target)}`;
+  return o.kind;
+}
+function decodeOverlay(s: string | null): Overlay {
+  if (!s) return null;
+  if (s === "extras" || s === "time") return { kind: s };
+  const [kind, ...rest] = s.split(":");
+  const target = decodePoint(rest.join(":"));
+  if (!target) return null;
+  if (kind === "pick") return { kind: "pick", target };
+  if (kind === "details" && target !== "newStop") return { kind: "details", target };
+  return null;
+}
 
 /** Loading/error/success with the last good value kept (no flicker while re-pricing). */
 function settle<T>(q: { status: string; data?: T }, last: { current: T | null }) {
@@ -63,7 +90,24 @@ export function PassengerFlow({
   const location = useLocation();
   const navigate = useNavigate();
   const step = params.get("step") === "payment" ? "payment" : "trip";
-  const [overlay, setOverlay] = useState<Overlay>(null);
+  const overlay = decodeOverlay(params.get("sheet"));
+  /** Open as a new history entry (back closes it); `replace` for the
+   * automatic first picker, which back should not reopen. */
+  const setOverlay = (o: Overlay, replace = false) => {
+    const next = new URLSearchParams(params);
+    if (!o) {
+      if ((location.state as { sheet?: boolean } | null)?.sheet) {
+        navigate(-1);
+        return;
+      }
+      next.delete("sheet");
+      setParams(next, { replace: true, state: location.state });
+      return;
+    }
+    next.set("sheet", encodeOverlay(o));
+    if (replace) setParams(next, { replace: true });
+    else setParams(next, { state: { sheet: true } });
+  };
   const draftRef = useRef(draft);
   draftRef.current = draft;
 
@@ -197,8 +241,9 @@ export function PassengerFlow({
   useEffect(() => {
     if (autoOpened.current) return;
     autoOpened.current = true;
-    if (!addresses.to) setOverlay({ kind: "pick", target: "to" });
-    else if (!addresses.from) setOverlay({ kind: "pick", target: "from" });
+    if (overlay) return;
+    if (!addresses.to) setOverlay({ kind: "pick", target: "to" }, true);
+    else if (!addresses.from) setOverlay({ kind: "pick", target: "from" }, true);
   }, [addresses.to, addresses.from]);
 
   const maxStops = !caps.stops ? 0 : rulesData ? rulesData.maxStops : null;

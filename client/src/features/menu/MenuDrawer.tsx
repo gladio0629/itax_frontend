@@ -8,6 +8,9 @@ import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { Icon, Initials, Logo, useDialogA11y, type IconName } from "@/ui";
 
+/** Shown under the logo, as in the old menu. */
+const APP_VERSION = "1.1.0";
+
 type NavItem = { to: string; labelKey: TranslationKey; icon: IconName };
 
 const NAV_ITEMS: NavItem[] = [
@@ -30,14 +33,19 @@ export function MenuDrawer({ open, onClose, profile }: { open: boolean; onClose:
   const panelRef = useRef<HTMLDivElement>(null);
   const drag = useRef<number | null>(null);
   const [bonus, setBonus] = useState<number | null>(null);
+  const [bonusFailed, setBonusFailed] = useState(false);
   useDialogA11y(open, onClose, panelRef);
 
   useEffect(() => {
     if (!open || !api.capabilities.bonuses) return;
+    setBonusFailed(false);
     api
       .getBonusSummary()
       .then((b) => setBonus(b.balance))
-      .catch(() => setBonus(null));
+      .catch(() => {
+        setBonus(null);
+        setBonusFailed(true);
+      });
   }, [open]);
 
   if (!open) return null;
@@ -83,7 +91,7 @@ export function MenuDrawer({ open, onClose, profile }: { open: boolean; onClose:
           <button type="button" onClick={() => go("/bonus")} className="flex items-center justify-between rounded-[22px] bg-iz-head-card p-4 text-left active:opacity-80">
             <span className="flex flex-col gap-0.5">
               <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-iz-head-muted">{t("menu.bonusLabel")}</span>
-              <span className="text-[26px] font-extrabold tabular-nums text-iz-head-text">{bonus != null ? formatNumber(bonus) : "…"}</span>
+              <span className="text-[26px] font-extrabold tabular-nums text-iz-head-text">{bonus != null ? formatNumber(bonus) : bonusFailed ? "—" : "…"}</span>
             </span>
             <span aria-hidden className="flex h-11 w-11 items-center justify-center rounded-full bg-iz-green text-iz-on-green">
               <Icon name="arrowRight" strokeWidth={2.4} />
@@ -134,7 +142,10 @@ export function MenuDrawer({ open, onClose, profile }: { open: boolean; onClose:
             {t("menu.help")}
           </button>
         )}
-        <Logo width={56} className={cn("ml-2 mt-1 opacity-90", !api.capabilities.help && "mt-auto")} />
+        <div className={cn("ml-2 mt-1 flex items-center gap-3", !api.capabilities.help && "mt-auto")}>
+          <Logo width={56} className="opacity-90" />
+          <span className="text-[12px] font-semibold text-iz-head-muted">{t("drawer.version", { version: APP_VERSION })}</span>
+        </div>
       </div>
     </div>
   );

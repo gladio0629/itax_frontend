@@ -131,7 +131,7 @@ export function AddressSearch({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={t("address.typeToSearch")}
-        className="iz-input h-6 min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-bold text-white outline-none placeholder:font-semibold placeholder:text-iz-head-muted [&::-webkit-search-cancel-button]:hidden"
+        className="iz-input h-6 min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-bold text-iz-head-text outline-none placeholder:font-semibold placeholder:text-iz-head-muted [&::-webkit-search-cancel-button]:hidden"
       />
       {query && (
         <button type="button" onClick={() => setQuery("")} aria-label={t("common.clear")} className="-my-2 flex h-11 w-9 shrink-0 items-center justify-center text-iz-head-muted">
@@ -141,7 +141,7 @@ export function AddressSearch({
     </span>
   );
   const shown = (v: string | null | undefined, placeholder: string) => (
-    <span className={cn("truncate text-[15px]", v ? "font-bold text-white" : "font-semibold text-iz-head-muted")}>{v || placeholder}</span>
+    <span className={cn("truncate text-[15px]", v ? "font-bold text-iz-head-text" : "font-semibold text-iz-head-muted")}>{v || placeholder}</span>
   );
   const twoEnds = target === "from" || target === "to";
 
@@ -151,7 +151,7 @@ export function AddressSearch({
         <div aria-hidden className="flex flex-col items-center gap-1">
           <span className="h-3.5 w-3.5 rounded-full bg-iz-green" />
           <span className="h-[34px] w-0 border-l-2 border-dotted border-iz-head-border-strong" />
-          <span className="h-3 w-3 rounded-[4px] bg-white" />
+          <span className="h-3 w-3 rounded-[4px] bg-iz-head-text" />
         </div>
       )}
       {!twoEnds && <Icon name={target === "save" ? "plus" : "pin"} className="shrink-0 text-iz-green" />}
@@ -177,7 +177,7 @@ export function AddressSearch({
           onClick={onSwap}
           disabled={!fromLabel || !toLabel}
           aria-label={t("home.swap")}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-iz-head-border text-white disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-iz-head-border text-iz-head-text disabled:opacity-40"
         >
           <Icon name="swap" size={18} />
         </button>

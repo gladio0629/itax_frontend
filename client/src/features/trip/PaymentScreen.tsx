@@ -83,6 +83,7 @@ export function PaymentScreen({
   submitting,
   submitError,
   onBack,
+  steps,
 }: {
   quote: Load<Quote>;
   /** The quote matches the order on screen (false while re-pricing). */
@@ -99,6 +100,8 @@ export function PaymentScreen({
   submitting: boolean;
   submitError: string | null;
   onBack: () => void;
+  /** Step names and the index of this step (passenger: 3 steps, delivery: 4). */
+  steps?: { names: string[]; current: number };
 }) {
   const { t, intlTag } = useT();
   const navigate = useNavigate();
@@ -162,7 +165,7 @@ export function PaymentScreen({
         {quote.data.lines.map((l, i) => (
           <div key={i} className="flex justify-between gap-3 text-[13px]">
             <dt className="min-w-0 text-iz-head-muted">{t(l.key as TranslationKey, l.params)}</dt>
-            <dd className="shrink-0 font-bold tabular-nums text-white">{formatNumber(l.amount, intlTag)}</dd>
+            <dd className="shrink-0 font-bold tabular-nums text-iz-head-text">{formatNumber(l.amount, intlTag)}</dd>
           </div>
         ))}
       </dl>
@@ -172,12 +175,12 @@ export function PaymentScreen({
     <Screen
       title={t("pay.title")}
       onBack={onBack}
-      top={<Steps steps={stepNames(t)} current={1} label={t("trip.steps")} />}
+      top={<Steps steps={steps?.names ?? stepNames(t)} current={steps?.current ?? 1} label={t("trip.steps")} />}
       topKeep={
         <div className="flex flex-col gap-2.5 rounded-iz-card bg-iz-head-card px-[18px] py-4 kb:bg-transparent kb:p-0">
           <div className="flex items-baseline justify-between" aria-live="polite">
             <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-iz-head-muted">{t("pay.total")}</span>
-            <span className="text-[30px] font-extrabold leading-9 tabular-nums text-white kb:text-[28px] kb:leading-[34px]">
+            <span className="text-[30px] font-extrabold leading-9 tabular-nums text-iz-head-text kb:text-[28px] kb:leading-[34px]">
               {total} <span className="text-[16px] text-iz-green">{SOM_LABEL}</span>
             </span>
           </div>

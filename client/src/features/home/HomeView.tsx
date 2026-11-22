@@ -1,15 +1,32 @@
 import type { ReactNode, RefObject } from "react";
 import type { Profile, RouteSuggestion, SavedAddressInfo, ServiceType } from "@/api/types";
+import { api } from "@/api/client";
 import { useT } from "@/lib/i18n/provider";
+import { detailsSummary } from "@/features/order/addressDetails";
+import { formatDuration } from "@/features/order/duration";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
 import { Icon, SectionLabel, Segmented, useShellChrome, useStatusBar, type IconName } from "@/ui";
 
-/** Pickup on the map (design: green halo, Ink dot with a white ring). */
-export function PickupPin() {
+/**
+ * Pickup on the map (design: green halo, Ink dot with a white ring). With a
+ * server ETA (capabilities.pickupEta) a caption above it says when a car
+ * can be there — kept from the old Home's pin bubble.
+ */
+export function PickupPin({ eta }: { eta?: number | null }) {
+  const { t } = useT();
   return (
-    <span aria-hidden className="flex h-[76px] w-[76px] items-center justify-center rounded-full bg-iz-green/20">
-      <span className="h-[22px] w-[22px] rounded-full border-4 border-white bg-iz-map-pin shadow-[0_2px_6px_var(--iz-shadow)]" />
+    <span className="relative flex h-[76px] w-[76px] items-center justify-center rounded-full bg-iz-green/20">
+      {api.capabilities.pickupEta && eta != null && (
+        <span
+          role="status"
+          className="absolute bottom-[58px] left-1/2 flex h-8 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-iz-map-pin px-3 text-[12px] font-bold text-iz-head-text shadow-[0_6px_16px_var(--iz-shadow-strong)]"
+        >
+          <span aria-hidden className="h-2 w-2 rounded-full bg-iz-green" />
+          {t("home.pickupEta", { eta: t("pin.eta", { n: eta }) })}
+        </span>
+      )}
+      <span aria-hidden className="h-[22px] w-[22px] rounded-full border-4 border-white bg-iz-map-pin shadow-[0_2px_6px_var(--iz-shadow)]" />
     </span>
   );
 }
@@ -28,7 +45,7 @@ export function HomeTopBar({ cityName, onCity }: { cityName?: string; onCity: ()
         type="button"
         onClick={shell?.openDrawer}
         aria-label={t("drawer.open")}
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-iz-map-pin text-white shadow-[0_8px_20px_var(--iz-shadow-strong)] active:scale-95"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-iz-map-pin text-iz-head-text shadow-[0_8px_20px_var(--iz-shadow-strong)] active:scale-95"
       >
         <Icon name="menu" />
       </button>
@@ -120,7 +137,9 @@ function SavedChip({ info, onClick, wide }: { info: SavedAddressInfo; onClick: (
   // passenger gave, else the place itself. The line under it is the place.
   const named = info.kind === "home" || info.kind === "work";
   const title = named ? t(`details.kind.${info.kind}` as TranslationKey) : info.name ?? info.address.label;
-  const subtitle = named || info.name ? info.address.label : info.area;
+  // Under the name: the Tafsilotlar summary when the place has them, else
+  // the place / area; the server's ETA from the pickup on the right.
+  const subtitle = detailsSummary(info.details, t) || (named || info.name ? info.address.label : info.area);
   const icon: IconName = info.kind === "home" ? "home" : info.kind === "work" ? "briefcase" : "pin";
   return (
     <button
@@ -136,7 +155,13 @@ function SavedChip({ info, onClick, wide }: { info: SavedAddressInfo; onClick: (
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-[14px] font-extrabold text-iz-ink">{title}</span>
-        {subtitle && <span className="truncate text-[12px] font-semibold text-iz-muted">{subtitle}</span>}
+        {(info.etaMinutes != null || subtitle) && (
+          <span className="truncate text-[12px] font-semibold text-iz-muted">
+            {info.etaMinutes != null && <span className="text-iz-green-text">{formatDuration(info.etaMinutes, t)}</span>}
+            {info.etaMinutes != null && subtitle ? " · " : ""}
+            {subtitle}
+          </span>
+        )}
       </span>
     </button>
   );
@@ -169,6 +194,8 @@ type HomeSheetProps = {
   onAddSaved: () => void;
   recent: RouteSuggestion[];
   recentLoading: boolean;
+  recentError: boolean;
+  onRetryRecent: () => void;
   cityNames: Record<string, string>;
   onRecent: (r: RouteSuggestion) => void;
 };
@@ -182,7 +209,7 @@ export function HomeSheet(p: HomeSheetProps) {
   const { t } = useT();
   const first = p.profile?.firstName || p.profile?.name?.split(/\s+/)[0] || "";
   const loading = p.savedLoading || p.recentLoading;
-  const isNew = !loading && !p.savedError && p.saved.length === 0 && p.recent.length === 0;
+  const isNew = !loading && !p.savedError && !p.recentError && p.saved.length === 0 && p.recent.length === 0;
   const recent = p.recent.slice(0, 4);
 
   return (
@@ -256,6 +283,14 @@ export function HomeSheet(p: HomeSheetProps) {
               </div>
             )}
           </Section>
+          {p.recentError && (
+            <Section label={t("home.recentRoutes")}>
+              <button type="button" onClick={p.onRetryRecent} className="flex h-11 items-center gap-2 self-start text-[14px] font-bold text-iz-danger">
+                <Icon name="refresh" size={18} />
+                {t("home.loadFailed")} · {t("common.retry")}
+              </button>
+            </Section>
+          )}
           {recent.length > 0 && (
             <Section label={t("home.recentRoutes")}>
               <div className="grid grid-cols-2 gap-2.5">
@@ -267,7 +302,7 @@ export function HomeSheet(p: HomeSheetProps) {
                     className="flex h-16 min-w-0 items-center justify-between gap-2 rounded-iz-field border border-iz-border pl-3.5 pr-3 text-left active:bg-iz-field"
                   >
                     <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="truncate text-[12px] font-semibold text-iz-muted">{p.cityNames[r.fromCityId] ?? r.label.split(/\s*[—→-]\s*/)[0]}</span>
+                      {p.cityNames[r.fromCityId] && <span className="truncate text-[12px] font-semibold text-iz-muted">{p.cityNames[r.fromCityId]}</span>}
                       <span className="truncate text-[15px] font-extrabold text-iz-ink">{p.cityNames[r.toCityId] ?? r.label}</span>
                     </span>
                     <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-iz-green-soft text-iz-green-text">

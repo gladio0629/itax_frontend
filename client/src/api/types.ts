@@ -62,6 +62,8 @@ export type CargoInput = {
   hours?: number;
   /** "Men ham birga ketaman". */
   rideAlong?: boolean;
+  /** "Sug'urta" (design v2 CargoTerms); terms and price come from the server. */
+  insurance?: boolean;
 };
 
 export type CargoInfoTopic = "delivery" | "loaders" | "body" | "insurance";
@@ -76,6 +78,8 @@ export type CargoRules = {
   /** Extra drop-offs ("Yana manzil qo'shish") per tab. */
   maxExtraDropoffs: Record<CargoTab, number>;
   infoTopics: { id: CargoInfoTopic; labelKey: string }[];
+  /** Whether cargo insurance can be added to the order. */
+  insurance: { available: boolean };
 };
 export type CargoInfo = { titleKey: string; paragraphKeys: string[] };
 export type RideAlong = { available: boolean; reasonKey?: string };
@@ -160,26 +164,6 @@ export type RouteStop = {
   details?: AddressDetails;
 };
 
-export type OrderOptionId = "child_seat" | "pet" | "big_luggage" | "find_car" | "wheelchair" | "text_only";
-
-/** An add-on ("Istaklar") the passenger can switch on. Price and
- * availability are the adapter's; the UI only shows them. */
-export type OrderOption = {
-  id: OrderOptionId;
-  titleKey: string;
-  descKey: string;
-  /** 0 = free. */
-  price: number;
-  available: boolean;
-  /** Why it's unavailable (translation key), when it is. */
-  reasonKey?: string;
-  /** A required sub-choice, e.g. the child seat's age group. */
-  variants?: { id: string; labelKey: string }[];
-  /** Applied when the option is switched on (from its switch or a hint). */
-  defaultVariant?: string;
-};
-export type OptionVariants = Partial<Record<OrderOptionId, string>>;
-
 export type CarClassId = "standart" | "komfort" | "biznes" | "miniven";
 /** One "Klass" card. `price` is the adapter's total for the current order
  * with this class. */
@@ -225,13 +209,6 @@ export type EmergencyContacts = { contacts: EmergencyContact[]; max: number };
 /** A mock "follow my trip" link plus the share text (as a translation key). */
 export type TripShare = { url: string; textKey: string; params: Record<string, string | number> };
 
-/** A suggestion derived from the driver comment ("bola", "чемодан", …).
- * Suggestions only — nothing is applied until the passenger taps. */
-export type CommentHint = {
-  optionId: OrderOptionId;
-  messageKey: string;
-};
-
 /** Limits for the order-details inputs. The adapter owns them and
  * re-validates on quote/create/update; the UI only reads them for
  * maxLength attributes, counters and hiding "To'xtash qo'shish". */
@@ -254,8 +231,6 @@ export type QuoteInput = {
   mode: OrderMode;
   seatIds: string[];
   cargo?: CargoInput;
-  optionIds?: OrderOptionId[];
-  optionVariants?: OptionVariants;
   carClass?: CarClassId;
   /** Only a code applyPromoCode() accepted. */
   promoCode?: string;
@@ -290,8 +265,6 @@ export type CreateOrderInput = {
   stops?: RouteStop[];
   /** "Haydovchiga izoh". */
   comment?: string;
-  optionIds?: OrderOptionId[];
-  optionVariants?: OptionVariants;
   carClass?: CarClassId;
   /** Bags, within getLuggageRules(). */
   luggage?: number;
@@ -316,8 +289,6 @@ export type OrderExtras = {
   toDetails?: AddressDetails;
   stops?: RouteStop[];
   comment?: string;
-  optionIds?: OrderOptionId[];
-  optionVariants?: OptionVariants;
   carClass?: CarClassId;
   luggage?: number;
   rider?: Rider;
@@ -338,7 +309,6 @@ export type UpdateOrderInput = Partial<{
   toDetails: AddressDetails;
   stops: RouteStop[];
   comment: string;
-  optionIds: OrderOptionId[];
 }>;
 
 /** One search result: the point, its area (shown as a subtitle), distance
@@ -387,6 +357,8 @@ export type OrderWithDetails = Order & {
   driverArrived?: boolean;
   /** The server's price breakdown (sums to `price`), when it sends one. */
   priceLines?: QuoteLine[];
+  /** Payme / Click: the provider page to pay on, when the server gives one. */
+  paymentUrl?: string;
 };
 
 export type OrderHistoryPage = {
@@ -464,6 +436,8 @@ export type ClientCapabilities = {
   /** Trip share link, emergency contacts, support phone. */
   safety: boolean;
   popularRoutes: boolean;
+  /** "Oxirgi yo'nalishlar" on Home (the passenger's own last routes). */
+  recentRoutes: boolean;
   promo: boolean;
   bonuses: boolean;
   help: boolean;
@@ -477,7 +451,7 @@ export type ClientCapabilities = {
   notificationTopics: boolean;
   /** Intermediate stops (Taksi) and extra drop-offs (Kargo). */
   stops: boolean;
-  /** "Istaklar" add-ons, comment hints and the luggage stepper. */
+  /** The luggage stepper ("Bagaj soni"). Wishes were removed (2026-11-22). */
   orderOptions: boolean;
   /** "Kim ketadi?" — ordering for someone else. */
   rider: boolean;

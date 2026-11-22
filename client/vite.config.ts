@@ -12,8 +12,13 @@ export default defineConfig(({ mode }) => {
   // The interactive map (Mapbox) is built in only when its token is set;
   // without one the drawn map stays and the build has no Mapbox code.
   const mapbox = mapboxEnabled(env.VITE_MAPBOX_TOKEN);
+  // Public site for the legal links (owner, 2026-11-22). The default lives
+  // here, not in src/ (no hard-coded hosts there); VITE_SITE_URL overrides
+  // it, and an explicit empty value turns the links off.
+  const siteUrl = env.VITE_SITE_URL ?? process.env.VITE_SITE_URL ?? "https://xasanow.uz";
 
   return {
+    define: { "import.meta.env.VITE_SITE_URL": JSON.stringify(siteUrl) },
     plugins: [
       react(),
       izgoBackendProbe(proxyTarget),

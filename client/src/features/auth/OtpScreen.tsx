@@ -184,10 +184,10 @@ export function OtpScreen() {
           <span className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-iz-head-card text-iz-green kb:hidden" aria-hidden>
             <Icon name="chat" size={30} />
           </span>
-          <h1 className="text-[32px] font-extrabold leading-10 text-white kb:text-[24px] kb:leading-8">{t("auth.enterCodeTitle")}</h1>
+          <h1 className="text-[32px] font-extrabold leading-10 text-iz-head-text kb:text-[24px] kb:leading-8">{t("auth.enterCodeTitle")}</h1>
           <p className="text-[15px] leading-[23px] text-iz-head-muted kb:text-[14px] kb:leading-[21px]">
             {rich(t("auth.codeSentTo"), {
-              phone: <span className="font-bold text-white">{maskPhone(state.phone)}</span>,
+              phone: <span className="font-bold text-iz-head-text">{maskPhone(state.phone)}</span>,
               change: (
                 <Link to="/auth/phone" replace className="font-bold text-iz-green">
                   {t("auth.changePhone")}

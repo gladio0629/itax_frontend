@@ -201,7 +201,7 @@ export function TimeScreen({
         topKeep={
           <div className="flex flex-col gap-1">
             <span className="text-[14px] font-semibold text-iz-head-muted kb:hidden">{dayLine}</span>
-            <span className="text-[38px] font-extrabold leading-[46px] tabular-nums text-white kb:text-[24px] kb:leading-8" aria-live="polite">
+            <span className="text-[38px] font-extrabold leading-[46px] tabular-nums text-iz-head-text kb:text-[24px] kb:leading-8" aria-live="polite">
               <span className="hidden kb:inline">{mode !== "now" && `${dayLabel(date, t, intlTag, now)}, `}</span>
               {big}
             </span>

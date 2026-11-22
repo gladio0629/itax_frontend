@@ -32,16 +32,12 @@ import type {
   EmergencyContact,
   EmergencyContacts,
   LuggageRules,
-  OptionVariants,
   PromoResult,
   Rider,
   TipOptions,
   TripShare,
-  CommentHint,
   OrderDetailsRules,
   OrderMode,
-  OrderOption,
-  OrderOptionId,
   RouteStop,
   ServiceType,
   CargoInput,
@@ -143,7 +139,10 @@ const CARGO_RULES: CargoRules = {
     { id: "body", labelKey: "kargo.info.body.chip" },
     { id: "insurance", labelKey: "kargo.info.insurance.chip" },
   ],
+  insurance: { available: true },
 };
+/** Sample insurance fee (the real one is the backend's, backend-gaps/client.md). */
+const CARGO_INSURANCE_FEE = 25_000;
 
 function rideAlongFor(vehicle: DeliveryVehicle, loaders: number): RideAlong {
   const seats = CARGO_VEHICLE[vehicle]?.cabSeats ?? 0;
@@ -176,7 +175,7 @@ function normalizeCargo(cargo: CargoInput | undefined): Required<Omit<CargoInput
     const r = rideAlongFor(c.vehicle, loaders);
     if (!r.available) throw new ApiError("CARGO_RIDE_ALONG", r.reasonKey ?? "order.quoteError");
   }
-  return { vehicle: c.vehicle, note: c.note, tab, loaders, pricingMode, hours, rideAlong };
+  return { vehicle: c.vehicle, note: c.note, tab, loaders, pricingMode, hours, rideAlong, insurance: !!c.insurance };
 }
 
 /** Distance between two points of the same city, from their map positions. */
@@ -224,6 +223,7 @@ function priceCargo(input: { fromAddressId: string; toAddressId: string; stops: 
   if (cargo.loaders > 0) {
     lines.push({ key: "quote.loaders", params: { n: cargo.loaders }, amount: cargo.loaders * CARGO_RULES.loaders.pricePerLoader });
   }
+  if (cargo.insurance) lines.push({ key: "quote.insurance", amount: CARGO_INSURANCE_FEE });
   return { cargo, directKm, routeKm, lines };
 }
 
@@ -247,34 +247,6 @@ const ORDER_DETAILS_RULES: OrderDetailsRules = {
   riderNameMaxLength: 40,
 };
 const STOP_FEE = 5_000;
-type OptionDef = Omit<OrderOption, "available" | "reasonKey"> & {
-  /** Classes that can't offer it, with the reason shown on the disabled row. */
-  notIn?: { classes: CarClassId[]; reasonKey: string };
-};
-const CHILD_SEAT_AGES = [
-  { id: "0_9m", labelKey: "option.child_seat.age.0_9m" },
-  { id: "9m_4y", labelKey: "option.child_seat.age.9m_4y" },
-  { id: "4_12y", labelKey: "option.child_seat.age.4_12y" },
-];
-const OPTION_DEFS: Record<ServiceType, OptionDef[]> = {
-  passenger: [
-    { id: "child_seat", titleKey: "option.child_seat", descKey: "option.child_seat.desc", price: 15_000, variants: CHILD_SEAT_AGES, defaultVariant: "9m_4y" },
-    { id: "pet", titleKey: "option.pet", descKey: "option.pet.desc", price: 20_000, notIn: { classes: ["biznes"], reasonKey: "option.reason.notInBiznes" } },
-    { id: "big_luggage", titleKey: "option.big_luggage", descKey: "option.big_luggage.desc", price: 10_000 },
-    { id: "find_car", titleKey: "option.find_car", descKey: "option.find_car.desc", price: 0 },
-    { id: "wheelchair", titleKey: "option.wheelchair", descKey: "option.wheelchair.desc", price: 0, notIn: { classes: ["standart", "komfort", "biznes"], reasonKey: "option.reason.minivenOnly" } },
-    { id: "text_only", titleKey: "option.text_only", descKey: "option.text_only.desc", price: 0 },
-  ],
-  delivery: [],
-};
-
-function orderOptions(serviceType: ServiceType, carClass: CarClassId = "standart"): OrderOption[] {
-  return OPTION_DEFS[serviceType].map(({ notIn, ...o }) => {
-    const blocked = !!notIn && notIn.classes.includes(carClass);
-    return { ...o, variants: o.variants?.map((v) => ({ ...v })), available: !blocked, reasonKey: blocked ? notIn!.reasonKey : undefined };
-  });
-}
-
 /** Car classes: a surcharge on the base fare, and when each can't be booked. */
 const CAR_CLASSES: Record<CarClassId, { nameKey: string; seats: number; surchargePct: number }> = {
   standart: { nameKey: "class.standart", seats: 4, surchargePct: 0 },
@@ -342,18 +314,6 @@ function luggageRules(route: { fromAddressId: string; toAddressId: string }) {
   return addressOf(route.fromAddressId).cityId !== addressOf(route.toAddressId).cityId ? { min: 0, max: LUGGAGE_MAX } : null;
 }
 
-/** Word-start stems per add-on, uz/ru/en. Matched against whole words so
- * "bolalar" and "ребёнком" hit but a stem in the middle of a word doesn't. */
-const HINT_STEMS: Partial<Record<OrderOptionId, { stems: string[]; messageKey: string }>> = {
-  child_seat: {
-    stems: ["bola", "farzand", "chaqaloq", "ребён", "ребен", "дети", "детей", "детьми", "детск", "малыш", "child", "kid", "baby", "toddler"],
-    messageKey: "hint.childSeat",
-  },
-  big_luggage: {
-    stems: ["velosiped", "velik", "chamadon", "sumka", "bagaj", "yuk", "велосипед", "велик", "чемодан", "сумк", "багаж", "bicycle", "bike", "suitcase", "luggage", "bag"],
-    messageKey: "hint.bigLuggage",
-  },
-};
 const SAVED_DETAILS_KEY = "saved_address_details";
 const SEEDED_SAVED_DETAILS: Record<string, AddressDetails> = {
   "smq-1": { entrance: "2", floor: "5", apartment: "18", intercom: "18K4927", note: "Sariq darvoza, bekat ro'parasida" },
@@ -415,28 +375,6 @@ function validateStopsCount(count: number) {
   if (count > ORDER_DETAILS_RULES.maxStops) throw new ApiError("TOO_MANY_STOPS", "stops.tooMany");
 }
 
-function validateOptions(
-  serviceType: ServiceType,
-  carClass: CarClassId,
-  optionIds: OrderOptionId[] | undefined,
-  variants: OptionVariants | undefined
-): { optionIds: OrderOptionId[]; optionVariants: OptionVariants } {
-  const options = orderOptions(serviceType, carClass);
-  const ids = [...new Set(optionIds ?? [])];
-  const optionVariants: OptionVariants = {};
-  for (const id of ids) {
-    const o = options.find((x) => x.id === id);
-    if (!o) throw new ApiError("INVALID_OPTION", "order.quoteError");
-    if (!o.available) throw new ApiError("OPTION_UNAVAILABLE", o.reasonKey ?? "order.quoteError");
-    if (o.variants) {
-      const v = variants?.[id] ?? o.defaultVariant;
-      if (!o.variants.some((x) => x.id === v)) throw new ApiError("INVALID_OPTION", "order.quoteError");
-      optionVariants[id] = v;
-    }
-  }
-  return { optionIds: ids, optionVariants };
-}
-
 type PriceInput = {
   serviceType: ServiceType;
   fromAddressId: string;
@@ -445,8 +383,6 @@ type PriceInput = {
   mode: OrderMode;
   seatIds: string[];
   cargo?: CargoInput;
-  optionIds: OrderOptionId[];
-  optionVariants?: OptionVariants;
   carClass?: CarClassId;
   promoCode?: string;
 };
@@ -457,7 +393,6 @@ type PriceInput = {
 function priceOrder(input: PriceInput) {
   const carClass: CarClassId = input.serviceType === "passenger" ? input.carClass ?? "standart" : "standart";
   if (!CAR_CLASSES[carClass]) throw new ApiError("INVALID_CLASS", "order.quoteError");
-  const { optionIds, optionVariants } = validateOptions(input.serviceType, carClass, input.optionIds, input.optionVariants);
 
   let lines: QuoteLine[];
   let directKm: number;
@@ -497,9 +432,6 @@ function priceOrder(input: PriceInput) {
     if (detourKm > 0) {
       lines.push({ key: "quote.detour", params: { km: detourKm }, amount: Math.round((detourPerKm * detourKm) / 1000) * 1000 });
     }
-    for (const option of OPTION_DEFS[input.serviceType]) {
-      if (optionIds.includes(option.id) && option.price > 0) lines.push({ key: `quote.option.${option.id}`, amount: option.price });
-    }
   }
   let promoCode: string | undefined;
   if (input.promoCode) {
@@ -510,7 +442,7 @@ function priceOrder(input: PriceInput) {
     lines.push({ key: "quote.promo", params: { code: promoCode, pct }, amount: -Math.round((subtotal * pct) / 100 / 1000) * 1000 });
   }
   const total = lines.reduce((sum, l) => sum + l.amount, 0);
-  return { directKm, routeKm, lines, total, optionIds, optionVariants, carClass, promoCode, cargo };
+  return { directKm, routeKm, lines, total, carClass, promoCode, cargo };
 }
 
 const SEAT_POSITIONS: SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
@@ -746,6 +678,7 @@ export const mockAdapter: ApiAdapter = {
     tips: true,
     safety: true,
     popularRoutes: true,
+    recentRoutes: true,
     promo: true,
     bonuses: true,
     help: true,
@@ -809,8 +742,6 @@ export const mockAdapter: ApiAdapter = {
       toDetails: x?.toDetails,
       stops: x?.stops,
       comment: x?.comment,
-      optionIds: x?.optionIds,
-      optionVariants: x?.optionVariants,
       carClass: x?.carClass,
       luggage: x?.luggage,
       rider: x?.rider,
@@ -955,21 +886,6 @@ export const mockAdapter: ApiAdapter = {
   getOrderDetailsRules: () =>
     withLatency<OrderDetailsRules>(() => ({ ...ORDER_DETAILS_RULES }), { minMs: 100, maxMs: 250 }),
 
-  getOrderOptions: ({ serviceType, carClass }) =>
-    withLatency<OrderOption[]>(() => orderOptions(serviceType, carClass), { minMs: 100, maxMs: 250 }),
-
-  getCommentHints: ({ text, serviceType, carClass, selectedOptionIds }) =>
-    withLatency<CommentHint[]>(() => {
-      const words = text.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-      // Never suggest something already on, or that this class can't offer.
-      return orderOptions(serviceType, carClass)
-        .filter((o) => o.available && !selectedOptionIds.includes(o.id))
-        .flatMap((o) => {
-          const h = HINT_STEMS[o.id];
-          return h && words.some((w) => h.stems.some((stem) => w.startsWith(stem))) ? [{ optionId: o.id, messageKey: h.messageKey }] : [];
-        });
-    }, { minMs: 80, maxMs: 180 }),
-
   getCarClasses: (input) =>
     withLatency<CarClass[]>(() => {
       const directKm = roadDistanceKm(addressOf(input.fromAddressId).cityId, addressOf(input.toAddressId).cityId);
@@ -978,9 +894,7 @@ export const mockAdapter: ApiAdapter = {
         const reasonKey = classAvailability(id, input.mode, directKm);
         let price = 0;
         if (!reasonKey) {
-          // Same price the quote would give with this class; options this
-          // class can't offer are left out rather than failing the card.
-          const offered = new Set(orderOptions("passenger", id).filter((o) => o.available).map((o) => o.id));
+          // Same price the quote would give with this class.
           price = priceOrder({
             serviceType: "passenger",
             fromAddressId: input.fromAddressId,
@@ -988,8 +902,6 @@ export const mockAdapter: ApiAdapter = {
             stops: input.stops ?? [],
             mode: input.mode,
             seatIds: input.seatIds,
-            optionIds: (input.optionIds ?? []).filter((o) => offered.has(o)),
-            optionVariants: input.optionVariants,
             carClass: id,
             promoCode: input.promoCode,
           }).total;
@@ -1043,8 +955,6 @@ export const mockAdapter: ApiAdapter = {
         mode: input.mode,
         seatIds: input.seatIds,
         cargo: input.serviceType === "delivery" ? input.cargo : undefined,
-        optionIds: input.optionIds ?? [],
-        optionVariants: input.optionVariants,
         carClass: input.carClass,
         promoCode: input.promoCode,
       });
@@ -1096,7 +1006,7 @@ export const mockAdapter: ApiAdapter = {
       const sender = input.serviceType === "delivery" ? normalizeRider(input.sender) : undefined;
       const receiver = input.serviceType === "delivery" ? normalizeReceiver(input.receiver) : undefined;
       const luggage = normalizeLuggage(input, input.luggage);
-      const { routeKm: distanceKm, total: price, optionIds, optionVariants, carClass, promoCode, cargo: pricedCargo } = priceOrder({
+      const { routeKm: distanceKm, total: price, carClass, promoCode, cargo: pricedCargo } = priceOrder({
         serviceType: input.serviceType,
         fromAddressId: input.fromAddressId,
         toAddressId: input.toAddressId,
@@ -1104,8 +1014,6 @@ export const mockAdapter: ApiAdapter = {
         mode: input.mode,
         seatIds: input.seatIds,
         cargo,
-        optionIds: input.optionIds ?? [],
-        optionVariants: input.optionVariants,
         carClass: input.carClass,
         promoCode: input.promoCode,
       });
@@ -1144,8 +1052,6 @@ export const mockAdapter: ApiAdapter = {
         toDetails: toPointDetails,
         stops,
         comment,
-        optionIds,
-        optionVariants,
         carClass: input.serviceType === "passenger" ? carClass : undefined,
         luggage,
         rider: rider.kind === "other" ? rider : undefined,
@@ -1210,15 +1116,11 @@ export const mockAdapter: ApiAdapter = {
         mode,
         seatIds,
         cargo: nextExtras.cargo,
-        optionIds: patch.optionIds ?? nextExtras.optionIds ?? [],
         // Class, variants and promo aren't editable here; they must survive
         // a partial save (e.g. payment only) and keep pricing the order.
-        optionVariants: nextExtras.optionVariants,
         carClass: nextExtras.carClass,
         promoCode: nextExtras.promoCode,
       });
-      nextExtras.optionIds = priced.optionIds;
-      nextExtras.optionVariants = priced.optionVariants;
       const fromCityId = addressOf(nextExtras.fromAddressId).cityId;
       const toCityId = addressOf(nextExtras.toAddressId).cityId;
 

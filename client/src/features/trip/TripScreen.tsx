@@ -5,13 +5,14 @@ import { formatNumber, formatSom, SOM_LABEL } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
-import { Icon, PrimaryButton, Screen, SectionLabel, Steps } from "@/ui";
+import { Icon, Screen, SectionLabel, Steps } from "@/ui";
 import { detailsSummary } from "@/features/order/addressDetails";
 import standartImg from "@/assets/v2/class-standart.png";
 import komfortImg from "@/assets/v2/class-komfort.png";
 import biznesImg from "@/assets/v2/class-biznes.png";
 import minivenImg from "@/assets/v2/class-miniven.png";
 import { SeatPicker } from "./SeatPicker";
+import { PriceFooter } from "./PriceFooter";
 
 export type RoutePoint = "from" | "to" | { stop: string };
 
@@ -171,9 +172,8 @@ export function TripScreen({
   onContinue: () => void;
   onBack: () => void;
 }) {
-  const { t, intlTag } = useT();
+  const { t } = useT();
   const needSeats = draft.mode === "seat" && draft.seatIds.length === 0;
-  const canContinue = !!from && !!to && !needSeats && quote.status === "success" && quoteReady;
 
   const detailsButton = (p: RoutePoint, place: string | undefined) =>
     onDetails && place ? (
@@ -193,26 +193,15 @@ export function TripScreen({
   if (draft.rider.kind === "other" && draft.rider.name.trim()) extrasParts.push(t("trip.extrasFor", { name: draft.rider.name.trim() }));
 
   const footer = (
-    <div className="flex flex-col gap-1">
-      {needSeats && <span className="text-center text-[13px] font-semibold text-iz-muted">{t("trip.pickSeat")}</span>}
-      <div className="flex items-center gap-4">
-        <div className="flex shrink-0 flex-col gap-0.5" aria-live="polite">
-          <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-iz-muted">{t("trip.price")}</span>
-          <span className="whitespace-nowrap text-[20px] font-extrabold tabular-nums text-iz-ink">
-            {quote.status === "success" ? formatSom(quote.data.total, intlTag) : quote.status === "error" ? "—" : "…"}
-          </span>
-        </div>
-        <PrimaryButton className="flex-1" disabled={!canContinue} onClick={onContinue}>
-          {t("trip.continue")}
-        </PrimaryButton>
-      </div>
-      {quote.status === "error" && (
-        <button type="button" onClick={onRetryQuote} role="alert" className="flex h-11 items-center justify-center gap-2 text-[13px] font-bold text-iz-danger">
-          <Icon name="refresh" size={16} />
-          {t("trip.priceFailed")} · {t("common.retry")}
-        </button>
-      )}
-    </div>
+    <PriceFooter
+      quote={quote}
+      ready={quoteReady}
+      label={t("trip.continue")}
+      onNext={onContinue}
+      disabled={!from || !to || needSeats}
+      hint={needSeats ? t("trip.pickSeat") : undefined}
+      onRetry={onRetryQuote}
+    />
   );
 
   return (
