@@ -39,6 +39,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/register" element={<RegistrationFlow />} />
+      {/* "Yordam" from the registration steps (signed in, not yet active). */}
+      <Route path="/register/help" element={when(c.help, <HelpScreen back="/register" />, "help.title", "/register")} />
       {/* The test panel is also reachable while signed out (from the registration header). */}
       {TestPanelScreen && <Route path={TEST_PANEL_PATH} element={<TestPanelScreen />} />}
       {UiGalleryScreen && <Route path={TEST_PANEL_UI_PATH} element={<UiGalleryScreen />} />}

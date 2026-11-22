@@ -410,28 +410,67 @@ export type NotificationPrefs = {
 export type HelpTopic = "order" | "payment" | "app" | "docs";
 export type HelpRequest = { id: string; topic: HelpTopic; message?: string; createdAt: number; status: "in_review" | "resolved" };
 
-/** "routes": verified, but the driver still has to pick Yo'nalishlarim before requests arrive. */
-/** "blocked": the account is blocked; only logout is possible. */
-export type SessionStage = "signed_out" | "personal" | "car" | "documents" | "review" | "routes" | "active" | "blocked";
+/** Registration stages, in the order of the screens: personal → license → car → selfie → review.
+ * "routes": verified, but the driver still has to pick Yo'nalishlarim before requests arrive.
+ * "blocked": the account is blocked; only logout is possible. */
+export type SessionStage = "signed_out" | "personal" | "license" | "car" | "selfie" | "review" | "routes" | "active" | "blocked";
 /** `notice: "rejected"`: the application came back rejected — registration is open again. */
 export type Session = { stage: SessionStage; phone?: string; documentsReviewId?: string; notice?: "rejected" };
 
+/** What the driver can serve (registration "Xizmat turi"). */
+export type ServiceType = "passengers" | "delivery";
+
+/** Form choices for registration, from the server (the real backend has no endpoint yet: static lists). */
 export type RegistrationOptions = {
   cities: CityRef[];
-  carModels: string[];
+  carBrands: { brand: string; models: string[] }[];
   carColors: { key: string; hex: string }[];
   years: number[];
+  seatCounts: number[];
+  carClasses: CarClass[];
+  serviceTypes: ServiceType[];
+  /** Driving-licence categories offered under "Toifa". */
+  licenseCategories: string[];
   platePattern: string;
-  /** Extra inputs the real backend needs (absent: not asked). */
-  askBirthDate?: boolean;
-  carClasses?: CarClass[];
-  seatCounts?: number[];
-  /** Real backend: real photo files, a selfie, and the terms checkbox. */
+  /** Real photo files (file picker / camera). false: the sample-data adapter simulates the picker. */
   realDocuments?: boolean;
 };
 
-/** Document slots in registration step 4. */
-export type DocSlot = "license" | "registration" | "selfie";
+/** Step 1. `referralCode` is optional. Dates are YYYY-MM-DD. */
+export type PersonalInput = { firstName: string; lastName: string; birthDate: string; cityId: string; referralCode?: string };
+/** Step 2: driving licence. `frontRef` / `backRef` come from uploadDocument. */
+export type LicenseInput = { number: string; issuedAt: string; expiresAt: string; categories: string[]; frontRef: string; backRef: string };
+/** Step 3: car. Plate as typed ("01 A 123 BC"). */
+export type CarInput = {
+  brand: string;
+  model: string;
+  plate: string;
+  year: number;
+  seats: number;
+  colorKey: string;
+  carClass: CarClass;
+  serviceTypes: ServiceType[];
+  techPassportFrontRef: string;
+  techPassportBackRef: string;
+  carPhotoRef: string;
+};
+/** Step 4: selfie and the terms checkbox (must be true). */
+export type SelfieInput = { selfieRef: string; acceptTerms: boolean };
+
+/** Per-section progress of the automatic check (RegReview). */
+export type RegistrationSectionKey = "personal" | "license" | "car" | "selfie";
+export type RegistrationSectionStatus = "approved" | "checking" | "queued" | "rejected";
+export type RegistrationReview = {
+  sections: { key: RegistrationSectionKey; status: RegistrationSectionStatus }[];
+  /** "Odatda N daqiqagacha", when the server says. */
+  etaMinutes?: number;
+};
+
+/** Driver terms and privacy policy pages, when the server gives them. */
+export type LegalLinks = { termsUrl?: string; privacyUrl?: string };
+
+/** Document photo slots in registration. */
+export type DocSlot = "license_front" | "license_back" | "tech_passport_front" | "tech_passport_back" | "car_photo" | "selfie";
 
 export type CancelReason = { key: string };
 

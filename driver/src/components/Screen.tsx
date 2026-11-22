@@ -7,17 +7,33 @@ import { cn } from "@/lib/cn";
 /** Top padding of the Ink header: the design's 56 at minimum, more under a tall status bar. */
 const TOP_PAD = "max(calc(var(--safe-top) + 12px), 56px)";
 
-/** True while the on-screen keyboard covers part of the viewport. */
+/** Below this viewport height the Ink top compresses (keyboard open on Android, where the webview resizes; small phones). */
+const COMPACT_MAX_H = 640;
+
+function measureCompact(): boolean {
+  const vv = window.visualViewport;
+  // iOS: the webview keeps its height and the keyboard covers it (visual viewport shrinks).
+  const keyboardOver = vv ? window.innerHeight - vv.height > 150 : false;
+  return keyboardOver || window.innerHeight < COMPACT_MAX_H;
+}
+
+/**
+ * True while the screen is short: the on-screen keyboard is open (either the
+ * webview resized, or the keyboard covers it) or the phone is small. The Ink
+ * top then gives its room to the sheet and the main button.
+ */
 export function useKeyboardOpen(): boolean {
-  const [open, setOpen] = useState(false);
+  const [compact, setCompact] = useState(() => (typeof window === "undefined" ? false : measureCompact()));
   useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const update = () => setOpen(window.innerHeight - vv.height > 150);
-    vv.addEventListener("resize", update);
-    return () => vv.removeEventListener("resize", update);
+    const update = () => setCompact(measureCompact());
+    window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+    };
   }, []);
-  return open;
+  return compact;
 }
 
 /** 44px round button on the Ink header (back, settings, notifications…). */
