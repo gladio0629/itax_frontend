@@ -12,9 +12,6 @@ export type Cargo = { labelKey: string; weightKg: number };
 
 /** Class the order was placed in (matches the driver's car class). */
 export type CarClass = "economy" | "comfort" | "business" | "minivan";
-/** Child-seat age groups. Sample data: infant 0–1, toddler 1–4, booster 4–12.
- * The real backend (DriverCapabilities.child_seat_ages): "0-1" | "1-3" | "3-7" | "7-12". */
-export type ChildSeatAge = "infant" | "toddler" | "booster" | "0-1" | "1-3" | "3-7" | "7-12";
 /** Seat positions in a passenger car (Offer/Order.seat_ids). */
 export type SeatPosition = "front" | "back-left" | "back-mid" | "back-right";
 
@@ -25,22 +22,15 @@ export type OfferPlace = Place & { details?: AddressDetails & { intercomOnAccept
 /** After acceptance the adapter adds the intercom code. */
 export type TripPlace = Place & { details?: AddressDetails & { intercom?: string } };
 
-export type OrderOption =
-  | { kind: "child_seat"; ageGroup: ChildSeatAge }
-  | { kind: "pet" }
-  | { kind: "big_luggage" }
-  | { kind: "wheelchair" }
-  | { kind: "text_only" };
-export type OrderOptionKind = OrderOption["kind"];
-
-/** How the driver reaches the passenger: text-only orders switch the call button to chat. */
-export type ContactMode = "call" | "text";
+// Wishes / options (child seat, pet, AC, wheelchair, text only) were removed
+// everywhere (decision 2026-11-22). Luggage count and the comment stay.
 
 /** Which client tab the delivery order came from. */
 export type DeliveryTab = "dostavka" | "kargo";
 /** Cargo body size, S–3XL (same scale as the client's vehicle picker). Dimensions in cm. */
 export type CargoBody = { sizeLabel: string; dimensionsCm: { width: number; depth: number; height: number }; maxWeightKg: number };
-export type Contact = { name: string; phoneMasked: string };
+/** `callNumber`: dialable (server, after acceptance); without it no call button. */
+export type Contact = { name: string; phoneMasked: string; callNumber?: string };
 export type FreightBilling = { mode: "hourly"; hours: number } | { mode: "route" };
 /** Cargo-order details. Drop-offs are the order's `stops` plus its final `dropoff`. */
 export type Freight = {
@@ -52,6 +42,8 @@ export type Freight = {
   receiver: Contact;
   /** The cargo owner rides along in the vehicle. */
   rideAlong: boolean;
+  /** The cargo is insured (server). */
+  insured?: boolean;
 };
 
 /** Order details shared by the incoming offer and the active trip. */
@@ -61,11 +53,9 @@ export type OrderExtras<P extends Place> = {
   /** Intermediate stops, in driving order (pickup and final dropoff excluded). */
   stops: P[];
   comment: string | null;
-  options: OrderOption[];
   luggageCount: number;
   /** Set when the client ordered the ride for someone else. */
   forOther: { name: string } | null;
-  contactMode: ContactMode;
   /** Set on cargo orders only. */
   freight: Freight | null;
   /** Which seats the passenger booked, when the server says (real backend). */
@@ -115,24 +105,25 @@ export type DriverProfile = {
   car?: Car;
   documents: DriverDocument[];
   memberSinceYear?: number;
+  /** Share of offered requests the driver accepted, 0–100 (server). */
+  acceptancePct?: number;
 };
 
-/** "Imkoniyatlarim": what the driver offers. Car class and cargo body are read-only (from the car). */
+/**
+ * "Imkoniyatlarim" (decision 2026-11-22): only the cargo body sizes the car
+ * takes (S–3XL, several allowed) and whether the driver helps load. The size
+ * list comes from the server.
+ */
 export type DriverCapabilities = {
-  childSeat: boolean;
-  /** Age groups the seat(s) fit; empty only while childSeat is off. */
-  childSeatAges: ChildSeatAge[];
-  /** Every age group the driver can pick from, in display order. */
-  ageGroups: ChildSeatAge[];
-  pets: boolean;
-  bigLuggage: boolean;
+  bodySizes: string[];
+  /** Every size the driver can pick from, in display order (S … 3XL). */
+  availableBodySizes: string[];
+  loaderHelp: boolean;
   /** From the driver's car; absent when the server has none. */
   carModel?: string;
   carClass?: CarClass;
-  /** Absent when the backend doesn't describe the car's cargo body. */
-  cargoBody?: CargoBody;
 };
-export type CapabilitiesInput = Pick<DriverCapabilities, "childSeat" | "childSeatAges" | "pets" | "bigLuggage">;
+export type CapabilitiesInput = Pick<DriverCapabilities, "bodySizes" | "loaderHelp">;
 
 export type DebtLevel = "ok" | "near" | "blocked";
 export type DebtState = {
@@ -144,6 +135,12 @@ export type DebtState = {
   debtAmount: number;
   /** 0..1 — how much of the limit is used. */
   usedRatio: number;
+  /** How much more can be spent before the limit ("134 500 zaxira"), when the server says. */
+  headroom?: number;
+  /** Blocked: the smallest top-up that lets requests in again (server). */
+  minToUnblock?: number;
+  /** The top-up the server suggests. */
+  recommendedTopup?: number;
 };
 
 export type HomeSummary = {
@@ -157,13 +154,21 @@ export type HomeSummary = {
   newRequests: number;
   /** A trip was accepted and isn't finished yet (drives GPS reporting). */
   tripActive?: boolean;
+  /** Minutes worked today (server). */
+  todayWorkMin?: number;
+  /** Earnings of the last 7 days, oldest first (the mini chart). */
+  week?: { date: string; amount: number }[];
 };
 
 export type TripStage = "to_pickup" | "waiting" | "in_progress" | "completed";
 export type TripStep = { stage: TripStage; state: "done" | "active" | "upcoming" };
 export type TripAction = "arrived" | "start" | "finish";
 
-export type PassengerInfo = { name: string; rating: number; phoneMasked: string; avatarSeed: string };
+/** `callNumber`: a dialable number from the server (e.g. a masked-call proxy); without it there is no call button. */
+export type PassengerInfo = { name: string; rating: number; phoneMasked: string; avatarSeed: string; callNumber?: string };
+
+/** One line of the price breakdown, as the server computed it. Label: `price.<key>` (unknown keys show the amount only). */
+export type PriceLine = { key: string; amount: number; pct?: number };
 
 /** When the passenger wants to go: a set time, a window, or "Istagan paytda". Times are epoch ms. */
 export type RideTime = { kind: "exact"; at: number } | { kind: "interval"; from: number; to: number } | { kind: "any" };
@@ -196,8 +201,8 @@ export type RideRequest = OrderExtras<OfferPlace> & {
   cargo?: Cargo;
   /** What the passenger pays, as the adapter prices it. */
   price: number;
-  /** What the driver keeps after commission (pct only when the server gives it). */
-  earnings: { net: number; commissionPct?: number };
+  /** What the driver keeps after commission, when the server gives the commission (pct only when it says). */
+  earnings?: { net: number; commissionPct?: number };
   payment?: PaymentType;
   pickupDistanceKm?: number;
   /** Minutes to the pickup, when the server gives an ETA instead of a distance. */
@@ -208,6 +213,14 @@ export type RideRequest = OrderExtras<OfferPlace> & {
   /** "taken": another driver got it — shown briefly, then the adapter drops it. */
   status: "open" | "taken";
   acceptBlock: AcceptBlock | null;
+  /** When the offer window closes (server); the Request screen counts down to it. Absent: no countdown. */
+  expiresAt?: number;
+  /** Who is asking, when the server shares it before acceptance. */
+  requester?: { name: string; tripsCount?: number; rating?: number };
+  /** Seats in the driver's car, for the seat picture (server). */
+  carSeats?: number;
+  /** The server's price breakdown (trip, loaders, commission…). */
+  priceLines?: PriceLine[];
 };
 
 export type FeedDate = "today" | "tomorrow" | string;
@@ -218,7 +231,8 @@ export type FeedPage = {
   items: RideRequest[];
   /** null when the server has no seat summary. */
   seats: SeatSummary | null;
-  directions: Direction[];
+  /** The directions the driver serves; null = unknown right now (the routes could not be read). */
+  directions: Direction[] | null;
   /** Dates offered under "Sana". */
   dates: { date: string; dayOffset: number; dayStart: number }[];
 };
@@ -248,12 +262,19 @@ export type Booking = OrderExtras<TripPlace> & {
   earnings?: { net: number; commissionPct?: number };
   payment?: PaymentType;
   acceptedAt: number;
+  /** To the pickup (to_pickup) or the next stop (in_progress), when the server says. */
+  eta?: { minutes: number; distanceKm?: number };
+  /** Waiting at the pickup: free minutes, then a per-minute price — all from the server. */
+  waiting?: { arrivedAt: number; freeMinutes: number; pricePerMinute: number; charge?: number; passengerNotified?: boolean };
+  /** On the way: next stop, arrival time and distance left (server). `ratio`: 0..1 of the route driven. */
+  progress?: { startedAt?: number; nextStop?: TripPlace; arriveAt?: number; remainingKm?: number; ratio?: number };
 };
 /** seats.total 0 = unknown (not shown). */
 export type BookingTrip = { direction: Direction; seats: { used: number; total: number }; bookings: Booking[] };
 /** `undated`: the server gave no trip date; the day heading is hidden. */
 export type BookingDay = { date: string; dayOffset: number; dayStart: number; trips: BookingTrip[]; undated?: boolean };
-export type AcceptedPage = { days: BookingDay[]; count: number };
+/** `activeBookingId`: the booking the driver handles next (server order). */
+export type AcceptedPage = { days: BookingDay[]; count: number; activeBookingId?: string };
 
 /** In-app banner / system notification for a new request. Minimal on purpose: no names or phones. */
 export type RequestAlert = { id: string; requestId: string; from: string; to: string; kind: OrderKind; seats: number; wholeCar: boolean; price: number; dayOffset: number; date: string };
@@ -288,12 +309,21 @@ export type TripSummary = {
   commissionWaived: boolean;
   net: number;
   ratingReceived: number | null;
-  payment: PaymentType;
+  /** Absent when the server doesn't label the payment (e.g. wallet). */
+  payment?: PaymentType;
+  /** Cash the driver collects from the passenger (server). */
+  cashToCollect?: number;
+  passengerName?: string;
+  /** Destination city name, for "Safar tugadi · Samarqand". */
+  destination?: string;
+  /** The driver already rated this passenger. */
+  passengerRating?: number | null;
 };
 
 export type HistoryRange = "all" | "today" | "week" | "month";
 /** `page`: 1-based "load more" page (cursor pages behind it in http mode). */
-export type HistoryFilter = { range: HistoryRange; minEarnings: number; city: string; page?: number };
+/** `kind`: passengers / delivery only (absent: both). */
+export type HistoryFilter = { range: HistoryRange; minEarnings: number; city: string; kind?: OrderKind; page?: number };
 export type HistoryItem = {
   id: string;
   createdAt: number;
@@ -308,8 +338,11 @@ export type HistoryItem = {
   status: "completed" | "cancelled";
   kind: OrderKind;
 };
+/** The period the list covers, as the server sums it (Tarix top: total, trips, bars per day). */
+export type HistorySummary = { from: number; to: number; total: number; trips: number; days?: { date: string; amount: number }[] };
 export type HistoryPage = {
   items: HistoryItem[];
+  summary?: HistorySummary;
   /** Absent when the server doesn't count (cursor pages). */
   total?: number;
   filterOptions: { minEarnings: number[]; ranges: HistoryRange[] };
@@ -356,11 +389,14 @@ export type WalletSummary = {
   debt: DebtState;
   // Optional: the real backend has no today stats, commission info or card list yet.
   today?: { earnings: number; trips: number; avgPerTrip: number };
-  commission?: { pct: number; bonusPct: number; bonusActive: boolean };
+  commission?: { pct: number; bonusPct: number; bonusActive: boolean; levelKey?: "bronze" | "silver" | "gold" };
   cards?: LinkedCard[];
+  /** This week's earnings and the change against last week, in percent (server). */
+  week?: { earnings: number; changePct?: number };
 };
 
-export type TopupOptions = { presets: number[]; min: number; max: number; providers: PayProvider[] };
+/** From the server; `presets` may be empty and `min` / `max` absent (the server still validates the amount). */
+export type TopupOptions = { presets: number[]; min?: number; max?: number; providers: PayProvider[]; savedCards?: LinkedCard[] };
 
 export type BonusLevel = {
   key: "bronze" | "silver" | "gold";

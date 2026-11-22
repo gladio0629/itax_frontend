@@ -90,8 +90,10 @@ type Props = {
   right?: ReactNode;
   /** Replaces the whole title row (Home's greeting, etc.). */
   header?: ReactNode;
-  /** Content under the title row on the Ink top (the key number). Hidden while the keyboard is open. */
+  /** Content under the title row on the Ink top (the key number). Hidden while the keyboard is open, unless `keepTop`. */
   top?: ReactNode;
+  /** Keep `top` while the keyboard is open (it holds the field being typed in). */
+  keepTop?: boolean;
   /** Pinned under the scrolling sheet (main action); stays above the keyboard. */
   footer?: ReactNode;
   children: ReactNode;
@@ -107,7 +109,7 @@ type Props = {
  * and lists. The sheet scrolls without a visible scrollbar and leaves room
  * for the floating tab bar.
  */
-export function Screen({ title, subtitle, back, right, header, top, footer, children, bodyClassName, scroll = true }: Props) {
+export function Screen({ title, subtitle, back, right, header, top, keepTop, footer, children, bodyClassName, scroll = true }: Props) {
   const keyboard = useKeyboardOpen();
   return (
     <div className="flex h-full flex-col bg-night">
@@ -131,7 +133,7 @@ export function Screen({ title, subtitle, back, right, header, top, footer, chil
               {right}
             </div>
           ))}
-        {top && !keyboard && top}
+        {top && (!keyboard || keepTop) && top}
       </header>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-sheet bg-bg">
         <div className={cn("min-h-0 flex-1", scroll && "no-scrollbar overflow-y-auto overscroll-contain px-5 pt-6", scroll && !footer && "pb-tabbar", bodyClassName)}>

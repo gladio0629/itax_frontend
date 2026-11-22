@@ -7,7 +7,7 @@ import { CITIES, computePrice, generateSeed, roadDistanceKm, type Passenger } fr
 import { makeRng } from "@/lib/prng";
 import { readJSON, writeJSON } from "./storage";
 import type {
-  AddressDetails, CapabilitiesInput, Cargo, CarClass, CargoBody, ChildSeatAge, TestPreset, Freight, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
+  AddressDetails, CapabilitiesInput, Cargo, CarClass, CargoBody, TestPreset, Freight, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
   NotificationPrefs, OrderKind, PaymentType, RequestAlert, ReviewRequest, RideTime, Session, TimelineEvent, TripStage, TripSummary,
 } from "@/api/types";
 
@@ -16,6 +16,12 @@ export const DEBT_LIMIT = -50_000;
 /** Debt at or beyond this share of the limit shows the "near limit" banner. */
 export const DEBT_NEAR_RATIO = 0.7;
 export const OFFER_COUNTDOWN_SEC = 30;
+/** Sample server values for the Request countdown and the waiting timer. */
+export const OFFER_WINDOW_SEC = 45;
+export const WAIT_FREE_MIN = 5;
+export const WAIT_PRICE_PER_MIN = 500;
+/** Sample loaders fee per loader (part of the cargo price). */
+export const LOADER_FEE = 15_000;
 export const BONUS_LEVELS = [
   { key: "bronze", tripsRequired: 0, commissionPct: 10 },
   { key: "silver", tripsRequired: 20, commissionPct: 5 },
@@ -104,7 +110,6 @@ export type RequestRecord = {
   carClass: CarClass;
   stops: StopRecord[];
   comment: string | null;
-  options: OrderOption[];
   luggageCount: number;
   forOtherName: string | null;
   freight: Freight | null;
@@ -149,7 +154,7 @@ export type Draft = {
 };
 
 export type DriverState = {
-  version: 6;
+  version: 7;
   seededAt: number;
   registered: boolean;
   session: Session;
@@ -224,8 +229,8 @@ export const DEFAULT_ROUTES: RouteRecord[] = [
   { id: "rt_tsh_and", a: "tsh", b: "and", bothWays: true },
 ];
 
-export const CHILD_SEAT_AGES: ChildSeatAge[] = ["infant", "toddler", "booster"];
-export const DEFAULT_CAPABILITIES: CapabilitiesInput = { childSeat: true, childSeatAges: ["toddler", "booster"], pets: false, bigLuggage: true };
+export const BODY_SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
+export const DEFAULT_CAPABILITIES: CapabilitiesInput = { bodySizes: ["S", "M"], loaderHelp: false };
 
 /** Cargo bodies, S–3XL — the same scale the client's delivery picker uses. */
 export const CARGO_BODIES: Record<string, CargoBody> = {
@@ -443,7 +448,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
   const ledger = runLedger(rows, target, todayStart.getTime(), now);
 
   const notifications: NotificationItem[] = [
-    { id: "ntf_1", kind: "bonus", titleKey: "notif.bonusProgress.title", bodyKey: "notif.bonusProgress.body", params: { n: Math.max(0, 20 - wantWeek) }, createdAt: now - 40 * 60_000, read: false },
+    { id: "ntf_1", kind: "bonus", titleKey: "notif.bonusProgress.title", bodyKey: "notif.bonusProgress.body", params: { n: Math.max(0, BONUS_LEVELS[1].tripsRequired - wantWeek), pct: BONUS_LEVELS[1].commissionPct }, createdAt: now - 40 * 60_000, read: false },
     { id: "ntf_2", kind: "wallet", titleKey: "notif.commission.title", bodyKey: "notif.commission.body", createdAt: now - 3 * 3_600_000, read: false },
     { id: "ntf_3", kind: "news", titleKey: "notif.news.title", bodyKey: "notif.news.body", createdAt: now - day * 1.2, read: true },
     { id: "ntf_4", kind: "docs", titleKey: "notif.docs.title", bodyKey: "notif.docs.body", createdAt: now - day * 12, read: true },
@@ -457,7 +462,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
     notifications.length = 0;
   }
   return {
-    version: 6,
+    version: 7,
     seededAt: now,
     registered,
     session: registered ? { stage: "active", phone: "+998 90 *** ** 41" } : { stage: "signed_out" },
@@ -478,7 +483,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
       memberSinceYear: 2023,
       pastTrips: registered ? 280 : 0,
     },
-    capabilities: { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] },
+    capabilities: { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] },
     balance: registered ? ledger[0]?.balanceAfter ?? target : 0,
     ledger,
     trips,
@@ -555,24 +560,35 @@ function shiftWhen(w: WhenRecord, shift: number): WhenRecord {
  */
 function upgrade(stored: { version: number } | null): DriverState | null {
   if (!stored) return null;
-  if (stored.version === 6) return stored as DriverState;
+  if (stored.version === 7) return stored as DriverState;
+  if (stored.version === 6) {
+    // v7: wishes removed; Imkoniyatlarim = cargo body sizes + loader help.
+    const s = stored as unknown as DriverState;
+    s.capabilities = { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
+    // The bonus notification's text now takes the percentage as a parameter.
+    for (const n of s.notifications) if (n.titleKey === "notif.bonusProgress.title") n.params = { ...n.params, pct: BONUS_LEVELS[1].commissionPct };
+    s.version = 7;
+    return s;
+  }
   if (stored.version === 5) {
     // v6: registration order personal → license → car → selfie. A half-finished
     // v5 registration ("car" / "documents") starts again at step 1.
     const s = stored as unknown as DriverState;
     const stage = s.session.stage as string;
     if (stage === "car" || stage === "documents") s.session = { ...s.session, stage: "personal" };
-    s.version = 6;
+    s.capabilities = { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
+    s.version = 7;
     return s;
   }
   if (stored.version !== 3 && stored.version !== 4) return null;
   const s = stored as unknown as DriverState & { online?: boolean; offer?: unknown; trip?: unknown; nextOfferAt?: unknown };
-  if (stored.version === 3) s.capabilities = { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
+  if (stored.version === 3) s.capabilities = { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
   delete s.online;
   delete s.offer;
   delete s.trip;
   delete s.nextOfferAt;
-  s.version = 6;
+  s.version = 7;
+  s.capabilities = { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
   s.routes = s.registered ? DEFAULT_ROUTES.map((r) => ({ ...r })) : [];
   s.requests = [];
   s.bookings = [];

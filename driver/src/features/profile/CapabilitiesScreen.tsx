@@ -1,131 +1,83 @@
-import { useId, useRef } from "react";
+import { useState } from "react";
 import { api } from "@/api/client";
-import type { CapabilitiesInput, ChildSeatAge, DriverCapabilities } from "@/api/types";
+import type { CapabilitiesInput, DriverCapabilities } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
-import { Baby, Car, Luggage, PawPrint, Truck } from "@/lib/icons";
-import { ScreenHeader } from "@/components/ScreenHeader";
-import { SectionLabel } from "@/components/Card";
-import { SettingsGroup, SettingsRow } from "@/components/SettingsRow";
-import { Switch } from "@/components/Switch";
+import { Truck } from "@/lib/icons";
+import { Screen } from "@/components/Screen";
 import { Chip } from "@/components/Chip";
+import { Switch } from "@/components/Switch";
+import { SettingsRow } from "@/components/SettingsRow";
 import { ErrorState } from "@/components/ErrorState";
 import { SkeletonList } from "@/components/Skeleton";
-import { cn } from "@/lib/cn";
+import { SectionLabel } from "@/components/Card";
 
-/** "Imkoniyatlarim": child seat (with age groups), pets, big luggage; car class and cargo body read-only. */
+/**
+ * Imkoniyatlarim (decision 2026-11-22): only the cargo body sizes the car
+ * takes and "Yukchi sifatida yordam". Each change is saved right away and
+ * the server's answer is shown.
+ */
 export default function CapabilitiesScreen() {
   const { t } = useT();
   const q = useQuery(() => api.getCapabilities(), []);
-  const caps = q.data;
-  const agesId = useId();
-  const seq = useRef(0);
+  const [saving, setSaving] = useState(false);
+  const c = q.data;
 
-  async function update(patch: Partial<CapabilitiesInput>) {
-    if (!caps) return;
-    const prev = caps;
-    const next: DriverCapabilities = { ...caps, ...patch };
-    q.setData(next); // optimistic
-    const id = ++seq.current;
+  async function save(next: CapabilitiesInput) {
+    if (!c) return;
+    const prev = c;
+    q.setData({ ...c, ...next } as DriverCapabilities);
+    setSaving(true);
     try {
-      const saved = await api.setCapabilities({
-        childSeat: next.childSeat,
-        childSeatAges: next.childSeatAges,
-        pets: next.pets,
-        bigLuggage: next.bigLuggage,
-      });
-      // The adapter normalises (e.g. last age group cleared → seat off); show its answer.
-      if (id === seq.current) q.setData(saved);
+      q.setData(await api.setCapabilities(next));
     } catch (e) {
-      if (id === seq.current) q.setData(prev);
+      q.setData(prev);
       toast(errorMessage(e, t), "danger");
+    } finally {
+      setSaving(false);
     }
   }
 
-  function toggleAge(a: ChildSeatAge) {
-    if (!caps) return;
-    const has = caps.childSeatAges.includes(a);
-    update({ childSeatAges: has ? caps.childSeatAges.filter((x) => x !== a) : [...caps.childSeatAges, a] });
-  }
-
-  const body = caps?.cargoBody;
+  const toggleSize = (size: string) => {
+    if (!c) return;
+    const on = c.bodySizes.includes(size);
+    save({ bodySizes: on ? c.bodySizes.filter((x) => x !== size) : [...c.bodySizes, size], loaderHelp: c.loaderHelp });
+  };
 
   return (
-    <div className="flex h-full flex-col">
-      <ScreenHeader title={t("profile.capabilities")} back="/profile" />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
-        {q.error && !caps ? (
-          <ErrorState error={q.error} onRetry={() => q.reload()} />
-        ) : !caps ? (
-          <SkeletonList rows={4} label={t("common.loading")} />
-        ) : (
-          <>
-            <p className="mb-4 px-1 text-sm text-muted">{t(api.capabilities.profileMatching ? "caps.intro" : "caps.introSaved")}</p>
-            <SettingsGroup>
-              <SettingsRow
-                icon={Baby}
-                tile="blue"
-                label={t("caps.childSeat")}
-                description={t("caps.childSeatHint")}
-                trailing={<Switch checked={caps.childSeat} onChange={() => update({ childSeat: !caps.childSeat })} label={t("caps.childSeat")} />}
-              />
-              {caps.childSeat && (
-                <div role="group" aria-labelledby={agesId} className="animate-fade-in px-4 pb-4 pt-3">
-                  <p id={agesId} className="mb-2 text-sm text-muted">
-                    {t("caps.ages")}
-                  </p>
-                  <div className={cn("grid gap-2", caps.ageGroups.length > 3 ? "grid-cols-2" : "grid-cols-3")}>
-                    {caps.ageGroups.map((a) => {
-                      const on = caps.childSeatAges.includes(a);
-                      return (
-                        <Chip key={a} selected={on} onClick={() => toggleAge(a)} className="tabular whitespace-nowrap px-2">
-                          {t(`childAge.${a}`)}
-                        </Chip>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              <SettingsRow
-                icon={PawPrint}
-                tile="orange"
-                label={t("caps.pets")}
-                trailing={<Switch checked={caps.pets} onChange={() => update({ pets: !caps.pets })} label={t("caps.pets")} />}
-              />
-              <SettingsRow
-                icon={Luggage}
-                tile="purple"
-                label={t("caps.bigLuggage")}
-                trailing={<Switch checked={caps.bigLuggage} onChange={() => update({ bigLuggage: !caps.bigLuggage })} label={t("caps.bigLuggage")} />}
-              />
-            </SettingsGroup>
-
-            {/* Read-only car facts, each only when the server describes it. */}
-            {(caps.carClass || body) && (
-              <>
-                <SectionLabel className="mt-6">{t("caps.car")}</SectionLabel>
-                <SettingsGroup label={t("caps.car")}>
-                  {caps.carClass && (
-                    <SettingsRow icon={Car} tile="slate" label={t("caps.carClass")} description={caps.carModel} value={t(`carClass.${caps.carClass}`)} />
-                  )}
-                  {body && (
-                    <SettingsRow
-                      icon={Truck}
-                      tile="teal"
-                      label={t("caps.cargoBody")}
-                      description={`${t("freight.dims", { w: body.dimensionsCm.width, d: body.dimensionsCm.depth, h: body.dimensionsCm.height })} · ${t("freight.maxKg", { kg: body.maxWeightKg })}`}
-                      value={body.sizeLabel}
-                    />
-                  )}
-                </SettingsGroup>
-                <p className="px-1 text-sm text-muted">{t("caps.readOnly")}</p>
-              </>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+    <Screen back="/profile" title={t("profile.capabilities")} top={<p className="text-sm leading-[21px] text-night-muted">{t("caps.desc")}</p>}>
+      {q.error && !c ? (
+        <ErrorState error={q.error} onRetry={() => q.reload()} />
+      ) : !c ? (
+        <SkeletonList rows={2} label={t("common.loading")} />
+      ) : (
+        <div className="flex flex-col gap-3" aria-busy={saving}>
+          <SectionLabel className="mb-0">{t("caps.delivery")}</SectionLabel>
+          <div className="flex flex-col gap-2.5" role="group" aria-labelledby="caps-body">
+            <h2 id="caps-body" className="text-15 font-extrabold text-ink">
+              {t("caps.bodySize")}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {c.availableBodySizes.map((size) => (
+                <Chip key={size} selected={c.bodySizes.includes(size)} onClick={() => toggleSize(size)} className="min-w-[48px]">
+                  {size}
+                </Chip>
+              ))}
+            </div>
+            <p className="text-13 font-semibold text-muted">{t("caps.bodyHint")}</p>
+          </div>
+          <div className="mt-2">
+            <SettingsRow
+              icon={Truck}
+              label={t("caps.loader")}
+              description={t("caps.loaderHint")}
+              trailing={<Switch checked={c.loaderHelp} onChange={() => save({ bodySizes: c.bodySizes, loaderHelp: !c.loaderHelp })} label={t("caps.loader")} />}
+            />
+          </div>
+        </div>
+      )}
+    </Screen>
   );
 }

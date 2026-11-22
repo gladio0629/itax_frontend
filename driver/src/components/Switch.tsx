@@ -25,7 +25,7 @@ export function Switch({
       onClick={onChange}
       className="-my-2 -mr-1 flex h-12 w-14 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
     >
-      <span className={cn("relative h-[30px] w-[50px] rounded-full transition-colors", checked ? "bg-brand" : "bg-[#D4DBE4] dark:bg-night-line")}>
+      <span className={cn("relative h-[30px] w-[50px] rounded-full transition-colors", checked ? "bg-brand" : "bg-control-off")}>
         <span
           className={cn(
             "absolute left-[3px] top-[3px] h-6 w-6 rounded-full bg-white shadow-[0_1px_3px_rgba(11,21,36,0.25)] transition-transform",

@@ -14,3 +14,8 @@ if (import.meta.env.DEV && !DEMO_MODE && apiConfig.viaDevProxy) console.warn(DEV
 /** Mapbox public token for the interactive map; "" = the drawn map (set it in
  * .env.local — never in code or in a tracked .env file). */
 export const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN ?? "").trim();
+
+/** Public website (terms, privacy, account deletion), opened in the system
+ * browser and never requested. VITE_SITE_URL overrides the default ("" = show
+ * the names without links). check:no-network allows this origin here only. */
+export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://xasanow.uz").trim().replace(/\/+$/, "");

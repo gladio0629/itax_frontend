@@ -15,8 +15,11 @@ request/response shapes proposed for each missing feature.
 Redesign v2 (2026-11-22): each per-app file has a section `## Redesign v2` with the endpoints the new screens
 expect. One entry per endpoint across the three files; the reviewer keeps them free of duplicates.
 - Client: none yet.
-- Driver: registration referral, licence, service types, review progress, registration options (`/api/v1/legal` is
-  being dropped: legal links use `VITE_SITE_URL`).
+- Driver: registration (referral, licence, service types, review progress, registration options; `/api/v1/legal` is
+  dropped, site links use `SITE_URL`); work flow (offer and trip fields, `GET /trips/offers/{id}`, `GET /trips/{id}`,
+  trip `passenger` with `call_number`, trip summary, passenger rating, SOS, home earnings); wallet (top-up options,
+  `WalletBalance` additions, pay with a saved card); profile (capabilities, delete account `DELETE /drivers/me`,
+  profile fields, level, history filters).
 - Admin: header search `GET /admin/v1/search`. Phone reveal endpoint dropped (full phones in admin, 2026-11-22).
 
 Conventions in all proposals: ids are UUIDs, money is integer tiyin, lists are `{ data, cursor }`,
