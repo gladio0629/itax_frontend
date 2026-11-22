@@ -3,6 +3,41 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, owner answers after round 3 (what each terminal does now)
+
+New owner rule: no big new features, screens or flows that are neither in the design nor in the current app. Reviewers flag them. Small undesigned details and page transition animations are allowed.
+
+Answers:
+1. `/delete-account` is allowed. Links to `https://xasanow.uz` may use only `/terms`, `/privacy` and `/delete-account`.
+2. Admin: the old stats come back, in the new style, as extra sections on Dashboard.
+3. The `VITE_SITE_URL` default moves into code, and the `.env` files leave git.
+4. Admin stays Uzbek only (no i18n needed).
+5. Everything listed in round 3 under "silent removals" comes back, except the admin "Onlayn" column.
+
+Shared changes by the reviewer (on `redesign-v2`, merge it into your branch):
+- `check-no-network.mjs`: the build scan also accepts `/delete-account`. The source scan accepts the bare origin `https://xasanow.uz` in one file only: `<app>/src/config.ts`. The origin must be followed by a quote or similar, so no path, port or subdomain. Paths are added at runtime.
+- `.gitignore` ignores `.env`. `DEPLOY.md` and `docs/native.md` describe the default in code.
+
+Client terminal
+- `src/config.ts`: `export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://xasanow.uz").replace(/\/+$/, "")`. Same behaviour as now, with an empty value turning the links off. `git rm client/.env`, and update `.env.example` and `docs/handoff-client.md`.
+- Fix MapPick (round 3, must fix).
+- Restore the pickup ETA bubble, ETA and the Tafsilotlar summary on saved places, and the version line in the menu.
+
+Driver terminal
+- `src/config.ts` default as above. `git rm driver/.env`, update `.env.example` and `docs/handoff-driver.md` (§1: shorten, it is done).
+- Fix FinishedScreen cash, the AcceptedTrips error state, and the call button fallback in http mode (round 3, must fix).
+- Restore in Wallet the balance after each entry, the today card, the card list and the debt amount. Restore the Home map, the seat positions before accepting, and the driver's rating on Finished.
+
+Admin terminal
+- Old stats as extra Dashboard sections, in the new style:
+  - KPIs: income, average order, total wallet balance, completed/cancelled/expired orders, total passengers, total/blocked/online drivers;
+  - charts: income over time, registrations, orders by status, income by route.
+  
+  Data from `getStats` as before, nothing computed in the browser.
+- Fix `DriverHistory.tsx:132` (server `counts`).
+- Restore the "Safarlar" column in the drivers list. The "Onlayn" column stays out.
+- Strings stay Uzbek only.
+
 ## 2026-11-22, round 3 (client groups 3–4, driver groups 3–5, admin groups 2–3)
 
 Heads: client `332481e`, driver `d43dafa`, admin `12b9ae3`. All three merged `redesign-v2` (round 2) first.
