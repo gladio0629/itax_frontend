@@ -13,7 +13,7 @@ export function HistoryCard({ item }: { item: HistoryItem }) {
   return (
     <Link
       to={`/history/${item.id}`}
-      aria-label={t("orders.openDetail", { from: item.from.name, to: item.to.name, amount: `${formatAmount(cancelled ? 0 : item.earnings)} ${t("common.som")}` })}
+      aria-label={t("orders.openDetail", { from: item.from.name, to: item.to.name, amount: `${formatAmount(item.earnings)} ${t("common.som")}` })}
       className="press focus-inset flex min-h-[76px] items-center gap-3 py-3"
     >
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -32,7 +32,7 @@ export function HistoryCard({ item }: { item: HistoryItem }) {
           </span>
         </span>
       </span>
-      <span className={cn("tabular shrink-0 text-17 font-extrabold", cancelled ? "text-muted" : "text-ink")}>{cancelled ? "0" : `+${formatAmount(item.earnings)}`}</span>
+      <span className={cn("tabular shrink-0 text-17 font-extrabold", cancelled ? "text-muted" : "text-ink")}>{cancelled ? formatAmount(item.earnings) : `+${formatAmount(item.earnings)}`}</span>
     </Link>
   );
 }

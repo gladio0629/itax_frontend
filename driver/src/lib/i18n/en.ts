@@ -293,7 +293,6 @@ export const en: Dictionary = {
   "profile.capabilities": "My capabilities",
   "caps.intro": "You get orders that match what you switch on here.",
   "caps.introSaved": "Your capabilities are saved to your profile.",
-  "caps.childSeatHint": "Which ages it fits",
   "caps.ages": "Seat age groups",
   "caps.pets": "I take pets",
   "caps.bigLuggage": "Big luggage space",
