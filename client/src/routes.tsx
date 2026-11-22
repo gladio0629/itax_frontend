@@ -1,8 +1,8 @@
+import { lazy, Suspense } from "react";
 import { Navigate, createBrowserRouter, createRoutesFromElements, Route } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { RootLayout } from "./App";
 import { AppShell } from "@/components/AppShell";
-import { OnboardingScreen } from "@/features/onboarding/OnboardingScreen";
 import { PhoneScreen } from "@/features/auth/PhoneScreen";
 import { OtpScreen } from "@/features/auth/OtpScreen";
 import { HomeScreen } from "@/features/home/Home";
@@ -22,6 +22,10 @@ import { NotificationsSettingsScreen } from "@/features/settings/NotificationsSe
 import { AboutScreen } from "@/features/settings/AboutScreen";
 import { SafetySettingsScreen } from "@/features/settings/SafetySettingsScreen";
 import { HelpScreen } from "@/features/help/HelpScreen";
+import { LanguageScreen } from "@/features/settings/LanguageScreen";
+
+// Design v2 kit gallery: dev server only (tree-shaken from every build).
+const UiGallery = import.meta.env.DEV ? lazy(() => import("@/dev/UiGallery")) : null;
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -36,17 +40,28 @@ function When({ can, children }: { can: keyof ClientCapabilities; children: Reac
 }
 
 function IndexRedirect() {
-  const { isAuthenticated, onboardingSeen } = useAuthStore();
-  return <Navigate to={isAuthenticated ? "/home" : onboardingSeen ? "/auth/phone" : "/onboarding"} replace />;
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return <Navigate to={isAuthenticated ? "/home" : "/auth/phone"} replace />;
 }
 
 export const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<RootLayout />}>
       <Route path="/" element={<IndexRedirect />} />
-      <Route path="/onboarding" element={<OnboardingScreen />} />
       <Route path="/auth/phone" element={<PhoneScreen />} />
       <Route path="/auth/otp" element={<OtpScreen />} />
+      {/* Reachable signed out (login) and signed in (Settings). */}
+      <Route path="/language" element={<LanguageScreen />} />
+      {UiGallery && (
+        <Route
+          path="/dev/ui"
+          element={
+            <Suspense fallback={null}>
+              <UiGallery />
+            </Suspense>
+          }
+        />
+      )}
 
       <Route
         element={

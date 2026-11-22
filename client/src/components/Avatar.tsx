@@ -63,7 +63,7 @@ export function Avatar({
         fontSize="16"
         fontWeight="600"
         fill="white"
-        fontFamily="InterVariable, Inter, system-ui, sans-serif"
+        fontFamily="'Plus Jakarta Sans Variable', 'Manrope Variable', system-ui, sans-serif"
       >
         {initials(name)}
       </text>

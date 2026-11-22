@@ -100,8 +100,9 @@ html[data-platform="ios"] :is(input, textarea, [contenteditable="true"]) {
 }
 
 /* Inputs at Body size (≥16px, so iOS never zooms on focus). The OTP digit
-   boxes keep their larger size. */
-html[data-platform="ios"] :is(input, textarea, select):not(.text-lg, .text-xl, .text-4xl) {
+   boxes keep their larger size; design v2 inputs (.iz-input) set their own
+   size, always ≥16px. */
+html[data-platform="ios"] :is(input, textarea, select):not(.text-lg, .text-xl, .text-4xl, .iz-input) {
   font-size: 17px;
   line-height: 22px;
   letter-spacing: -0.43px;
@@ -109,7 +110,7 @@ html[data-platform="ios"] :is(input, textarea, select):not(.text-lg, .text-xl, .
 /* Safety net on real iOS WebKit when the demo forces the standard design
    (in iOS mode the 17px rule above applies). */
 @supports (-webkit-touch-callout: none) {
-  html:not([data-platform="ios"]) :is(input, textarea, select):not(.text-lg, .text-xl, .text-4xl) {
+  html:not([data-platform="ios"]) :is(input, textarea, select):not(.text-lg, .text-xl, .text-4xl, .iz-input) {
     font-size: 16px;
   }
 }

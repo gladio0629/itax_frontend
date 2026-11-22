@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { refreshStatusBar } from "@/ui/statusBar";
 
 export type Theme = "light" | "dark";
 
@@ -62,6 +63,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     syncThemeColor();
+    refreshStatusBar();
   }, [theme]);
 
   const applyTheme = useCallback((next: Theme) => {
