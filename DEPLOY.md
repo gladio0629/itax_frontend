@@ -20,6 +20,7 @@ the Root Directory in the Build Step"** turned on (also the default).
 | `VITE_API_URL` | *(leave empty)* | Backend base URL, e.g. `https://api.example.com` |
 | `VITE_DEMO_MODE` | `false` | `true` would ship the built-in sample data instead of the backend |
 | `VITE_MAPBOX_TOKEN` | *(client and driver only)* | Mapbox **public** token (`pk.…`) for the interactive map. Empty: the apps show the drawn map and the build contains no Mapbox code |
+| `VITE_SITE_URL` | `https://xasanow.uz` | Public site for the legal links (`/terms`, `/privacy`). The network check accepts only this origin, as a plain link |
 | `NODE_VERSION` | `20` | Only needed on Cloudflare Pages / Netlify if their default is older |
 
 While `VITE_API_URL` is empty, the deployed apps open and show "Server bilan aloqa yo'q.

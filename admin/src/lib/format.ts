@@ -4,6 +4,21 @@ export function formatSom(value: number): string {
   return `${sign}${abs.toLocaleString("fr-FR").replace(/,/g, " ")} so'm`;
 }
 
+/** "1 284" — digit groups with a no-break space; "−" for negatives (v2 tables). */
+export function formatNumber(value: number): string {
+  const abs = Math.abs(Math.round(value));
+  const grouped = String(abs).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+  return value < 0 ? `\u2212${grouped}` : grouped;
+}
+
+/** Full phone for display: "+998901234567" or "998 90 123 45 67" →
+ * "+998 90 123 45 67". Admin shows numbers in full (decision 2026-11-22). */
+export function formatPhone(phone: string): string {
+  const d = phone.replace(/\D/g, "");
+  const m = /^998(\d{2})(\d{3})(\d{2})(\d{2})$/.exec(d);
+  return m ? `+998 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone;
+}
+
 export function formatKm(value: number): string {
   return `${Math.round(value).toLocaleString("fr-FR").replace(/,/g, " ")} km`;
 }

@@ -28,16 +28,16 @@ export function StatCard({
   };
   const m = value.match(/^(.*?)\s(so'm)$/);
   return (
-    <Card className={cn("relative flex items-start justify-between gap-4 overflow-hidden", highlight && "before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-brand-yellow")}>
+    <Card className={cn("relative flex items-start justify-between gap-4 overflow-hidden", highlight && "before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-green")}>
       <div className="min-w-0">
-        <p className="line-clamp-2 min-h-10 text-sm text-ink/60" title={label}>
+        <p className="label-caps line-clamp-2 min-h-7 text-muted" title={label}>
           {label}
         </p>
-        <p className="tabular mt-2 whitespace-nowrap text-xl font-semibold text-ink">
+        <p className="tabular mt-2 whitespace-nowrap text-xl font-extrabold text-ink">
           {m ? m[1] : value}
-          {m && <span className="ml-1 text-sm font-semibold text-ink/50">{m[2]}</span>}
+          {m && <span className="ml-1 text-sm font-bold text-muted">{m[2]}</span>}
         </p>
-        {hint && <p className="tabular mt-1 text-xs text-ink/50">{hint}</p>}
+        {hint && <p className="tabular mt-1 text-xs font-semibold text-muted">{hint}</p>}
       </div>
       <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-button", toneClasses[tone])}>{icon}</div>
     </Card>

@@ -1,0 +1,115 @@
+/* IZGO design v2 ("Tungi yo'l") — role tokens.
+   Source: docs/izgo-dizayn-v2.md and design-v2/client/*.dc.html.
+   Tokens are named by role, not by colour, so the dark theme (derived here,
+   the design itself is light only) can flip surfaces without touching
+   markup. Tailwind exposes them as `iz-*` (tailwind.config.ts). */
+:root {
+  /* Dark top of every screen ("Ink"). */
+  --iz-head: #0b1524;
+  --iz-head-card: #142235; /* "Ink 2": cards on the dark top */
+  --iz-head-border: #24364d;
+  --iz-head-border-strong: #3a4c63;
+  --iz-head-text: #ffffff;
+  --iz-head-muted: #9fb0c3;
+  --iz-head-soft: #d5dee8;
+
+  /* White sheet. */
+  --iz-sheet: #ffffff;
+  --iz-ink: #0b1524; /* main text on the sheet */
+  --iz-muted: #5a6779; /* labels, hints */
+  --iz-field: #f3f5f8; /* inputs, cards */
+  --iz-field-focus: #ffffff;
+  --iz-skeleton: #edf0f4;
+  --iz-skeleton-strong: #e2e7ee;
+  --iz-border: #e2e7ee; /* dividers */
+  --iz-divider-in-field: #dde3ea;
+  --iz-chip-border: #d4dbe4;
+  /* Selected chip / segment / day: Ink with white text (inverted in dark). */
+  --iz-selected: #0b1524;
+  --iz-on-selected: #ffffff;
+  --iz-selected-accent: #2edb85; /* check / code on the selected fill */
+
+  /* Accent. */
+  --iz-green: #2edb85;
+  --iz-green-rgb: 46 219 133;
+  --iz-on-green: #0b1524;
+  --iz-green-text: #0c7a43;
+  --iz-green-soft: #e3f8ec; /* status badge bg, focus ring */
+  --iz-focus-ring: #e3f8ec;
+
+  /* Status. */
+  --iz-danger: #b42318;
+  --iz-danger-soft: #fdecea;
+  --iz-warn: #b54708;
+  --iz-warn-strong: #f79009;
+  --iz-warn-soft: #fff1e6;
+  --iz-warn-tile: #3a2410; /* warning icon tile on the dark top */
+  --iz-sos: #c8281c;
+
+  --iz-switch-off: #8a97a8;
+  --iz-map: #e9edf2;
+  --iz-map-road: #ffffff;
+  --iz-backdrop: rgba(11, 21, 36, 0.45);
+  --iz-shadow: rgba(11, 21, 36, 0.12);
+  --iz-shadow-strong: rgba(11, 21, 36, 0.3);
+
+  /* Shape. */
+  --iz-r-sheet: 32px;
+  --iz-r-card: 24px;
+  --iz-r-field: 20px;
+  --iz-r-tile: 14px;
+
+  /* Sizes. */
+  --iz-button: 60px;
+  --iz-field-h: 68px;
+  --iz-target: 44px;
+
+  /* Keyboard: px of the screen the system keyboard covers (set by
+     ui/keyboard.ts; 0 when closed or when the web view already shrank). */
+  --kb-inset: 0px;
+}
+
+[data-theme="dark"] {
+  --iz-head: #070e19;
+  --iz-head-card: #111d2e;
+  --iz-head-border: #22344a;
+  --iz-head-border-strong: #364960;
+  --iz-head-text: #ffffff;
+  --iz-head-muted: #9fb0c3;
+  --iz-head-soft: #d5dee8;
+
+  --iz-sheet: #0f1a29;
+  --iz-ink: #eef2f7;
+  --iz-muted: #9fb0c3;
+  --iz-field: #182639;
+  --iz-field-focus: #0f1a29;
+  --iz-skeleton: #18273a;
+  --iz-skeleton-strong: #213248;
+  --iz-border: #22344a;
+  --iz-divider-in-field: #26384f;
+  --iz-chip-border: #33475f;
+  --iz-selected: #eef2f7;
+  --iz-on-selected: #0b1524;
+  --iz-selected-accent: #0c7a43;
+
+  --iz-green: #2edb85;
+  --iz-on-green: #0b1524;
+  --iz-green-text: #2edb85;
+  --iz-green-soft: rgba(46, 219, 133, 0.14);
+  --iz-focus-ring: rgba(46, 219, 133, 0.22);
+
+  --iz-danger: #f97066;
+  --iz-danger-soft: rgba(249, 112, 102, 0.14);
+  --iz-warn: #f79009;
+  --iz-warn-strong: #f79009;
+  --iz-warn-soft: rgba(247, 144, 9, 0.14);
+  --iz-warn-tile: #3a2410;
+  --iz-sos: #e0392c;
+
+  --iz-switch-off: #4a5b70;
+  --iz-map: #0e1826;
+  --iz-map-road: #1a2738;
+  --iz-backdrop: rgba(0, 0, 0, 0.6);
+  --iz-shadow: rgba(0, 0, 0, 0.4);
+  --iz-shadow-strong: rgba(0, 0, 0, 0.55);
+}

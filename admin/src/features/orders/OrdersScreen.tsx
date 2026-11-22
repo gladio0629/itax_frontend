@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { Pencil, Plus, Route as RouteIcon, X } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge, type BadgeTone } from "@/components/Badge";
@@ -103,6 +104,7 @@ const TIME_OPTIONS = Array.from({ length: 17 }, (_, i) => `${String(6 + i).padSt
 
 export function OrdersScreen() {
   const [search, setSearch] = useState("");
+  useSearchFromUrl(setSearch);
   const [status, setStatus] = useState<OrderStatus | "all">("all");
   const query: OrderQuery = { search, status };
   const { items: orders, error, reload } = useAdapterList(api.getOrders, query);

@@ -7,7 +7,7 @@ import { api } from "@/api/client";
 import { ALL_ROLES } from "@/mockDb/db";
 import { clearAppStorage } from "@/mockDb/storage";
 import type { AdminRole } from "@/api/types";
-import { ROLE_LABEL } from "./Topbar";
+import { ROLE_LABEL } from "@/lib/roles";
 import { cn } from "@/lib/cn";
 
 const SCENARIO_LABELS: Record<keyof TestScenarios, { label: string; hint: string }> = {
@@ -52,8 +52,9 @@ export default function TestPanel() {
     }
   }
 
+  // Bottom-right: the bottom-left corner holds the sidebar staff card.
   return (
-    <div className="fixed bottom-4 left-3 z-50 flex flex-col items-start gap-3">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3">
       {open && (
         <div className="max-h-[calc(100vh-96px)] w-80 overflow-y-auto overscroll-contain rounded-sheet bg-sidebar-bg p-5 text-white shadow-2xl animate-slide-up">
           <div className="mb-3 flex items-center justify-between">

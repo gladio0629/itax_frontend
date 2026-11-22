@@ -86,7 +86,7 @@ Sana: 2026-11-22 · Manba: Claude Design canvaslari. Bu faylning o'zi project hu
 3. Pul: Ledger (daftar o'zgarmaydi), LedgerFix (tuzatish yozuvi), Tariffs.
 4. Jamoa: Operators (Navbat / Jarayonda / Bugungi tasdiqlanganlar), OperatorView (operator: Navbat), OperatorHistory va OperatorDrivers (operator: faqat ko'rish, balans ko'rinmaydi), Staff, StaffAdd, Audit, Marketing (faqat statistika, faqat ko'rish).
 
-- Telefon raqamlari hamma joyda maskalangan; to'liq ochish audit jurnaliga yoziladi.
+- Telefon raqamlari hamma joyda, hamma rol uchun to'liq ko'rinadi (+998 90 123 45 67). Maskalash va "Telefonni ochish" tugmasi yo'q (2026-11-22).
 - "Tasdiqlar" bo'limi YO'Q. Ikki kishi tasdig'i YO'Q.
 - **2 bosqichli tasdiq [QAROR 2026-11-22]:** tarif o'zgarishi va tuzatish yozuvi uchun bitta xodim: o'zgartiradi → "Saqlash" → tasdiqlash oynasi (modal: nima o'zgaradi, eski → yangi) → "Tasdiqlash" bosilsa kuchga kiradi, "Bekor qilish" bosilsa hech narsa o'zgarmaydi. Har o'zgarish audit jurnaliga yoziladi.
 - Narx modeli: asosiy narx = masofa (km) × 1 litr yoqilg'i narxi (gaz yoki benzin). Har klass va kuzov uchun ustama: foiz yoki summa. Qo'shimcha to'lovlar: bepul kutish, kutish narxi, to'xtash, yukchi, bekor qilish jarimasi. Daraja komissiyalari. Hisob faqat serverda, admin faqat qiymatlarni kiritadi.

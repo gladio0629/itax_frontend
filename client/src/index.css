@@ -1,5 +1,6 @@
 @import "./design/fonts.css";
 @import "./design/tokens.css";
+@import "./design/tokens-v2.css";
 @import "./design/ios.css";
 
 @tailwind base;
@@ -28,7 +29,6 @@
   }
   body {
     font-family: var(--font-sans);
-    font-feature-settings: "cv11", "tnum" 0;
     -webkit-font-smoothing: antialiased;
   }
   h1,
@@ -74,6 +74,10 @@
      for the home indicator). */
   .scroll-pb-bar {
     padding-bottom: calc(16px + var(--fab-clearance-bar, 0px));
+  }
+  /* Textareas that grow with their text (where supported). */
+  .field-sizing-content {
+    field-sizing: content;
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;

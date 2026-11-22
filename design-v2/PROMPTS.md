@@ -100,7 +100,7 @@ First read: design-v2/RULES.md, docs/izgo-asosiy-hujjat.md (section 2.5 roles), 
 Then study the current admin/ code: routes, role/permission handling (getMe), pages, tables, ApiAdapter (mock + http), login flow, Vercel config. Give me a short map (in Uzbek): current page → design file, new pages, pages to remove, data each page needs. Wait for my OK.
 
 After my OK, work in this order, one group at a time, commit after each:
-1. Layout and tokens: dark left sidebar (groups Asosiy / Pul / Jamoa, active item green bar), header with search, white cards, tables with filters and pagination, status badges, masked phones, confirmation modal component, Plus Jakarta Sans bundled locally. Responsive: works from 1280 px down to tablet; tables scroll inside their box.
+1. Layout and tokens: dark left sidebar (groups Asosiy / Pul / Jamoa, active item green bar), header with search, white cards, tables with filters and pagination, status badges, full phone numbers (no masking, decision 2026-11-22), confirmation modal component, Plus Jakarta Sans bundled locally. Responsive: works from 1280 px down to tablet; tables scroll inside their box.
 2. Login: Main (email + email code), Verify (phone + SMS code). Operator: phone + SMS only. No "remember device".
 3. Main: Dashboard, Orders, OrderDetail, Drivers (block / unblock only, no manual approval), DriverProfile, DriverHistory, Passengers.
 4. Money: Ledger (read-only ledger), LedgerFix (correction entry), Tariffs (fuel price per litre for gas and petrol, per-class and per-body markup as percent or sum, extra fees, level commissions).

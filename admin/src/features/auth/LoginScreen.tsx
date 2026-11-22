@@ -134,7 +134,9 @@ export function LoginScreen() {
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
       <div className="w-full max-w-[420px] rounded-card border border-border bg-card p-8">
         <div className="mb-8 flex items-center gap-3">
-          <Logo size={44} />
+          <span className="flex h-14 items-center rounded-box bg-ink px-3">
+            <Logo height={28} />
+          </span>
           <div>
             <p className="text-lg font-semibold text-ink">IZGO Admin</p>
             <p className="text-xs text-ink/50">Boshqaruv paneliga xush kelibsiz</p>

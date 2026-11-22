@@ -137,7 +137,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
         <Card className="space-y-4 border-2 border-brand-yellow">
           <div className="flex items-center justify-between">
             <Badge tone="success">Faol vazifa</Badge>
-            <span className="tabular text-sm font-semibold text-ink">{active.phoneFull}</span>
+            <span className="tabular text-sm font-semibold text-ink">{active.phone ?? active.subjectLabel}</span>
           </div>
           <p className="text-sm text-ink/70">Sabab: {REASON_LABEL[active.reason]}</p>
           <textarea
@@ -213,7 +213,7 @@ export function QueueTab({ canWork, onChanged }: { canWork: boolean; onChanged: 
                   <Phone className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-ink tabular">{q.phoneMasked}</p>
+                  <p className="text-sm font-semibold text-ink tabular">{q.phone ?? q.subjectLabel}</p>
                   <p className="mt-1 flex items-center gap-2 text-xs text-ink/60">
                     <Badge tone="info" dot={false}>
                       {REASON_LABEL[q.reason]}

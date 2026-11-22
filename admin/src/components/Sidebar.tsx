@@ -1,97 +1,211 @@
-import { NavLink } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, NavLink } from "react-router-dom";
 import {
-  LayoutDashboard,
+  BarChart3,
   Car,
-  Users,
-  Route,
-  Wallet,
-  SlidersHorizontal,
-  MessageSquareWarning,
-  UsersRound,
-  Headset,
   ClipboardList,
+  Headset,
+  LogOut,
+  MessageSquareWarning,
+  ScrollText,
+  SlidersHorizontal,
+  UserRound,
+  Users,
+  UsersRound,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Logo } from "./Logo";
-import type { Section, SectionBadges } from "@/api/types";
+import { ROLE_LABEL } from "@/lib/roles";
+import { AdminBrand, Logo } from "./Logo";
+import { Avatar } from "./Avatar";
+import type { Me, Section, SectionBadges } from "@/api/types";
 
-export const NAV: { to: string; section: Section; label: string; icon: typeof LayoutDashboard }[] = [
-  { to: "/dashboard", section: "stats", label: "Umumiy statistika", icon: LayoutDashboard },
-  { to: "/drivers", section: "drivers", label: "Haydovchilar", icon: Car },
-  { to: "/passengers", section: "passengers", label: "Yo'lovchilar", icon: Users },
-  { to: "/orders", section: "orders", label: "Buyurtmalar", icon: Route },
-  { to: "/wallet", section: "wallet", label: "Hamyon va to'lovlar", icon: Wallet },
-  { to: "/tariffs", section: "tariffs", label: "Tariflar", icon: SlidersHorizontal },
-  { to: "/complaints", section: "complaints", label: "Shikoyatlar", icon: MessageSquareWarning },
-  { to: "/staff", section: "staff", label: "Xodimlar", icon: UsersRound },
-  { to: "/operators", section: "operators", label: "Operatorlar", icon: Headset },
-  { to: "/audit", section: "audit", label: "Audit jurnali", icon: ClipboardList },
+type NavItem = { to: string; section: Section; label: string; icon: typeof Car };
+
+/** Sidebar groups (design-v2). An item shows only when getMe().sections has
+ * its section; a group shows only when it has items. Never a role check. */
+export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Asosiy",
+    items: [
+      { to: "/dashboard", section: "stats", label: "Umumiy statistika", icon: BarChart3 },
+      { to: "/orders", section: "orders", label: "Buyurtmalar", icon: ClipboardList },
+      { to: "/drivers", section: "drivers", label: "Haydovchilar", icon: Car },
+      { to: "/passengers", section: "passengers", label: "Yo'lovchilar", icon: Users },
+      { to: "/complaints", section: "complaints", label: "Shikoyatlar", icon: MessageSquareWarning },
+    ],
+  },
+  {
+    title: "Pul",
+    items: [
+      { to: "/wallet", section: "wallet", label: "Hamyon va to'lovlar", icon: Wallet },
+      { to: "/tariffs", section: "tariffs", label: "Tariflar", icon: SlidersHorizontal },
+    ],
+  },
+  {
+    title: "Jamoa",
+    items: [
+      { to: "/operators", section: "operators", label: "Operatorlar", icon: Headset },
+      { to: "/staff", section: "staff", label: "Xodimlar", icon: UsersRound },
+      { to: "/audit", section: "audit", label: "Audit jurnali", icon: ScrollText },
+    ],
+  },
 ];
 
 /**
- * Navy sidebar. ≥1280px: full width with labels. Below that it collapses to an
- * icon rail (labels become tooltips + accessible names) so tables keep room.
+ * Dark v2 sidebar. ≥1280px: 256px with labels and group titles. Below that
+ * (down to tablet) it becomes a 76px icon rail: labels turn into tooltips and
+ * accessible names, so tables keep their room.
  */
-export function Sidebar({ sections, badges }: { sections: Section[]; badges: SectionBadges }) {
-  const items = NAV.filter((n) => sections.includes(n.section));
+export function Sidebar({ me, badges, onLogout }: { me: Me | null; badges: SectionBadges; onLogout: () => void }) {
+  const sections = me?.sections ?? [];
+  const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => sections.includes(i.section)) })).filter((g) => g.items.length > 0);
+
   return (
     <aside
       aria-label="Asosiy menyu"
-      className="flex h-screen w-[var(--sidebar-rail-w)] shrink-0 flex-col bg-sidebar-bg text-sidebar-text xl:w-[var(--sidebar-w)]"
+      className="flex h-screen w-[var(--sidebar-rail-w)] shrink-0 flex-col gap-[26px] bg-ink px-3 pb-5 pt-6 text-ink-muted xl:w-[var(--sidebar-w)] xl:px-4"
     >
-      <div className="flex h-16 shrink-0 items-center justify-center gap-3 border-b border-sidebar-border px-4 xl:justify-start xl:px-6">
-        <Logo size={32} />
-        <div className="hidden min-w-0 xl:block">
-          <p className="truncate text-sm font-semibold text-white">IZGO Admin</p>
-          <p className="truncate text-xs text-sidebar-text/60">Boshqaruv paneli</p>
-        </div>
+      <div className="flex justify-center px-0 xl:justify-start xl:px-2">
+        <span className="hidden xl:block">
+          <AdminBrand />
+        </span>
+        <span className="xl:hidden">
+          <Logo height={24} />
+        </span>
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-1">
-          {items.map(({ to, section, label, icon: Icon }) => {
-            const badge = badges[section];
-            return (
-              <li key={to}>
-                <NavLink
-                  to={to}
-                  title={label}
-                  aria-label={badge ? `${label}, ${badge}` : label}
-                  className={({ isActive }) =>
-                    cn(
-                      "group relative flex h-10 items-center justify-center gap-3 rounded-button px-3 text-sm xl:justify-start",
-                      "focus-visible:outline-brand-yellow",
-                      isActive ? "bg-white/10 font-semibold text-white" : "text-sidebar-text/70 hover:text-white"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      {/* Hover wash fades in (opacity only). */}
-                      {!isActive && (
-                        <span aria-hidden className="absolute inset-0 rounded-button bg-white/[0.06] opacity-0 transition-opacity group-hover:opacity-100" />
-                      )}
-                      {isActive && <span aria-hidden className="absolute -left-3 top-2 bottom-2 w-1 rounded-r-full bg-brand-yellow" />}
-                      <Icon className={cn("relative h-5 w-5 shrink-0", isActive ? "text-brand-yellow" : "text-sidebar-text/60 group-hover:text-white")} aria-hidden />
-                      <span className="relative hidden min-w-0 flex-1 truncate xl:block">{label}</span>
-                      {!!badge && (
-                        <span
-                          aria-hidden
-                          className={cn(
-                            "tabular flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-yellow px-1 text-xs font-semibold text-on-yellow",
-                            "absolute right-0 top-0 xl:relative xl:right-auto xl:top-auto"
+
+      <nav aria-label="Bo'limlar" className="no-scrollbar -mx-3 flex min-h-0 flex-1 flex-col gap-[22px] overflow-y-auto px-3 xl:-mx-4 xl:px-4">
+        {groups.map((g) => (
+          <div key={g.title} className="flex flex-col gap-0.5">
+            <span className="label-caps hidden px-3 pb-1.5 text-ink-label xl:block">{g.title}</span>
+            <span aria-hidden className="mx-auto mb-1.5 h-px w-6 bg-ink-border xl:hidden" />
+            <ul className="flex flex-col gap-0.5">
+              {g.items.map(({ to, section, label, icon: Icon }) => {
+                const badge = badges[section];
+                return (
+                  <li key={to}>
+                    <NavLink
+                      to={to}
+                      title={label}
+                      aria-label={badge ? `${label}, ${badge} ta yangi` : label}
+                      className={({ isActive }) =>
+                        cn(
+                          "relative flex h-11 items-center justify-center gap-3 rounded-nav px-3 text-sm xl:justify-start",
+                          "focus-visible:outline-green",
+                          isActive ? "bg-ink-2 font-bold text-white" : "font-semibold text-ink-muted hover:bg-[rgba(20,34,53,0.6)] hover:text-white"
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && <span aria-hidden className="absolute -left-3 bottom-2.5 top-2.5 w-1 rounded-r bg-green" />}
+                          <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-green" : "")} aria-hidden />
+                          <span className="hidden min-w-0 flex-1 truncate xl:block">{label}</span>
+                          {!!badge && (
+                            <span
+                              aria-hidden
+                              className={cn(
+                                "tabular flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-green px-[7px] text-2xs font-extrabold text-ink",
+                                "absolute -right-1 -top-1 xl:static xl:ml-auto"
+                              )}
+                            >
+                              {badge}
+                            </span>
                           )}
-                        >
-                          {badge}
-                        </span>
+                        </>
                       )}
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            );
-          })}
-        </ul>
+                    </NavLink>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
+
+      {me && <UserCard me={me} onLogout={onLogout} />}
     </aside>
+  );
+}
+
+/** Signed-in staff card at the bottom: opens the profile menu (Profil,
+ * Chiqish); the icon button logs out directly, as in the design. */
+function UserCard({ me, onLogout }: { me: Me; onLogout: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const firstItem = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    firstItem.current?.focus();
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const role = ROLE_LABEL[me.role];
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex items-center gap-2.5 rounded-2xl bg-ink-2 p-1.5 xl:p-3">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={`${me.name}, ${role}: profil menyusi`}
+          className="flex min-w-0 flex-1 items-center justify-center gap-2.5 rounded-nav text-left xl:justify-start"
+        >
+          <Avatar name={me.name} size={40} tone="green" />
+          <span className="hidden min-w-0 flex-col gap-0.5 xl:flex">
+            <span className="truncate text-sm font-bold text-white">{me.name}</span>
+            <span className="text-xs font-semibold text-ink-muted">{role}</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onLogout}
+          aria-label="Chiqish"
+          title="Chiqish"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-ink hover:text-white xl:flex"
+        >
+          <LogOut className="h-[18px] w-[18px]" aria-hidden />
+        </button>
+      </div>
+      {open && (
+        <div
+          role="menu"
+          aria-label="Profil menyusi"
+          className="absolute bottom-full left-0 z-30 mb-2 w-56 overflow-hidden rounded-field bg-white p-1.5 shadow-pop animate-fade-in"
+        >
+          <Link
+            ref={firstItem}
+            to="/account"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex h-11 items-center gap-2.5 rounded-box px-3 text-sm font-bold text-ink hover:bg-surface"
+          >
+            <UserRound className="h-4 w-4 text-muted" aria-hidden /> Profil
+          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={onLogout}
+            className="flex h-11 w-full items-center gap-2.5 rounded-box px-3 text-left text-sm font-bold text-error hover:bg-error-soft"
+          >
+            <LogOut className="h-4 w-4" aria-hidden /> Chiqish
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

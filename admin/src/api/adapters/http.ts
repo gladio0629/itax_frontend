@@ -15,6 +15,7 @@ import * as map from "../httpMapper";
 import type {
   AdapterCapabilities,
   Complaint,
+  GlobalSearchHit,
   LoginStartResult,
   LoginStepResult,
   Me,
@@ -67,10 +68,13 @@ const CAPABILITIES: AdapterCapabilities = {
   complaintResolution: true,
   auditSearch: false,
   auditApiFilters: true,
+  // GET /admin/v1/search is not in the contract yet (docs/backend-gaps/admin.md).
+  globalSearch: false,
 };
 
 const CANCEL_REASONS: readonly OrderCancelReasonCode[] = ["admin_decision", "passenger_request", "driver_request", "duplicate", "fraud", "other"];
 const LOGOUT_TIMEOUT_MS = 5_000;
+const ADMIN_SEARCH_PATH = "/admin/v1/search";
 
 function fail(code: string, params: ErrorParams = {}): never {
   throw new ApiError(code, adminErrorMessage(code, params), { params });
@@ -273,7 +277,7 @@ export const httpAdapter: ApiAdapter = {
     return {
       requestId,
       steps: ["phone_code"],
-      maskedDestination: map.maskPhone(phone),
+      maskedDestination: map.formatPhone(phone),
       resendSeconds: RESEND_SECONDS,
       attemptsLeft: 0,
       codeMinLength: codeLength(ch) ?? 4,
@@ -293,7 +297,7 @@ export const httpAdapter: ApiAdapter = {
         done: false,
         requestId,
         step: "phone_code",
-        maskedDestination: map.maskPhone(phone),
+        maskedDestination: map.formatPhone(phone),
         resendSeconds: RESEND_SECONDS,
         attemptsLeft: 0,
         codeMinLength: codeLength(ch) ?? 4,
@@ -348,6 +352,15 @@ export const httpAdapter: ApiAdapter = {
 
   getCities: notSupported,
   getSectionBadges: notSupported,
+
+  // Expected endpoint (not in openapi.yml yet; hidden via capabilities until
+  // the backend ships it): GET /admin/v1/search?q= → { items: GlobalSearchHit[] }.
+  async globalSearch(query) {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const res = await http.get<{ items: GlobalSearchHit[] }>(ADMIN_SEARCH_PATH, { q });
+    return res.items;
+  },
 
   // --- staff ------------------------------------------------------------
   async getStaff(query) {
@@ -622,25 +635,10 @@ export const httpAdapter: ApiAdapter = {
     return rows.map((e) => map.auditFromApi(e, nameOf));
   },
 
-  async revealPhone(entityType, entityId) {
-    // Lists already carry the full number (no masked list + audited reveal
-    // endpoint in the contract — gap); show the value the server sent.
-    const cached = entityType === "driver" ? rawDrivers.get(entityId) : rawPassengers.get(entityId);
-    const row =
-      cached ??
-      (entityType === "driver"
-        ? await http.get<Api.AdminDriver>(API_PATHS.adminDriver(entityId))
-        : await http.get<Api.AdminPassenger>(API_PATHS.adminPassenger(entityId)));
-    return { phone: map.formatPhone(row.phone) };
-  },
-
   // --- operator queue ---------------------------------------------------
   async getQueue() {
     const rows = await fetchAll<Api.QueueItem>(API_PATHS.adminOperatorQueue);
-    return rows.map((q) => {
-      const { phoneFull: _full, ...item } = map.queueFromApi(q);
-      return item;
-    });
+    return rows.map((q) => map.queueFromApi(q));
   },
   async getActiveTask() {
     const me = await currentMe();
@@ -655,8 +653,7 @@ export const httpAdapter: ApiAdapter = {
   },
   async rejectQueueItem(queueId, reason) {
     const q = await http.post<Api.QueueItem>(API_PATHS.adminOperatorReject(queueId), { reason: rejectReason(reason) } satisfies Api.QueueReject);
-    const { phoneFull: _full, ...item } = map.queueFromApi(q);
-    return item;
+    return map.queueFromApi(q);
   },
   async finishTask(queueId, result, note, reason) {
     const q =
