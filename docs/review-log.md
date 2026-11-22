@@ -3,6 +3,76 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 4 (client and driver after the owner answers; admin later)
+
+Checks: clean detached checkouts, `tsc -b --noEmit`, `VITE_DEMO_MODE=false npm run build`, `check:no-network`, grep of `dist`, `npx cap sync`. All pass for both. `dist` has no test panel or "demo" text. The only site URL in `dist` is the bare `https://xasanow.uz`. Neither app tracks `.env` any more. Both keep `SITE_URL` with its default in `src/config.ts`.
+Also committed this round: `docs/izgo-asosiy-hujjat.md` with the owner's two journal rows (`417ec38`).
+
+### redesign-client `c73e9d8..253cbd0` (6 commits): RED
+Round 3 must-fix and restores, all done:
+- MapPick: the address is cleared when the pin moves, when geocoding fails and when locating fails. "Bu joy" is disabled while there is no address (`MapPick.tsx:99,111,132,218`).
+- Restored: the pickup ETA bubble (`capabilities.pickupEta`), the ETA and Tafsilotlar summary on saved places, and the version line in the menu.
+- `SITE_URL` default in `config.ts:20`. `client/.env` is untracked, and `.env.example` and the handoff are updated.
+
+New: the delivery flow in design v2 (`features/cargo/*`, four steps).
+- It matches `Cargo.png`, `CargoContacts.png` and `CargoTerms.png` (demo build, 390×844).
+- Body sizes are exactly S–3XL. Labels, specs and prices come from the server. The insurance fee exists only in `mock.ts`.
+- uz/ru/en have 666 keys each.
+- The deleted OrderSheet, class picker, wishes and the rest have no imports left.
+- 60c5465 "sheets in the URL" is navigation plumbing (back closes the sheet, then goes to the previous step), not a new feature.
+
+Must fix
+- `CargoFlow.tsx:141-142,365,420`: when `getCargoRules` fails, nothing reports it and nothing retries.
+  - On the "terms" step `step === "terms" && rules` is false, so the Yuk screen renders with step 3 lit.
+  - Its "Davom etish" goes to Kontakt, and Kontakt leads back to the same screen. Payment is never reached.
+  - Show an error with retry (`rulesQ.refetch`), as the old sheet did (`common.loadFailedRetry`).
+- `CargoFlow.tsx:162-166`, `CargoTermsScreen.tsx:139`: when `getRideAlong` fails, "Kabinada hamroh" is just disabled with its normal caption, so it looks unavailable. Show the error with retry (the old `RideAlongRow` had `onRetry`).
+- `HomeScreen.tsx:213`: after a delivery order only the payment entry is replaced. The flow, contacts and terms entries stay in history and all render Home, so Android back from tracking needs 3 extra presses that do nothing. Go back to the base entry before navigating to tracking.
+- Rule 2, silent removals in the delivery flow (the old OrderSheet had them, c73e9d8 `OrderSheet.tsx:440,472`). Restore them, or the owner signs off:
+  - swapping pickup and drop-off;
+  - reordering the drop-offs.
+
+Later
+- `CargoFlow.tsx:313-317`: a network error in the contacts check shows under the receiver's name field.
+- `CargoFlow.tsx:148`: if the profile does not load, the sender shows "—" with no retry.
+- The contact name fields lost `maxLength` (`rules.riderNameMaxLength`).
+- `CargoSheets.tsx:53`: an empty warehouse list shows an empty sheet.
+- `CargoFlow.tsx:52`: `decodeSheet` does not check the `info:` topic.
+- `HomeScreen.tsx:212`: `window.open` after `await` is blocked in mobile Safari (web build only; it matters once the server sends `payment.redirect_url`).
+- `MenuDrawer.tsx:12`: `APP_VERSION = "1.1.0"` is hard-coded. Inject it at build time.
+- `cargo.v2.insuranceDesc` ("Shartlari va narxi serverdan") is placeholder text from the PNG. Real text from the owner.
+- `docs/backend-gaps/client.md:80` still says recent routes are used by "no screen". The insurance entry has four endpoint changes in one bullet; use one entry per endpoint.
+- Unused key `class.title`. `httpMapper.ts:244` doc comment sits on the wrong function. Raw `border-white` in `HomeView.tsx:29`.
+- The recent route still ignores `fromCityId` (round 3).
+- The sender's own phone shows masked on Kontaktlar.
+
+### redesign-driver `f82d972..19dbf19` (4 commits): GREEN
+Round 3 must-fix, all done:
+- `FinishedScreen.tsx:40`: cash only from the server's `cashToCollect`.
+- `HomeScreen.tsx:209`: `AcceptedError` with retry when `getAccepted` fails and nothing is cached.
+- `/delete-account` link kept (owner allowed it).
+- Calls: `httpMapper.ts` `tripPassenger` reads `passenger { name, rating, call_number }` once the server sends it. Until then there is no call button. This is documented in `docs/backend-gaps/driver.md`. The old "number hidden" toast never dialled anyone either.
+
+Restored (rule 2):
+- Wallet: balance after each entry, the today card (earnings, trips, average, all from the server), the saved-cards line, and the debt amount with its limit.
+- Home: the map card (`HomeMap.tsx`; drawn map without a token).
+- Request: seat positions (`seat_ids`) on the card and the detail.
+- Finished: the rating received.
+
+Round 3 "later" items fixed:
+- no false "request gone" while accepting;
+- "after commission" only when the server sends a commission;
+- `TripScreen` polls `getAccepted` every 20 s instead of 8 s;
+- "Mening yo'nalishim" in http mode reads `GET /drivers/me/routes`;
+- request-sound switch only with `capabilities.requestAlerts`;
+- handoff shortened ("nothing open").
+
+Screens (demo build, 390×844): Home, Wallet and Request match `Home.png`, `Wallet.png` and `Request.png`, plus the restored blocks. The map card on Home pushes the requests list down by one card height.
+
+Later
+- `http.ts` `feedDirections`: if the first `GET /drivers/me/routes` fails, `getFeed` fails too, so offers do not show until a retry. Fall back to `[]` for the route line instead.
+- Unused key `caps.childSeatHint` (uz/ru/en).
+
 ## 2026-11-22, owner answers after round 3 (what each terminal does now)
 
 New owner rule: no big new features, screens or flows that are neither in the design nor in the current app. Reviewers flag them. Small undesigned details and page transition animations are allowed.
