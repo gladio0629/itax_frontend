@@ -458,7 +458,7 @@ export function historyFromApi(q: Api.QueueItem, me: Me | null): HistoryEntry {
 }
 
 // ---------------------------------------------------------------- stats
-const PERIOD_DAYS: Record<StatsPeriod, number> = { "7d": 7, "30d": 30, "90d": 90 };
+const PERIOD_DAYS: Record<StatsPeriod, number> = { today: 1, "7d": 7, "30d": 30, "90d": 90 };
 const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 /** Query range for a period: the last N days including today (local dates). */
@@ -542,6 +542,8 @@ export function listPeriodRange(period: ListPeriod | undefined, now = new Date()
       return { from_date: day(6), to_date: day(0) };
     case "30d":
       return { from_date: day(29), to_date: day(0) };
+    case "90d":
+      return { from_date: day(89), to_date: day(0) };
   }
 }
 
@@ -567,6 +569,8 @@ export function dashboardFromApi(
   const k = (value: number) => ({ value, deltaPct: null, spark: null });
   let ordersByDay: Dashboard["ordersByDay"] = null;
   if (chart.daily && chartRange.from_date && chartRange.to_date) {
+    // The contract lists only days that had orders, so a missing day is a
+    // real zero (not "unknown"); see statsFromApi.
     const byDate = new Map(chart.daily.map((d) => [d.date, d.orders]));
     ordersByDay = datesBetween(chartRange.from_date, chartRange.to_date).map((date) => {
       const [y, m, dd] = date.split("-").map(Number);

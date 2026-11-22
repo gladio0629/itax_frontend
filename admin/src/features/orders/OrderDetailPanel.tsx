@@ -232,7 +232,7 @@ function OrderBody({ order }: { order: OrderDetail }) {
         <PersonCard
           label="Yo'lovchi"
           name={order.passengerName !== "—" ? order.passengerName : null}
-          fallback={order.passengerId ? `ID ${order.passengerId.slice(0, 8)}` : "—"}
+          fallback={order.passengerId ? `ID ${order.passengerId}` : "—"}
           sub={[order.passengerPhone, order.passengerRating?.toFixed(1)].filter(Boolean).join(" · ")}
         />
         <PersonCard
@@ -319,7 +319,8 @@ function PersonCard({
       <span className="flex min-w-0 items-center gap-2.5">
         {name && <Avatar name={name} size={36} tone={tone} />}
         <span className="flex min-w-0 flex-col gap-px">
-          <span className={cn("truncate text-sm font-bold", name ? "text-ink" : "text-muted")}>{name ?? fallback}</span>
+          {/* Without a name (real API) the full id is the only reference: selectable, never cut. */}
+          <span className={cn("text-sm font-bold", name ? "truncate text-ink" : "select-all break-all text-muted")}>{name ?? fallback}</span>
           {sub && <span className="tabular truncate text-xs font-semibold text-muted">{sub}</span>}
         </span>
       </span>

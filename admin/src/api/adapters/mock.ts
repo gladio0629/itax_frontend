@@ -183,6 +183,7 @@ function periodBounds(p: ListPeriod | DashboardPeriod | undefined): [number, num
   if (p === "today") return [t, Infinity];
   if (p === "yesterday") return [t - DAY_MS, t];
   if (p === "7d") return [t - 6 * DAY_MS, Infinity];
+  if (p === "90d") return [t - 89 * DAY_MS, Infinity];
   return [t - 29 * DAY_MS, Infinity];
 }
 const inBounds = (ts: number, b: [number, number] | null) => !b || (ts >= b[0] && ts < b[1]);
@@ -596,7 +597,7 @@ export const mockAdapter: ApiAdapter = {
       requireSection(actor, "stats");
       const sections = ROLE_SECTIONS[actor.role];
       const t = mockToday();
-      const span = period === "today" ? 1 : period === "7d" ? 7 : 30;
+      const span = period === "today" ? 1 : period === "7d" ? 7 : period === "30d" ? 30 : 90;
       const cur: [number, number] = [t - (span - 1) * DAY_MS, Infinity];
       const prev: [number, number] = [cur[0] - span * DAY_MS, cur[0]];
       const orders = db.orders();
@@ -685,7 +686,7 @@ export const mockAdapter: ApiAdapter = {
 
   getStats: (period) =>
     withLatency<MarketingStats>(() => {
-      const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
+      const days = period === "today" ? 1 : period === "7d" ? 7 : period === "30d" ? 30 : 90;
       const dayMs = 86_400_000;
       const refNow = db.generatedAt();
       const since = refNow - days * dayMs;

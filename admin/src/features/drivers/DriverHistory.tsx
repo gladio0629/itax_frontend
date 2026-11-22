@@ -5,7 +5,7 @@ import { Card, StatTile } from "@/components/Card";
 import { FilterChips } from "@/components/FilterChips";
 import { FilterSelect } from "@/components/FilterSelect";
 import { ExportButton } from "@/components/ExportButton";
-import { ErrorState } from "@/components/ErrorState";
+import { ErrorState, StaleNotice } from "@/components/ErrorState";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/Skeleton";
 import { formatCompactSom, formatMonth, formatNumber } from "@/lib/format";
@@ -73,6 +73,7 @@ export function DriverHistory({ driver }: { driver: DriverProfile }) {
 
   return (
     <div className={cn("flex flex-col gap-5 transition-opacity", loading && "opacity-60")} aria-busy={loading}>
+      {error && <StaleNotice onRetry={load} />}
       {s && income && commission && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile label={`Safarlar, ${monthName}`} value={formatNumber(s.trips)} delta={{ text: `jami ${formatNumber(s.tripsTotal)} ta`, direction: "flat" }} />
@@ -128,9 +129,11 @@ export function DriverHistory({ driver }: { driver: DriverProfile }) {
       ) : (
         <Card className="flex min-w-0 flex-col gap-4 p-4">
           <TripsTable rows={data.rows} onOpen={(id) => navigate(`/orders/${id}`)} />
-          <p className="text-13 font-semibold text-muted">
-            {formatNumber(data.rows.length)} ta safar · {formatMonth(data.month)}
-          </p>
+          {data.counts?.[kind] != null && (
+            <p className="text-13 font-semibold text-muted">
+              {formatNumber(data.counts[kind]!)} ta safar · {formatMonth(data.month)}
+            </p>
+          )}
         </Card>
       )}
     </div>

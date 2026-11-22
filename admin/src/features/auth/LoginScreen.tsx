@@ -14,7 +14,7 @@ import { cn } from "@/lib/cn";
 import { DEMO_MODE } from "@/config";
 import { AuthAside } from "./AuthAside";
 import { CodeInput, formatCountdown } from "./CodeInput";
-import type { LoginStartResult, LoginStepResult } from "@/api/types";
+import { LOGIN_CODE_FALLBACK, type LoginStartResult, type LoginStepResult } from "@/api/types";
 
 /**
  * Admin sign-in (doc 2.5, design Main + Verify). Nothing is remembered on
@@ -35,8 +35,8 @@ const EXPIRED_ERRORS = new Set(["AUTH_OTP_EXPIRED", "TOO_MANY_ATTEMPTS"]);
 
 type CodeMeta = { length: number; min: number };
 const metaOf = (r: Pick<LoginStartResult, "codeLength" | "codeMinLength">): CodeMeta => ({
-  length: r.codeLength ?? 6,
-  min: r.codeMinLength ?? r.codeLength ?? 6,
+  length: r.codeLength ?? LOGIN_CODE_FALLBACK.length,
+  min: r.codeMinLength ?? r.codeLength ?? LOGIN_CODE_FALLBACK.minLength,
 });
 
 const errText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
@@ -54,8 +54,8 @@ export function LoginScreen() {
   const [needsPhone, setNeedsPhone] = useState(true);
   const [emailCode, setEmailCode] = useState("");
   const [smsCode, setSmsCode] = useState("");
-  const [emailMeta, setEmailMeta] = useState<CodeMeta>({ length: 6, min: 6 });
-  const [smsMeta, setSmsMeta] = useState<CodeMeta>({ length: 6, min: 6 });
+  const [emailMeta, setEmailMeta] = useState<CodeMeta>({ length: LOGIN_CODE_FALLBACK.length, min: LOGIN_CODE_FALLBACK.minLength });
+  const [smsMeta, setSmsMeta] = useState<CodeMeta>({ length: LOGIN_CODE_FALLBACK.length, min: LOGIN_CODE_FALLBACK.minLength });
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [resendSeconds, setResendSeconds] = useState(0);
   // Only the mock adapter returns the code (sample-data build).

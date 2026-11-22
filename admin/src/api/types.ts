@@ -303,7 +303,7 @@ export type Me = {
   landingPath: string;
 };
 
-export type StatsPeriod = "7d" | "30d" | "90d";
+export type StatsPeriod = "today" | "7d" | "30d" | "90d";
 
 /** The one "Umumiy statistika" page every role with the "stats" section
  * gets — demographics AND money (income, commission, average order value,
@@ -343,6 +343,10 @@ export type MarketingStats = {
 };
 
 export type LoginStep = "email_code" | "phone_code";
+
+/** The one fallback when the server sends no `code_length`: 6 boxes,
+ * codes of 4–6 digits accepted (SMS codes may be shorter). */
+export const LOGIN_CODE_FALLBACK = { length: 6, minLength: 4 } as const;
 
 /**
  * Admin login (doc 2.5, design Main + Verify). Email accounts: email code,
@@ -417,7 +421,7 @@ export type OrderQuery = {
 };
 
 /** Relative period filters; the server turns them into dates. */
-export type ListPeriod = "all" | "today" | "yesterday" | "7d" | "30d";
+export type ListPeriod = "all" | "today" | "yesterday" | "7d" | "30d" | "90d";
 
 /** Chip counters, decided by the server (`null` = not reported). The
  * screen never counts rows itself: lists may be cut off. */
@@ -428,7 +432,7 @@ export type ListCounts<K extends string> = Partial<Record<K | "all", number>>;
 // Every number, label and verdict below comes from the server.
 // ---------------------------------------------------------------------
 
-export type DashboardPeriod = "today" | "7d" | "30d";
+export type DashboardPeriod = "today" | "7d" | "30d" | "90d";
 
 /** A KPI: value, change vs the previous period in % (server), sparkline. */
 export type Kpi = { value: number; deltaPct: number | null; spark: number[] | null };

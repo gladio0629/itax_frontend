@@ -41,6 +41,7 @@ export function DriversTable({
       ? [{ key: "route", header: "Yo'nalish", render: (d: Driver) => d.route ?? "—" } satisfies Column<Driver>]
       : []),
     { key: "rating", header: "Reyting", sortValue: (d) => d.rating, render: (d) => (d.rating ? d.rating.toFixed(2) : "—") },
+    { key: "trips", header: "Safarlar", align: "right", sortValue: (d) => d.totalTrips, render: (d) => formatNumber(d.totalTrips) },
     ...(rows.some((d) => d.level) ? [{ key: "level", header: "Daraja", render: (d: Driver) => <LevelBadge level={d.level} /> } satisfies Column<Driver>] : []),
     ...(showBalance
       ? [

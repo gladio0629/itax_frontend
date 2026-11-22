@@ -247,7 +247,7 @@ export const httpAdapter: ApiAdapter = {
         resendSeconds: RESEND_SECONDS,
         attemptsLeft: 0,
         needsPhone: true,
-        codeMinLength: codeLength(ch) ?? 6,
+        codeMinLength: codeLength(ch),
         codeLength: codeLength(ch),
       };
     }
@@ -261,7 +261,7 @@ export const httpAdapter: ApiAdapter = {
       steps: ["phone_code"],
       resendSeconds: RESEND_SECONDS,
       attemptsLeft: 0,
-      codeMinLength: codeLength(ch) ?? 4,
+      codeMinLength: codeLength(ch),
       codeLength: codeLength(ch),
     };
   },
@@ -280,7 +280,7 @@ export const httpAdapter: ApiAdapter = {
         step: "phone_code",
           resendSeconds: RESEND_SECONDS,
         attemptsLeft: 0,
-        codeMinLength: codeLength(ch) ?? 4,
+        codeMinLength: codeLength(ch),
         codeLength: codeLength(ch),
       };
     }
@@ -304,7 +304,6 @@ export const httpAdapter: ApiAdapter = {
     flow.challengeId = ch.challenge_id;
     return { resendSeconds: RESEND_SECONDS, codeLength: codeLength(ch) };
   },
-
 
   // Revoke the token on the server first (same token gets 401 afterwards),
   // then clear memory. Offline/timeout/401 still signs out locally.
