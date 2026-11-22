@@ -1,8 +1,8 @@
 // Sign-in and registration (redesign v2): Main → Otp → personal → licence →
 // car → selfie → automatic check → Yo'nalishlarim (first run). The server's
 // session stage decides the step; going back opens an earlier step to edit.
-import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { Session, SessionStage } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
@@ -26,7 +26,8 @@ import { useRegDraft } from "./draftStore";
 
 const FORM_STEPS = ["personal", "license", "car", "selfie"] as const;
 type FormStep = (typeof FORM_STEPS)[number];
-const isFormStep = (s: SessionStage): s is FormStep => (FORM_STEPS as readonly string[]).includes(s);
+const isFormStep = (s: SessionStage | string | null | undefined): s is FormStep => !!s && (FORM_STEPS as readonly string[]).includes(s);
+const stepUrl = (s: FormStep | "guard") => `/register?step=${s}`;
 
 export default function RegistrationFlow() {
   const { t } = useT();
@@ -36,8 +37,10 @@ export default function RegistrationFlow() {
   const navigate = useNavigate();
   const options = useQuery(() => api.getRegistrationOptions(), [session?.stage === "signed_out"]);
   const [draft, setDraft, resetDraft] = useRegDraft();
-  /** An earlier step opened with "back" (null: the server's step). */
-  const [editing, setEditing] = useState<FormStep | null>(null);
+  const location = useLocation();
+  const urlStep = new URLSearchParams(location.search).get("step");
+  /** The step on screen in the last render (to know where a "back" came from). */
+  const lastStep = useRef<FormStep | null>(null);
   /** Keep the review screen up after approval until the driver taps "Bosh sahifaga". */
   const [approved, setApproved] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -49,12 +52,32 @@ export default function RegistrationFlow() {
     if (stage === "review" || stage === "signed_out") resetDraft();
   }, [stage, resetDraft]);
 
+  // Steps live in the history (?step=…), so the header arrow and the phone's
+  // back button (Capacitor's webview goes back in history) open the previous
+  // step with its data. Under the steps sits a "guard" entry: reaching it
+  // re-opens the previous step, or on step 1 asks whether to sign out.
+  const serverStep = isFormStep(stage) ? stage : null;
+  useEffect(() => {
+    if (!serverStep) return;
+    if (urlStep === "guard") {
+      const from = lastStep.current ?? serverStep;
+      const i = FORM_STEPS.indexOf(from);
+      if (i <= 0) setLogoutOpen(true);
+      navigate(stepUrl(FORM_STEPS[Math.max(0, i - 1)]));
+      return;
+    }
+    if (!isFormStep(urlStep) || FORM_STEPS.indexOf(urlStep) > FORM_STEPS.indexOf(serverStep)) {
+      navigate(stepUrl("guard"), { replace: true });
+      navigate(stepUrl(serverStep));
+    }
+  }, [serverStep, urlStep, navigate]);
+
   if (!session) return null;
   if (session.stage === "active" && !approved) return <Navigate to="/" replace />;
 
   const saved = (s: Session) => {
-    setEditing(null);
     setSession(s);
+    if (isFormStep(s.stage)) navigate(stepUrl(s.stage));
   };
 
   async function logout() {
@@ -62,8 +85,8 @@ export default function RegistrationFlow() {
     try {
       setSession(await api.logout());
       resetDraft();
-      setEditing(null);
       setLogoutOpen(false);
+      navigate("/register", { replace: true });
     } catch (e) {
       toast(errorMessage(e, t), "danger");
     } finally {
@@ -103,9 +126,10 @@ export default function RegistrationFlow() {
   }
   if (!options.data) return <RouteFallback />;
 
-  const step: FormStep = editing ?? session.stage;
-  const idx = FORM_STEPS.indexOf(step);
-  const back = () => (idx === 0 ? setLogoutOpen(true) : setEditing(FORM_STEPS[idx - 1]));
+  const step: FormStep =
+    urlStep === "guard" && lastStep.current ? lastStep.current : isFormStep(urlStep) && FORM_STEPS.indexOf(urlStep) <= FORM_STEPS.indexOf(session.stage) ? urlStep : session.stage;
+  lastStep.current = step;
+  const back = () => navigate(-1);
   const props = { options: options.data, draft, setDraft, onSaved: saved, onBack: back };
   const notice = session.notice === "rejected" ? <FormNotice>{t("reg.rejectedNotice")}</FormNotice> : undefined;
 

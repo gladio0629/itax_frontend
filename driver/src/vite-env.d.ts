@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_DEMO_MODE?: string;
   /** Mapbox public token (pk.…) for the interactive map. Empty: the drawn map is used and the build has no Mapbox code. */
   readonly VITE_MAPBOX_TOKEN?: string;
+  /** Public website for the terms / privacy links (set in .env). Empty: names without links. */
+  readonly VITE_SITE_URL?: string;
 }
 
 interface ImportMeta {

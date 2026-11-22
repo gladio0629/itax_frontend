@@ -932,9 +932,6 @@ export const mockAdapter: ApiAdapter = {
     return ({ ...s0.session });
   }, { noFail: true }),
 
-  // Sample data has no real pages to open: reserved example.com addresses.
-  getLegalLinks: () => withLatency(() => ({ termsUrl: "https://example.com/izgo/driver-terms", privacyUrl: "https://example.com/izgo/privacy" }), { noFail: true }),
-
   getRegistrationOptions: () =>
     withLatency(() => ({
       cities: CITIES.map((c) => ({ id: c.id, name: c.name })),

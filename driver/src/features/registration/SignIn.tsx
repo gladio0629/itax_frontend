@@ -1,6 +1,6 @@
 // Main (phone) and Otp (SMS code) screens of the redesign.
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import { DEMO_MODE } from "@/config";
 import { TEST_PANEL_PATH } from "@/features/testPanel/paths";
@@ -19,13 +19,28 @@ import { LegalSentence, useLegalLinks } from "./parts";
 type OtpRequest = { requestId: string; testCode?: string; resendInSec: number; codeLength?: number };
 
 /** Phone entry, then the code. `onVerified`: the session is signed in. */
+/** The code screen is its own history entry (?otp=1): the phone's back button returns to the phone number. */
 export function SignIn({ onVerified }: { onVerified: () => void }) {
   const [digits, setDigits] = useState("");
   const [otp, setOtp] = useState<OtpRequest | null>(null);
-  return otp ? (
-    <OtpScreen digits={digits} otp={otp} onResent={setOtp} onChangePhone={() => setOtp(null)} onVerified={onVerified} />
+  const location = useLocation();
+  const navigate = useNavigate();
+  const inOtp = new URLSearchParams(location.search).get("otp") === "1";
+  useEffect(() => {
+    // Reloaded on the code screen: the request is gone, start from the number.
+    if (inOtp && !otp) navigate("/register", { replace: true });
+  }, [inOtp, otp, navigate]);
+  return otp && inOtp ? (
+    <OtpScreen digits={digits} otp={otp} onResent={setOtp} onChangePhone={() => navigate(-1)} onVerified={onVerified} />
   ) : (
-    <PhoneScreen digits={digits} setDigits={setDigits} onSent={setOtp} />
+    <PhoneScreen
+      digits={digits}
+      setDigits={setDigits}
+      onSent={(o) => {
+        setOtp(o);
+        navigate("/register?otp=1");
+      }}
+    />
   );
 }
 

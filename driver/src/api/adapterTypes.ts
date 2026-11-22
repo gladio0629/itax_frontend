@@ -3,7 +3,7 @@ import type {
   DriverProfile, FeedPage, FeedQuery, HelpRequest, HelpTopic, HistoryFilter, HistoryPage, HomeSummary, LedgerPage, LedgerQuery,
   NotificationItem, NotificationPrefs, PayProvider, RegistrationOptions, RequestAlert, ReviewRequest, RoutesPage, Session,
   TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, DocSlot,
-  CarInput, LegalLinks, LicenseInput, PersonalInput, RegistrationReview, SelfieInput,
+  CarInput, LicenseInput, PersonalInput, RegistrationReview, SelfieInput,
 } from "./types";
 
 /**
@@ -71,8 +71,6 @@ export interface ApiAdapter {
   /** `codeLength`: digits in the code just sent, when the server says (overrides otpLength). */
   requestOtp(phone: string): Promise<{ requestId: string; testCode?: string; resendInSec: number; codeLength?: number }>;
   verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;
-  /** Driver terms / privacy pages (no sign-in needed). Empty when the server has none. */
-  getLegalLinks(): Promise<LegalLinks>;
   /** Registration step 1 → stage "license". */
   savePersonal(input: PersonalInput): Promise<Session>;
   /** Step 2 → stage "car". */

@@ -36,6 +36,13 @@ export default {
         brand: "rgb(var(--color-brand-rgb) / <alpha-value>)",
         "on-brand": "rgb(var(--color-on-brand-rgb) / <alpha-value>)",
         sos: "var(--color-sos)",
+        "night-warning": "var(--color-night-warning)",
+        "night-danger": "var(--color-night-danger)",
+        "control-off": "var(--color-control-off)",
+        dash: "var(--color-dash)",
+        "ph-1": "var(--color-ph-1)",
+        "ph-2": "var(--color-ph-2)",
+        "ph-3": "var(--color-ph-3)",
         // Sheet layer (flips with night mode)
         bg: "rgb(var(--color-bg-rgb) / <alpha-value>)",
         surface: "rgb(var(--color-surface-rgb) / <alpha-value>)",

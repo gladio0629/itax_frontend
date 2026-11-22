@@ -99,7 +99,6 @@ The four existing step bodies are unchanged (the contract rejects unknown fields
 | PUT | `/api/v1/drivers/me/service-types` | `{ service_types: ("passengers" \| "delivery")[] }` (≥ 1) | 204 | 422 → UI `SERVICE_TYPE_REQUIRED` |
 | GET | `/api/v1/drivers/registration/review` | — | `{ sections: { key: "personal" \| "license" \| "car" \| "selfie", status: "approved" \| "checking" \| "queued" \| "rejected" }[], eta_minutes?: int }` | 404 → the screen shows the four sections without a status and no time estimate |
 | GET | `/api/v1/drivers/registration/options` | — | `{ car_brands: { brand, models[] }[], colors: { key, hex }[], years: int[], seats: int[], car_classes: CarClass[], service_types: string[], license_categories: string[] }` | (already requested above; static lists until then: brands, 7 colours incl. red / beige, licence categories A, B, BE, C, D) |
-| GET | `/api/v1/legal` (no auth) | — | `{ terms_url: string, privacy_url: string }` | 404 → the names show as plain text, no links (Main and the selfie step). See `docs/handoff-driver.md` |
 
 Notes:
 - A rejected section (`status: "rejected"`) should come with the step to reopen; today the app only gets the overall

@@ -14,3 +14,6 @@ if (import.meta.env.DEV && !DEMO_MODE && apiConfig.viaDevProxy) console.warn(DEV
 /** Mapbox public token for the interactive map; "" = the drawn map (set it in
  * .env.local — never in code or in a tracked .env file). */
 export const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN ?? "").trim();
+
+/** Public website (terms, privacy). "" = show the names without links. */
+export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "").trim().replace(/\/+$/, "");

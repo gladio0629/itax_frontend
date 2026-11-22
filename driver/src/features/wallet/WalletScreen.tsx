@@ -79,17 +79,17 @@ export default function WalletScreen() {
               className="relative overflow-hidden rounded-card p-5 text-white shadow-2"
               style={{ background: "linear-gradient(140deg, #24448f 0%, #15275a 55%, #0d1a40 100%)" }}
             >
-              <p className="relative text-sm text-[#C3CCE4]">{t("wallet.balance")}</p>
-              <p className={cn("tabular relative mt-1 text-4xl font-bold", w.balance < 0 ? "text-[#F97066]" : "text-brand")}>
+              <p className="relative text-sm text-night-muted">{t("wallet.balance")}</p>
+              <p className={cn("tabular relative mt-1 text-4xl font-bold", w.balance < 0 ? "text-night-danger" : "text-brand")}>
                 {formatAmount(balance)}
-                <span className="ml-1.5 text-base font-medium text-[#C3CCE4]">{t("common.som")}</span>
+                <span className="ml-1.5 text-base font-medium text-night-muted">{t("common.som")}</span>
               </p>
 
               {w.debt.debtAmount > 0 && (
                 <div className="relative mt-4">
                   <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="tabular font-bold text-[#F97066]">{t("wallet.debt", { amount: `${formatAmount(-w.debt.debtAmount)} ${t("common.som")}` })}</span>
-                    <span className="tabular text-[#C3CCE4]">{t("wallet.debtLimit", { amount: formatAmount(w.debt.limit) })}</span>
+                    <span className="tabular font-bold text-night-danger">{t("wallet.debt", { amount: `${formatAmount(-w.debt.debtAmount)} ${t("common.som")}` })}</span>
+                    <span className="tabular text-night-muted">{t("wallet.debtLimit", { amount: formatAmount(w.debt.limit) })}</span>
                   </div>
                   <ProgressBar value={w.debt.usedRatio} tone={w.debt.level === "ok" ? "warning" : "danger"} label={t("wallet.debtProgress")} className="bg-white/15" />
                 </div>

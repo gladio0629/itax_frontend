@@ -12,7 +12,6 @@ import type {
   AcceptedPage,
   CityRef,
   DocSlot,
-  LegalLinks,
   RegistrationSectionKey,
   RegistrationSectionStatus,
   DriverRoute,
@@ -334,7 +333,6 @@ async function optionalEndpoint<T>(call: () => Promise<T>, fallback: T): Promise
   }
 }
 const OPT = {
-  legal: "/api/v1/legal",
   referral: "/api/v1/drivers/registration/referral",
   license: "/api/v1/drivers/registration/license",
   serviceTypes: "/api/v1/drivers/me/service-types",
@@ -431,12 +429,6 @@ export const httpAdapter: ApiAdapter = {
     platePattern: "01 A 123 BC",
     realDocuments: true,
   }),
-
-  getLegalLinks: () =>
-    optionalEndpoint<LegalLinks>(
-      () => http.get<{ terms_url?: string; privacy_url?: string }>(OPT.legal).then((r) => ({ termsUrl: r.terms_url, privacyUrl: r.privacy_url })),
-      {}
-    ).catch((): LegalLinks => ({})),
 
   async requestOtp(phone) {
     const apiPhone = toApiPhone(phone);

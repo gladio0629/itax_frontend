@@ -452,7 +452,7 @@ export function SelfieStep({ options, draft, setDraft, onSaved, onBack }: StepPr
         selfie.upload ? (
           <div className="flex flex-col gap-3">
             <label className="flex cursor-pointer items-start gap-3 rounded-field bg-raised p-3.5">
-              <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5 h-6 w-6 shrink-0 accent-[#0C7A43]" />
+              <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5 h-6 w-6 shrink-0 accent-brand-ink" />
               <span className="text-13 leading-[19px] text-ink">
                 <LegalSentence template="reg.accept" termsKey="reg.acceptTerms" privacyKey="reg.acceptPrivacy" links={links} />
               </span>
@@ -476,13 +476,13 @@ export function SelfieStep({ options, draft, setDraft, onSaved, onBack }: StepPr
           aria-label={selfie.upload ? t("reg.retake") : t("reg.takeSelfie")}
           className="press relative h-[276px] w-[224px] shrink-0 rounded-[50%] bg-brand-soft p-2.5"
         >
-          <span className="relative flex h-full w-full items-end justify-center overflow-hidden rounded-[50%] border-[3px] border-brand bg-[#E3E9F0] dark:bg-night">
+          <span className="relative flex h-full w-full items-end justify-center overflow-hidden rounded-[50%] border-[3px] border-brand bg-ph-1">
             {selfie.upload?.preview ? (
               <img src={selfie.upload.preview} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <span className="flex flex-col items-center" aria-hidden="true">
-                <span className="mb-3 h-[92px] w-[92px] rounded-full bg-[#C9D3DF] dark:bg-night-line" />
-                <span className="h-[86px] w-[150px] rounded-t-full bg-[#C9D3DF] dark:bg-night-line" />
+                <span className="mb-3 h-[92px] w-[92px] rounded-full bg-ph-2" />
+                <span className="h-[86px] w-[150px] rounded-t-full bg-ph-2" />
               </span>
             )}
             {selfie.upload && !selfie.upload.preview && (
