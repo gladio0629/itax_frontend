@@ -17,10 +17,9 @@ Each app's `.env.local` (gitignored):
 VITE_API_URL=https://api.xasanow.uz
 VITE_DEMO_MODE=false
 VITE_MAPBOX_TOKEN=pk....
-VITE_SITE_URL=https://xasanow.uz
 ```
 
-`VITE_SITE_URL`: the public site with `/terms` and `/privacy` (legal links on the login screens). `check:no-network` accepts only `https://xasanow.uz` here, as a plain link (never in `connect-src`). Empty: the legal names show without links.
+Public site links (`/terms`, `/privacy`, and `/delete-account` in the driver app) open `https://xasanow.uz` in the system browser. The default is in each app's `src/config.ts` (`SITE_URL`); `VITE_SITE_URL` overrides it. `check:no-network` accepts only this origin as a plain link, never in `connect-src`, and in sources only as the bare origin in `src/config.ts`.
 
 Release builds stop if `VITE_DEMO_MODE` is not `false` or if the test panel is found in `dist/`.
 
