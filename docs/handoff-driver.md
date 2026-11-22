@@ -2,7 +2,7 @@
 
 Changes the driver app needs outside `driver/`. Nothing here was edited by the driver terminal.
 
-## 1. Legal links: network-check exception (decided: option B, same as client)
+## 1. Legal links: network-check exception (decided: option B, same as client) — DONE in `ecb8449`
 
 Main and the selfie step link to `${VITE_SITE_URL}/terms` and `${VITE_SITE_URL}/privacy`
 (`driver/.env`: `VITE_SITE_URL=https://xasanow.uz`; `driver/src/config.ts` → `SITE_URL`). They are plain
