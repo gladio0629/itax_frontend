@@ -24,9 +24,9 @@ export function NotifyPrompt() {
   }
 
   return (
-    <section aria-labelledby="notify-h" className="rounded-card bg-surface p-4 shadow-1">
+    <section aria-labelledby="notify-h" className="rounded-card border border-line bg-surface p-4">
       <div className="flex gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-button bg-brand text-on-brand">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-tile bg-brand-soft text-brand-ink">
           <BellRing className="h-5 w-5" />
         </span>
         <div className="min-w-0">

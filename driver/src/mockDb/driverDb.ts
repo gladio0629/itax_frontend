@@ -16,6 +16,12 @@ export const DEBT_LIMIT = -50_000;
 /** Debt at or beyond this share of the limit shows the "near limit" banner. */
 export const DEBT_NEAR_RATIO = 0.7;
 export const OFFER_COUNTDOWN_SEC = 30;
+/** Sample server values for the Request countdown and the waiting timer. */
+export const OFFER_WINDOW_SEC = 45;
+export const WAIT_FREE_MIN = 5;
+export const WAIT_PRICE_PER_MIN = 500;
+/** Sample loaders fee per loader (part of the cargo price). */
+export const LOADER_FEE = 15_000;
 export const BONUS_LEVELS = [
   { key: "bronze", tripsRequired: 0, commissionPct: 10 },
   { key: "silver", tripsRequired: 20, commissionPct: 5 },

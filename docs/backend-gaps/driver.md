@@ -105,3 +105,41 @@ Notes:
   `rejected` driver state and restarts at step 1 with a notice.
 - "Bosh sahifaga" on the review screen stays disabled until the driver state is `active` (a driver under review is sent
   back to registration by the app).
+
+### Work flow: Home, Request, OrderDetail, ToPickup, Waiting, OnTrip, Finished
+
+All fields below are optional on the client: without them the screen hides that part (test panel → "Minimal server
+data" shows what the real backend gives today). Nothing is computed on the phone: no prices, waiting charges, ETAs.
+
+**Offer (`GET /api/v1/trips/offers` items, and a new `GET /api/v1/trips/offers/{id}`)** — today the app finds one offer
+by reading the list.
+- `expires_at` (ISO): end of the answer window → the Request countdown; at zero the screen closes and the list is re-read.
+- `requester`: `{ first_name, trips_count?, rating? }` shown before acceptance ("Dilnoza · 43 safar · reyting 4.9").
+  Today the contract withholds identity until acceptance; please confirm this is allowed.
+- `car_seats` (int): seats in the driver's car, for the seat picture.
+- `price_lines`: `[{ key: "trip" | "loaders" | "waiting" | "commission" | …, amount (tiyin, signed), pct? }]`; the app
+  labels known keys and shows "Sizga qoladi" from the offer's net.
+- Cargo: `freight.insured` (bool), plus the freight fields already listed above.
+
+**Trip (`GET /api/v1/trips` items, and a new `GET /api/v1/trips/{id}`)** — today one trip is found by reading the list.
+- `passenger`: `{ name, rating, call_number }`. `call_number` must be dialable (e.g. a masked-call proxy); without it
+  there is no call button (the app never dials a masked number). Same `call_number` on freight `sender` / `receiver`
+  after acceptance.
+- `eta`: `{ minutes, distance_km? }` — to the pickup (assigned) or to the next stop (in progress).
+- `waiting` (after `arrive`): `{ arrived_at, free_minutes, price_per_minute, charge?, passenger_notified? }`. The app
+  only runs the clock; the charge is the server's.
+- `progress` (in progress): `{ started_at, next_stop: Place, arrive_at, remaining_km, ratio (0..1) }`.
+- `active_trip_id` on the list: which booking the driver handles next (pickup order when several passengers share the
+  car). Without it the app takes the first item in the server's order.
+
+| Method | Path | Request | Response | Errors (key) |
+|---|---|---|---|---|
+| GET | `/api/v1/trips/{id}/summary` | — | `{ gross, commission_pct, commission, base_commission_pct?, commission_waived?, net, payment, cash_to_collect?, passenger_name?, destination?, passenger_rating? }` (tiyin) | 404 `TRIP_NOT_FOUND`. Until then Finished shows the trip price only (and the net if the trip carries it) |
+| POST | `/api/v1/trips/{id}/passenger-rating` | `{ stars: 1..5 }` | 204 | 409 `ALREADY_RATED`, 422 `stars` |
+| POST | `/api/v1/trips/{id}/sos` | `{ lat?, lng? }` | 202 | 404 `TRIP_NOT_FOUND`. The app hides "IZGO'ga signal" until this exists; the 112 call button is always there |
+
+**Home**: `today_work_min` and `week: [{ date, amount }]` (last 7 days, tiyin) for the earnings block and its mini
+chart; today they are absent and the chart is hidden.
+
+**Not built (no data source):** turn-by-turn instructions on OnTrip ("800 m, M39 bo'ylab"). The top card opens the
+phone's navigator instead (geo: / Apple Maps link, no web request).

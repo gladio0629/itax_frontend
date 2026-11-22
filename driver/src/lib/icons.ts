@@ -110,3 +110,7 @@ export const Loader2 = wrap(L.Loader2);
 export const Shield = wrap(L.Shield);
 export const ScanFace = wrap(L.ScanFace);
 export const Lock = wrap(L.Lock);
+export const ArrowUpDown = wrap(L.ArrowUpDown);
+export const ArrowUp = wrap(L.ArrowUp);
+export const Siren = wrap(L.Siren);
+export const Navigation2 = wrap(L.Navigation2);

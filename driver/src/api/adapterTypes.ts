@@ -2,7 +2,7 @@ import type {
   AcceptedPage, BonusInfo, CancelReason, CapabilitiesInput, ChatSend, DriverCapabilities,
   DriverProfile, FeedPage, FeedQuery, HelpRequest, HelpTopic, HistoryFilter, HistoryPage, HomeSummary, LedgerPage, LedgerQuery,
   NotificationItem, NotificationPrefs, PayProvider, RegistrationOptions, RequestAlert, ReviewRequest, RoutesPage, Session,
-  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, DocSlot,
+  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, DocSlot, Booking, RideRequest,
   CarInput, LicenseInput, PersonalInput, RegistrationReview, SelfieInput,
 } from "./types";
 
@@ -44,6 +44,10 @@ export type ApiCapabilities = {
   notificationCategories: boolean;
   /** GPS reporting while the feed is open or a trip is active. */
   locationReporting: boolean;
+  /** The driver rates the passenger after the trip. */
+  ratePassenger: boolean;
+  /** SOS signal to IZGO from a trip. */
+  sos: boolean;
 };
 
 /** Server-pushed events (WebSocket), already reduced to what screens refresh on.
@@ -115,6 +119,14 @@ export interface ApiAdapter {
 
   // Accepted requests (bookings) and their trip steps
   getAccepted(): Promise<AcceptedPage>;
+  /** One request (Request / OrderDetail screens). Rejects with REQUEST_NOT_FOUND when it is gone. */
+  getRequest(requestId: string): Promise<RideRequest>;
+  /** One accepted booking (trip screens). Rejects with TRIP_NOT_FOUND when it is no longer active. */
+  getBooking(bookingId: string): Promise<Booking>;
+  /** After the trip: the driver's 1–5 rating of the passenger. */
+  ratePassenger(bookingId: string, stars: number): Promise<void>;
+  /** SOS from a trip: IZGO operators are alerted. */
+  sendSos(bookingId: string): Promise<void>;
   advanceBooking(bookingId: string): Promise<ReviewRequest>;
   getCancelReasons(): Promise<CancelReason[]>;
   cancelBooking(bookingId: string, reasonKey: string): Promise<void>;

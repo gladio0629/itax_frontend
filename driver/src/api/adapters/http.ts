@@ -88,6 +88,9 @@ const capabilities: ApiCapabilities = {
   ledgerFilters: false,
   notificationCategories: false,
   locationReporting: true,
+  // No endpoints yet (docs/backend-gaps/driver.md, "Redesign v2").
+  ratePassenger: false,
+  sos: false,
 };
 
 // ------------------------------------------------------ settled "reviews"
@@ -684,6 +687,22 @@ export const httpAdapter: ApiAdapter = {
     summaryCache = null;
   },
   getTripSummary: notSupported,
+
+  // No single-item GETs: read the list the screens already use and pick the item.
+  async getRequest(requestId) {
+    const page = await httpAdapter.getFeed({ direction: "all", date: "today", type: "all" });
+    const r = page.items.find((x) => x.id === requestId);
+    if (!r) throw new ApiError("REQUEST_NOT_FOUND");
+    return r;
+  },
+  async getBooking(bookingId) {
+    const page = await httpAdapter.getAccepted();
+    const b = page.days.flatMap((d) => d.trips.flatMap((tr) => tr.bookings)).find((x) => x.id === bookingId);
+    if (!b) throw new ApiError("TRIP_NOT_FOUND");
+    return b;
+  },
+  ratePassenger: notSupported,
+  sendSos: notSupported,
   getTripChat: notSupported,
   sendTripMessage: notSupported,
 

@@ -24,6 +24,9 @@ const NotificationPrefsScreen = lazy(() => import("@/features/profile/Notificati
 const HelpScreen = lazy(() => import("@/features/profile/HelpScreen"));
 const AboutScreen = lazy(() => import("@/features/profile/AboutScreen"));
 const TripChatScreen = lazy(() => import("@/features/chat/TripChatScreen"));
+const RequestScreen = lazy(() => import("@/features/request/RequestScreen"));
+const TripScreen = lazy(() => import("@/features/trip/TripScreen"));
+const FinishedScreen = lazy(() => import("@/features/trip/FinishedScreen"));
 // Test panel: sample-data mode only. DEMO_MODE is a build-time constant, so
 // in the http build this branch (and the chunk it imports) is dropped.
 const TestPanelScreen = DEMO_MODE ? lazy(() => import("@/features/testPanel/TestPanelScreen")) : null;
@@ -47,6 +50,9 @@ export function AppRoutes() {
       <Route element={<AppShell />}>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/trip/chat/:bookingId" element={when(c.tripChat, <TripChatScreen />, "chat.title", true)} />
+        <Route path="/request/:id" element={<RequestScreen />} />
+        <Route path="/trip/:id" element={<TripScreen />} />
+        <Route path="/trip/:id/done" element={<FinishedScreen />} />
         <Route path="/history" element={when(c.history, <HistoryScreen />, "orders.title")} />
         <Route path="/history/:tripId" element={when(c.history, <TripDetailScreen />, "detail.title", "/history")} />
         {/* Old "Buyurtmalar" links. */}

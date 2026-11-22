@@ -55,36 +55,34 @@ export function RequestBanner() {
   }, []);
 
   function detailFor(a: RequestAlert) {
-    const what = a.kind === "delivery" ? t("feed.kind.cargo") : a.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: a.seats });
+    const what = a.kind === "delivery" ? t("feed.kind.delivery") : a.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: a.seats });
     return `${what} · ${formatAmount(a.price)} ${t("common.som")}`;
   }
   const lineFor = (a: RequestAlert) => `${a.from} → ${a.to} · ${detailFor(a)}`;
 
+  // Opens the request itself ("Yangi so'rov" with the countdown / "Dostavka so'rovi").
   function open(a: RequestAlert) {
     setAlert(null);
-    const date = a.dayOffset === 0 ? "today" : a.dayOffset === 1 ? "tomorrow" : a.date;
-    const p = new URLSearchParams({ request: a.requestId });
-    if (date !== "today") p.set("date", date);
-    navigate(`/?${p.toString()}`);
+    navigate(`/request/${a.requestId}`);
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-3 z-[55]" style={{ top: `calc(var(--safe-top) + ${8 + toasts * 68}px)`, transition: "top 200ms" }} role="status" aria-live="polite">
+    <div className="pointer-events-none absolute inset-x-5 z-[55]" style={{ top: `calc(var(--safe-top) + ${8 + toasts * 68}px)`, transition: "top 200ms" }} role="status" aria-live="polite">
       {alert && (
-        <div key={alert.id} className="pointer-events-auto flex animate-fade-up items-stretch overflow-hidden rounded-card bg-surface shadow-2 ring-1 ring-brand/40">
-          <button type="button" onClick={() => open(alert)} className="press focus-inset flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-button bg-brand text-on-brand">
+        <div key={alert.id} className="on-night pointer-events-auto flex animate-fade-up items-stretch overflow-hidden rounded-card bg-night text-white shadow-float">
+          <button type="button" onClick={() => open(alert)} className="press focus-inset flex min-w-0 flex-1 items-center gap-3.5 py-3.5 pl-4 text-left">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile bg-brand text-on-brand">
               <BellRing className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-bold text-ink">{t("banner.request.title")}</span>
-              <span className="block truncate text-sm font-medium text-ink">
+              <span className="block text-15 font-extrabold">{t("banner.request.title")}</span>
+              <span className="block truncate text-13 font-semibold">
                 {alert.from} → {alert.to}
               </span>
-              <span className="tabular block truncate text-sm text-muted">{detailFor(alert)}</span>
+              <span className="tabular block truncate text-13 text-night-muted">{detailFor(alert)}</span>
             </span>
           </button>
-          <button type="button" onClick={() => setAlert(null)} aria-label={t("common.close")} className="press flex w-12 shrink-0 items-center justify-center text-muted">
+          <button type="button" onClick={() => setAlert(null)} aria-label={t("common.close")} className="press flex w-12 shrink-0 items-center justify-center text-night-muted">
             <X className="h-5 w-5" />
           </button>
         </div>

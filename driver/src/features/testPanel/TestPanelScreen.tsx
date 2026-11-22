@@ -91,6 +91,13 @@ export default function TestPanelScreen() {
             trailing={<Switch checked={network.slowInternet} onChange={() => toggle("slowInternet")} label={tp("slow")} />}
           />
           <SettingsRow
+            icon={LayoutGrid}
+            tile="slate"
+            label={tp("minimal")}
+            description={tp("minimalHint")}
+            trailing={<Switch checked={network.minimalData} onChange={() => toggle("minimalData")} label={tp("minimal")} />}
+          />
+          <SettingsRow
             icon={AlertTriangle}
             tile="red"
             label={tp("errors")}

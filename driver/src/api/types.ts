@@ -40,7 +40,8 @@ export type ContactMode = "call" | "text";
 export type DeliveryTab = "dostavka" | "kargo";
 /** Cargo body size, S–3XL (same scale as the client's vehicle picker). Dimensions in cm. */
 export type CargoBody = { sizeLabel: string; dimensionsCm: { width: number; depth: number; height: number }; maxWeightKg: number };
-export type Contact = { name: string; phoneMasked: string };
+/** `callNumber`: dialable (server, after acceptance); without it no call button. */
+export type Contact = { name: string; phoneMasked: string; callNumber?: string };
 export type FreightBilling = { mode: "hourly"; hours: number } | { mode: "route" };
 /** Cargo-order details. Drop-offs are the order's `stops` plus its final `dropoff`. */
 export type Freight = {
@@ -52,6 +53,8 @@ export type Freight = {
   receiver: Contact;
   /** The cargo owner rides along in the vehicle. */
   rideAlong: boolean;
+  /** The cargo is insured (server). */
+  insured?: boolean;
 };
 
 /** Order details shared by the incoming offer and the active trip. */
@@ -157,13 +160,21 @@ export type HomeSummary = {
   newRequests: number;
   /** A trip was accepted and isn't finished yet (drives GPS reporting). */
   tripActive?: boolean;
+  /** Minutes worked today (server). */
+  todayWorkMin?: number;
+  /** Earnings of the last 7 days, oldest first (the mini chart). */
+  week?: { date: string; amount: number }[];
 };
 
 export type TripStage = "to_pickup" | "waiting" | "in_progress" | "completed";
 export type TripStep = { stage: TripStage; state: "done" | "active" | "upcoming" };
 export type TripAction = "arrived" | "start" | "finish";
 
-export type PassengerInfo = { name: string; rating: number; phoneMasked: string; avatarSeed: string };
+/** `callNumber`: a dialable number from the server (e.g. a masked-call proxy); without it there is no call button. */
+export type PassengerInfo = { name: string; rating: number; phoneMasked: string; avatarSeed: string; callNumber?: string };
+
+/** One line of the price breakdown, as the server computed it. Label: `price.<key>` (unknown keys show the amount only). */
+export type PriceLine = { key: string; amount: number; pct?: number };
 
 /** When the passenger wants to go: a set time, a window, or "Istagan paytda". Times are epoch ms. */
 export type RideTime = { kind: "exact"; at: number } | { kind: "interval"; from: number; to: number } | { kind: "any" };
@@ -208,6 +219,14 @@ export type RideRequest = OrderExtras<OfferPlace> & {
   /** "taken": another driver got it — shown briefly, then the adapter drops it. */
   status: "open" | "taken";
   acceptBlock: AcceptBlock | null;
+  /** When the offer window closes (server); the Request screen counts down to it. Absent: no countdown. */
+  expiresAt?: number;
+  /** Who is asking, when the server shares it before acceptance. */
+  requester?: { name: string; tripsCount?: number; rating?: number };
+  /** Seats in the driver's car, for the seat picture (server). */
+  carSeats?: number;
+  /** The server's price breakdown (trip, loaders, commission…). */
+  priceLines?: PriceLine[];
 };
 
 export type FeedDate = "today" | "tomorrow" | string;
@@ -248,12 +267,19 @@ export type Booking = OrderExtras<TripPlace> & {
   earnings?: { net: number; commissionPct?: number };
   payment?: PaymentType;
   acceptedAt: number;
+  /** To the pickup (to_pickup) or the next stop (in_progress), when the server says. */
+  eta?: { minutes: number; distanceKm?: number };
+  /** Waiting at the pickup: free minutes, then a per-minute price — all from the server. */
+  waiting?: { arrivedAt: number; freeMinutes: number; pricePerMinute: number; charge?: number; passengerNotified?: boolean };
+  /** On the way: next stop, arrival time and distance left (server). `ratio`: 0..1 of the route driven. */
+  progress?: { startedAt?: number; nextStop?: TripPlace; arriveAt?: number; remainingKm?: number; ratio?: number };
 };
 /** seats.total 0 = unknown (not shown). */
 export type BookingTrip = { direction: Direction; seats: { used: number; total: number }; bookings: Booking[] };
 /** `undated`: the server gave no trip date; the day heading is hidden. */
 export type BookingDay = { date: string; dayOffset: number; dayStart: number; trips: BookingTrip[]; undated?: boolean };
-export type AcceptedPage = { days: BookingDay[]; count: number };
+/** `activeBookingId`: the booking the driver handles next (server order). */
+export type AcceptedPage = { days: BookingDay[]; count: number; activeBookingId?: string };
 
 /** In-app banner / system notification for a new request. Minimal on purpose: no names or phones. */
 export type RequestAlert = { id: string; requestId: string; from: string; to: string; kind: OrderKind; seats: number; wholeCar: boolean; price: number; dayOffset: number; date: string };
@@ -289,6 +315,13 @@ export type TripSummary = {
   net: number;
   ratingReceived: number | null;
   payment: PaymentType;
+  /** Cash the driver collects from the passenger (server). */
+  cashToCollect?: number;
+  passengerName?: string;
+  /** Destination city name, for "Safar tugadi · Samarqand". */
+  destination?: string;
+  /** The driver already rated this passenger. */
+  passengerRating?: number | null;
 };
 
 export type HistoryRange = "all" | "today" | "week" | "month";

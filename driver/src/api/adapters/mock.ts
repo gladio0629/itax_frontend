@@ -3,10 +3,11 @@
 // levels, filtering, pagination). Screens never compute any of this.
 import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
+import { getTestNetwork } from "@/stores/testControlsStore";
 import {
   BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_BRANDS, CAR_COLORS, DEBT_LIMIT, DEBT_NEAR_RATIO, LICENSE_CATEGORIES, REVIEW_ETA_MIN,
   CHILD_SEAT_AGES, DEFAULT_CAPABILITIES, TIP_AMOUNTS, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor,
-  levelFor, passengers, persist, presetState, pushNotification, replaceState, state, weekTrips,
+  levelFor, LOADER_FEE, OFFER_WINDOW_SEC, passengers, persist, WAIT_FREE_MIN, WAIT_PRICE_PER_MIN, presetState, pushNotification, replaceState, state, weekTrips,
   type BookingRecord, type DetailsRecord, type DriverState, type RequestRecord, type StopRecord, type TripRecord, type WhenRecord,
 } from "@/mockDb/driverDb";
 import { makeRng } from "@/lib/prng";
@@ -127,13 +128,26 @@ function homeSummary(s: DriverState): HomeSummary {
     bonusActive: commissionPctNow(s) < BASE_COMMISSION_PCT,
     // Muting "Yangi buyurtmalar" silences the badge too.
     newRequests: s.prefs.master && s.prefs.newOrders ? s.requests.filter((r) => r.postedAt > s.feedSeenAt && isVisible(s, r, now) && !isTaken(r, now)).length : 0,
+    ...(lean()
+      ? {}
+      : {
+          // Sample: time on today's trips, and the last seven days' earnings.
+          todayWorkMin: Math.min(today.reduce((sum, t) => sum + t.durationMin, 0), Math.floor((now - startOfToday()) / 60_000)),
+          week: Array.from({ length: 7 }, (_, i) => {
+            const start = dayStartAt(i - 6);
+            const end = start + DAY;
+            const amount = s.trips.filter((t) => t.status === "completed" && endedAt(t) >= start && endedAt(t) < end).reduce((sum, t) => sum + t.net, 0);
+            return { date: isoDate(start), amount };
+          }),
+        }),
   };
 }
 
 function passengerInfo(id: string): PassengerInfo {
   const p = passengers.find((x) => x.id === id) ?? passengers[0];
   const tail = p.phoneMasked.slice(-2);
-  return { name: p.name, rating: p.rating, phoneMasked: `+998 ** *** ** ${tail}`, avatarSeed: p.avatarSeed };
+  // Sample data: a placeholder dialable number (the real one would be a masked-call proxy from the server).
+  return { name: p.name, rating: p.rating, phoneMasked: `+998 ** *** ** ${tail}`, avatarSeed: p.avatarSeed, callNumber: "+998000000000" };
 }
 
 /** Before acceptance the intercom code is withheld — only its existence is shown. */
@@ -197,8 +211,8 @@ function extras<P extends Place>(o: RequestRecord, place: (cityId: string, addre
       ? {
           ...f,
           body: { ...f.body },
-          sender: accepted ? { ...f.sender } : { name: f.sender.name.split(" ")[0], phoneMasked: "" },
-          receiver: accepted ? { ...f.receiver } : { name: f.receiver.name.split(" ")[0], phoneMasked: "" },
+          sender: accepted ? { ...f.sender, callNumber: "+998000000000" } : { name: f.sender.name.split(" ")[0], phoneMasked: "" },
+          receiver: accepted ? { ...f.receiver, callNumber: "+998000000000" } : { name: f.receiver.name.split(" ")[0], phoneMasked: "" },
         }
       : null,
   };
@@ -363,6 +377,10 @@ function acceptBlockFor(s: DriverState, r: RequestRecord, exceptReviewId?: strin
 }
 
 function toRequest(s: DriverState, r: RequestRecord, now: number): RideRequest {
+  return leanRequest(fullRequest(s, r, now));
+}
+
+function fullRequest(s: DriverState, r: RequestRecord, now: number): RideRequest {
   const pending = pendingAccepts(s).some((rv) => rv.payload?.requestId === r.id);
   return {
     ...extras(r, offerPlace, false),
@@ -385,7 +403,44 @@ function toRequest(s: DriverState, r: RequestRecord, now: number): RideRequest {
     status: isTaken(r, now) ? "taken" : "open",
     // While this driver's own accept is under review the card shows progress, not a block.
     acceptBlock: pending ? null : acceptBlockFor(s, r),
+    // A fresh offer has a short window to answer; older ones stay in the feed without a countdown.
+    expiresAt: r.postedAt + OFFER_WINDOW_SEC * 1000 > now ? r.postedAt + OFFER_WINDOW_SEC * 1000 : undefined,
+    requester: requesterOf(r.passengerId),
+    carSeats: SEATS_TOTAL,
+    priceLines: priceLinesOf(s, r),
   };
+}
+
+// ---------- "minimal server data" (test panel): what the real backend sends today ----------
+
+const lean = () => getTestNetwork().minimalData;
+function leanRequest(r: RideRequest): RideRequest {
+  if (!lean()) return r;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { expiresAt, requester, carSeats, priceLines, when, pickupDistanceKm, ...rest } = r;
+  return { ...rest, earnings: { net: r.earnings.net } };
+}
+function leanBooking(b: Booking): Booking {
+  if (!lean()) return b;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { passenger, when, earnings, eta, waiting, progress, ...rest } = b;
+  return rest;
+}
+
+function requesterOf(id: string) {
+  const p = passengers.find((x) => x.id === id) ?? passengers[0];
+  return { name: p.name.split(" ")[0], tripsCount: p.totalTrips, rating: p.rating };
+}
+
+/** Sample server breakdown: trip (+ loaders for cargo), then commission. */
+function priceLinesOf(s: DriverState, r: { price: number; freight: RequestRecord["freight"] }) {
+  const { net, commissionPct } = earningsOf(s, r.price);
+  const loaders = r.freight ? r.freight.loaders * LOADER_FEE : 0;
+  return [
+    { key: "trip", amount: r.price - loaders },
+    ...(loaders ? [{ key: "loaders", amount: loaders }] : []),
+    { key: "commission", amount: net - r.price, pct: commissionPct },
+  ];
 }
 
 function flatDetails(withIntercom: boolean): DetailsRecord {
@@ -507,6 +562,7 @@ function makeRequest(s: DriverState, opts: MakeOpts = {}): RequestRecord | null 
       sender: { name: sender.name, phoneMasked: passengerInfo(sender.id).phoneMasked },
       receiver: { name: receiver.name, phoneMasked: passengerInfo(receiver.id).phoneMasked },
       rideAlong: demo || rand.bool(0.3),
+      insured: demo || rand.bool(0.5),
     },
   };
 }
@@ -614,6 +670,10 @@ function feedPage(s: DriverState, q: FeedQuery): FeedPage {
 // ---------- bookings (accepted requests) ----------
 
 function toBooking(s: DriverState, b: BookingRecord): Booking {
+  return leanBooking(fullBooking(s, b));
+}
+
+function fullBooking(s: DriverState, b: BookingRecord): Booking {
   return {
     ...extras(b, tripPlace, true),
     id: b.id,
@@ -634,7 +694,34 @@ function toBooking(s: DriverState, b: BookingRecord): Booking {
     earnings: earningsOf(s, b.price),
     payment: b.payment,
     acceptedAt: b.acceptedAt,
+    ...liveOf(b, Date.now()),
   };
+}
+
+/** Sample server trip data: ETA to the pickup, the waiting clock and charge, progress on the way. */
+function liveOf(b: BookingRecord, now: number): Pick<Booking, "eta" | "waiting" | "progress"> {
+  if (b.stage === "to_pickup") {
+    const km = b.pickupDistanceKm ?? 3;
+    return { eta: { minutes: Math.max(1, Math.round(km * 2.4)), distanceKm: km } };
+  }
+  if (b.stage === "waiting") {
+    const over = Math.max(0, Math.ceil((now - b.stageStartedAt) / 60_000) - WAIT_FREE_MIN);
+    return { waiting: { arrivedAt: b.stageStartedAt, freeMinutes: WAIT_FREE_MIN, pricePerMinute: WAIT_PRICE_PER_MIN, charge: over * WAIT_PRICE_PER_MIN, passengerNotified: true } };
+  }
+  const total = Math.max(1, b.durationMin) * 60_000;
+  const ratio = Math.min(1, Math.max(0, (now - b.stageStartedAt) / total));
+  const next = b.stops[0] ? tripPlace(b.stops[0].cityId, b.stops[0].address, b.stops[0].details) : tripPlace(b.toCityId, b.dropoffAddr, b.dropoffDetails);
+  return {
+    progress: { startedAt: b.stageStartedAt, nextStop: next, arriveAt: b.stageStartedAt + total, remainingKm: Math.round(b.distanceKm * (1 - ratio)), ratio },
+    eta: { minutes: Math.round((total * (1 - ratio)) / 60_000), distanceKm: Math.round(b.distanceKm * (1 - ratio)) },
+  };
+}
+
+const ACTIVE_RANK = { waiting: 0, to_pickup: 1, in_progress: 2 } as const;
+/** Sample server order: the earliest day first, then whoever waits, then the next pickup, then the drop-offs. */
+function activeBookingOf(s: DriverState): string | undefined {
+  const sorted = [...s.bookings].sort((a, b) => a.when.dayStart - b.when.dayStart || ACTIVE_RANK[a.stage] - ACTIVE_RANK[b.stage] || startOf(a) - startOf(b));
+  return sorted[0]?.id;
 }
 
 function bookingFrom(r: RequestRecord, now: number): BookingRecord {
@@ -663,7 +750,7 @@ function acceptedPage(s: DriverState): AcceptedPage {
     }
     trip.bookings.push(toBooking(s, b));
   }
-  return { days: [...days.values()], count: s.bookings.length };
+  return { days: [...days.values()], count: s.bookings.length, activeBookingId: activeBookingOf(s) };
 }
 
 function tripRecordOf(b: BookingRecord, patch: Partial<TripRecord>): TripRecord {
@@ -700,6 +787,10 @@ function finishBooking(s: DriverState, b: BookingRecord): TripSummary {
     net: record.net,
     ratingReceived: rating,
     payment: b.payment,
+    cashToCollect: b.payment === "cash" ? b.price : undefined,
+    passengerName: passengerInfo(b.passengerId).name.split(" ")[0],
+    destination: cityName(b.toCityId),
+    passengerRating: null,
   };
   s.summaries = { ...Object.fromEntries(Object.entries(s.summaries).slice(-4)), [b.id]: summary };
   s.bookings = s.bookings.filter((x) => x.id !== b.id);
@@ -908,6 +999,8 @@ export const mockAdapter: ApiAdapter = {
     notificationCategories: true,
     // Sample data has no server to report GPS to.
     locationReporting: false,
+    ratePassenger: true,
+    sos: true,
   },
   subscribe: () => noop,
   onSessionEnd: () => noop,
@@ -1216,8 +1309,40 @@ export const mockAdapter: ApiAdapter = {
     withLatency(() => {
       const sum = state().summaries[bookingId];
       if (!sum) throw new ApiError("TRIP_NOT_FOUND");
+      if (lean()) throw new ApiError("NOT_SUPPORTED");
       return sum;
     }, { noFail: true }),
+
+  getRequest: (requestId) =>
+    withLatency(() => {
+      const s = state();
+      requireActive(s);
+      const now = Date.now();
+      const r = s.requests.find((x) => x.id === requestId);
+      if (!r || !isVisible(s, r, now)) throw new ApiError("REQUEST_NOT_FOUND");
+      return toRequest(s, r, now);
+    }, { minMs: 80, maxMs: 200 }),
+
+  getBooking: (bookingId) =>
+    withLatency(() => {
+      const s = state();
+      requireActive(s);
+      settleReviews(s);
+      const b = s.bookings.find((x) => x.id === bookingId);
+      if (!b) throw new ApiError("TRIP_NOT_FOUND");
+      return toBooking(s, b);
+    }, { minMs: 80, maxMs: 200 }),
+
+  ratePassenger: (bookingId, stars) =>
+    withLatency(() => {
+      const s = state();
+      if (!Number.isInteger(stars) || stars < 1 || stars > 5) throw new ApiError("VALUE_REQUIRED");
+      const sum = s.summaries[bookingId];
+      if (sum) s.summaries[bookingId] = { ...sum, passengerRating: stars };
+      persist();
+    }),
+
+  sendSos: () => withLatency(() => undefined, { minMs: 300, maxMs: 600, noFail: true }),
 
   getTripChat: (bookingId) =>
     withLatency(() => {
