@@ -644,6 +644,16 @@ export const uz = {
   "driver.message": "Xabar yozish",
   "driver.callUnavailable": "Qo'ng'iroq qilish hozircha mavjud emas",
   "driver.messageUnavailable": "Xabar yuborish hozircha mavjud emas",
+
+  // Design v2: shared states
+  "state.loading": "Yuklanmoqda",
+  "state.error.title": "Ma'lumot yuklanmadi",
+  "state.error.desc": "Serverda xatolik bo'ldi. Birozdan keyin qayta urinib ko'ring.",
+  "state.error.help": "Yordamga yozish",
+  "state.offline.banner": "Internet yo'q",
+  "state.offline.bannerDesc": "Ulanish tiklanishi bilan davom etamiz",
+  "state.offline.title": "Tarmoqqa ulanmagansiz",
+  "state.offline.desc": "Mobil internet yoki Wi-Fi ni tekshiring. Buyurtma ma'lumotlaringiz saqlanib qoladi.",
 };
 
 export type Dictionary = typeof uz;

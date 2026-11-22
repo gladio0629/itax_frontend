@@ -643,4 +643,14 @@ export const ru: Dictionary = {
   "driver.message": "Написать сообщение",
   "driver.callUnavailable": "Звонок пока недоступен",
   "driver.messageUnavailable": "Сообщения пока недоступны",
+
+  // Design v2: shared states
+  "state.loading": "Загрузка",
+  "state.error.title": "Данные не загрузились",
+  "state.error.desc": "На сервере произошла ошибка. Попробуйте ещё раз чуть позже.",
+  "state.error.help": "Написать в поддержку",
+  "state.offline.banner": "Нет интернета",
+  "state.offline.bannerDesc": "Продолжим, как только связь восстановится",
+  "state.offline.title": "Вы не подключены к сети",
+  "state.offline.desc": "Проверьте мобильный интернет или Wi-Fi. Данные заказа сохранятся.",
 };

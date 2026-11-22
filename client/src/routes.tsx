@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, createBrowserRouter, createRoutesFromElements, Route } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { RootLayout } from "./App";
@@ -23,6 +24,9 @@ import { AboutScreen } from "@/features/settings/AboutScreen";
 import { SafetySettingsScreen } from "@/features/settings/SafetySettingsScreen";
 import { HelpScreen } from "@/features/help/HelpScreen";
 
+// Design v2 kit gallery: dev server only (tree-shaken from every build).
+const UiGallery = import.meta.env.DEV ? lazy(() => import("@/dev/UiGallery")) : null;
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   if (!isAuthenticated) return <Navigate to="/auth/phone" replace />;
@@ -47,6 +51,16 @@ export const router = createBrowserRouter(
       <Route path="/onboarding" element={<OnboardingScreen />} />
       <Route path="/auth/phone" element={<PhoneScreen />} />
       <Route path="/auth/otp" element={<OtpScreen />} />
+      {UiGallery && (
+        <Route
+          path="/dev/ui"
+          element={
+            <Suspense fallback={null}>
+              <UiGallery />
+            </Suspense>
+          }
+        />
+      )}
 
       <Route
         element={

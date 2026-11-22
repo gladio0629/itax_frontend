@@ -643,4 +643,14 @@ export const en: Dictionary = {
   "driver.message": "Message",
   "driver.callUnavailable": "Calling isn't available yet",
   "driver.messageUnavailable": "Messaging isn't available yet",
+
+  // Design v2: shared states
+  "state.loading": "Loading",
+  "state.error.title": "Couldn't load data",
+  "state.error.desc": "Something went wrong on the server. Please try again in a moment.",
+  "state.error.help": "Contact support",
+  "state.offline.banner": "No internet",
+  "state.offline.bannerDesc": "We'll continue once you're back online",
+  "state.offline.title": "You're offline",
+  "state.offline.desc": "Check mobile data or Wi-Fi. Your order details are kept.",
 };
