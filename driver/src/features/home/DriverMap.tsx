@@ -77,14 +77,14 @@ export const DriverMap = memo(function DriverMap({ label }: { label: string }) {
       {/* Waiting passengers: small and quiet. */}
       {PASSENGERS.map((p, i) => (
         <span key={i} aria-hidden="true" className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
-          <span className="absolute inset-0 rounded-full bg-accent/30" />
-          <span className="absolute inset-[3px] rounded-full bg-accent" />
+          <span className="absolute inset-0 rounded-full bg-brand-ink/30" />
+          <span className="absolute inset-[3px] rounded-full bg-brand-ink" />
         </span>
       ))}
 
       {/* Driver: a static marker — no status, no radar. */}
       <span aria-hidden="true" className="absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-2" style={{ left: "50%", top: "46%" }}>
-        <span className="absolute inset-[5px] rounded-full bg-yellow" />
+        <span className="absolute inset-[5px] rounded-full bg-brand" />
       </span>
     </div>
   );

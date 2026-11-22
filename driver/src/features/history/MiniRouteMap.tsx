@@ -9,9 +9,9 @@ export function MiniRouteMap({ pickup, dropoff, label }: { pickup: Place; dropof
           [0, 1, 2].map((r) => <rect key={`${c}-${r}`} x={6 + c * 50} y={6 + r * 48} width={42} height={40} rx={4} fill="var(--map-block)" />)
         )}
         <path d="M44 106 C 120 120, 150 30, 296 40" stroke="var(--map-major)" strokeWidth="10" fill="none" strokeLinecap="round" />
-        <path d="M44 106 C 120 120, 150 30, 296 40" stroke="var(--color-yellow)" strokeWidth="4" fill="none" strokeLinecap="round" />
-        <circle cx="44" cy="106" r="9" fill="var(--color-yellow)" stroke="var(--color-surface)" strokeWidth="3" />
-        <circle cx="296" cy="40" r="9" fill="rgb(var(--color-text-rgb))" stroke="var(--color-surface)" strokeWidth="3" />
+        <path d="M44 106 C 120 120, 150 30, 296 40" stroke="rgb(var(--color-brand-rgb))" strokeWidth="4" fill="none" strokeLinecap="round" />
+        <circle cx="44" cy="106" r="9" fill="rgb(var(--color-brand-rgb))" stroke="rgb(var(--color-surface-rgb))" strokeWidth="3" />
+        <circle cx="296" cy="40" r="9" fill="rgb(var(--color-text-rgb))" stroke="rgb(var(--color-surface-rgb))" strokeWidth="3" />
       </svg>
       <span className="absolute bottom-3 left-3 rounded-button bg-surface/90 px-2.5 py-1 text-xs font-medium text-ink shadow-1">{pickup.city.name}</span>
       <span className="absolute right-3 top-3 rounded-button bg-surface/90 px-2.5 py-1 text-xs font-medium text-ink shadow-1">{dropoff.city.name}</span>

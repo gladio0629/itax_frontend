@@ -71,9 +71,9 @@ export function RequestBanner() {
   return (
     <div className="pointer-events-none absolute inset-x-3 z-[55]" style={{ top: `calc(var(--safe-top) + ${8 + toasts * 68}px)`, transition: "top 200ms" }} role="status" aria-live="polite">
       {alert && (
-        <div key={alert.id} className="pointer-events-auto flex animate-fade-up items-stretch overflow-hidden rounded-card bg-surface shadow-2 ring-1 ring-yellow/40">
+        <div key={alert.id} className="pointer-events-auto flex animate-fade-up items-stretch overflow-hidden rounded-card bg-surface shadow-2 ring-1 ring-brand/40">
           <button type="button" onClick={() => open(alert)} className="press focus-inset flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-button bg-yellow text-on-yellow">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-button bg-brand text-on-brand">
               <BellRing className="h-5 w-5" />
             </span>
             <span className="min-w-0">

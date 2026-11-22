@@ -30,10 +30,10 @@ export function CancelSheet({ open, onClose, onConfirm, busy }: { open: boolean;
                 }}
                 className={cn(
                   "press flex h-14 w-full items-center gap-3 rounded-button px-4 text-left text-base",
-                  choice === r.key ? "bg-yellow/15 text-ink ring-2 ring-inset ring-yellow" : "bg-raised text-ink"
+                  choice === r.key ? "bg-brand/15 text-ink ring-2 ring-inset ring-brand" : "bg-raised text-ink"
                 )}
               >
-                <span className={cn("h-5 w-5 shrink-0 rounded-full border-2", choice === r.key ? "border-yellow bg-yellow shadow-[inset_0_0_0_3px_var(--color-surface)]" : "border-ink/30")} />
+                <span className={cn("h-5 w-5 shrink-0 rounded-full border-2", choice === r.key ? "border-brand bg-brand shadow-[inset_0_0_0_3px_rgb(var(--color-surface-rgb))]" : "border-ink/30")} />
                 {isKey(r.key) ? t(r.key) : r.key}
               </button>
             ))

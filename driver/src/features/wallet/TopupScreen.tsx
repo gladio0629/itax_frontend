@@ -62,7 +62,7 @@ export default function TopupScreen() {
               <Check className="h-9 w-9" />
             </span>
             <p className="text-xl font-bold text-ink">{t("topup.done")}</p>
-            <Money value={amount} signed className="mt-2 text-3xl font-bold text-gold" />
+            <Money value={amount} signed className="mt-2 text-3xl font-bold text-brand-ink" />
             {wallet.data && <p className="tabular mt-3 text-sm text-muted">{t("topup.balanceNow", { amount: `${formatAmount(wallet.data.balance)} ${t("common.som")}` })}</p>}
             <Button size="lg" fullWidth className="mt-8" onClick={() => navigate("/wallet", { replace: true })}>
               {t("topup.back")}
@@ -119,11 +119,11 @@ export default function TopupScreen() {
                   role="radio"
                   aria-checked={provider === p}
                   onClick={() => setProvider(p)}
-                  className={cn("press flex h-16 w-full items-center gap-3 rounded-card bg-surface px-4 text-left shadow-1", provider === p && "ring-2 ring-inset ring-yellow")}
+                  className={cn("press flex h-16 w-full items-center gap-3 rounded-card bg-surface px-4 text-left shadow-1", provider === p && "ring-2 ring-inset ring-brand")}
                 >
                   <ProviderTile provider={p} />
                   <span className="flex-1 text-base font-bold text-ink">{providerName(p)}</span>
-                  <span className={cn("flex h-6 w-6 items-center justify-center rounded-full border-2", provider === p ? "border-yellow bg-yellow text-on-yellow" : "border-ink/30")}>
+                  <span className={cn("flex h-6 w-6 items-center justify-center rounded-full border-2", provider === p ? "border-brand bg-brand text-on-brand" : "border-ink/30")}>
                     {provider === p && <Check className="h-4 w-4" />}
                   </span>
                 </button>

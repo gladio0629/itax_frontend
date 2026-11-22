@@ -64,7 +64,7 @@ export function SwipeTabs({ tabs, index, onIndexChange, label }: { tabs: Tab[]; 
         <span
           ref={bar}
           aria-hidden="true"
-          className="absolute bottom-[-1px] left-0 h-[3px] rounded-full bg-yellow"
+          className="absolute bottom-[-1px] left-0 h-[3px] rounded-full bg-brand"
           style={{ width: `${100 / tabs.length}%`, transform: `translateX(${index * 100}%)` }}
         />
       </div>

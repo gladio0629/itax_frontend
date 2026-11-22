@@ -11,7 +11,7 @@ export function Stars({ value, size = 16, showValue = true, className }: { value
           <Star
             key={i}
             style={{ width: size, height: size }}
-            className={i < full ? "fill-yellow text-yellow" : "fill-transparent text-ink/25"}
+            className={i < full ? "fill-brand text-brand" : "fill-transparent text-ink/25"}
           />
         ))}
       </span>

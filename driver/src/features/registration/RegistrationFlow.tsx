@@ -58,7 +58,7 @@ export default function RegistrationFlow() {
               <li key={k} aria-current={state === "active" ? "step" : undefined}>
                 <span className="relative block h-1.5 overflow-hidden rounded-full bg-ink/10">
                   <span
-                    className="absolute inset-0 origin-left bg-yellow transition-transform duration-[280ms]"
+                    className="absolute inset-0 origin-left bg-brand transition-transform duration-[280ms]"
                     style={{ transform: `scaleX(${state === "todo" ? 0 : state === "active" ? 0.5 : 1})` }}
                   />
                 </span>
@@ -256,7 +256,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
               className={cn(
                 CODE_MAX > 4 ? "w-11" : "w-14",
                 "tabular h-16 rounded-button bg-raised text-center text-2xl font-bold text-ink outline-none focus-visible:outline-none focus:ring-2 focus:ring-inset",
-                error ? "ring-2 ring-inset ring-danger" : "focus:ring-yellow"
+                error ? "ring-2 ring-inset ring-danger" : "focus:ring-brand"
               )}
             />
           ))}
@@ -266,7 +266,7 @@ function PhoneStep({ onVerified }: { onVerified: () => void }) {
             {error}
           </p>
         )}
-        {otp.testCode && <p className="tabular mt-6 text-center text-sm text-gold">{t("reg.testCode", { code: otp.testCode })}</p>}
+        {otp.testCode && <p className="tabular mt-6 text-center text-sm text-brand-ink">{t("reg.testCode", { code: otp.testCode })}</p>}
         <BottomAction>
           {CODE_MIN < CODE_MAX && (
             <Button fullWidth className="mb-2" loading={busy} disabled={!codeReady} onClick={() => verify(entered)}>
@@ -433,7 +433,7 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
         name="model"
         value={model}
         onChange={(e) => setModel(e.target.value)}
-        className="h-14 w-full appearance-none rounded-button bg-raised px-4 text-base text-ink outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow focus-visible:outline-none"
+        className="h-14 w-full appearance-none rounded-button bg-raised px-4 text-base text-ink outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand focus-visible:outline-none"
       >
         <option value="" disabled>
           —
@@ -453,7 +453,7 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
               role="radio"
               aria-checked={colorKey === c.key}
               onClick={() => setColorKey(c.key)}
-              className={cn("press flex h-12 items-center gap-2 rounded-button pl-2 pr-4 text-sm", colorKey === c.key ? "bg-yellow text-on-yellow" : "bg-raised text-ink")}
+              className={cn("press flex h-12 items-center gap-2 rounded-button pl-2 pr-4 text-sm", colorKey === c.key ? "bg-brand text-on-brand" : "bg-raised text-ink")}
             >
               <span aria-hidden="true" className="h-8 w-8 rounded-button ring-2 ring-inset ring-black/15" style={{ background: c.hex }} />
               {t(`color.${c.key}` as never)}
@@ -484,7 +484,7 @@ function CarStep({ options, onSaved }: { options: RegistrationOptions; onSaved: 
             name="year"
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="tabular h-14 w-24 appearance-none rounded-button bg-raised px-4 text-base text-ink outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow focus-visible:outline-none"
+            className="tabular h-14 w-24 appearance-none rounded-button bg-raised px-4 text-base text-ink outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand focus-visible:outline-none"
           >
             {options.years.map((y) => (
               <option key={y}>{y}</option>
@@ -610,7 +610,7 @@ function DocsStep({ real, onSubmitted }: { real: boolean; onSubmitted: () => voi
               </div>
               {f.uploading && (
                 <span className="relative mt-3 block h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
-                  <span className="absolute inset-y-0 left-0 w-1/3 animate-shimmer rounded-full bg-yellow" />
+                  <span className="absolute inset-y-0 left-0 w-1/3 animate-shimmer rounded-full bg-brand" />
                 </span>
               )}
               {real && (
@@ -639,7 +639,7 @@ function DocsStep({ real, onSubmitted }: { real: boolean; onSubmitted: () => voi
       </div>
       {real && (
         <label className="mt-5 flex min-h-12 cursor-pointer items-center gap-3 text-base text-ink">
-          <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="h-6 w-6 shrink-0 accent-yellow" />
+          <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="h-6 w-6 shrink-0 accent-brand" />
           {t("reg.terms")}
         </label>
       )}
@@ -723,7 +723,7 @@ function Welcome({ onDone }: { onDone: () => void }) {
   }, []);
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center" role="status">
-      <span className="mb-6 flex h-24 w-24 animate-check-pop items-center justify-center rounded-full bg-yellow text-on-yellow shadow-2">
+      <span className="mb-6 flex h-24 w-24 animate-check-pop items-center justify-center rounded-full bg-brand text-on-brand shadow-2">
         <Check className="h-11 w-11" />
       </span>
       <h1 className="text-2xl font-bold text-ink">{t("reg.approvedTitle")}</h1>

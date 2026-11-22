@@ -20,7 +20,7 @@ export class ChunkBoundary extends Component<Props, { failed: boolean }> {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="press inline-flex h-12 items-center gap-2 rounded-button bg-yellow px-5 text-sm font-bold text-on-yellow"
+          className="press inline-flex h-12 items-center gap-2 rounded-button bg-brand px-5 text-sm font-bold text-on-brand"
         >
           <RotateCcw className="h-5 w-5" />
           {this.props.action}

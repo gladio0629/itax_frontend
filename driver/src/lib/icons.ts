@@ -5,7 +5,7 @@ import * as L from "lucide-react";
 import type { LucideIcon, LucideProps } from "lucide-react";
 
 export type { LucideIcon };
-export const ICON_STROKE = 2;
+export const ICON_STROKE = 2.2;
 
 function wrap(Icon: LucideIcon): LucideIcon {
   const W = forwardRef<SVGSVGElement, LucideProps>((props, ref) =>
@@ -55,6 +55,7 @@ export const Globe = wrap(L.Globe);
 export const HandCoins = wrap(L.HandCoins);
 export const HelpCircle = wrap(L.HelpCircle);
 export const History = wrap(L.History);
+export const LayoutGrid = wrap(L.LayoutGrid);
 export const Home = wrap(L.Home);
 export const Hourglass = wrap(L.Hourglass);
 export const IdCard = wrap(L.IdCard);

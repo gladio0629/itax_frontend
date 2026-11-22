@@ -125,7 +125,7 @@ export default function HelpScreen() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={t("help.messagePlaceholder")}
-                className="block w-full resize-none rounded-button bg-raised p-4 text-base text-ink outline-none placeholder:text-muted/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow focus-visible:outline-none"
+                className="block w-full resize-none rounded-button bg-raised p-4 text-base text-ink outline-none placeholder:text-muted/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand focus-visible:outline-none"
               />
               <p className="tabular mt-1 text-right text-xs text-muted">{message.length}/500</p>
               {profile.data && (

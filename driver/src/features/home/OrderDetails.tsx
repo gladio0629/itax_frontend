@@ -22,7 +22,7 @@ export function Tag({ icon: Icon, children, tone = "plain", label }: { icon?: Lu
     <span
       className={cn(
         "inline-flex h-7 max-w-full items-center gap-1.5 rounded-button px-2 text-xs font-medium",
-        tone === "accent" ? "bg-accent/15 text-accent" : tone === "yellow" ? "bg-yellow text-on-yellow" : "bg-raised text-ink"
+        tone === "accent" ? "bg-brand-ink/15 text-brand-ink" : tone === "yellow" ? "bg-brand text-on-brand" : "bg-raised text-ink"
       )}
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" />}
@@ -74,7 +74,7 @@ export function OptionChips({ options, luggageCount }: { options: OrderOption[];
             title={label}
             className={cn(
               "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-button px-2 text-xs font-medium",
-              o.kind === "text_only" ? "bg-accent/15 text-accent" : "bg-raised text-ink"
+              o.kind === "text_only" ? "bg-brand-ink/15 text-brand-ink" : "bg-raised text-ink"
             )}
           >
             <Icon className="h-[18px] w-[18px] shrink-0" />

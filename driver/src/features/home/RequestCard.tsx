@@ -54,7 +54,7 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
       className={cn(
         "relative overflow-clip rounded-card bg-surface p-4 shadow-1 transition-[opacity,transform] duration-300",
         sliding ? "translate-x-[110%] opacity-0" : "animate-fade-up",
-        highlight && "ring-2 ring-yellow"
+        highlight && "ring-2 ring-brand"
       )}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -136,7 +136,7 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
 
       <div className="mt-4 flex items-end justify-between gap-3 border-t border-line pt-3">
         <div className="min-w-0">
-          <p className="tabular text-2xl font-bold text-gold">
+          <p className="tabular text-2xl font-bold text-brand-ink">
             {formatAmount(r.price)}
             <span className="ml-1 text-sm font-medium text-muted">{t("common.som")}</span>
           </p>
@@ -156,7 +156,7 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
             {block.action === "wallet" && (
               <>
                 {" "}
-                <Link to="/wallet/topup" className="font-bold text-accent underline underline-offset-2">
+                <Link to="/wallet/topup" className="font-bold text-brand-ink underline underline-offset-2">
                   {t("feed.toWallet")}
                 </Link>
               </>
