@@ -13,6 +13,8 @@
 //    mode) or a known non-network string (XML namespaces, React's error
 //    docs); index.html and _headers allow connect-src 'self' + the API
 //    origin only, and match the current env (else: rebuild).
+//    One more host may appear as a plain link: https://xasanow.uz, bare or
+//    with /terms or /privacy (legal pages, LEGAL_LINK_ORIGIN below).
 //
 // The interactive map (client and driver, `mapbox: true`) is the one
 // exception, and only when the build has VITE_MAPBOX_TOKEN:
@@ -60,6 +62,15 @@ const MAPBOX_CHUNK = /(?:^|\/)(?:mapboxRuntime|mapbox-gl)-[\w-]+\.js$/;
 // Absolute URLs that occur in third-party bundles as plain text (XML
 // namespaces, React/router error links). They are never requested.
 const INERT_HOSTS = ["www.w3.org", "reactjs.org", "react.dev", "fb.me", "github.com", "localhost", "127.0.0.1", "example.com"];
+// The public site, as a plain <a href> for the legal pages (owner decision
+// 2026-11-22: terms and privacy only). Build scan only: the origin comes from
+// an env var (client VITE_SITE_URL), never hard-coded in src/. Exact origin:
+// no subdomain (api.xasanow.uz is the API and needs VITE_API_URL), no http,
+// no ws. Never added to connect-src (the CSP check below stays exact).
+const LEGAL_LINK_ORIGIN = "https://xasanow.uz";
+// What may follow the origin in the bundle: nothing (the app appends the path
+// at runtime), or the terms / privacy page.
+const LEGAL_LINK_PATH = /^(?:\/(?:terms|privacy)\/?)?(?![\w./-])/;
 const SRC_EXT = /\.(ts|tsx|js|jsx|mjs|css|html)$/;
 
 function apiOrigins(raw) {
@@ -149,6 +160,7 @@ export function checkNoNetwork({ loadEnv, appDir = process.cwd(), mapbox = false
         const url = m[0];
         const host = hostOf(url);
         if (allowedOrigins.includes(url.toLowerCase()) || inert(host)) continue;
+        if (url.toLowerCase() === LEGAL_LINK_ORIGIN && LEGAL_LINK_PATH.test(text.slice(m.index + url.length))) continue;
         if (mapHostsAllowed && isMapboxHost(host)) continue;
         if (mapChunk && MAPBOX_CHUNK_INERT_HOSTS.includes(host)) continue;
         violations.push(`${rel(path)}: reaches "${url}" (allowed: ${allowedOrigins.join(", ") || "none"})`);

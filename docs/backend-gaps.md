@@ -94,7 +94,7 @@ capabilities need to be switched on per item.
 - [ ] Driver: registration options endpoint, trip chat, trip summary (commission %, bonus), feed filters and
   matching by the driver's routes/capabilities (stored but not used by matching yet), ledger filters, phone/car change
 - [ ] Admin: `me.phone`/`actions`; staff search/state filter/restore/email edit; driver `driver_state` filter,
-  `wallet_id`, `online`; masked phones with an audited reveal; ledger filters; proposed tariff values; queue/history
+  `wallet_id`, `online`; ledger filters; proposed tariff values; queue/history
   filters and supervisor views; export audit; section badges; create order for a passenger
 - [ ] **Admin drivers, passengers and wallet ledger still use sample (mock) data in the backoffice**, as do the
   driver/passenger figures in stats. Only orders and order stats are wired to the real service
@@ -192,8 +192,8 @@ stats; logout, after which the old token gets 401. Client and driver logout retu
 3. **Admin token can't be revoked** (no logout endpoint, no refresh). Keep `expires_in` short and
    add `POST /admin/v1/auth/logout`.
 4. **Full phone numbers in admin lists.** `AdminDriver.phone`, `AdminPassenger.phone` and
-   `Staff.phone` return full numbers to every role with the section. The UI masks them, but they
-   are in the response. Suggest masked phones in lists plus an audited reveal endpoint.
+   `Staff.phone` return full numbers to every role with the section. Decision 2026-11-22: admin
+   shows phone numbers in full for every role, so this is intended; no masked list, no reveal endpoint.
 5. **CORS** must allow only the 3 hosted origins, with methods `GET, POST, PUT, PATCH, DELETE,
    OPTIONS` and headers `Authorization, Content-Type, X-App, Idempotency-Key`. Use no wildcard
    with credentials (the frontends send none: `credentials: "omit"`).
