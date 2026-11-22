@@ -32,11 +32,17 @@ export function HelpScreen() {
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
+  const [rejected, setRejected] = useState(false);
   const [previous, setPrevious] = useState<HelpRequest[]>([]);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  const [previousError, setPreviousError] = useState(false);
   function loadPrevious() {
-    api.getHelpRequests().then(setPrevious).catch(() => setPrevious([]));
+    setPreviousError(false);
+    api
+      .getHelpRequests()
+      .then(setPrevious)
+      .catch(() => setPreviousError(true));
   }
   useEffect(() => {
     api.getProfile().then(setProfile).catch(() => setProfile(null));
@@ -47,6 +53,7 @@ export function HelpScreen() {
     setSubmitting(true);
     setSubmitError(false);
     try {
+      setRejected(false);
       const review = await api.submitHelpRequest(topic, message.trim() || undefined);
       setReviewId(review.id);
     } catch {
@@ -81,9 +88,9 @@ export function HelpScreen() {
           ) : undefined
         ) : (
           <>
-            {submitError && (
+            {(submitError || rejected) && (
               <p role="alert" className="pb-1 text-[13px] font-semibold text-iz-danger">
-                {t("help.submitError")}
+                {t(rejected ? "help.rejected" : "help.submitError")}
               </p>
             )}
             <PrimaryButton loading={submitting} onClick={submit}>
@@ -112,7 +119,9 @@ export function HelpScreen() {
               loadPrevious();
             }}
             onRejected={() => {
-              setSent(true);
+              // Not "sent": say so and let them send it again.
+              setReviewId(null);
+              setRejected(true);
               loadPrevious();
             }}
           />
@@ -180,6 +189,12 @@ export function HelpScreen() {
         })}
       </section>
 
+      {previousError && (
+        <button type="button" onClick={loadPrevious} className="mt-3 flex h-11 items-center gap-2 self-start text-[14px] font-bold text-iz-danger kb:hidden">
+          <Icon name="refresh" size={18} />
+          {t("help.previousTitle")} · {t("common.loadFailedRetry")}
+        </button>
+      )}
       {previous.length > 0 && (
         <section className="mt-3 flex flex-col kb:hidden" aria-labelledby="help-prev">
           <SectionLabel id="help-prev" as="h3">

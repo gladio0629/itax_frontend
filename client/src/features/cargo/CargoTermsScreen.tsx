@@ -147,7 +147,7 @@ export function CargoTermsScreen({
               </span>
             )}
           </span>
-          <Switch checked={!!cargo.rideAlong && rideOk} disabled={!rideOk} label={t("cargo.v2.rideAlong")} onChange={(on) => onCargo({ rideAlong: on })} />
+          <Switch checked={!!cargo.rideAlong} disabled={!rideOk && !cargo.rideAlong} label={t("cargo.v2.rideAlong")} onChange={(on) => onCargo({ rideAlong: on })} />
         </div>
         {rules.insurance.available && (
           <div className="flex min-h-16 items-center gap-2 py-2">

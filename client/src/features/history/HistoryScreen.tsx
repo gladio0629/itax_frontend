@@ -96,12 +96,14 @@ function OrderCard({ o, q }: { o: OrderWithDetails; q: string }) {
   return (
     <Link to={to} className="flex shrink-0 flex-col gap-3 rounded-iz-card border border-iz-border p-3.5 active:bg-iz-field">
       {top}
-      {!q && (o.driver || badge) && (
+      {(o.driver || badge) && (!q || (o.driver?.name ?? "").toLocaleLowerCase().includes(q.toLocaleLowerCase())) && (
         <>
           <span aria-hidden className="h-0 border-t-2 border-dashed border-iz-border" />
           <span className="flex items-center gap-2.5">
             {o.driver && <DriverAvatar name={o.driver.name || t("driver.unnamed")} size={32} tone="light" />}
-            <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-iz-ink">{o.driver ? (o.driver.name ? shortName(o.driver.name) : t("driver.unnamed")) : ""}</span>
+            <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-iz-ink">
+              {o.driver ? o.driver.name ? q ? <Highlight text={o.driver.name} q={q} /> : shortName(o.driver.name) : t("driver.unnamed") : ""}
+            </span>
             {badge ? (
               <span className="flex h-[30px] items-center rounded-[15px] bg-iz-green-soft px-2.5 text-[13px] font-extrabold text-iz-green-text">{t(badge.key)}</span>
             ) : (
@@ -301,8 +303,8 @@ export function HistoryScreen() {
       top={!searching && serviceSwitch ? serviceSwitch : undefined}
       bodyClassName="gap-3 pt-6"
     >
-      {statusOn && !searching && (
-        <div role="radiogroup" aria-label={t("history.tabsLabel")} className="flex shrink-0 gap-2 overflow-x-auto no-scrollbar">
+      {statusOn && (
+        <div role="radiogroup" aria-label={t("history.tabsLabel")} className="flex shrink-0 gap-2 overflow-x-auto no-scrollbar kb:hidden">
           {STATUSES.map((s) => (
             <button
               key={s}

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { useT } from "@/lib/i18n/provider";
@@ -22,6 +22,11 @@ export function PhoneChangeSheet({ onClose, onDone }: { onClose: () => void; onD
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
+  // The sample code's auto-fill: cancelled when the sheet closes, and a code
+  // is confirmed only once.
+  const fillTimer = useRef(0);
+  const verifying = useRef(false);
+  useEffect(() => () => window.clearTimeout(fillTimer.current), []);
 
   const isValid = value.replace(/\D/g, "").length === 9;
   const fullPhone = `+998 ${value}`;
@@ -36,7 +41,7 @@ export function PhoneChangeSheet({ onClose, onDone }: { onClose: () => void; onD
       if (res.testCode) {
         setTestCode(res.testCode);
         const code = res.testCode;
-        window.setTimeout(() => {
+        fillTimer.current = window.setTimeout(() => {
           setDigits(code.split(""));
           verify(code, res.requestId);
         }, 600);
@@ -49,7 +54,9 @@ export function PhoneChangeSheet({ onClose, onDone }: { onClose: () => void; onD
   }
 
   async function verify(code: string, id = requestId) {
-    if (!id) return;
+    if (!id || verifying.current) return;
+    window.clearTimeout(fillTimer.current);
+    verifying.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -60,6 +67,7 @@ export function PhoneChangeSheet({ onClose, onDone }: { onClose: () => void; onD
       setDigits(["", "", "", ""]);
       boxes.current[0]?.focus();
     } finally {
+      verifying.current = false;
       setLoading(false);
     }
   }

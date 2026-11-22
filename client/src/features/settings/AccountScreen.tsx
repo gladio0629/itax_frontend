@@ -26,6 +26,7 @@ export function AccountScreen() {
   const caps = api.capabilities;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+  const [accountsError, setAccountsError] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -56,7 +57,13 @@ export function AccountScreen() {
         setLastName(l);
       })
       .catch(() => setLoadError(true));
-    if (caps.accounts) api.getAccounts().then(setAccounts).catch(() => setAccounts([]));
+    if (caps.accounts) {
+      setAccountsError(false);
+      api
+        .getAccounts()
+        .then(setAccounts)
+        .catch(() => setAccountsError(true));
+    }
   }
   useEffect(load, []);
 
@@ -78,6 +85,8 @@ export function AccountScreen() {
   }
 
   function closeSheet() {
+    // Closed while a change was under review: it may still go through.
+    if (reviewId) load();
     setSheet(null);
     setReviewId(null);
     setSheetError(null);
@@ -203,6 +212,12 @@ export function AccountScreen() {
         }
       />
 
+      {accountsError && (
+        <button type="button" onClick={load} className="flex h-11 items-center gap-2 self-start text-[14px] font-bold text-iz-danger kb:hidden">
+          <Icon name="refresh" size={18} />
+          {t("account.accountsTitle")} · {t("common.loadFailedRetry")}
+        </button>
+      )}
       {others.length > 0 && (
         <section className="mt-2 flex flex-col kb:hidden" aria-labelledby="acc-others">
           <SectionLabel id="acc-others" as="h2">

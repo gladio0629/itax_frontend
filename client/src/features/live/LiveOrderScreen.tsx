@@ -155,6 +155,14 @@ export function LiveOrderScreen() {
       if (id === orderIdRef.current) setError(true);
     }
   }
+  /** "Asosiy sahifaga" on a live order: back where it was opened from (Home,
+   * the "Faol buyurtma" row, Tarix), so going back and forth doesn't stack
+   * new entries; Home itself when there is nothing behind. */
+  function backOut() {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1 - pushedSheets(sheet));
+    else navigate("/home", { replace: true });
+  }
   /** Leave a finished order for Home: back to the Home it was placed from,
    * or (opened elsewhere, e.g. Tarix) close the sheets and put Home in its place. */
   const leavingHome = useRef(false);
@@ -180,6 +188,7 @@ export function LiveOrderScreen() {
 
   useEffect(() => {
     startRef.current = Date.now();
+    setElapsed(0);
     setOrder(null);
     poll();
     // The server pushes order changes over the WebSocket; the interval is
@@ -287,14 +296,14 @@ export function LiveOrderScreen() {
 
   if (error && !order) {
     return (
-      <Screen title={t("track.title")} onBack={() => navigate("/home")}>
+      <Screen title={t("track.title")} onBack={backOut}>
         <StateError onRetry={poll} />
       </Screen>
     );
   }
   if (!order || !view) {
     return (
-      <Screen title={t("track.title")} onBack={() => navigate("/home")}>
+      <Screen title={t("track.title")} onBack={backOut}>
         <StateLoading rows={3} />
       </Screen>
     );
@@ -520,7 +529,7 @@ export function LiveOrderScreen() {
       <MapButton
         label={leaveLabel}
         // A finished order (cancelled, no driver) is left behind; a live one stays under Home.
-        onClick={() => (view === "noDriver" || view === "cancelled" ? exitToHome() : navigate("/home"))}
+        onClick={() => (view === "noDriver" || view === "cancelled" ? exitToHome() : backOut())}
         style={{ top: "calc(var(--safe-top) + 12px)" }}>
         <Icon name={view === "search" || view === "noDriver" || view === "cancelled" ? "close" : "back"} size={view === "search" || view === "noDriver" || view === "cancelled" ? 18 : 20} />
       </MapButton>

@@ -690,7 +690,7 @@ export const ru: Dictionary = {
   "bonus.thisMonthAmount": "В этом месяце: {{amount}}",
   "bonus.do": "Выполнить",
   "bonus.historyShort": "История",
-  "bonus.source.goal.title": "5 поездок в этом месяце",
+  "bonus.source.goal.title": "{{n}} поездок в этом месяце",
   "bonus.source.goal.desc": "Завершите 5 поездок в этом месяце — бонус начислится автоматически.",
   "bonus.history.goal": "Бонус за задание месяца",
 
@@ -719,4 +719,9 @@ export const ru: Dictionary = {
   "driver.message": "Написать водителю",
   "driver.messageUnavailable": "Сообщения пока недоступны",
   "home.activeOrder": "Активный заказ",
+  "history.tip": "Чаевые",
+  "bonus.withdrawPending": "Заявка на проверке",
+  "bonus.withdrawRejected": "Вывод отклонён",
+  "bonus.copied": "Текст приглашения скопирован",
+  "help.rejected": "Заявка не принята. Отправьте ещё раз.",
 };
