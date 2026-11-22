@@ -3,6 +3,60 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 7: client `2aa8f8e..1148788` (rounds 4–5 fixes, groups 7–9, three small answers): YELLOW, not merged
+
+Checks:
+- Typecheck, `VITE_DEMO_MODE=false` build, `check:no-network` and `cap sync` pass.
+- `dist` has no test panel or "demo" text. The only site URL is the bare origin.
+- uz/ru/en have 666 keys each.
+
+Screens (demo, 390×844): History, Bonus, Settings, Account and Help match their PNGs. History's status filter chips come from the old app.
+
+Round 4 and round 5 items, all done:
+- Delivery:
+  - a cargo-rules failure shows an error with retry on the right step (`CargoFlow.tsx:392-397`);
+  - "Kabinada hamroh" has a retry (`CargoTermsScreen.tsx:139-143`);
+  - after an order, back skips the flow entries (`HomeScreen.tsx:113-141`);
+  - swap and reorder are back (`CargoFlow.tsx:268-289`, `CargoScreen.tsx:61-80`).
+- Live order:
+  - cancel leaves no dead entry (`exitToHome`);
+  - sheets close before Rate opens;
+  - Rate re-sends only when something changed;
+  - "Haydovchiga yozish" (`sms:`) and the saved cards with "Karta ulash" in O'zgartirish are back;
+  - one cancel confirmation only.
+- All round 5 "later" items are done: replace on X, auto-close, stale poll guard, tip min/max, share guard, fresh countdown, no redundant edit.
+- The three small answers:
+  - sample phones are clearly fake (`+998 90 000 00 0N`, mock and seed only);
+  - the offer card stays on Rate;
+  - a "Faol buyurtma" row on Home opens the live order.
+
+Must fix
+- Rule 2, `features/history/HistoryDetailScreen.tsx:172`: tipping from Tarix works only while the rating is editable (7 days). The old detail had the tip card on every completed trip with a driver. A trip older than 7 days with `tips.allowed` can no longer get a tip. Show the link when `canRate || tips.allowed`.
+- `features/bonus/BonusScreen.tsx:150` (`closeWithdraw` clears `reviewId`): closing the sheet while the withdrawal is under review drops `onWithdrawApproved`. The mock has already written the withdrawal, but the balance and history stay old and "Yechib olish" stays on, so the user can withdraw again from the old balance. The old screen kept `reviewId`.
+
+Owner call
+- `features/settings/AboutScreen.tsx:47`: the "Veb-sayt" row links to the bare `https://xasanow.uz`, as the design shows. The decision lists only `/terms`, `/privacy` and `/delete-account`, though `check-no-network.mjs` accepts the bare origin. Allow it, or drop the link and keep the host as text.
+
+Later
+- `PhoneChangeSheet.tsx:39-42` (only when the mock returns a test code): the 600 ms auto-fill timer is never cleared, and it calls `verify`. If the sheet closes within that time, the phone still changes. If the user types the code in that time, it is confirmed twice.
+- `AccountScreen.tsx:59`: if `getAccounts` fails, the other accounts disappear with no error. The old screen showed an error with retry. `:80` closing add/remove during review does not reload.
+- `BonusScreen.tsx:119-133`: switching the history filter quickly can show "Kirim" entries under "Chiqim" (no request guard; old bug).
+- `NotificationsSettingsScreen.tsx:33-45`: two quick switches overwrite each other. `NotificationsScreen.tsx:48`: `markNotificationRead` has no catch.
+- `HelpScreen.tsx:39,42`: failed side loads vanish. `:114` shows "sent" for a rejected request.
+- `HistoryScreen.tsx:304`: the status filter stays applied while its chips are hidden during search. A driver-name match is not visible.
+- Live order:
+  - the back stack grows when going back and forth between "Faol buyurtma" and the live order's back arrow;
+  - `homeBase.ts` stores an index, which can point to a non-Home entry;
+  - the ride-along switch can show off while `rideAlong` is still true;
+  - `elapsed` is not reset after "Qayta qidirish";
+  - Rate with an unchanged rating and no tip has only X to leave;
+  - error/loading back pushes `/home`.
+- Nits:
+  - `bonus.source.goal.title` has a fixed "5 ta";
+  - the clipboard fallback toast;
+  - an orphaned comment in `MenuDrawer.tsx:12`;
+  - `Field.tsx` prefix readOnly styling.
+
 ## 2026-11-22, owner answers on the client removals (round 5)
 
 The client terminal gets these:
