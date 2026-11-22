@@ -10,12 +10,16 @@ npm run build
 npm run check:no-network
 ```
 
-## Demo login
+## Sign-in
 
-Login requires an email + password + 2FA code (all local, no real auth):
+Doc 2.5, design Main + Verify. Nothing is remembered on the device: every logout means a full sign-in.
 
-- `kamola@izgo.uz` / `javlon@izgo.uz` / `shahnoza@izgo.uz` — password: `demo1234`
-- The 2FA code is shown directly in the UI copy ("Demo kod: ...") after requesting it.
+- Staff with email (superadmin, owner, menejer, marketolog): email → email code, then the staff phone → SMS code.
+- Operator: "Operatormisiz? Telefon bilan kiring" → phone → SMS code.
+
+Sample-data build (`VITE_DEMO_MODE=true`): the code is shown under the boxes ("Sinov kodi").
+Accounts: kamola@izgo.example / +998 90 000 00 01 (superadmin), behzod@… / …02 (owner),
+javlon@… / …03 (menejer), shahnoza@… / …04 (marketolog), operator +998 90 000 00 05.
 
 ## Pages
 

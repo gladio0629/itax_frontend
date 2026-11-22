@@ -261,7 +261,6 @@ export const httpAdapter: ApiAdapter = {
       return {
         requestId,
         steps: ["email_code", "phone_code"],
-        maskedDestination: map.maskEmail(email),
         resendSeconds: RESEND_SECONDS,
         attemptsLeft: 0,
         needsPhone: true,
@@ -277,7 +276,6 @@ export const httpAdapter: ApiAdapter = {
     return {
       requestId,
       steps: ["phone_code"],
-      maskedDestination: map.formatPhone(phone),
       resendSeconds: RESEND_SECONDS,
       attemptsLeft: 0,
       codeMinLength: codeLength(ch) ?? 4,
@@ -297,8 +295,7 @@ export const httpAdapter: ApiAdapter = {
         done: false,
         requestId,
         step: "phone_code",
-        maskedDestination: map.formatPhone(phone),
-        resendSeconds: RESEND_SECONDS,
+          resendSeconds: RESEND_SECONDS,
         attemptsLeft: 0,
         codeMinLength: codeLength(ch) ?? 4,
         codeLength: codeLength(ch),
@@ -312,7 +309,7 @@ export const httpAdapter: ApiAdapter = {
     logins.delete(requestId);
     meCache = null;
     session.signIn(token);
-    return { done: true, reviewId: settledReview("login_2fa").id };
+    return { done: true };
   },
 
   async resendLoginCode(requestId) {

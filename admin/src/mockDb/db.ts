@@ -394,7 +394,7 @@ export function addAuditEntry(entry: Omit<AuditEntry, "id" | "createdAt">): Audi
   return full;
 }
 
-export type ReviewKind = "login_2fa" | "tariff_second_approve" | "wallet_adjust_second_approve";
+export type ReviewKind = "tariff_second_approve" | "wallet_adjust_second_approve";
 export type ReviewRequest = {
   id: string;
   kind: ReviewKind;

@@ -13,6 +13,9 @@
   --green-text: #0c7a43; /* green text/icons on white */
   --green-text-rgb: 12 122 67;
   --green-soft: #e3f8ec; /* badge bg, focus ring */
+  --green-hover: #27c877; /* primary button hover */
+  --error-soft-hover: #fbdcd8; /* danger button hover */
+  --row-hover: #f8f9fb; /* table row hover */
   --surface: #f3f5f8; /* page bg, fields, table head */
   --line: #e2e7ee; /* dividers */
   --muted: #5a6779; /* labels, hints */
@@ -49,7 +52,7 @@
   --color-accent-5: rgba(46, 219, 133, 0.06);
   --color-accent-10: var(--green-soft);
   --color-brand-yellow: var(--green);
-  --color-brand-yellow-hover: #27c877;
+  --color-brand-yellow-hover: var(--green-hover);
   --color-on-yellow: var(--ink);
   --color-warning-rgb: var(--warn-rgb);
   --color-danger-rgb: var(--error-rgb);

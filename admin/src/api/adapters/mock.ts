@@ -122,11 +122,6 @@ function requireAction(actor: AdminUser, action: "export" | "operatorWork" | "op
   if (!ROLE_ACTIONS[actor.role].includes(action)) throw new ApiError("FORBIDDEN", "Bu amal uchun ruxsatingiz yo'q.");
 }
 
-function maskEmail(email: string): string {
-  const [user, domain] = email.split("@");
-  return user.length <= 2 ? `${user[0] ?? "*"}***@${domain}` : `${user.slice(0, 2)}***@${domain}`;
-}
-
 function genCode(): string {
   return String(Math.floor(100_000 + Math.random() * 900_000));
 }
@@ -144,10 +139,6 @@ type LoginAttemptState = {
   attemptsLeft: number;
 };
 const loginAttempts = new Map<string, LoginAttemptState>();
-
-function destinationFor(user: AdminUser, step: LoginStep): string {
-  return step === "email_code" ? maskEmail(user.email) : formatPhone(user.phone);
-}
 
 function resolveReview(req: ReviewRequest): ReviewRequest {
   if (req.status === "pending" && Date.now() >= req.resolvesAt) {
@@ -258,10 +249,16 @@ export const mockAdapter: ApiAdapter = {
 
   requestLogin: (identifier) =>
     withLatency<LoginStartResult>(() => {
-      const user = findStaffByEmailOrPhone(identifier);
-      if (!user) throw new ApiError("NOT_FOUND", "Bunday foydalanuvchi topilmadi.");
+      const value = identifier.trim();
+      const byEmail = value.includes("@");
+      const user = findStaffByEmailOrPhone(value);
+      if (!user) throw new ApiError("NOT_FOUND", "Bunday xodim topilmadi.");
       if (user.archived) throw new ApiError("ARCHIVED", "Hisob arxivlangan.");
       if (user.status === "blocked") throw new ApiError("BLOCKED", "Hisob bloklangan.");
+      // Doc 2.5: operators sign in with phone + SMS only; everyone else with
+      // email code + SMS code. The phone-only path is not open to them.
+      if (!byEmail && user.role !== "operator")
+        throw new ApiError("EMAIL_REQUIRED", "Bu hisob email va SMS kod bilan kiradi. Email orqali kiring.");
       const steps: LoginStep[] = user.role === "operator" ? ["phone_code"] : ["email_code", "phone_code"];
       const requestId = `li_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
       const code = genCode();
@@ -277,10 +274,12 @@ export const mockAdapter: ApiAdapter = {
       return {
         requestId,
         steps,
-        maskedDestination: destinationFor(user, steps[0]),
         testCode: code,
-        resendSeconds: 30,
+        resendSeconds: 60,
         attemptsLeft: 3,
+        // Like the real API: the email code goes together with the phone.
+        needsPhone: steps[0] === "email_code",
+        codeLength: 6,
       };
     }),
 
@@ -289,10 +288,10 @@ export const mockAdapter: ApiAdapter = {
       const st = loginAttempts.get(requestId);
       if (!st) throw new ApiError("NOT_FOUND", "So'rov topilmadi yoki eskirgan.");
       st.code = genCode();
-      return { testCode: st.code, resendSeconds: 30 };
+      return { testCode: st.code, resendSeconds: 60, codeLength: 6 };
     }),
 
-  verifyLoginStep: (requestId, code) =>
+  verifyLoginStep: (requestId, code, extra) =>
     withLatency<LoginStepResult>(() => {
       const st = loginAttempts.get(requestId);
       if (!st) throw new ApiError("NOT_FOUND", "So'rov topilmadi yoki eskirgan.");
@@ -300,38 +299,42 @@ export const mockAdapter: ApiAdapter = {
         st.attemptsLeft -= 1;
         if (st.attemptsLeft <= 0) {
           loginAttempts.delete(requestId);
-          throw new ApiError("TOO_MANY_ATTEMPTS", "Urinishlar soni tugadi. Qaytadan kiring.");
+          throw new ApiError("AUTH_OTP_EXPIRED", "Urinishlar soni tugadi. Qaytadan kiring.");
         }
-        throw new ApiError("INVALID_CODE", `Kod noto'g'ri. ${st.attemptsLeft} urinish qoldi.`);
+        throw new ApiError("AUTH_OTP_INVALID", `Kod noto'g'ri. ${st.attemptsLeft} urinish qoldi.`);
+      }
+      const user = getStaffMember(st.adminId)!;
+      const step = st.steps[st.stepIndex];
+      if (step === "email_code") {
+        const digits = (v: string) => v.replace(/\D/g, "");
+        if (!extra?.phone || digits(extra.phone) !== digits(user.phone))
+          throw new ApiError("PHONE_MISMATCH", "Bu telefon raqami xodim hisobidagi raqamga mos emas.");
       }
       st.stepIndex += 1;
       if (st.stepIndex >= st.steps.length) {
         loginAttempts.delete(requestId);
-        const now = Date.now();
-        const delay = 2000 + Math.random() * 2000;
-        const req: ReviewRequest = {
-          id: `rev_${now}_${Math.random().toString(36).slice(2, 7)}`,
-          kind: "login_2fa",
-          status: "pending",
-          createdAt: now,
-          resolvesAt: now + delay,
-          payload: { adminId: st.adminId },
-        };
-        saveReviewRequest(req);
-        return { done: true, reviewId: req.id };
+        setSession({ adminId: user.id });
+        upsertStaffMember({ ...user, lastLoginAt: Date.now() });
+        addAuditEntry({
+          actorId: user.id,
+          actorName: user.name,
+          action: "login_verified",
+          targetType: "session",
+          targetId: user.id,
+          detail: st.steps.length > 1 ? "Kirdi: email + SMS" : "Kirdi: SMS",
+        });
+        return { done: true };
       }
-      const user = getStaffMember(st.adminId)!;
-      const nextStep = st.steps[st.stepIndex];
       st.code = genCode();
       st.attemptsLeft = 3;
       return {
         done: false,
         requestId,
-        step: nextStep,
-        maskedDestination: destinationFor(user, nextStep),
+        step: st.steps[st.stepIndex],
         testCode: st.code,
-        resendSeconds: 30,
+        resendSeconds: 60,
         attemptsLeft: 3,
+        codeLength: 6,
       };
     }),
 
@@ -341,20 +344,6 @@ export const mockAdapter: ApiAdapter = {
       if (!existing) throw new ApiError("NOT_FOUND", "Tekshiruv so'rovi topilmadi");
       const req = resolveReview(existing);
       if (req.status === "approved" && !req.payload?.applied) {
-        if (req.kind === "login_2fa") {
-          const adminId = req.payload?.adminId as string;
-          setSession({ adminId });
-          const u = getStaffMember(adminId);
-          if (u) upsertStaffMember({ ...u, lastLoginAt: Date.now() });
-          addAuditEntry({
-            actorId: adminId,
-            actorName: u?.name ?? "Admin",
-            action: "login_verified",
-            targetType: "session",
-            targetId: adminId,
-            detail: "Kirish tasdiqlandi",
-          });
-        }
         if (req.kind === "tariff_second_approve") {
           const proposalId = req.payload?.proposalId as string | undefined;
           const proposal = proposalId ? readTariffProposals().find((p) => p.id === proposalId) : undefined;

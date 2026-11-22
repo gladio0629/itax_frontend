@@ -270,10 +270,15 @@ export type MarketingStats = {
 
 export type LoginStep = "email_code" | "phone_code";
 
+/**
+ * Admin login (doc 2.5, design Main + Verify). Email accounts: email code,
+ * then the staff phone + SMS code (`needsPhone`: the phone is sent together
+ * with the email code). Operators: phone + SMS code only. Nothing is
+ * remembered on the device; the session ends on logout.
+ */
 export type LoginStartResult = {
   requestId: string;
   steps: LoginStep[];
-  maskedDestination: string;
   /** Set by the mock adapter only (sample-data build); never by the server. */
   testCode?: string;
   resendSeconds: number;
@@ -292,7 +297,6 @@ export type LoginStepResult =
       done: false;
       requestId: string;
       step: LoginStep;
-      maskedDestination: string;
       testCode?: string;
       resendSeconds: number;
       attemptsLeft: number;
@@ -300,7 +304,8 @@ export type LoginStepResult =
       codeMinLength?: number;
       codeLength?: number;
     }
-  | { done: true; reviewId: string };
+  /** Signed in: the session exists now (no review/approval step). */
+  | { done: true };
 
 // ---------------------------------------------------------------------
 // List query params. Every list screen sends these to the adapter, which

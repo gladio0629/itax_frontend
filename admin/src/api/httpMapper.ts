@@ -50,13 +50,6 @@ export function normalizePhone(input: string): string | null {
 import { formatPhone } from "@/lib/format";
 export { formatPhone };
 
-/** "kamola@izgo.uz" → "k***@izgo.uz". */
-export function maskEmail(email: string): string {
-  const [user, domain] = email.split("@");
-  if (!user || !domain) return "***";
-  return `${user[0]}***@${domain}`;
-}
-
 /** The UI edits one "Ism" field; the API stores first and last name. */
 export function splitName(full: string): { first_name: string; last_name: string } | null {
   const parts = full.trim().split(/\s+/);
