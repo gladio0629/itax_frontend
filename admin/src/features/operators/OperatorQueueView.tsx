@@ -39,12 +39,21 @@ export function OperatorQueueView() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Every change of the active task bumps this, so a late answer from an
+  // older getActiveTask() (e.g. the refresh after "Yakunlash") can't
+  // overwrite a task that "Boshlash" has started since.
+  const activeSeq = useRef(0);
+  const putActive = (t: ActiveTask | null) => {
+    activeSeq.current++;
+    setActive(t);
+  };
   const loadActive = useCallback(() => {
+    const my = ++activeSeq.current;
     setActiveError(false);
     api
       .getActiveTask()
-      .then(setActive)
-      .catch(() => setActiveError(true));
+      .then((t) => my === activeSeq.current && setActive(t))
+      .catch(() => my === activeSeq.current && setActiveError(true));
   }, []);
   const loadStats = useCallback(() => {
     if (caps.operatorMyStats)
@@ -68,7 +77,7 @@ export function OperatorQueueView() {
     setBusyId(id);
     setActionError(null);
     try {
-      setActive(await api.startTask(id));
+      putActive(await api.startTask(id));
       reload();
     } catch (e) {
       setActionError(errorText(e));
@@ -105,8 +114,9 @@ export function OperatorQueueView() {
           ) : active ? (
             <CurrentTask
               task={active}
+              key={active.id}
               onDone={(msg) => {
-                setActive(null);
+                putActive(null);
                 setToast(msg);
                 refresh();
               }}
@@ -177,7 +187,7 @@ export function OperatorQueueView() {
                     <Button variant="soft" onClick={() => setRejecting(q.id)} disabled={!!busyId}>
                       Rad etish
                     </Button>
-                    <Button variant="dark" onClick={() => start(q.id)} loading={busyId === q.id} disabled={!!active || (!!busyId && busyId !== q.id)}>
+                    <Button variant="dark" onClick={() => start(q.id)} loading={busyId === q.id} disabled={active !== null || (!!busyId && busyId !== q.id)}>
                       Boshlash
                     </Button>
                   </span>

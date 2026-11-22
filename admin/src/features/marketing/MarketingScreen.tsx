@@ -7,10 +7,11 @@ import { ErrorState, StaleNotice } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { FilterSelect } from "@/components/FilterSelect";
 import { ExportButton } from "@/components/ExportButton";
-import { MoneyAndStatus } from "@/features/dashboard/DashboardScreen";
+import { StatsSection } from "@/features/dashboard/StatsSection";
 import { formatCompactSom, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { Kpi, Marketing, MarketingPeriod, MarketingStats, StatsPeriod } from "@/api/types";
+import { usePermissions } from "@/hooks/usePermissions";
+import type { Kpi, Marketing, MarketingPeriod, StatsPeriod } from "@/api/types";
 
 const PERIODS: { value: MarketingPeriod; label: string }[] = [
   { value: "3m", label: "3 oy" },
@@ -26,12 +27,15 @@ const MONEY_PERIODS: { value: StatsPeriod; label: string }[] = [
 /** Marketolog's "Umumiy statistika" (design Marketing). Read-only: every
  * figure comes from the server; nothing is computed here. */
 export function MarketingScreen() {
+  const { me } = usePermissions();
+  // Marketolog's only page is their "Umumiy statistika"; for the other roles
+  // it sits next to the dashboard as "Marketing".
+  const title = me?.sections.includes("stats") ? "Marketing" : "Umumiy statistika";
   const [period, setPeriod] = useState<MarketingPeriod>("6m");
   const [data, setData] = useState<Marketing | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [moneyPeriod, setMoneyPeriod] = useState<StatsPeriod>("30d");
-  const [stats, setStats] = useState<MarketingStats | null>(null);
 
   const load = useCallback(() => {
     let live = true;
@@ -48,22 +52,12 @@ export function MarketingScreen() {
   }, [period]);
   useEffect(() => load(), [load]);
 
-  useEffect(() => {
-    let live = true;
-    api
-      .getStats(moneyPeriod)
-      .then((s) => live && setStats(s))
-      .catch(() => live && setStats(null));
-    return () => {
-      live = false;
-    };
-  }, [moneyPeriod]);
 
   return (
     <>
       <PageHeader
         subtitle="Faqat ko'rish"
-        title="Umumiy statistika"
+        title={title}
         actions={
           <>
             <FilterSelect label="Davr" aria-label="Davr" value={period} onChange={setPeriod} options={PERIODS} />
@@ -107,7 +101,7 @@ export function MarketingScreen() {
       <div className="flex items-center justify-end">
         <FilterSelect label="Daromad davri" aria-label="Daromad davri" value={moneyPeriod} onChange={setMoneyPeriod} options={MONEY_PERIODS} />
       </div>
-      {stats && <MoneyAndStatus stats={stats} />}
+      <StatsSection period={moneyPeriod} />
     </>
   );
 }

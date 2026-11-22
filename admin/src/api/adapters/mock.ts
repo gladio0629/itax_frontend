@@ -862,6 +862,11 @@ export const mockAdapter: ApiAdapter = {
         driversActive: drivers.filter((d) => d.status === "active" && !d.archived).length,
         driversBlocked: drivers.filter((d) => d.status === "blocked").length,
         driversNew: drivers.filter((d) => d.joinedAt >= since).length,
+        ordersTotal: periodOrders.length,
+        ordersCompleted: completedPeriodOrders.length,
+        ordersCancelled: periodOrders.filter((o) => o.status === "cancelled").length,
+        // Sample data has no "expired": orders that found no driver in time stand for it.
+        ordersExpired: periodOrders.filter((o) => o.status === "no_driver").length,
         ordersByStatus,
         ordersByRoute,
         registrations,

@@ -85,8 +85,7 @@ const CAPABILITIES: AdapterCapabilities = {
   // v2 group 5 (expected endpoints in docs/backend-gaps/admin.md)
   queuePostpone: false,
   operatorMyStats: false,
-  // All five are offered; the API stores them as "unresolved" with the
-  // label kept in the comment (it has resolved / unresolved / reject only).
+  // The five decided results; the API needs the extra values (backend-gaps).
   operatorResults: ["resolved", "no_answer", "callback", "escalated", "rejected"],
   staffCounts: false,
   auditCategories: false,
@@ -101,12 +100,8 @@ const operatorPostponePath = (id: string) => `/admin/v1/operator/queue/${encodeU
 const OPERATOR_MY_STATS_PATH = "/admin/v1/operator/me/stats";
 const STAFF_COUNTS_PATH = "/admin/v1/staff/counts";
 const MARKETING_PATH = "/admin/v1/marketing";
-/** Results the API has no value for travel as "unresolved" + this label. */
-const RESULT_TAG: Partial<Record<HistoryResult, string>> = {
-  no_answer: "Javob bermadi",
-  callback: "Qayta qo'ng'iroq",
-  escalated: "Menejerga yuborildi",
-};
+/** Expected `QueueComplete.result` (today the API takes resolved | unresolved only). */
+type QueueCompleteV2 = { result: Exclude<HistoryResult, "rejected" | "unresolved">; comment?: string };
 // Expected (not in openapi.yml yet), see docs/backend-gaps/admin.md:
 const orderOperatorTaskPath = (id: string) => `${API_PATHS.adminOrder(id)}/operator-task`;
 const driverTripsPath = (id: string) => `${API_PATHS.adminDriver(id)}/trips`;
@@ -668,9 +663,9 @@ export const httpAdapter: ApiAdapter = {
       result === "rejected"
         ? await http.post<Api.QueueItem>(API_PATHS.adminOperatorReject(queueId), { reason: rejectReason(reason) } satisfies Api.QueueReject)
         : await http.post<Api.QueueItem>(API_PATHS.adminOperatorComplete(queueId), {
-            result: result === "resolved" ? "resolved" : "unresolved",
-            comment: [RESULT_TAG[result] && `[${RESULT_TAG[result]}]`, note.trim()].filter(Boolean).join(" ") || undefined,
-          } satisfies Api.QueueComplete);
+            result: result as QueueCompleteV2["result"],
+            comment: note.trim() || undefined,
+          } satisfies QueueCompleteV2);
     if (activeTask?.id === q.id) activeTask = null;
     return map.historyFromApi(q, meCache);
   },

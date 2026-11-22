@@ -163,6 +163,8 @@ export const ALL_ROLES: AdminRole[] = ["superadmin", "owner", "menejer", "market
 
 const ALL_SECTIONS: Section[] = [
   "stats",
+  // Marketing page is open to these roles too (owner, 2026-11-22).
+  "marketing",
   "drivers",
   "passengers",
   "orders",

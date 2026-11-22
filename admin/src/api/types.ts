@@ -348,15 +348,15 @@ export type MarketingStats = {
   driversActive: number | null;
   driversBlocked: number | null;
   driversNew: number | null;
-  /** Real API only: drivers online right now / at the debt limit. */
+  /** Drivers online right now (not shown: owner decision) / at the debt limit. */
   driversOnline?: number | null;
   driversOverLimit?: number | null;
-  /** Real API only: order totals for the period. */
+  /** Order totals for the period. */
   ordersTotal?: number | null;
   ordersCompleted?: number | null;
   ordersCancelled?: number | null;
   ordersExpired?: number | null;
-  /** Real API only: orders and completed orders per day. */
+  /** Orders and completed orders per day. */
   ordersOverTime?: { date: string; orders: number; completed: number }[] | null;
   ordersByStatus: { status: OrderStatus; count: number }[] | null;
   ordersByRoute: { from: string; to: string; count: number }[] | null;

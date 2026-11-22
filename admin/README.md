@@ -31,7 +31,7 @@ Complaints · Hamyon va to'lovlar (read-only ledger + `/wallet/fix` correction e
 (supervisors: Navbat / Jarayonda / Bugungi tasdiqlanganlar board; operator: `/operators` current task
 with five results and postpone, `/operators/history` own tasks + read-only orders, `/operators/drivers`
 read-only drivers without balance) · Staff (+ `/staff/new`) · Audit log · Marketing (`/marketing`,
-marketolog only, read-only) · Profile.
+read-only; marketolog, superadmin, owner, menejer) · Profile.
 
 ## Notable patterns
 

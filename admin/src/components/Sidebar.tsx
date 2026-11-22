@@ -1,19 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import {
-  BarChart3,
-  Car,
-  ClipboardList,
-  Headset,
-  LogOut,
-  MessageSquareWarning,
-  ScrollText,
-  SlidersHorizontal,
-  UserRound,
-  Users,
-  UsersRound,
-  Wallet,
-} from "lucide-react";
+import { BarChart3, Car, ClipboardList, Headset, LogOut, MessageSquareWarning, ScrollText, SlidersHorizontal, UserRound, Users, UsersRound, Wallet, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { ROLE_LABEL } from "@/lib/roles";
 import { AdminBrand, Logo } from "./Logo";
@@ -30,6 +17,9 @@ type NavItem = {
   end?: boolean;
   /** The section's count badge is shown on this item only. */
   noBadge?: boolean;
+  /** Other label for someone without that section (marketolog: the
+   * Marketing page is their "Umumiy statistika"). */
+  altLabel?: { whenMissing: Section; label: string };
 };
 
 /** Sidebar groups (design-v2). An item shows only when getMe().sections has
@@ -39,16 +29,12 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Asosiy",
     items: [
       { to: "/dashboard", section: "stats", label: "Umumiy statistika", icon: BarChart3 },
+      { to: "/marketing", section: "marketing", label: "Marketing", icon: TrendingUp, altLabel: { whenMissing: "stats", label: "Umumiy statistika" } },
       { to: "/orders", section: "orders", label: "Buyurtmalar", icon: ClipboardList },
       { to: "/drivers", section: "drivers", label: "Haydovchilar", icon: Car },
       { to: "/passengers", section: "passengers", label: "Yo'lovchilar", icon: Users },
       { to: "/complaints", section: "complaints", label: "Shikoyatlar", icon: MessageSquareWarning },
     ],
-  },
-  {
-    // Marketolog's page (section "marketing").
-    title: "Marketolog",
-    items: [{ to: "/marketing", section: "marketing", label: "Umumiy statistika", icon: BarChart3 }],
   },
   {
     // Operator windows: shown for the "operatorWork" action / read-only grants.
@@ -86,7 +72,9 @@ export function Sidebar({ me, badges, onLogout }: { me: Me | null; badges: Secti
   const actions = me?.actions ?? [];
   const groups = NAV_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((i) => sections.includes(i.section) && (!i.action || actions.includes(i.action))),
+    items: g.items
+      .filter((i) => sections.includes(i.section) && (!i.action || actions.includes(i.action)))
+      .map((i) => (i.altLabel && !sections.includes(i.altLabel.whenMissing) ? { ...i, label: i.altLabel.label } : i)),
   })).filter((g) => g.items.length > 0);
 
   return (
