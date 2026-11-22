@@ -9,3 +9,4 @@ export { StateEmpty, StateError, StateLoading, StateOffline, OfflineBanner, useO
 export { ListRow, Logo, Initials, Badge } from "./Rows";
 export { useKeyboard, installKeyboardTracking } from "./keyboard";
 export { useDialogA11y } from "./useDialogA11y";
+export { useStatusBar, type StatusBarText } from "./statusBar";

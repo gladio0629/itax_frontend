@@ -5,3 +5,10 @@ export function formatPhoneInput(raw: string): string {
   const parts = [digits.slice(0, 2), digits.slice(2, 5), digits.slice(5, 7), digits.slice(7, 9)];
   return parts.filter(Boolean).join(" ");
 }
+
+/** "+998 90 123 45 67" → "+998 90 *** ** 67" (shown on the code screen). */
+export function maskPhone(phone: string): string {
+  const d = phone.replace(/\D/g, "").replace(/^998/, "");
+  if (d.length !== 9) return phone;
+  return `+998 ${d.slice(0, 2)} *** ** ${d.slice(7)}`;
+}

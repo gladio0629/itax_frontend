@@ -5,7 +5,6 @@ import { api } from "@/api/client";
 import type { Profile } from "@/api/types";
 import { Avatar } from "@/components/Avatar";
 import { SkeletonCard } from "@/components/Skeleton";
-import { LanguageSheet } from "@/components/LanguageSheet";
 import { PageTitle } from "@/components/PageTitle";
 import { Switch } from "@/components/Switch";
 import { Sheet } from "@/components/Sheet";
@@ -67,7 +66,6 @@ export function SettingsScreen() {
   const { theme, toggleTheme } = useTheme();
   const logout = useAuthStore((s) => s.logout);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [languageOpen, setLanguageOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const ios = useIsIOS();
 
@@ -120,9 +118,9 @@ export function SettingsScreen() {
             <ListRow
               leading={<IconTile icon={Globe} />}
               title={t("settings.language")}
-              value={t(`settings.languageName.${locale}` as TranslationKey)}
+              value={t(`language.name.${locale}` as TranslationKey)}
               chevron
-              onClick={() => setLanguageOpen(true)}
+              onClick={() => navigate("/language")}
             />
           </ListSection>
 
@@ -175,8 +173,8 @@ export function SettingsScreen() {
           <Row
             icon={Globe}
             label={t("settings.language")}
-            value={t(`settings.languageName.${locale}` as TranslationKey)}
-            onClick={() => setLanguageOpen(true)}
+            value={t(`language.name.${locale}` as TranslationKey)}
+            onClick={() => navigate("/language")}
           />
         </div>
 
@@ -194,7 +192,6 @@ export function SettingsScreen() {
       </div>
       )}
 
-      {languageOpen && <LanguageSheet onClose={() => setLanguageOpen(false)} />}
       {ios ? (
         <Alert
           open={logoutOpen}

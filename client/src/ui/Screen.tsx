@@ -2,6 +2,7 @@ import { useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n/provider";
 import { useLiftFloatingControl } from "@/stores/floatingControlStore";
+import { useStatusBar } from "./statusBar";
 import { IconButton } from "./Button";
 
 /**
@@ -101,6 +102,7 @@ export function Screen({
   sheetOverlap,
   header,
 }: ScreenProps) {
+  useStatusBar("light");
   return (
     <div className="flex h-full min-h-0 flex-col bg-iz-head">
       <div
