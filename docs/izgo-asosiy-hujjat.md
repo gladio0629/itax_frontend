@@ -42,7 +42,7 @@ Asosiy talablar [QAROR]:
 - Buyurtma qo'shimchalari (2026-11-14) [SINOVDA: avval frontend demo'da ko'riladi, keyin qaysilari qolishi hal qilinadi], Yandex Go bilan solishtiruvdan keyin:
   - Har manzilda "Tafsilotlar": podyezd, qavat, kvartira, domofon kodi, izoh (taksi va kargo).
   - Oraliq to'xtashlar (3 tagacha), haydovchiga izoh, bagaj soni. Istaklar (bolalar o'rindig'i, hayvon, konditsioner va h.k.) butunlay olib tashlandi: client'da ham, driver'ning "Imkoniyatlarim"ida ham yo'q (2026-11-22). Haydovchi imkoniyatlaridan faqat dostavka kuzovi va yukchi qoladi.
-  - Avtomobil klassi (Standart, Komfort, Biznes, Miniven), boshqa odamga buyurtma (ism, telefon), promo kod, choy puli, marshrutni ulashish va favqulodda kontaktlar.
+  - Avtomobil klassi (Standart, Komfort, Biznes, Miniven), boshqa odamga buyurtma (ism, telefon), promo kod, choy puli, marshrutni ulashish. Favqulodda kontaktlar YO'Q (2026-11-22).
   - Kargo: yo'nalish turi (shahar ichi, shaharlararo, marketpleysga), yukchilar (yo'q/1/2), narx hisobi (marshrut yoki soatbay), jo'natuvchi va qabul qiluvchi kontakti, kabinada hamroh, bir nechta tushirish manzili, sug'urta ma'lumoti.
   - Narxning hamma qismi (klass, istaklar, yukchi, kutish, chaqiruv, to'xtash, talab koeffitsienti, bekor qilish) faqat serverda. Frontend serverdan kelgan narx qatorlarini ko'rsatadi.
   - Haydovchini takliflardan tanlash QO'SHILMAYDI: "birinchi qabul qilgan oladi" qoidasi qoladi.
@@ -101,7 +101,7 @@ Admin panelga faqat jamoa xodimlari kiradi. Foydalanuvchilar ko'paygan sari xodi
 - "Tarix" oynasi: operatorning ko'rib chiqqan vazifalari (tasdiqlangan, rad etilgan va h.k.). Natija va izohni tahrirlash mumkin.
 - Operatordan boshqa rollar (superadmin, owner, menejer) "Operatorlar" bo'limini 3 qismda ko'radi: **Navbat**, **Jarayonda**, **Bugungi tasdiqlanganlar**. Operator o'zi faqat "Navbat" va "Tarix" oynalarini ko'radi. [QAROR]
 - Operator hisobini jamoa yaratadi: operator telefon raqamini aytadi, xodim hisob ochadi. Telefon hamma rol uchun majburiy. Email operatordan boshqa hamma rol uchun majburiy, operator uchun shart emas. [QAROR]
-- [TAKLIF] Ro'yxatda raqam maskalangan, to'liq raqam faqat "Boshlash"dan keyin joriy vazifada ko'rinadi. Operator faqat o'z tarixini ko'radi, yuqori rollar hammasini ko'radi.
+- [QAROR] (2026-11-22) Admin panelda telefon raqamlari hamma joyda to'liq ko'rinadi (maskalash yo'q). Operator faqat o'z tarixini ko'radi, yuqori rollar hammasini ko'radi.
 - [TAKLIF] Yuqori rollar uchun uchinchi qism sukut bo'yicha bugungi tasdiqlanganlarni ko'rsatadi, sana va natija filtri bor (rad etilganlar va eski kunlar ham topiladi).
 
 **Kirish (xavfsizlik) [QAROR]:**
@@ -191,7 +191,7 @@ Asos: arxitektura xavfsizlik tekshiruvi (2026-11-06). Natija: **shartli qulay**.
 | F-04 | OTP: telefon + qurilma + IP bo'yicha qatlamli limit, kod muddati va urinishlar soni, attestatsiya, SMS byudjeti signali | Identity | Yuqori | MVP |
 | F-05 | Token: asimmetrik imzo (algoritm ro'yxati), access ~15 daqiqa, bir martalik refresh va qayta ishlatishni aniqlash, har ilova uchun alohida audience, bekor qilish ro'yxati | Identity | Yuqori | MVP |
 | F-06 | Admin uchun alohida IdP/SSO + MFA (hozir: email kodi + SMS kodi, operator: faqat SMS; FIDO2 keyinroq, 2.5-bo'lim), alohida issuer va imzo kaliti | Admin | Yuqori | MVP |
-| F-07 | Backoffice: mayda rollar (2.5-bo'lim), tarif va hamyon tuzatishda 2 bosqichli tasdiq (bitta xodim, modal; ikki kishi tasdig'i 2026-11-22 da bekor), o'zgarmas audit, telefon maskalash, eksport cheklovi | Backoffice | Yuqori | MVP (rollar, audit), keyin (to'liq) |
+| F-07 | Backoffice: mayda rollar (2.5-bo'lim), tarif va hamyon tuzatishda 2 bosqichli tasdiq (bitta xodim, modal; ikki kishi tasdig'i 2026-11-22 da bekor), o'zgarmas audit, telefon maskalash (2026-11-22: admin panelda bekor, raqam to'liq ko'rinadi), eksport cheklovi | Backoffice | Yuqori | MVP (rollar, audit), keyin (to'liq) |
 | F-08 | Admin veb-panel: chiqishda escape, CSP, HttpOnly/SameSite cookie, hujjatni alohida domendan ko'rsatish | Backoffice | O'rta | MVP |
 | F-09 | Driver: yoziladigan maydonlar ro'yxati (DTO), status faqat Backoffice orqali; gateway'da OpenAPI sxemasi (noma'lum maydonlarni rad etish, hajm cheklovi) | Driver | Yuqori | MVP |
 | F-10 | Har so'rovda obyekt egaligi tekshiruvi (buyurtma, hamyon, joylashuv), UUID/ULID, ketma-ket ID signali | Trip & Order, Wallet, Matching | Yuqori | MVP |
@@ -347,6 +347,9 @@ Go, Kotlin (Spring Boot), TypeScript (NestJS), PostgreSQL, Redis, NATS JetStream
 | 2026-11-22 | Ikki kishi tasdig'i bekor. Tarif va hamyon tuzatishi: bitta xodim, 2 bosqich (Saqlash → tasdiqlash modali), audit jurnaliga yoziladi. "Tasdiqlar" bo'limi yo'q | [QAROR] |
 | 2026-11-22 | Tarif modeli: masofa × 1 litr yoqilg'i (gaz/benzin) + klass yoki kuzov ustamasi (foiz yoki summa) | [QAROR] |
 | 2026-11-22 | Admin: operator uchun "Tarix" va "Haydovchilar" (faqat ko'rish, balans ko'rinmaydi); haydovchi tarixi sahifasi | [QAROR] |
+| 2026-11-22 | Favqulodda kontaktlar butunlay olib tashlandi (SOS tugmasi va marshrutni ulashish qoladi) | [QAROR] |
+| 2026-11-22 | Admin panelda telefon raqamlari to'liq ko'rinadi, maskalash va "Telefonni ochish" tugmasi yo'q | [QAROR] |
+| 2026-11-22 | Ilovalardagi huquqiy havolalar faqat https://xasanow.uz/terms va /privacy (client va driver), tarmoq tekshiruvida shu manzilga istisno | [QAROR] |
 | 2026-11-22 | Backend'da hali yo'q qismlar (bonus, promo, choy puli, to'xtashlar, klass, yukchi va h.k.) ham to'liq qilinadi. Dizayndagi raqamlar namuna, hammasi serverdan | [QAROR] |
 
 ## 10. Frontend o'zgarishlari — backend uchun xulosa (2026-11-09 – 2026-11-11)
@@ -396,7 +399,7 @@ Frontend demo qurildi. Quyidagilar backend arxitektura va API ga ta'sir qiladi. 
 - Notification: qabul qiluvchiga va boshqa yo'lovchiga SMS (minimal mazmun, F-21). Marshrutni ulashish: muddati tugaydigan imzolangan havola, minimal ma'lumot.
 - Wallet: choy puli haydovchi daftariga alohida yozuv turi. Bekor qilish jarimasi yozuvi.
 - Bonus: promo kodlar (F-23).
-- Shaxsiy ma'lumot (F-22): kvartira, domofon kodi, qabul qiluvchi telefoni, favqulodda kontaktlar. Shifrlash, adminda maskalash, safardan keyin domofon kodini o'chirish.
+- Shaxsiy ma'lumot (F-22): kvartira, domofon kodi, qabul qiluvchi telefoni, favqulodda kontaktlar. Shifrlash (admin panelda telefon to'liq ko'rinadi, 2026-11-22), safardan keyin domofon kodini o'chirish.
 - Admin: yangi maydonlarni ko'rsatish, klass va kuzov ustamalari, yoqilg'i narxi, yukchi narxini boshqarish (2 bosqichli tasdiq).
 
 **Adapter shartnomasi (frontend kutmoqda):**
