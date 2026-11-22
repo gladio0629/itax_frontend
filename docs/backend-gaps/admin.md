@@ -116,6 +116,7 @@ Field and endpoint names below are the frontend's proposal; error keys follow th
 - `GET /admin/v1/orders`: add `type=passenger|delivery` (capability `orderKindFilter`) and `q` (id, passenger name/phone, driver name).
 - `GET /admin/v1/orders/counts?type=&from_date=&to_date=&q=&passenger_id=` → `{ all, searching, accepted, arrived, in_progress, completed, cancelled, expired }` (chip counters; `orderCounts`). The list is cut at 500 rows, so the UI never counts rows itself.
 - `AdminOrder` additions: `passenger: { name, phone, rating }`; `size_label: "S"…"3XL"` for delivery (the order's `vehicle_type` is a car name and is never shown); `luggage_count`; `cancelled_by: "passenger"|"driver"|"admin"`; `commission` and `driver_payout` (Money) with a label such as "Komissiya (Kumush, 5%)" or `{ level, pct }`; `timeline: { title, detail, at, estimated, state: "done"|"current"|"pending" }[]`.
+- Sort order: the dashboard takes the first 4 rows of `GET /admin/v1/orders` as "So'nggi buyurtmalar". The contract does not say the list is newest first; please state it (`created_at` descending).
 - `POST /admin/v1/orders/{id}/operator-task` `{ note?: string ≤500 }` → `201 QueueItem` ("Operatorga yuborish"; capability `orderToOperator`). Errors: `ORDER_NOT_FOUND`, `FORBIDDEN`. Note: doc 2.4 still lists "how tasks enter the operator queue" as an open question; this endpoint rests on that answer.
 
 **Drivers**
@@ -127,3 +128,7 @@ Field and endpoint names below are the frontend's proposal; error keys follow th
 - `GET /admin/v1/passengers`: add `from_date` for "Ro'yxatdan o'tgan" (`passengerJoinedFilter`); `GET /admin/v1/passengers/counts?q=&from_date=` → `{ all, active, blocked, archived, warned? }`.
 - `AdminPassenger` additions: `last_trip_at`, `last_payment: { method, card_last4? }`.
 - "Ogohlantirilgan" (`warned`) is in the design but not in the docs. The UI shows it only if the server sends it and offers no action that sets it. Owner decision needed.
+
+**Links between screens**
+- "Audit tarixi" (order panel) and the driver "Audit" tab open the audit log filtered by that object. Needs `GET /admin/v1/audit?entity_id=<uuid>` (or `q`); hidden while `auditSearch` is false.
+- The driver "Hamyon" tab opens the ledger filtered by that driver. Needs `GET /admin/v1/wallet/ledger?driver_id=` (already listed above as ledger filters); hidden while `walletLedgerFilters` is false.

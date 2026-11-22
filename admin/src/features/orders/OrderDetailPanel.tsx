@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Ban, ClipboardList, Headset, Pencil } from "lucide-react";
 import { api } from "@/api/client";
+import { isApiError } from "@shared/http/errors";
+import { EmptyState } from "@/components/EmptyState";
 import { Drawer } from "@/components/Drawer";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -20,6 +22,7 @@ import type { OrderCancelReasonCode, OrderDetail, OrderTimelineStep } from "@/ap
 
 const caps = api.capabilities;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
+const isNotFound = (e: unknown) => isApiError(e) && /NOT_FOUND$/.test(e.code);
 
 /** Order detail (design OrderDetail): a 560px panel over the orders list.
  * Opened by id, so a reload or a header-search link works. `?edit=1` /
@@ -31,6 +34,7 @@ export function OrderDetailPanel({ onChanged }: { onChanged: () => void }) {
   const { me } = usePermissions();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -41,10 +45,15 @@ export function OrderDetailPanel({ onChanged }: { onChanged: () => void }) {
     let live = true;
     setLoading(true);
     setError(null);
+    setNotFound(false);
     api
       .getOrder(orderId)
       .then((o) => live && setOrder(o))
-      .catch((e) => live && setError(errorText(e)))
+      .catch((e) => {
+        if (!live) return;
+        setNotFound(isNotFound(e));
+        setError(errorText(e));
+      })
       .finally(() => live && setLoading(false));
     return () => {
       live = false;
@@ -102,7 +111,7 @@ export function OrderDetailPanel({ onChanged }: { onChanged: () => void }) {
         footer={
           order && (
             <div className="flex flex-wrap items-center gap-2">
-              {me?.sections.includes("audit") && (
+              {me?.sections.includes("audit") && caps.auditSearch && (
                 <Link
                   to={`/audit?q=${encodeURIComponent(order.id)}`}
                   className="inline-flex h-11 items-center gap-2 rounded-full bg-surface px-[18px] text-sm font-extrabold text-ink hover:bg-line"
@@ -130,7 +139,9 @@ export function OrderDetailPanel({ onChanged }: { onChanged: () => void }) {
           )
         }
       >
-        {error && !order ? (
+        {notFound && !order ? (
+          <EmptyState icon={<ClipboardList />} title="Buyurtma topilmadi" description="Havola eskirgan yoki buyurtma o'chirilgan." />
+        ) : error && !order ? (
           <ErrorState message={error} onRetry={load} retrying={loading} />
         ) : !order ? (
           <div className="flex flex-col gap-4" aria-busy>

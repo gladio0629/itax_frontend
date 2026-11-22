@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { History } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
@@ -117,6 +118,7 @@ const caps = api.capabilities;
 
 export function AuditScreen() {
   const [search, setSearch] = useState("");
+  useSearchFromUrl(setSearch);
   const [action, setAction] = useState<string>("all");
   const [entityType, setEntityType] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { Ban, CheckCircle2, FileCheck2, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { api } from "@/api/client";
+import { isApiError } from "@shared/http/errors";
 import { PageHeader } from "@/layouts/PageHeader";
 import { Card, CardTitle } from "@/components/Card";
 import { Badge } from "@/components/Badge";
@@ -23,6 +24,7 @@ import type { DriverDocument, DriverProfile } from "@/api/types";
 
 const caps = api.capabilities;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
+const isNotFound = (e: unknown) => isApiError(e) && /NOT_FOUND$/.test(e.code);
 const shortDriverId = (id: string) => (id.startsWith("drv_") ? id.slice(4) : id.slice(0, 8));
 
 /** /drivers/:driverId/* — profile header + tabs (design DriverProfile,
@@ -33,16 +35,22 @@ export function DriverPage() {
   const { me } = usePermissions();
   const [driver, setDriver] = useState<DriverProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
     let live = true;
     setLoading(true);
     setError(null);
+    setNotFound(false);
     api
       .getDriver(driverId)
       .then((d) => live && setDriver(d))
-      .catch((e) => live && setError(errorText(e)))
+      .catch((e) => {
+        if (!live) return;
+        setNotFound(isNotFound(e));
+        setError(errorText(e));
+      })
       .finally(() => live && setLoading(false));
     return () => {
       live = false;
@@ -56,7 +64,11 @@ export function DriverPage() {
     return (
       <>
         <PageHeader subtitle={<Crumbs />} title="Haydovchi" />
-        <ErrorState message={error} onRetry={load} retrying={loading} />
+        {notFound ? (
+          <EmptyState icon={<FileCheck2 />} title="Haydovchi topilmadi" description="Havola eskirgan yoki haydovchi o'chirilgan." />
+        ) : (
+          <ErrorState message={error} onRetry={load} retrying={loading} />
+        )}
       </>
     );
   }
@@ -78,9 +90,11 @@ export function DriverPage() {
   const tabs: { to: string; label: string; end?: boolean; external?: boolean }[] = [
     { to: `/drivers/${driver.id}`, label: "Umumiy", end: true },
     ...(caps.driverTrips ? [{ to: `/drivers/${driver.id}/history`, label: "Tarix" }] : []),
-    ...(me?.sections.includes("wallet") ? [{ to: `/wallet?q=${encodeURIComponent(driver.name)}`, label: "Hamyon", external: true }] : []),
+    ...(me?.sections.includes("wallet") && caps.walletLedgerFilters
+      ? [{ to: `/wallet?q=${encodeURIComponent(driver.name)}`, label: "Hamyon", external: true }]
+      : []),
     ...(driver.documents ? [{ to: `/drivers/${driver.id}/documents`, label: "Hujjatlar" }] : []),
-    ...(me?.sections.includes("audit") ? [{ to: `/audit?q=${encodeURIComponent(driver.id)}`, label: "Audit", external: true }] : []),
+    ...(me?.sections.includes("audit") && caps.auditSearch ? [{ to: `/audit?q=${encodeURIComponent(driver.id)}`, label: "Audit", external: true }] : []),
   ];
 
   return (

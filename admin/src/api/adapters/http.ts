@@ -15,7 +15,6 @@ import * as map from "../httpMapper";
 import type {
   AdapterCapabilities,
   Complaint,
-  DriverTrips,
   GlobalSearchHit,
   OrderWithNames,
   LoginStartResult,
@@ -450,11 +449,11 @@ export const httpAdapter: ApiAdapter = {
     return { ...map.driverFromApi(d), recentTrips: null };
   },
   async getDriverTrips(driverId, query) {
-    // Shape documented in backend-gaps; already the UI's shape.
-    return http.get<DriverTrips>(driverTripsPath(driverId), {
+    const t = await http.get<map.ApiDriverTrips>(driverTripsPath(driverId), {
       month: query.month || undefined,
       kind: query.kind && query.kind !== "all" ? query.kind : undefined,
     });
+    return map.driverTripsFromApi(t);
   },
   async updateDriverProfile(id, patch) {
     // Car fields can't be changed through the API (capabilities.driverCarEdit).

@@ -78,7 +78,12 @@ export function OrdersScreen() {
     setCountsTick((n) => n + 1);
   };
 
-  const open = (o: OrderWithNames, extra = "") => navigate({ pathname: `/orders/${o.id}`, search: extra });
+  // Keep the list's own params (e.g. ?passenger=) when opening a row.
+  const open = (o: OrderWithNames, extra?: "edit" | "cancel") => {
+    const next = new URLSearchParams(params);
+    if (extra) next.set(extra, "1");
+    navigate({ pathname: `/orders/${o.id}`, search: next.toString() });
+  };
   const selectedId = location.pathname.split("/")[2];
 
   const chipStatuses = CHIP_ORDER.filter((s) => caps.orderStatuses.includes(s));
@@ -128,8 +133,8 @@ export function OrdersScreen() {
           label={`Buyurtma ${orderNo(o.id)}: amallar`}
           items={[
             { label: "Ochish", icon: <ExternalLink />, onSelect: () => open(o) },
-            { label: "Tahrirlash", icon: <Pencil />, onSelect: () => open(o, "?edit=1"), hidden: !caps.orderEdit },
-            { label: "Bekor qilish", icon: <Ban />, tone: "danger", onSelect: () => open(o, "?cancel=1"), hidden: !o.canCancel },
+            { label: "Tahrirlash", icon: <Pencil />, onSelect: () => open(o, "edit"), hidden: !caps.orderEdit },
+            { label: "Bekor qilish", icon: <Ban />, tone: "danger", onSelect: () => open(o, "cancel"), hidden: !o.canCancel },
           ]}
         />
       ),

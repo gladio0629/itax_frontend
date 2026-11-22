@@ -231,9 +231,12 @@ export function OrderCreateDrawer({ open, onClose, onCreated }: { open: boolean;
     timeTo: "10:00",
   });
 
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadTick, setLoadTick] = useState(0);
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setLoadFailed(false);
     Promise.all([api.getCities(), api.getPassengers({})])
       .then(([c, p]) => {
         setCities(c);
@@ -245,18 +248,10 @@ export function OrderCreateDrawer({ open, onClose, onCreated }: { open: boolean;
           toCityId: x.toCityId || c[1]?.id || "",
         }));
       })
-      .catch((e) => setError(errorText(e)));
-  }, [open]);
+      .catch(() => setLoadFailed(true));
+  }, [open, loadTick]);
 
   async function create() {
-    if (f.fromCityId === f.toCityId) {
-      setError("Qayerdan va qayerga bir xil bo'lmasin.");
-      return;
-    }
-    if (f.mode === "seat" && f.seatIds.length === 0) {
-      setError("Kamida bitta o'rindiq tanlang.");
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -290,6 +285,14 @@ export function OrderCreateDrawer({ open, onClose, onCreated }: { open: boolean;
       disabled={!f.passengerId || !f.fromCityId || !f.toCityId}
       error={error}
     >
+      {loadFailed && (
+        <div role="alert" className="flex items-center gap-3 rounded-box bg-warn-soft px-4 py-2.5 text-13 font-semibold text-warn">
+          <span className="flex-1">Yo'lovchilar va shaharlar ro'yxatini yuklab bo'lmadi.</span>
+          <button type="button" onClick={() => setLoadTick((n) => n + 1)} className="h-11 rounded-full bg-white px-3.5 text-13 font-bold text-ink">
+            Qayta yuklash
+          </button>
+        </div>
+      )}
       <SelectField
         label="Yo'lovchi"
         required

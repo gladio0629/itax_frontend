@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { Check, Plus, Wallet, X } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
@@ -49,6 +50,7 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz
 
 export function WalletScreen() {
   const [search, setSearch] = useState("");
+  useSearchFromUrl(setSearch);
   const [type, setType] = useState<WalletEntryType | "all">("all");
   const query: WalletQuery = { search, type };
   const { items: rows, error, reload } = useAdapterList(api.getWalletLedger, query);

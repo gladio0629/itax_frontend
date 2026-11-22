@@ -25,6 +25,7 @@ import type {
   Dashboard,
   DashboardPeriod,
   ListPeriod,
+  DriverTrips,
   Passenger,
   QueueReason,
   QueueStatus,
@@ -272,7 +273,9 @@ export function orderDetailFromApi(o: Api.AdminOrder): OrderDetail {
   const car = o.driver?.car;
   return {
     ...base,
-    canCancel: o.can_cancel ?? true,
+    // Order.can_cancel / editable are the passenger's verdicts; there is none
+    // for admins, so both actions are offered and the server's 403 decides.
+    canCancel: true,
     passengerRating: null,
     driverRating: o.driver?.rating ?? null,
     driverCar: car ? [`${car.brand} ${car.model}`.trim(), car.plate_number].filter(Boolean).join(" · ") : null,
@@ -281,7 +284,7 @@ export function orderDetailFromApi(o: Api.AdminOrder): OrderDetail {
     priceLines: o.price_lines?.length
       ? o.price_lines.map((l) => ({ label: PRICE_LINE_LABEL[l.key] ?? "Boshqa", amount: toSom(l.amount), kind: "line" as const }))
       : null,
-    canEdit: o.editable ?? false,
+    canEdit: true,
   };
 }
 
@@ -662,5 +665,70 @@ export function dashboardFromApi(
         : overLimit > 0
           ? [{ id: "debt", tone: "danger", title: `${overLimit} haydovchi qarz chegarasida`, detail: "Yangi so'rovlar ular uchun to'xtatilgan", section: debtSection }]
           : [],
+  };
+}
+
+// ------------------------------------------------------ v2 driver trips
+/** Expected GET /admin/v1/drivers/{id}/trips (not in openapi.yml yet; see
+ * docs/backend-gaps/admin.md). Money in tiyin like the rest of the API. */
+export type ApiDriverTrips = {
+  month: string;
+  months: string[];
+  summary: {
+    trips: number;
+    trips_total: number;
+    income: Api.Money;
+    commission: Api.Money;
+    commission_avg_pct: number | null;
+    cancelled: number;
+    cancelled_pct: number | null;
+  } | null;
+  counts: { all?: number; passenger?: number; delivery?: number; cancelled?: number } | null;
+  rows: {
+    order_id: string;
+    kind: Api.OrderType;
+    at: string;
+    from_name: string;
+    to_name: string;
+    subject: string;
+    price: Api.Money;
+    payment_method: Api.PaymentMethod;
+    commission: Api.Money | null;
+    payout: Api.Money | null;
+    status: Api.OrderStatus;
+    cancelled_by: "passenger" | "driver" | "admin" | null;
+  }[];
+};
+
+export function driverTripsFromApi(t: ApiDriverTrips): DriverTrips {
+  return {
+    month: t.month,
+    months: t.months,
+    summary: t.summary
+      ? {
+          trips: t.summary.trips,
+          tripsTotal: t.summary.trips_total,
+          income: toSom(t.summary.income),
+          commission: toSom(t.summary.commission),
+          commissionAvgPct: t.summary.commission_avg_pct,
+          cancelled: t.summary.cancelled,
+          cancelledPct: t.summary.cancelled_pct,
+        }
+      : null,
+    counts: t.counts,
+    rows: t.rows.map((r) => ({
+      orderId: r.order_id,
+      kind: r.kind === "delivery" ? "delivery" : "passenger",
+      at: toMs(r.at),
+      fromName: r.from_name,
+      toName: r.to_name,
+      subject: r.subject,
+      price: toSom(r.price),
+      paymentMethod: r.payment_method,
+      commission: r.commission === null ? null : toSom(r.commission),
+      payout: r.payout === null ? null : toSom(r.payout),
+      status: r.status,
+      cancelledBy: r.cancelled_by,
+    })),
   };
 }
