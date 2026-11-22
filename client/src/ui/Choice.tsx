@@ -41,7 +41,7 @@ export function Chip({
         className
       )}
     >
-      {selected && check && !compact && <Icon name="check" size={18} strokeWidth={2.4} className="text-iz-green" />}
+      {selected && check && !compact && <Icon name="check" size={18} strokeWidth={2.4} className="text-iz-selected-accent" />}
       {children}
     </button>
   );
@@ -168,7 +168,7 @@ export function Switch({
           className={cn(
             "h-[26px] w-[26px] rounded-full",
             !checked && "bg-white",
-            checked && tone === "sheet" && "bg-iz-green",
+            checked && tone === "sheet" && "bg-iz-selected-accent",
             checked && tone === "head" && "bg-[var(--iz-on-green)]"
           )}
         />

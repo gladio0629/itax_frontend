@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLiftFloatingControl } from "@/stores/floatingControlStore";
+import { useStatusBar } from "./statusBar";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/cn";
 import { PrimaryButton, TextButton } from "./Button";
@@ -157,6 +158,7 @@ export function StateOffline({ onRetry, retrying }: { onRetry: () => void; retry
   const { t } = useT();
   const sheetRef = useRef<HTMLDivElement>(null);
   useLiftFloatingControl(sheetRef);
+  useStatusBar("map");
   return (
     <div className="absolute inset-0 z-40 flex flex-col justify-between overflow-hidden bg-iz-map">
       <svg aria-hidden viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full opacity-50">

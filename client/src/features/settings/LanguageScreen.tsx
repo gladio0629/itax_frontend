@@ -66,7 +66,7 @@ export function LanguageScreen() {
                   aria-hidden
                   className={cn(
                     "flex h-11 w-11 shrink-0 items-center justify-center rounded-iz-tile text-[13px] font-extrabold",
-                    selected ? "bg-iz-selected text-iz-green" : "bg-iz-sheet text-iz-ink"
+                    selected ? "bg-iz-selected text-iz-selected-accent" : "bg-iz-sheet text-iz-ink"
                   )}
                 >
                   {t(`language.code.${l}` as TranslationKey)}
@@ -75,7 +75,7 @@ export function LanguageScreen() {
                   {t(`language.name.${l}` as TranslationKey)}
                 </span>
                 {selected ? (
-                  <span aria-hidden className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-iz-selected text-iz-green">
+                  <span aria-hidden className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-iz-selected text-iz-selected-accent">
                     <Icon name="check" size={14} strokeWidth={3.2} />
                   </span>
                 ) : (

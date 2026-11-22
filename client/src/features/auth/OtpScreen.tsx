@@ -243,12 +243,12 @@ export function OtpScreen() {
                 autoFocus={i === 0}
                 spellCheck={false}
                 inputMode="numeric"
-                disabled={submitting}
+                readOnly={submitting}
                 className={cn(
                   "iz-input h-16 w-full min-w-0 rounded-[18px] border-2 p-0 text-center text-[24px] font-extrabold tabular-nums outline-none transition-[background,box-shadow]",
                   "focus:border-iz-ink focus:bg-iz-field-focus focus:text-iz-ink focus:shadow-[0_0_0_4px_var(--iz-focus-ring)]",
-                  d ? "border-transparent bg-iz-selected text-iz-on-selected" : "border-transparent bg-iz-field text-iz-ink",
-                  error && "border-iz-danger"
+                  error ? "border-iz-danger" : "border-transparent",
+                  d ? "bg-iz-selected text-iz-on-selected" : "bg-iz-field text-iz-ink"
                 )}
               />
             ))}

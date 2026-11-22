@@ -27,6 +27,7 @@
   /* Selected chip / segment / day: Ink with white text (inverted in dark). */
   --iz-selected: #0b1524;
   --iz-on-selected: #ffffff;
+  --iz-selected-accent: #2edb85; /* check / code on the selected fill */
 
   /* Accent. */
   --iz-green: #2edb85;
@@ -89,6 +90,7 @@
   --iz-chip-border: #33475f;
   --iz-selected: #eef2f7;
   --iz-on-selected: #0b1524;
+  --iz-selected-accent: #0c7a43;
 
   --iz-green: #2edb85;
   --iz-on-green: #0b1524;

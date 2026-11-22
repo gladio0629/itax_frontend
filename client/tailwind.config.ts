@@ -46,6 +46,7 @@ export default {
           "chip-border": "var(--iz-chip-border)",
           selected: "var(--iz-selected)",
           "on-selected": "var(--iz-on-selected)",
+          "selected-accent": "var(--iz-selected-accent)",
           green: "rgb(var(--iz-green-rgb) / <alpha-value>)",
           "on-green": "var(--iz-on-green)",
           "green-text": "var(--iz-green-text)",
