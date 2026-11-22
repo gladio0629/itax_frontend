@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
-import type { OrderMode, OrderTiming, OrderWithDetails, PayMethod, SchedulingRules, Seat } from "@/api/types";
+import type { OrderMode, OrderTiming, OrderWithDetails, PayMethod, SavedCard, SchedulingRules, Seat } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
@@ -76,22 +77,30 @@ export function EditOrderScreen({
     [delivery, fromAddressId, toAddressId]
   );
   const scheduling = useQuery<SchedulingRules>(() => api.getSchedulingRules(), []);
+  const navigate = useNavigate();
+  const cards = useQuery<SavedCard[]>(() => (api.capabilities.savedCards ? api.getSavedCards() : Promise.resolve([])), []);
 
   const fromAddress = api.addressById(fromAddressId) ?? null;
   const toAddress = api.addressById(toAddressId) ?? null;
 
+  // Only what really changed is sent (the same time picked again is no change).
+  const sameSeats = [...seatIds].sort().join() === [...order.seatIds].sort().join();
+  const timingChanged = timingTouched && JSON.stringify(timing) !== JSON.stringify(order.extras?.timing ?? { timeMode: "now" });
+  const patch = {
+    ...(fromAddressId !== (order.extras?.fromAddressId ?? "") ? { fromAddressId } : {}),
+    ...(toAddressId !== (order.extras?.toAddressId ?? "") ? { toAddressId } : {}),
+    ...(!delivery && (mode !== order.mode || !sameSeats) ? { mode, seatIds } : {}),
+    ...(pay !== firstPay ? { paymentMethod: pay } : {}),
+    ...(timingChanged ? { timing } : {}),
+  };
+  const changed = Object.keys(patch).length > 0;
+
   async function save() {
+    if (!changed) return;
     setSaving(true);
     setError(null);
     try {
-      const sameSeats = [...seatIds].sort().join() === [...order.seatIds].sort().join();
-      const updated = await api.updateOrder(order.id, {
-        ...(fromAddressId !== (order.extras?.fromAddressId ?? "") ? { fromAddressId } : {}),
-        ...(toAddressId !== (order.extras?.toAddressId ?? "") ? { toAddressId } : {}),
-        ...(!delivery && (mode !== order.mode || !sameSeats) ? { mode, seatIds } : {}),
-        ...(pay !== firstPay ? { paymentMethod: pay } : {}),
-        ...(timingTouched ? { timing } : {}),
-      });
+      const updated = await api.updateOrder(order.id, patch);
       onSaved(updated);
     } catch (e) {
       const key = serverErrorKey(e);
@@ -163,7 +172,7 @@ export function EditOrderScreen({
                   {error}
                 </p>
               )}
-              <PrimaryButton loading={saving} disabled={!delivery && mode === "seat" && seatIds.length === 0} onClick={save}>
+              <PrimaryButton loading={saving} disabled={!changed || (!delivery && mode === "seat" && seatIds.length === 0)} onClick={save}>
                 {t("common.save")}
               </PrimaryButton>
               {onCancel && (
@@ -249,6 +258,33 @@ export function EditOrderScreen({
                 className="h-[52px]"
                 options={payOptions.map((m) => ({ value: m, label: t(payName[m]) }))}
               />
+              {/* Karta: the linked cards and "Karta ulash" (current app). */}
+              {pay === "card" && api.capabilities.savedCards && (
+                <div className="flex flex-col gap-2">
+                  {cards.status === "error" && (
+                    <button type="button" onClick={cards.refetch} className="flex h-11 items-center gap-2 self-start text-[13px] font-bold text-iz-danger">
+                      <Icon name="refresh" size={16} />
+                      {t("common.loadFailedRetry")}
+                    </button>
+                  )}
+                  {cards.status === "success" &&
+                    cards.data.map((c) => (
+                      <div key={c.id} className="flex h-14 items-center gap-3 rounded-iz-field bg-iz-field px-3.5">
+                        <Icon name="card" size={18} className="shrink-0 text-iz-ink" />
+                        <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-iz-ink">{c.label}</span>
+                        <span className="text-[14px] font-bold tabular-nums text-iz-muted">{t("pay.cardSaved", { last4: c.last4 })}</span>
+                      </div>
+                    ))}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/cards/link")}
+                    className="flex h-11 items-center gap-2 self-start rounded-full bg-iz-field px-4 text-[13px] font-extrabold text-iz-green-text active:opacity-80"
+                  >
+                    <Icon name="plus" size={16} />
+                    {t("pay.cardHint")}
+                  </button>
+                </div>
+              )}
             </section>
             <p className="px-1 text-[12px] text-iz-muted">{t("live.editNote")}</p>
           </>

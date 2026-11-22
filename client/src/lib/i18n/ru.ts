@@ -716,4 +716,6 @@ export const ru: Dictionary = {
   "help.topic.driver": "Водитель",
   "help.topic.account": "Аккаунт",
   "about.website": "Сайт",
+  "driver.message": "Написать водителю",
+  "driver.messageUnavailable": "Сообщения пока недоступны",
 };

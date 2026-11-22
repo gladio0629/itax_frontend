@@ -717,6 +717,8 @@ export const uz = {
   "help.topic.driver": "Haydovchi",
   "help.topic.account": "Akkaunt",
   "about.website": "Veb-sayt",
+  "driver.message": "Haydovchiga yozish",
+  "driver.messageUnavailable": "Xabar yuborish hozircha mavjud emas",
 };
 
 export type Dictionary = typeof uz;

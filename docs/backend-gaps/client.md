@@ -199,6 +199,8 @@ Needed for the full design:
   Without them the card shows "Haydovchi" and the price only. A dialable driver phone (or a call-masking number) is
   also needed: `"driver_phone"` on the order while `accepted` / `in_progress` (UI field `driverPhone`). The mock gives a
   sample number and the button opens the phone's dialer; without the field it says "Qo'ng'iroq qilish hozircha mavjud emas".
+  "Haydovchiga yozish" uses the same number for the phone's SMS app (no in-app chat); without it the button says
+  "Xabar yuborish hozircha mavjud emas".
 - **"Qayta qidirish" with a new time** (design NoDriver, "Olish vaqti · O'zgartirish"): the client re-creates the
   order from `GET /orders/{id}` with the shown time as `scheduled_*` (works with today's contract). A
   `POST /api/v1/orders/{id}/repeat { scheduled_* }` would avoid re-sending the whole order.

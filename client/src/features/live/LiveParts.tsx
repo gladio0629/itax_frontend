@@ -116,6 +116,28 @@ export function CallButton({ phone, onUnavailable, outline }: { phone?: string; 
   );
 }
 
+/** "Haydovchiga yozish": the phone's messages app to the driver's number when
+ * the server gives one, otherwise `onUnavailable` (a short note). */
+export function MessageButton({ phone, onUnavailable, tone }: { phone?: string; onUnavailable: () => void; tone: "dark" | "light" }) {
+  const { t } = useT();
+  const cls = cn(
+    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full active:scale-95",
+    tone === "dark" ? "border border-iz-head-border-strong text-iz-head-text" : "border border-iz-chip-border text-iz-ink"
+  );
+  if (phone) {
+    return (
+      <a href={`sms:${phone.replace(/[^\d+]/g, "")}`} aria-label={t("driver.message")} className={cls}>
+        <Icon name="chat" size={20} />
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onUnavailable} aria-label={t("driver.message")} className={cls}>
+      <Icon name="chat" size={20} />
+    </button>
+  );
+}
+
 const payKey = (o: OrderWithDetails): TranslationKey => {
   const m = o.extras?.payMethod ?? o.paymentMethod;
   return m === "cash" ? "order.cash" : m === "payme" ? "pay.payme" : m === "click" ? "pay.click" : "order.card";
@@ -123,7 +145,7 @@ const payKey = (o: OrderWithDetails): TranslationKey => {
 export const payLabel = (o: OrderWithDetails, t: (k: TranslationKey) => string) => t(payKey(o));
 
 /** Driver found (design: Driver): the dark card with car, plate and price. */
-export function DriverCardDark({ driver, order, onCall }: { driver: Driver; order: OrderWithDetails; onCall: () => void }) {
+export function DriverCardDark({ driver, order, onCall, onMessage }: { driver: Driver; order: OrderWithDetails; onCall: () => void; onMessage: () => void }) {
   const { t, intlTag } = useT();
   const name = driver.name ? shortName(driver.name) : t("driver.unnamed");
   const car = [driver.carModel, driver.carColor].filter(Boolean).join(", ");
@@ -145,6 +167,7 @@ export function DriverCardDark({ driver, order, onCall }: { driver: Driver; orde
             </span>
           )}
         </div>
+        <MessageButton phone={order.driverPhone} onUnavailable={onMessage} tone="dark" />
         <CallButton phone={order.driverPhone} onUnavailable={onCall} />
       </div>
       <div className="flex items-center justify-between gap-3">
@@ -158,7 +181,7 @@ export function DriverCardDark({ driver, order, onCall }: { driver: Driver; orde
 }
 
 /** A compact driver line (design: Arrived, OnTrip). */
-export function DriverRow({ driver, phone, tone, sub, onCall }: { driver: Driver; phone?: string; tone: "light" | "dark"; sub: string; onCall: () => void }) {
+export function DriverRow({ driver, phone, tone, sub, onCall, onMessage }: { driver: Driver; phone?: string; tone: "light" | "dark"; sub: string; onCall: () => void; onMessage: () => void }) {
   const { t, intlTag } = useT();
   const name = driver.name ? shortName(driver.name) : t("driver.unnamed");
   const rating = driver.rating > 0 ? ` · ${driver.rating.toLocaleString(intlTag, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : "";
@@ -172,6 +195,7 @@ export function DriverRow({ driver, phone, tone, sub, onCall }: { driver: Driver
         </span>
         {sub && <span className={cn("truncate text-[13px]", tone === "light" ? "font-bold tracking-[0.5px] text-iz-ink" : "text-iz-muted")}>{sub}</span>}
       </div>
+      <MessageButton phone={phone} onUnavailable={onMessage} tone="light" />
       <CallButton phone={phone} onUnavailable={onCall} outline={tone === "dark"} />
     </div>
   );

@@ -12,7 +12,7 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 import { useQuery } from "@/lib/useQuery";
 import { useOrderStore } from "@/stores/orderStore";
 import { useFloatingControl } from "@/stores/floatingControlStore";
-import { leaveToHome } from "@/lib/homeBase";
+import { hasHomeBase, leaveToHome } from "@/lib/homeBase";
 import { Icon, PrimaryButton, Screen, StateError, StateLoading, TextButton, useShellChrome, useStatusBar } from "@/ui";
 import { cn } from "@/lib/cn";
 import { formatDuration } from "@/features/order/duration";
@@ -36,6 +36,8 @@ function useNow(on: boolean) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!on) return;
+    // Fresh at once, not one second late with the value from before.
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, [on]);
@@ -95,11 +97,20 @@ export function LiveOrderScreen() {
   // Stable: the screen re-renders every second, which must not restart the toast's timer.
   const clearToast = useCallback(() => setToast(null), []);
   const startRef = useRef(Date.now());
+  const sharingRef = useRef(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelH, setPanelH] = useState(0);
 
   const raw = params.get("sheet");
   const sheet: Sheet = raw && SHEETS.has(raw) ? (raw as Sheet) : null;
+  /** Entries the open sheets pushed: the edit screen's own sheets sit on top of it. */
+  const pushedSheets = (s: Sheet) => ((location.state as { sheet?: boolean } | null)?.sheet ? (s?.startsWith("edit:") ? 2 : 1) : 0);
+  /** Close every open sheet (the order moved on). */
+  const closeAllSheets = () => {
+    const n = pushedSheets(sheet);
+    if (n) navigate(-n);
+    else setParams(new URLSearchParams(), { replace: true });
+  };
   const setSheet = (s: Sheet) => {
     const next = new URLSearchParams(params);
     if (!s) {
@@ -116,16 +127,56 @@ export function LiveOrderScreen() {
     setParams(next, { state: { sheet: true } });
   };
 
+  // The interval and push handlers keep the first render's poll: read the
+  // current order id and sheet through refs.
+  const orderIdRef = useRef(orderId);
+  orderIdRef.current = orderId;
+  const sheetRef = useRef<{ sheet: Sheet; pushed: number }>({ sheet: null, pushed: 0 });
+  sheetRef.current = { sheet, pushed: pushedSheets(sheet) };
+  /** The trip ended while a sheet was open: close the sheets, then show Rate. */
+  const finishing = useRef(false);
+
   async function poll() {
+    const id = orderIdRef.current;
     try {
-      const res = await api.getOrder(orderId);
+      const res = await api.getOrder(id);
+      // A late answer for the previous order ("Qayta qidirish" made a new one).
+      if (id !== orderIdRef.current) return;
       setOrder(res);
       setError(false);
-      if (res.status === "completed") navigate(`/order/finished/${orderId}`, { replace: true });
+      if (res.status === "completed" && !finishing.current) {
+        const { pushed } = sheetRef.current;
+        if (pushed) {
+          finishing.current = true;
+          navigate(-pushed);
+        } else navigate(`/order/finished/${id}`, { replace: true });
+      }
     } catch {
-      setError(true);
+      if (id === orderIdRef.current) setError(true);
     }
   }
+  /** Leave a finished order for Home: back to the Home it was placed from,
+   * or (opened elsewhere, e.g. Tarix) close the sheets and put Home in its place. */
+  const leavingHome = useRef(false);
+  function exitToHome() {
+    if (hasHomeBase()) return leaveToHome(navigate);
+    const n = pushedSheets(sheet);
+    if (!n) return navigate("/home", { replace: true });
+    leavingHome.current = true;
+    navigate(-n);
+  }
+  useEffect(() => {
+    if (leavingHome.current && !sheet) {
+      leavingHome.current = false;
+      navigate("/home", { replace: true });
+      return;
+    }
+    if (finishing.current && !sheet) {
+      finishing.current = false;
+      navigate(`/order/finished/${orderId}`, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheet]);
 
   useEffect(() => {
     startRef.current = Date.now();
@@ -187,9 +238,10 @@ export function LiveOrderScreen() {
     if (!order || !sheet) return;
     const live = order.status === "searching" || order.status === "accepted" || order.status === "in_progress";
     const cancellable = order.canCancel !== false && (order.status === "searching" || order.status === "accepted");
-    if ((sheet.startsWith("edit") || sheet === "safety") && !live) setSheet(null);
-    if (sheet === "cancel" && !cancellable) setSheet(null);
-    if (sheet === "time" && view !== "noDriver") setSheet(null);
+    if (order.status === "completed") return; // poll() closes them and opens Rate
+    if ((sheet.startsWith("edit") || sheet === "safety") && !live) closeAllSheets();
+    else if (sheet === "cancel" && !cancellable) closeAllSheets();
+    else if (sheet === "time" && view !== "noDriver") closeAllSheets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.status, view]);
 
@@ -225,7 +277,7 @@ export function LiveOrderScreen() {
     setCancelError(null);
     try {
       await api.cancelOrder(orderId, reason);
-      leaveToHome(navigate);
+      exitToHome();
     } catch (e) {
       setCancelError(t((serverErrorKey(e) ?? "track.cancelError") as TranslationKey));
     } finally {
@@ -250,7 +302,13 @@ export function LiveOrderScreen() {
 
   const driver = order.driver;
   const callDriver = () => setToast(t("driver.callUnavailable"));
-  const share = () => shareTrip(orderId, t, setToast);
+  const messageDriver = () => setToast(t("driver.messageUnavailable"));
+  const share = async () => {
+    if (sharingRef.current) return; // a double tap opens one share sheet
+    sharingRef.current = true;
+    await shareTrip(orderId, t, setToast);
+    sharingRef.current = false;
+  };
   const live = view === "search" || view === "toPickup" || view === "arrived" || view === "trip";
   const canCancel = order.canCancel !== false && (view === "search" || view === "toPickup" || view === "arrived");
   const canEdit = api.capabilities.orderDetails && order.editable;
@@ -346,10 +404,10 @@ export function LiveOrderScreen() {
             {t("live.noDriver.retry")}
           </PrimaryButton>
         ) : (
-          <PrimaryButton onClick={() => leaveToHome(navigate)}>{t("finished.backHome")}</PrimaryButton>
+          <PrimaryButton onClick={() => exitToHome()}>{t("finished.backHome")}</PrimaryButton>
         )}
         {api.capabilities.repeatOrder && (
-          <TextButton onClick={() => leaveToHome(navigate)}>{t("cancel.title")}</TextButton>
+          <TextButton onClick={() => exitToHome()}>{t("cancel.title")}</TextButton>
         )}
       </>
     );
@@ -357,7 +415,7 @@ export function LiveOrderScreen() {
     panel = (
       <>
         <LiveHeading title={t("track.cancelledTitle")} sub={order.cancelReason ? t(order.cancelReason as TranslationKey) : undefined} />
-        <PrimaryButton onClick={() => leaveToHome(navigate)}>{t("finished.backHome")}</PrimaryButton>
+        <PrimaryButton onClick={() => exitToHome()}>{t("finished.backHome")}</PrimaryButton>
       </>
     );
   } else if (view === "toPickup") {
@@ -369,7 +427,7 @@ export function LiveOrderScreen() {
           sub={pickupLine || undefined}
         />
         <PhaseBar current={0} />
-        {driver && <DriverCardDark driver={driver} order={order} onCall={callDriver} />}
+        {driver && <DriverCardDark driver={driver} order={order} onCall={callDriver} onMessage={messageDriver} />}
         <ActionTiles actions={actions} />
       </>
     );
@@ -393,7 +451,7 @@ export function LiveOrderScreen() {
             </div>
           </div>
         )}
-        {driver && <DriverRow driver={driver} phone={order.driverPhone} tone="light" sub={driver.plate} onCall={callDriver} />}
+        {driver && <DriverRow driver={driver} phone={order.driverPhone} tone="light" sub={driver.plate} onCall={callDriver} onMessage={messageDriver} />}
         <ActionTiles actions={actions} compact />
       </>
     );
@@ -432,7 +490,7 @@ export function LiveOrderScreen() {
             <span className="text-[12px] font-semibold text-iz-muted">{t("live.tripKm", { done: formatNumber(p.doneKm, intlTag), left: formatNumber(p.leftKm, intlTag) })}</span>
           </div>
         )}
-        {driver && <DriverRow driver={driver} phone={order.driverPhone} tone="dark" sub={sub} onCall={callDriver} />}
+        {driver && <DriverRow driver={driver} phone={order.driverPhone} tone="dark" sub={sub} onCall={callDriver} onMessage={messageDriver} />}
         {api.capabilities.safety ? (
           <PrimaryButton icon="share" onClick={share}>
             {t("live.shareRoute")}
@@ -459,7 +517,11 @@ export function LiveOrderScreen() {
         fallback={(progress) => <DrawnLiveMap phase={phase} progress={progress} etaLabel={etaLabel} bottomInset={panelH} />}
       />
 
-      <MapButton label={leaveLabel} onClick={() => navigate("/home")} style={{ top: "calc(var(--safe-top) + 12px)" }}>
+      <MapButton
+        label={leaveLabel}
+        // A finished order (cancelled, no driver) is left behind; a live one stays under Home.
+        onClick={() => (view === "noDriver" || view === "cancelled" ? exitToHome() : navigate("/home"))}
+        style={{ top: "calc(var(--safe-top) + 12px)" }}>
         <Icon name={view === "search" || view === "noDriver" || view === "cancelled" ? "close" : "back"} size={view === "search" || view === "noDriver" || view === "cancelled" ? 18 : 20} />
       </MapButton>
       {showSos && (

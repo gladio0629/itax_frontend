@@ -44,6 +44,8 @@ export function RateScreen() {
   const [tip, setTip] = useState<TipChoice>({ kind: "preset", amount: 0 });
   const [custom, setCustom] = useState("");
   const [ratingSent, setRatingSent] = useState(false);
+  /** The passenger changed the rating here; an unchanged earlier one isn't re-sent. */
+  const [touched, setTouched] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const customRef = useRef<HTMLInputElement>(null);
@@ -62,7 +64,10 @@ export function RateScreen() {
       .getOrder(orderId)
       .then((o) => {
         setOrder(o);
+        // An earlier rating: shown as it was (stars, reasons, comment).
         if (o.rating) setRating(o.rating);
+        if (o.ratingReasons) setReasons(o.ratingReasons);
+        if (o.ratingComment) setNote(o.ratingComment);
       })
       .catch(() => setLoadError(true));
     if (api.capabilities.tips) loadTips();
@@ -107,13 +112,19 @@ export function RateScreen() {
   const canRate = order.ratingEditable && !ratingSent;
   const tipOpen = !!tips && tips.allowed && !tips.sent;
   const tipAmount = tip.kind === "preset" ? tip.amount : Number(custom || 0);
-  const wantsRating = canRate && rating > 0;
+  const wantsRating = canRate && rating > 0 && touched;
   const wantsTip = tipOpen && tipAmount > 0;
   // The comment travels with the rating; without ratingNote only at 5 stars.
   const showNote = canRate && rating > 0 && (api.capabilities.ratingNote || rating === 5);
   const date = formatLongDate(new Date(order.createdAt), intlTag);
 
   async function send() {
+    // The server's range for a custom tip: say so before sending.
+    if (wantsTip && tip.kind === "custom" && tips && (tipAmount < tips.min || tipAmount > tips.max)) {
+      setError(t("tip.error.range"));
+      customRef.current?.focus();
+      return;
+    }
     setSending(true);
     setError(null);
     try {
@@ -157,6 +168,7 @@ export function RateScreen() {
             disabled={!canRate}
             onClick={() => {
               setRating(v);
+              setTouched(true);
               if (v !== 5) setReasons([]);
               setError(null);
             }}
@@ -306,7 +318,10 @@ export function RateScreen() {
           <SectionLabel id="rate-liked">{t("history.reasonsTitle")}</SectionLabel>
           <div role="group" aria-labelledby="rate-liked" className="flex flex-wrap gap-2">
             {REASON_KEYS.map((key) => (
-              <Chip key={key} selected={reasons.includes(key)} onClick={() => setReasons((r) => (r.includes(key) ? r.filter((k) => k !== key) : [...r, key]))}>
+              <Chip key={key} selected={reasons.includes(key)} onClick={() => {
+                  setReasons((r) => (r.includes(key) ? r.filter((k) => k !== key) : [...r, key]));
+                  setTouched(true);
+                }}>
                 {t(key)}
               </Chip>
             ))}
@@ -332,6 +347,7 @@ export function RateScreen() {
           value={note}
           onChange={(e) => {
             setNote(e.target.value.slice(0, NOTE_MAX));
+            setTouched(true);
             setError(null);
           }}
         />

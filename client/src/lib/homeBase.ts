@@ -16,15 +16,23 @@ export function rememberHomeBase(idx: number | null) {
   }
 }
 
-export function leaveToHome(navigate: NavigateFunction) {
-  let base: number | null = null;
+function homeBase(): number | null {
   try {
     const raw = sessionStorage.getItem(KEY);
-    base = raw == null ? null : Number(raw);
+    const base = raw == null ? null : Number(raw);
+    const cur = currentIdx();
+    return base != null && Number.isFinite(base) && cur != null && base < cur ? base : null;
   } catch {
-    base = null;
+    return null;
   }
+}
+
+/** Whether there is an earlier Home entry to go back to. */
+export const hasHomeBase = () => homeBase() != null;
+
+export function leaveToHome(navigate: NavigateFunction) {
+  const base = homeBase();
   const cur = currentIdx();
-  if (base != null && Number.isFinite(base) && cur != null && base < cur) navigate(base - cur);
+  if (base != null && cur != null) navigate(base - cur);
   else navigate("/home", { replace: true });
 }

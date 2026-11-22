@@ -161,9 +161,9 @@ export default function UiGallery() {
 
             <SectionLabel>Live order (full driver / id only)</SectionLabel>
             <PhaseBar current={1} />
-            <DriverCardDark driver={FULL_DRIVER} order={SAMPLE_ORDER} onCall={() => undefined} />
-            <DriverCardDark driver={BARE_DRIVER} order={SAMPLE_ORDER} onCall={() => undefined} />
-            <DriverRow driver={BARE_DRIVER} tone="light" sub={BARE_DRIVER.plate} onCall={() => undefined} />
+            <DriverCardDark driver={FULL_DRIVER} order={SAMPLE_ORDER} onCall={() => undefined} onMessage={() => undefined} />
+            <DriverCardDark driver={BARE_DRIVER} order={SAMPLE_ORDER} onCall={() => undefined} onMessage={() => undefined} />
+            <DriverRow driver={BARE_DRIVER} tone="light" sub={BARE_DRIVER.plate} onCall={() => undefined} onMessage={() => undefined} />
             <SectionLabel>Rows</SectionLabel>
             <div className="flex flex-col">
               <ListRow icon="bell" title="Bildirishnomalar" onClick={() => undefined} />

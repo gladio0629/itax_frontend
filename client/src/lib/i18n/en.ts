@@ -716,4 +716,6 @@ export const en: Dictionary = {
   "help.topic.driver": "Driver",
   "help.topic.account": "Account",
   "about.website": "Website",
+  "driver.message": "Message the driver",
+  "driver.messageUnavailable": "Messaging isn't available yet",
 };
