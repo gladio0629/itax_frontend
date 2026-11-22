@@ -45,9 +45,9 @@ type FieldShellProps = {
 
 function shellClasses(multiline?: boolean, readOnly?: boolean, invalid?: boolean) {
   return cn(
-    "group flex w-full cursor-text items-center gap-3.5 rounded-iz-field border-2 bg-iz-field px-3",
+    "group flex w-full cursor-text gap-3.5 rounded-iz-field border-2 bg-iz-field px-3",
     invalid ? "border-iz-danger" : "border-transparent",
-    multiline ? "min-h-[68px] items-start py-3" : "h-[68px]",
+    multiline ? "min-h-[68px] items-start py-3" : "h-[68px] items-center",
     !readOnly &&
       "focus-within:border-iz-ink focus-within:bg-iz-field-focus focus-within:shadow-[0_0_0_4px_var(--iz-focus-ring)]"
   );

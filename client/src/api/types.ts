@@ -203,8 +203,6 @@ export type TipOptions = {
   sent?: { amount: number; reviewId: string; status: "pending" | "approved" | "rejected" };
 };
 
-export type EmergencyContact = { id: string; name: string; phone: string };
-export type EmergencyContacts = { contacts: EmergencyContact[]; max: number };
 
 /** A mock "follow my trip" link plus the share text (as a translation key). */
 export type TripShare = { url: string; textKey: string; params: Record<string, string | number> };
@@ -359,6 +357,13 @@ export type OrderWithDetails = Order & {
   priceLines?: QuoteLine[];
   /** Payme / Click: the provider page to pay on, when the server gives one. */
   paymentUrl?: string;
+  /** Minutes until the driver reaches the pickup (accepted, not arrived yet). */
+  driverEtaMinutes?: number;
+  /** After the driver arrived (`startedAt`, ms): free waiting ends at
+   * `freeUntil`, then each minute costs `pricePerMinute` so'm. */
+  waiting?: { startedAt: number; freeUntil: number; pricePerMinute: number };
+  /** During the trip: kilometres driven and left, and the expected arrival (ms). */
+  tripProgress?: { doneKm: number; leftKm: number; arrivalAt: number };
 };
 
 export type OrderHistoryPage = {
@@ -433,7 +438,7 @@ export type ClientCapabilities = {
   /** Server-side status filter on the order history. */
   historyStatusFilter: boolean;
   tips: boolean;
-  /** Trip share link, emergency contacts, support phone. */
+  /** Trip share link and support phone (SOS). */
   safety: boolean;
   popularRoutes: boolean;
   /** "Oxirgi yo'nalishlar" on Home (the passenger's own last routes). */
@@ -466,6 +471,9 @@ export type ClientCapabilities = {
   pickupEta: boolean;
   /** Tafsilotlar may change the pickup of a live order (else only the drop-off). */
   editPickup: boolean;
+  /** A comment with any rating, next to the reasons. Off: only with 5 stars,
+   * sent in place of a reason (the contract keeps one reason). */
+  ratingNote: boolean;
 };
 
 /** A live order change pushed by the server (WebSocket) — screens refetch. */

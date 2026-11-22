@@ -68,7 +68,8 @@ export function weekdayNames(intlTag: string): string[] {
   return UZ_WEEKDAYS;
 }
 
-function formatLongDate(d: Date, intlTag: string): string {
+/** "18 noyabr" / "18 ноября" / "November 18". */
+export function formatLongDate(d: Date, intlTag: string): string {
   if (intlTag === "uz-Latn") return `${d.getDate()} ${UZ_MONTHS[d.getMonth()]}`;
   return d.toLocaleDateString(intlTag, { day: "numeric", month: "long" });
 }

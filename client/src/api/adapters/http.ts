@@ -90,6 +90,8 @@ const capabilities: ClientCapabilities = {
   pickupEta: false,
   // OrderUpdate has `to` but no `from`.
   editPickup: false,
+  // RatingInput carries one reason; a comment goes as the "custom" reason (5 stars).
+  ratingNote: false,
 };
 
 function unsupported(): Promise<never> {
@@ -564,10 +566,11 @@ export const httpAdapter: ApiAdapter = {
     }
   },
   // "Search again": the server prices it at the current tariff (no quote).
-  repeatOrder: async (orderId) => {
+  repeatOrder: async (orderId, _fallback, changes) => {
     const previous = await http.get<Api.Order>(API_PATHS.order(orderId));
+    const body = orderCreateFrom(previous);
     try {
-      return await createOrderBody(orderCreateFrom(previous));
+      return await createOrderBody(changes?.timing ? { ...body, ...toApiTiming(changes.timing) } : body);
     } catch (err) {
       throw ruleError(err);
     }
@@ -680,9 +683,6 @@ export const httpAdapter: ApiAdapter = {
   getTipOptions: unsupported,
   sendTip: unsupported,
   getTripShareLink: unsupported,
-  getEmergencyContacts: unsupported,
-  addEmergencyContact: unsupported,
-  removeEmergencyContact: unsupported,
   getSupportContact: unsupported,
   getCargoRules: unsupported,
   getMarketplaceWarehouses: unsupported,

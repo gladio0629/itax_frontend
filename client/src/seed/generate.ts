@@ -82,6 +82,8 @@ export type Order = {
   timeline?: {
     searchResolvesAt: number;
     acceptedAt?: number;
+    /** The driver reaches the pickup ("arrived"); the trip starts later. */
+    arrivesAt?: number;
     tripStartsAt?: number;
     tripEndsAt?: number;
     outcome: "accepted" | "no_driver";

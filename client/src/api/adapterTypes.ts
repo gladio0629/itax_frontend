@@ -11,8 +11,6 @@ import type { DeliveryVehicleSpec,
   Warehouse,
   CarClass,
   CarClassId,
-  EmergencyContact,
-  EmergencyContacts,
   LuggageRules,
   PromoResult,
   Rider,
@@ -34,6 +32,7 @@ import type { DeliveryVehicleSpec,
   NotificationPrefs,
   OrderHistoryPage,
   OrderStatus,
+  OrderTiming,
   OrderWithDetails,
   OtpRequestResult,
   Profile,
@@ -83,7 +82,9 @@ export interface ApiAdapter {
    * fallback fills what an old order doesn't record (sample data only). */
   repeatOrder(
     orderId: string,
-    fallback: Pick<CreateOrderInput, "serviceType" | "mode" | "seatIds" | "cargo" | "paymentMethod" | "timing">
+    fallback: Pick<CreateOrderInput, "serviceType" | "mode" | "seatIds" | "cargo" | "paymentMethod" | "timing">,
+    /** "Qayta qidirish" with a new pickup time (design: NoDriver). */
+    changes?: { timing?: OrderTiming }
   ): Promise<OrderWithDetails>;
 
   /** A route point this adapter handed out (search, saved, reverse, an
@@ -129,9 +130,6 @@ export interface ApiAdapter {
   sendTip(orderId: string, amount: number): Promise<ReviewRequest>;
 
   getTripShareLink(orderId: string): Promise<TripShare>;
-  getEmergencyContacts(): Promise<EmergencyContacts>;
-  addEmergencyContact(contact: { name: string; phone: string }): Promise<EmergencyContact>;
-  removeEmergencyContact(id: string): Promise<void>;
   getSupportContact(): Promise<{ phone: string }>;
 
   getCargoRules(): Promise<CargoRules>;

@@ -29,8 +29,6 @@ import type {
   Warehouse,
   CarClass,
   CarClassId,
-  EmergencyContact,
-  EmergencyContacts,
   LuggageRules,
   PromoResult,
   Rider,
@@ -277,12 +275,7 @@ function loadTips() {
   return readJSON<Record<string, StoredTip>>(TIPS_KEY, {});
 }
 
-const EMERGENCY_KEY = "emergency_contacts";
-const EMERGENCY_MAX = 3;
 const SUPPORT_PHONE = "+998 71 200 00 00";
-function loadEmergency() {
-  return readJSON<EmergencyContact[]>(EMERGENCY_KEY, []);
-}
 const LUGGAGE_MAX = 4;
 const PHONE_DIGITS = 9;
 /** "+998 90 123 45 67" → "901234567"; the country code is fixed. */
@@ -596,6 +589,46 @@ function currentPassengerId(): string {
 }
 
 const RATING_EDIT_WINDOW_MS = 7 * 86_400_000;
+/** Sample-data waiting terms once the driver has arrived. */
+const FREE_WAIT_MS = 5 * 60_000;
+const WAIT_PRICE_PER_MINUTE = 500;
+
+/** Share (0–1) of the way from `from` to `to` at this moment. */
+function shareOf(from: number, to: number) {
+  return Math.min(1, Math.max(0, (Date.now() - from) / Math.max(1, to - from)));
+}
+
+/**
+ * What the server would say about a live order: the driver's ETA to the
+ * pickup, the waiting terms after arrival, and how far the trip has come.
+ * The sample drive takes seconds, so the minutes and kilometres are scaled
+ * to the real route.
+ */
+function liveInfo(order: Order): Pick<OrderWithDetails, "driverArrived" | "driverEtaMinutes" | "waiting" | "tripProgress"> {
+  const t = order.timeline;
+  if (!t?.acceptedAt || !t.tripStartsAt || !t.tripEndsAt) return {};
+  const arrivesAt = t.arrivesAt ?? t.tripStartsAt;
+  if (order.status === "accepted") {
+    if (Date.now() < arrivesAt) {
+      const approachMinutes = 6 + (hashSeed(order.id) % 10);
+      return { driverEtaMinutes: Math.max(1, Math.ceil(approachMinutes * (1 - shareOf(t.acceptedAt, arrivesAt)))) };
+    }
+    return { driverArrived: true, waiting: { startedAt: arrivesAt, freeUntil: arrivesAt + FREE_WAIT_MS, pricePerMinute: WAIT_PRICE_PER_MINUTE } };
+  }
+  if (order.status === "in_progress") {
+    const share = shareOf(t.tripStartsAt, t.tripEndsAt);
+    const doneKm = Math.round(order.distanceKm * share);
+    const durationMinutes = Math.round((order.distanceKm / 70) * 60);
+    return {
+      tripProgress: {
+        doneKm,
+        leftKm: Math.max(0, order.distanceKm - doneKm),
+        arrivalAt: Date.now() + Math.round(durationMinutes * (1 - share)) * 60_000,
+      },
+    };
+  }
+  return {};
+}
 
 function toDetails(order: Order): OrderWithDetails {
   const driver = order.driverId ? db.drivers().find((d) => d.id === order.driverId) : undefined;
@@ -610,6 +643,7 @@ function toDetails(order: Order): OrderWithDetails {
     lockedReasonKey: order.status === "completed" && !ratingEditable ? "history.rating.lockedReason" : undefined,
     extras: loadOrderExtras()[order.id],
     editable: order.status === "accepted",
+    ...liveInfo(order),
   };
 }
 
@@ -633,7 +667,9 @@ function resolveLiveStatus(order: Order): Order {
       order.status = "accepted";
       const pickupMs = 15_000 + Math.random() * 15_000;
       t.acceptedAt = now;
-      t.tripStartsAt = now + pickupMs;
+      t.arrivesAt = now + pickupMs;
+      // The driver waits at the pickup a little before the trip starts.
+      t.tripStartsAt = t.arrivesAt + 15_000;
       const tripMs = Math.min(60_000, Math.max(20_000, order.distanceKm * 150));
       t.tripEndsAt = t.tripStartsAt + tripMs;
     }
@@ -695,6 +731,7 @@ export const mockAdapter: ApiAdapter = {
     mapPick: true,
     pickupEta: true,
     editPickup: true,
+    ratingNote: true,
   },
 
   // The sample data keeps no server session: the auth store's own flag
@@ -713,17 +750,17 @@ export const mockAdapter: ApiAdapter = {
       const order = db.getOrder(orderId);
       const t = order?.timeline;
       if (!order || !t?.acceptedAt || !t.tripStartsAt || !t.tripEndsAt) return;
-      const share = (from: number, to: number) => Math.min(1, Math.max(0, (Date.now() - from) / Math.max(1, to - from)));
       const start = driverStartPoint(order);
-      if (order.status === "accepted") listener({ orderId, kind: "progress", leg: "to_pickup", fraction: share(t.acceptedAt, t.tripStartsAt), start });
-      else if (order.status === "in_progress") listener({ orderId, kind: "progress", leg: "trip", fraction: share(t.tripStartsAt, t.tripEndsAt), start });
+      // After "arrived" the car stands at the pickup until the trip starts.
+      if (order.status === "accepted") listener({ orderId, kind: "progress", leg: "to_pickup", fraction: shareOf(t.acceptedAt, t.arrivesAt ?? t.tripStartsAt), start });
+      else if (order.status === "in_progress") listener({ orderId, kind: "progress", leg: "trip", fraction: shareOf(t.tripStartsAt, t.tripEndsAt), start });
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   },
 
-  repeatOrder: async (orderId, fallback) => {
+  repeatOrder: async (orderId, fallback, changes) => {
     // Re-order exactly what was ordered: the order's extras hold the route,
     // stops, details, class, options and promo (the draft was reset on submit).
     const order = await mockAdapter.getOrder(orderId);
@@ -737,7 +774,7 @@ export const mockAdapter: ApiAdapter = {
       seatIds: order.seatIds ?? fallback.seatIds,
       cargo: x?.cargo ?? (serviceType === "delivery" ? fallback.cargo : undefined),
       paymentMethod: order.paymentMethod ?? fallback.paymentMethod,
-      timing: x?.timing ?? fallback.timing,
+      timing: changes?.timing ?? x?.timing ?? fallback.timing,
       fromDetails: x?.fromDetails,
       toDetails: x?.toDetails,
       stops: x?.stops,
@@ -1361,26 +1398,6 @@ export const mockAdapter: ApiAdapter = {
         },
       };
     }, { minMs: 200, maxMs: 400 }),
-
-  getEmergencyContacts: () =>
-    withLatency<EmergencyContacts>(() => ({ contacts: loadEmergency(), max: EMERGENCY_MAX }), { minMs: 150, maxMs: 300 }),
-
-  addEmergencyContact: (contact) =>
-    withLatency<EmergencyContact>(() => {
-      const list = loadEmergency();
-      if (list.length >= EMERGENCY_MAX) throw new ApiError("CONTACTS_LIMIT", "safety.contacts.limit");
-      const normalized = normalizeRider({ kind: "other", ...contact });
-      if (normalized.kind !== "other") throw new ApiError("RIDER_NAME", "rider.error.name");
-      if (list.some((c) => c.phone === normalized.phone)) throw new ApiError("CONTACT_EXISTS", "safety.contacts.exists");
-      const created: EmergencyContact = { id: genId("ec"), name: normalized.name, phone: normalized.phone };
-      writeJSON(EMERGENCY_KEY, [...list, created]);
-      return created;
-    }, { minMs: 250, maxMs: 450 }),
-
-  removeEmergencyContact: (id) =>
-    withLatency<void>(() => {
-      writeJSON(EMERGENCY_KEY, loadEmergency().filter((c) => c.id !== id));
-    }, { minMs: 200, maxMs: 350 }),
 
   getSupportContact: () => withLatency(() => ({ phone: SUPPORT_PHONE }), { minMs: 100, maxMs: 200 }),
 

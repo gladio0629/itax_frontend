@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Bell, Sun, Moon, Globe, HelpCircle, Info, LogOut, ChevronRight, ShieldCheck } from "@/lib/icons";
+import { User, Bell, Sun, Moon, Globe, HelpCircle, Info, LogOut, ChevronRight } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { Profile } from "@/api/types";
 import { Avatar } from "@/components/Avatar";
@@ -98,9 +98,6 @@ export function SettingsScreen() {
 
           <ListSection>
             <ListRow leading={<IconTile icon={Bell} tone="danger" />} title={t("settings.notifications")} to="/settings/notifications" />
-            {api.capabilities.safety && (
-              <ListRow leading={<IconTile icon={ShieldCheck} />} title={t("settings.safety")} to="/settings/safety" />
-            )}
           </ListSection>
 
           <ListSection>
@@ -155,7 +152,6 @@ export function SettingsScreen() {
 
         <div className="mb-4 divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-softer">
           <Row icon={Bell} label={t("settings.notifications")} to="/settings/notifications" />
-          {api.capabilities.safety && <Row icon={ShieldCheck} label={t("settings.safety")} to="/settings/safety" />}
         </div>
 
         <div className="mb-4 divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-softer">

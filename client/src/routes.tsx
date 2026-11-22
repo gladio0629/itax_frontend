@@ -8,8 +8,8 @@ import { OtpScreen } from "@/features/auth/OtpScreen";
 import { HomeScreen } from "@/features/home/Home";
 import { api } from "@/api/client";
 import type { ClientCapabilities } from "@/api/types";
-import { OrderTrackScreen } from "@/features/order/OrderTrackScreen";
-import { OrderFinishedScreen } from "@/features/order/OrderFinishedScreen";
+import { LiveOrderScreen } from "@/features/live/LiveOrderScreen";
+import { RateScreen } from "@/features/live/RateScreen";
 import { BonusScreen } from "@/features/bonus/BonusScreen";
 import { CardsScreen } from "@/features/cards/CardsScreen";
 import { CardLinkScreen } from "@/features/cards/CardLinkScreen";
@@ -20,7 +20,6 @@ import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { AccountScreen } from "@/features/settings/AccountScreen";
 import { NotificationsSettingsScreen } from "@/features/settings/NotificationsSettingsScreen";
 import { AboutScreen } from "@/features/settings/AboutScreen";
-import { SafetySettingsScreen } from "@/features/settings/SafetySettingsScreen";
 import { HelpScreen } from "@/features/help/HelpScreen";
 import { LanguageScreen } from "@/features/settings/LanguageScreen";
 
@@ -72,8 +71,8 @@ export const router = createBrowserRouter(
       >
         <Route path="/home" element={<HomeScreen />} />
         <Route path="/bonus" element={<When can="bonuses"><BonusScreen /></When>} />
-        <Route path="/order/track/:orderId" element={<OrderTrackScreen />} />
-        <Route path="/order/finished/:orderId" element={<OrderFinishedScreen />} />
+        <Route path="/order/track/:orderId" element={<LiveOrderScreen />} />
+        <Route path="/order/finished/:orderId" element={<RateScreen />} />
 
         <Route path="/cards" element={<When can="savedCards"><CardsScreen /></When>} />
         <Route path="/cards/link" element={<When can="savedCards"><CardLinkScreen /></When>} />
@@ -85,7 +84,6 @@ export const router = createBrowserRouter(
         <Route path="/settings/account" element={<AccountScreen />} />
         <Route path="/settings/notifications" element={<NotificationsSettingsScreen />} />
         <Route path="/settings/about" element={<AboutScreen />} />
-        <Route path="/settings/safety" element={<When can="safety"><SafetySettingsScreen /></When>} />
         <Route path="/help" element={<When can="help"><HelpScreen /></When>} />
       </Route>
 

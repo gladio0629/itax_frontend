@@ -82,7 +82,7 @@ Updated 2026-11-15: the order flow runs against the contract in http mode.
 | getCargoRules, getMarketplaceWarehouses, getCargoInfo, getRideAlong, checkCargo | **NONE** | Kargo tabs, loaders, hourly mode, ride-along, sender/receiver, warehouses and info sheets are hidden (`cargoExtras`). Dostavka orders = vehicle + route + time + note. |
 | validateRider | **NONE** | "Kim ketadi?" hidden (`rider`). |
 | getTipOptions, sendTip | **NONE** | |
-| getTripShareLink, getEmergencyContacts, add/removeEmergencyContact, getSupportContact | **NONE** | Safety tools hidden. |
+| getTripShareLink, getSupportContact | **NONE** | Safety tools (SOS, share) hidden. Emergency contacts were removed from the app (owner, 2026-11-22). |
 | applyPromoCode | **NONE** | Promo rows hidden (`promo`). |
 | getSavedCards | **NONE** | Card payment can be chosen; the saved-cards list and "link card" under it are hidden. |
 | getBonusSummary, getBonusSources, getBonusHistory, requestBonusWithdraw | **NONE** | |
@@ -180,3 +180,31 @@ receiver, receiver's address details, note, loaders, route / hourly with hours, 
 - **Payment link after ordering** (Payme / Click, owner 2026-11-22): if the created order carries
   `payment: { "redirect_url": "https://…" }`, the app opens it in the system browser; otherwise it says payment will be
   asked later. Nothing else is built on the client.
+
+### Live order and rating: Search, NoDriver, Driver, Arrived, OnTrip, Rate (group 7)
+
+The live screens show only what `GET /api/v1/orders/{id}` (plus the WebSocket events) sends; each block below hides
+when its field is missing, so today's backend gets the plain versions ("Haydovchi yo'lda", "Safar davom etmoqda").
+Needed for the full design:
+
+- **Driver ETA to the pickup** (design Driver, "12 daqiqada yetib keladi" and the "12 daq" bubble on the map):
+  `"driver_eta_s": 720` on the order while `accepted` (not `arrived`). UI field `driverEtaMinutes`.
+- **Waiting terms after `arrived`** (design Arrived, ring "03:42 · Bepul kutish", "har daqiqa uchun 500 so'm"):
+  `"waiting": { "started_at": "<DateTime>", "free_until": "<DateTime>", "price_per_minute": <tiyin> }` while `arrived`.
+  UI field `waiting`.
+- **Trip progress** (design OnTrip, "Samarqandga 2 soat 40 daqiqa", "Taxminan 11:20 da", "128 km o'tildi · 180 km
+  qoldi"): `"trip_progress": { "done_m": 128000, "left_m": 180000, "arrival_at": "<DateTime>" }` while `in_progress`.
+  UI field `tripProgress`.
+- **Driver on the order** — still only `driver.id` (see "Still needed"): name, car model and colour, plate, rating.
+  Without them the card shows "Haydovchi" and the price only. A dialable driver phone (or a call-masking number) is
+  also needed before the green call button can call; today it shows "Qo'ng'iroq qilish hozircha mavjud emas".
+- **"Qayta qidirish" with a new time** (design NoDriver, "Olish vaqti · O'zgartirish"): the client re-creates the
+  order from `GET /orders/{id}` with the shown time as `scheduled_*` (works with today's contract). A
+  `POST /api/v1/orders/{id}/repeat { scheduled_* }` would avoid re-sending the whole order.
+- **Rating comment** (design Rate, "O'z fikringiz", any number of stars, next to the reason chips):
+  `RatingInput` keeps one reason and only with 5 stars, so the http client shows the comment only at 5 stars and sends
+  it as the `custom` reason (the chips are then not sent). Proposal:
+  `{ "stars": 1..5, "reasons": ["polite", "good_talk", "comfort", "just_because"], "comment": "≤200" }`.
+  Capability `ratingNote` turns the full version on.
+- **Tips, trip share link, support phone** — unchanged (`tips`, `safety` off). SOS opens a sheet with the support
+  number and "Safarni ulashish"; emergency contacts were removed from the app.

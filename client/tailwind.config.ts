@@ -63,6 +63,8 @@ export default {
           connector: "var(--iz-connector)",
           dash: "var(--iz-dash)",
           "map-pin": "var(--iz-map-pin)",
+          plate: "var(--iz-plate)",
+          "plate-ink": "var(--iz-plate-ink)",
           "badge-gold": "var(--iz-badge-gold)",
           "badge-gold-fg": "var(--iz-badge-gold-fg)",
           "badge-blue": "var(--iz-badge-blue)",

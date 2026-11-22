@@ -33,7 +33,13 @@ import {
   type IconName,
 } from "@/ui";
 import { SeatPicker } from "@/features/trip/SeatPicker";
-import type { Seat } from "@/api/types";
+import type { Driver, OrderWithDetails, Seat } from "@/api/types";
+import { DriverCardDark, DriverRow, PhaseBar } from "@/features/live/LiveParts";
+
+/** The real backend's driver today: only the id (no name, car or plate). */
+const BARE_DRIVER = { id: "d1", name: "", phoneMasked: "", cityId: "", carModel: "", carColor: "", carColorHex: "", plate: "", rating: 0, totalTrips: 0, online: true, walletBalance: 0, documentsStatus: "approved", avatarSeed: "", joinedAt: 0 } as Driver;
+const FULL_DRIVER = { ...BARE_DRIVER, name: "Jasur Toshmatov", carModel: "Cobalt", carColor: "oq", plate: "01 A 123 BC", rating: 4.9 } as Driver;
+const SAMPLE_ORDER = { id: "o1", price: 120000, paymentMethod: "cash" } as OrderWithDetails;
 
 const ICONS: IconName[] = [
   "back", "check", "arrowRight", "star", "chevronRight", "pin", "phone", "user", "close", "car", "search", "globe",
@@ -153,6 +159,11 @@ export default function UiGallery() {
             <SectionLabel>Seat picker (back-left taken)</SectionLabel>
             <SeatPicker seats={SAMPLE_SEATS} mode="seat" seatIds={seatIds} onChange={(_m, ids) => setSeatIds(ids)} />
 
+            <SectionLabel>Live order (full driver / id only)</SectionLabel>
+            <PhaseBar current={1} />
+            <DriverCardDark driver={FULL_DRIVER} order={SAMPLE_ORDER} onCall={() => undefined} />
+            <DriverCardDark driver={BARE_DRIVER} order={SAMPLE_ORDER} onCall={() => undefined} />
+            <DriverRow driver={BARE_DRIVER} tone="light" sub={BARE_DRIVER.plate} onCall={() => undefined} />
             <SectionLabel>Rows</SectionLabel>
             <div className="flex flex-col">
               <ListRow icon="bell" title="Bildirishnomalar" onClick={() => undefined} />

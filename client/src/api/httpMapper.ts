@@ -330,13 +330,13 @@ const RATING_REASON: Record<string, Api.RatingReasonKind> = {
   "history.reason.comfort": "comfort",
   "history.reason.simple": "just_because",
 };
+/** RatingInput keeps one reason, and only with 5 stars. A comment goes as
+ * the "custom" reason (it says the most); otherwise the first known chip. */
 export function toApiRating(stars: number, reasons: string[] = [], note?: string): Api.RatingInput {
   if (stars !== 5) return { stars };
-  for (const r of reasons) {
-    if (RATING_REASON[r]) return { stars, reason: { kind: RATING_REASON[r] } };
-    const text = note?.trim();
-    if (r === "other" && text) return { stars, reason: { kind: "custom", custom_text: text.slice(0, 200) } };
-  }
+  const text = note?.trim();
+  if (text) return { stars, reason: { kind: "custom", custom_text: text.slice(0, 200) } };
+  for (const r of reasons) if (RATING_REASON[r]) return { stars, reason: { kind: RATING_REASON[r] } };
   return { stars, reason: { kind: "just_because" } };
 }
 
