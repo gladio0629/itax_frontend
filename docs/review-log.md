@@ -3,6 +3,15 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, owner answers on the client removals (round 5)
+
+The client terminal gets these:
+- Restore "Haydovchiga yozish" in the live order.
+- Restore the saved-card list and "Karta ulash" under Karta in the live order's O'zgartirish.
+- The second iOS confirmation on cancel is not needed and stays out.
+
+Also committed: `docs/izgo-asosiy-hujjat.md` from the main chat (`7c0d0ff`). It covers the operator windows, the five results, postpone, and the marketolog's Marketing page. This closes admin handoff §2.
+
 ## 2026-11-22, round 6 merge: admin `1928d19` into `redesign-v2`
 
 Owner decision:

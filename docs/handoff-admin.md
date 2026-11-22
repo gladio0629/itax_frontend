@@ -20,7 +20,7 @@ Admin code already follows it (commit "admin v2: show phone numbers in full"). S
 
 Not affected: F-26 (PII masked in central logs) and open question 10 (passenger and driver seeing each other's number) are about other things.
 
-## 2. Operator windows, results and postpone (owner answers, 2026-11-22) — main doc text is with the main chat (owner applies it)
+## 2. Operator windows, results and postpone (owner answers, 2026-11-22) — DONE (main doc `7c0d0ff`)
 
 Group 5 follows the design and the owner's answers. Shared docs to update:
 
