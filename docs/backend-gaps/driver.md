@@ -136,7 +136,7 @@ by reading the list.
 
 | Method | Path | Request | Response | Errors (key) |
 |---|---|---|---|---|
-| GET | `/api/v1/trips/{id}/summary` | — | `{ gross, commission_pct, commission, base_commission_pct?, commission_waived?, net, payment, cash_to_collect?, passenger_name?, destination?, passenger_rating? }` (tiyin) | 404 `TRIP_NOT_FOUND`. Until then Finished shows the trip price only (and the net if the trip carries it) |
+| GET | `/api/v1/trips/{id}/summary` | — | `{ gross, commission_pct, commission, base_commission_pct?, commission_waived?, net, payment, cash_to_collect?, passenger_name?, destination?, passenger_rating? }` (tiyin) | 404 `TRIP_NOT_FOUND`. Until then Finished shows the trip price only (and the net if the trip carries it), and no cash reminder: the app shows cash to collect only from `cash_to_collect` |
 | POST | `/api/v1/trips/{id}/passenger-rating` | `{ stars: 1..5 }` | 204 | 409 `ALREADY_RATED`, 422 `stars` |
 | POST | `/api/v1/trips/{id}/sos` | `{ lat?, lng? }` | 202 | 404 `TRIP_NOT_FOUND`. The app hides "IZGO'ga signal" until this exists; the 112 call button is always there |
 

@@ -30,9 +30,9 @@ export default function TripScreen() {
   const { t } = useT();
   const navigate = useNavigate();
   const q = useQuery(() => api.getBooking(id), [id], { pollMs: 4000 });
-  // The car's other passengers: re-read when this booking's stage changes, not on a second
-  // poll (in http mode getBooking already reads GET /trips on every poll).
-  const accepted = useQuery(() => api.getAccepted(), [id, q.data?.stage]);
+  // The car's other passengers: re-read when this booking's stage changes, and on a slow
+  // poll for mates' changes (in http mode getBooking already reads GET /trips every 4 s).
+  const accepted = useQuery(() => api.getAccepted(), [id, q.data?.stage], { pollMs: 20000 });
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);

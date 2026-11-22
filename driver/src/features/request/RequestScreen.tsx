@@ -39,21 +39,21 @@ export default function RequestScreen() {
   // Gone (taken, rejected elsewhere, expired by the server): back to the list.
   const code = (q.error as { code?: string } | null)?.code;
   useEffect(() => {
-    if (acceptingRef.current) return;
+    if (acceptingRef.current || accepting) return;
     if (code === "REQUEST_NOT_FOUND") {
       toast(t("request.gone"));
       navigate("/", { replace: true });
     }
-  }, [code, navigate, t]);
+  }, [code, accepting, navigate, t]);
 
   const r = q.data;
   const taken = r?.status === "taken";
   useEffect(() => {
-    if (!taken || acceptingRef.current) return;
+    if (!taken || acceptingRef.current || accepting) return;
     toast(t("feed.taken"), "danger");
     const id2 = setTimeout(() => navigate("/", { replace: true }), 1500);
     return () => clearTimeout(id2);
-  }, [taken, navigate, t]);
+  }, [taken, accepting, navigate, t]);
 
   async function accept() {
     if (!r) return;

@@ -148,7 +148,7 @@ function TodayCard({ today }: { today: NonNullable<WalletSummary["today"]> }) {
   const { t } = useT();
   const earnings = useCountUp(today.earnings);
   return (
-    <section aria-labelledby="today-h" className="flex items-end justify-between gap-3 rounded-field bg-raised p-4">
+    <section aria-labelledby="today-h" className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2 rounded-field bg-raised p-4">
       <span className="flex min-w-0 flex-col gap-1">
         <span id="today-h" className="label-caps text-muted">
           {t("wallet.today")}
