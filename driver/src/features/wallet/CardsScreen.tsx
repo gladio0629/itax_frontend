@@ -32,7 +32,10 @@ export default function CardsScreen() {
         <ErrorState error={wallet.error} onRetry={() => wallet.reload()} />
       ) : !wallet.data ? (
         <SkeletonList rows={2} label={t("common.loading")} />
-      ) : !cards || cards.length === 0 ? (
+      ) : !cards ? (
+        // The server sent no list at all: say nothing about whether cards are linked.
+        <EmptyState icon={CreditCard} title={t("cards.listUnknown")} description={t("cards.emptyDesc")} />
+      ) : cards.length === 0 ? (
         <EmptyState icon={CreditCard} title={t("cards.empty")} description={t("cards.emptyDesc")} />
       ) : (
         <>

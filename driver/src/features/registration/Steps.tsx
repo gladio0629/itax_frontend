@@ -355,7 +355,7 @@ export function CarStep({ options, draft, setDraft, onSaved, onBack }: StepProps
               onClick={() => setColorKey(c.key)}
               className={cn(
                 "press h-11 w-11 shrink-0 rounded-full",
-                colorKey === c.key ? "shadow-[0_0_0_3px_rgb(var(--color-bg-rgb)),0_0_0_5px_rgb(var(--color-text-rgb))]" : "shadow-[inset_0_0_0_1px_#D4DBE4]"
+                colorKey === c.key ? "shadow-[0_0_0_3px_rgb(var(--color-bg-rgb)),0_0_0_5px_rgb(var(--color-text-rgb))]" : "shadow-[inset_0_0_0_1px_var(--color-control-off)]"
               )}
               style={{ background: c.hex }}
             />

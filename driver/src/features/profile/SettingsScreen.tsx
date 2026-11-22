@@ -61,10 +61,6 @@ export default function SettingsScreen() {
     }
   }
 
-  const external = (path: string) => () => {
-    if (SITE_URL) window.open(`${SITE_URL}${path}`, "_blank", "noopener,noreferrer");
-  };
-
   return (
     <Screen back="/profile" title={t("settings.title")}>
       <div className="flex flex-col gap-2">
@@ -76,11 +72,14 @@ export default function SettingsScreen() {
             trailing={<Switch checked={theme === "dark"} onChange={toggleTheme} label={t("settings.night")} />}
           />
           <SettingsRow icon={Globe} label={t("profile.language")} value={t(`settings.languageName.${locale}` as TranslationKey)} onClick={() => setLangOpen(true)} />
-          <SettingsRow
-            icon={Volume2}
-            label={t("settings.sound")}
-            trailing={<Switch checked={prefs.requestSound} onChange={() => prefs.set({ requestSound: !prefs.requestSound })} label={t("settings.sound")} />}
-          />
+          {/* The sound plays with the in-app new-request alert; without alerts there is nothing to play. */}
+          {api.capabilities.requestAlerts && (
+            <SettingsRow
+              icon={Volume2}
+              label={t("settings.sound")}
+              trailing={<Switch checked={prefs.requestSound} onChange={() => prefs.set({ requestSound: !prefs.requestSound })} label={t("settings.sound")} />}
+            />
+          )}
           <SettingsRow icon={Navigation} label={t("settings.navigator")} value={t(`settings.nav.${prefs.navigator}`)} onClick={() => setNavOpen(true)} />
           <SettingsRow icon={Bell} label={t("settings.notifPrefs")} to="/profile/notifications" />
         </SettingsGroup>
@@ -91,8 +90,8 @@ export default function SettingsScreen() {
           {api.capabilities.help && <SettingsRow icon={HelpCircle} label={t("settings.helpCenter")} to="/profile/help" />}
           {SITE_URL && (
             <>
-              <SettingsRow icon={FileText} label={t("settings.terms")} onClick={external("/terms")} trailing={<ExternalLink className="h-[18px] w-[18px] text-muted" />} />
-              <SettingsRow icon={Shield} label={t("settings.privacy")} onClick={external("/privacy")} trailing={<ExternalLink className="h-[18px] w-[18px] text-muted" />} />
+              <SettingsRow icon={FileText} label={t("settings.terms")} href={`${SITE_URL}/terms`} />
+              <SettingsRow icon={Shield} label={t("settings.privacy")} href={`${SITE_URL}/privacy`} />
             </>
           )}
           <SettingsRow icon={Info} label={t("profile.about")} to="/profile/about" />
@@ -158,10 +157,15 @@ export default function SettingsScreen() {
         ) : SITE_URL ? (
           <>
             <p className="mb-4 text-sm font-semibold text-ink">{t("delete.web")}</p>
-            <Button variant="danger" fullWidth className="mb-1" onClick={external("/delete-account")}>
+            <a
+              href={`${SITE_URL}/delete-account`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="press mb-1 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-danger-soft text-sm font-bold text-danger"
+            >
               {t("delete.webOpen")}
               <ExternalLink className="h-4 w-4" />
-            </Button>
+            </a>
           </>
         ) : (
           <p className="pb-2 text-sm font-semibold text-ink">{t("delete.noSite")}</p>

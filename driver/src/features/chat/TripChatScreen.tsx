@@ -93,7 +93,7 @@ export default function TripChatScreen() {
             ))}
           </ol>
 
-          <div className="shrink-0 border-t border-line bg-bg pb-3 pt-2">
+          <div className="shrink-0 border-t border-line bg-bg pt-2" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
             <div role="group" aria-label={t("chat.quickReplies")} className="no-scrollbar flex gap-2 overflow-x-auto px-4">
               {chat.quickReplies.map((k) => (
                 <button

@@ -23,13 +23,13 @@ function Ring({ ratio, done }: { ratio: number | null; done: boolean }) {
   return (
     <span className="relative flex h-[120px] w-[120px] items-center justify-center" aria-hidden="true">
       <svg width="120" height="120" viewBox="0 0 120 120" className={cn("absolute inset-0 -rotate-90", ratio === null && !done && "animate-spin [animation-duration:1.6s]")}>
-        <circle cx="60" cy="60" r={r} fill="none" stroke="#24364D" strokeWidth="6" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="var(--color-night-line)" strokeWidth="6" />
         <circle
           cx="60"
           cy="60"
           r={r}
           fill="none"
-          stroke="#2EDB85"
+          stroke="rgb(var(--color-brand-rgb))"
           strokeWidth="6"
           strokeLinecap="round"
           strokeDasharray={c}

@@ -91,6 +91,7 @@ export default function TopupScreen() {
     <Screen
       back="/wallet"
       title={t("topup.titleShort")}
+      keepTop
       top={
         <label className="flex flex-col items-center gap-2 pt-1.5 text-center" onClick={() => input.current?.focus()}>
           <span className="label-caps text-night-muted">{t("topup.amount")}</span>

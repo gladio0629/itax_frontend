@@ -1134,7 +1134,7 @@ export const mockAdapter: ApiAdapter = {
       settleReviews(s);
       const p = s.profile;
       const color = CAR_COLORS.find((c) => c.key === p.car.colorKey) ?? CAR_COLORS[0];
-      return {
+      const out: DriverProfile = {
         id: p.id,
         name: p.name,
         phoneMasked: p.phoneMasked,
@@ -1148,6 +1148,11 @@ export const mockAdapter: ApiAdapter = {
         memberSinceYear: p.memberSinceYear,
         acceptancePct: 96,
       };
+      if (lean()) {
+        // GET /drivers/me today: no rating count, city, member-since, acceptance or document status.
+        return { ...out, ratingCount: undefined, city: undefined, memberSinceYear: undefined, acceptancePct: undefined, documents: [] };
+      }
+      return out;
     }),
 
   getHomeSummary: () => withLatency(() => {
@@ -1401,7 +1406,7 @@ export const mockAdapter: ApiAdapter = {
                 : undefined,
           }
         : undefined;
-      return { items, total: items.length, summary, filterOptions: { minEarnings: [0, 100_000, 200_000, 300_000], ranges: ["all", "today", "week", "month"] } };
+      return { items, total: items.length, summary: lean() ? undefined : summary, filterOptions: { minEarnings: [0, 100_000, 200_000, 300_000], ranges: ["all", "today", "week", "month"] } };
     }),
 
   getTripDetail: (id) =>
@@ -1430,7 +1435,7 @@ export const mockAdapter: ApiAdapter = {
       const today = todayTrips(s);
       const earnings = today.reduce((sum, t) => sum + t.net, 0);
       const pct = commissionPctNow(s);
-      return {
+      const full: WalletSummary = {
         balance: s.balance,
         debt: debtState(s),
         today: { earnings, trips: today.length, avgPerTrip: today.length ? Math.round(earnings / today.length) : 0 },
@@ -1438,6 +1443,12 @@ export const mockAdapter: ApiAdapter = {
         cards: [...s.cards],
         week: weekEarnings(s),
       };
+      if (lean()) {
+        // What GET /wallet/balance carries today: balance and the debt state only.
+        const d = debtState(s);
+        return { balance: s.balance, debt: { level: d.level, balance: d.balance, limit: d.limit, debtAmount: d.debtAmount, usedRatio: d.usedRatio } };
+      }
+      return full;
     }),
 
   getLedger: ({ type, range, page }) =>
@@ -1450,7 +1461,11 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   getTopupOptions: () =>
-    withLatency<TopupOptions>(() => ({ presets: [50_000, 100_000, 200_000, 500_000], min: 5_000, max: 5_000_000, providers: ["payme", "click"], savedCards: [...state().cards] })),
+    withLatency<TopupOptions>(() =>
+      lean()
+        ? { presets: [], providers: ["payme", "click"] }
+        : { presets: [50_000, 100_000, 200_000, 500_000], min: 5_000, max: 5_000_000, providers: ["payme", "click"], savedCards: [...state().cards] }
+    ),
 
   requestTopup: (amount, provider, cardId) =>
     withLatency(() => {
@@ -1485,7 +1500,8 @@ export const mockAdapter: ApiAdapter = {
         commissionPct: current.commissionPct,
         baseCommissionPct: BASE_COMMISSION_PCT,
         rules: [
-          { key: "bonus.rule.trips", progress: Math.min(wt, top.tripsRequired), target: top.tripsRequired, done: wt >= top.tripsRequired, ratio: Math.min(1, wt / top.tripsRequired) },
+          // Toward the next level (the top one when already there).
+          { key: "bonus.rule.trips", progress: Math.min(wt, (next ?? top).tripsRequired), target: (next ?? top).tripsRequired, done: wt >= (next ?? top).tripsRequired, ratio: Math.min(1, wt / (next ?? top).tripsRequired) },
           { key: "bonus.rule.rating", progress: s.profile.rating, target: 4.8, done: s.profile.rating >= 4.8, ratio: Math.min(1, s.profile.rating / 4.8) },
           { key: "bonus.rule.cancels", progress: cancels, target: 2, done: cancels < 2, ratio: cancels < 2 ? 1 : 0 },
         ],

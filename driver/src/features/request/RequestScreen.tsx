@@ -181,7 +181,7 @@ function PassengerView({ r, footer, onClose, onExpired }: ViewProps & { onExpire
           </div>
           <div className="flex items-center gap-5">
             {left != null && (
-              <Ring ratio={ratio} size={96} stroke={8} track="#24364D">
+              <Ring ratio={ratio} size={96} stroke={8} track="var(--color-night-line)">
                 <span role="timer" aria-label={t("request.secondsLeft", { n: left })} className="tabular text-[32px] font-extrabold leading-none text-white">
                   {left}
                 </span>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, type LucideIcon } from "@/lib/icons";
+import { ChevronRight, ExternalLink, type LucideIcon } from "@/lib/icons";
 import { cn } from "@/lib/cn";
 
 // Redesign v2 rows: a 44px soft icon tile (radius 14) and a 68px row with a
@@ -22,13 +22,15 @@ type Props = {
   label: string;
   value?: ReactNode;
   to?: string;
+  /** External page: opens in the system browser. */
+  href?: string;
   onClick?: () => void;
   trailing?: ReactNode;
   danger?: boolean;
   description?: string;
 };
 
-export function SettingsRow({ icon: Icon, tile = "slate", label, value, to, onClick, trailing, danger, description }: Props) {
+export function SettingsRow({ icon: Icon, tile = "slate", label, value, to, href, onClick, trailing, danger, description }: Props) {
   const body = (
     <>
       <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-tile", danger ? TILE.red : TILE[tile])}>
@@ -40,11 +42,18 @@ export function SettingsRow({ icon: Icon, tile = "slate", label, value, to, onCl
       </span>
       {value != null && <span className="tabular shrink-0 text-sm font-semibold text-muted">{value}</span>}
       {trailing}
+      {href && !trailing && <ExternalLink className="h-[18px] w-[18px] shrink-0 text-muted" />}
       {(to || onClick) && !trailing && !danger && <ChevronRight className="h-[18px] w-[18px] shrink-0 text-muted" />}
     </>
   );
   const cls = "press focus-inset flex min-h-[68px] w-full items-center gap-3.5 border-b border-line py-2 text-left last:border-b-0";
   if (to) return <Link to={to} className={cls}>{body}</Link>;
+  if (href)
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+        {body}
+      </a>
+    );
   if (onClick) return <button type="button" onClick={onClick} className={cls}>{body}</button>;
   return <div className={cls}>{body}</div>;
 }
