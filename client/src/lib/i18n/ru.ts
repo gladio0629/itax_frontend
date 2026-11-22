@@ -718,4 +718,5 @@ export const ru: Dictionary = {
   "about.website": "Сайт",
   "driver.message": "Написать водителю",
   "driver.messageUnavailable": "Сообщения пока недоступны",
+  "home.activeOrder": "Активный заказ",
 };

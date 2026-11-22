@@ -719,6 +719,7 @@ export const uz = {
   "about.website": "Veb-sayt",
   "driver.message": "Haydovchiga yozish",
   "driver.messageUnavailable": "Xabar yuborish hozircha mavjud emas",
+  "home.activeOrder": "Faol buyurtma",
 };
 
 export type Dictionary = typeof uz;

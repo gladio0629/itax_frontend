@@ -718,4 +718,5 @@ export const en: Dictionary = {
   "about.website": "Website",
   "driver.message": "Message the driver",
   "driver.messageUnavailable": "Messaging isn't available yet",
+  "home.activeOrder": "Active order",
 };

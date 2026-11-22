@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
-import type { Address, AddressDetails, Profile, RouteSuggestion, SavedAddressInfo } from "@/api/types";
+import type { Address, AddressDetails, OrderWithDetails, Profile, RouteSuggestion, SavedAddressInfo } from "@/api/types";
 import { MapCanvas } from "@/components/MapCanvas";
 import { LiveMap, LIVE_MAP } from "@/components/LiveMap";
 import { useGeolocation } from "@shared/map/useGeolocation";
@@ -139,6 +139,20 @@ export default function OrderingHome() {
       navigate(path, { replace: true, state });
     }
   }
+
+  // "Faol buyurtma": checked when Home opens and each time it is shown again.
+  const [activeOrder, setActiveOrder] = useState<OrderWithDetails | null>(null);
+  useEffect(() => {
+    if (view !== "home") return;
+    let alive = true;
+    api
+      .getActiveOrder()
+      .then((o) => alive && setActiveOrder(o))
+      .catch(() => alive && setActiveOrder(null));
+    return () => {
+      alive = false;
+    };
+  }, [view, location.key]);
 
   // Back on Home after the order flow: refetch saved addresses, since the
   // flow may have changed one's Tafsilotlar.
@@ -364,6 +378,8 @@ export default function OrderingHome() {
 
       <HomeSheet
         panelRef={panelRef}
+        activeOrder={activeOrder}
+        onActiveOrder={activeOrder ? () => navigate(`/order/track/${activeOrder.id}`) : undefined}
         profile={profile}
         fromLabel={fromAddress?.label ?? null}
         toLabel={toAddress?.label ?? null}

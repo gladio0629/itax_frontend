@@ -263,7 +263,9 @@ export function generateSeed(): SeedData {
     return {
       id: `drv_${String(i + 1).padStart(2, "0")}`,
       name,
-      phoneMasked: `+998 9${rng.int(0, 9)} *** ** ${String(rng.int(10, 99))}`,
+      // Fake on purpose, as sampleDriverPhone: "+998 90 000 00 02" and up.
+      // (The two draws stay, so the rest of the seed doesn't change.)
+      phoneMasked: (rng.int(0, 9), rng.int(10, 99), `+998 90 *** ** ${String(i + 2).padStart(2, "0")}`),
       cityId: city.id,
       carModel: car.model,
       carColor: car.color,

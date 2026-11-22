@@ -275,7 +275,8 @@ function loadTips() {
   return readJSON<Record<string, StoredTip>>(TIPS_KEY, {});
 }
 
-const SUPPORT_PHONE = "+998 71 200 00 00";
+/** Obviously fake sample numbers (owner, 2026-11-22): support is 01, drivers 02 and up. */
+const SUPPORT_PHONE = "+998 90 000 00 01";
 const LUGGAGE_MAX = 4;
 const PHONE_DIGITS = 9;
 /** "+998 90 123 45 67" → "901234567"; the country code is fixed. */
@@ -593,10 +594,10 @@ const RATING_EDIT_WINDOW_MS = 7 * 86_400_000;
 const FREE_WAIT_MS = 5 * 60_000;
 const WAIT_PRICE_PER_MINUTE = 500;
 
-/** A stable sample number for a driver ("+998 90 123 45 67"). */
+/** A driver's sample number: drv_01 → "+998 90 000 00 02", drv_02 → "… 03" (fake on purpose). */
 function sampleDriverPhone(driverId: string) {
-  const n = String(hashSeed(`${driverId}|phone`) % 10_000_000).padStart(7, "0");
-  return `+998 9${hashSeed(driverId) % 10} ${n.slice(0, 3)} ${n.slice(3, 5)} ${n.slice(5)}`;
+  const n = Number(driverId.replace(/\D/g, "")) || 0;
+  return `+998 90 000 00 ${String(n + 1).padStart(2, "0")}`;
 }
 
 /** Share (0–1) of the way from `from` to `to` at this moment. */
@@ -1146,6 +1147,17 @@ export const mockAdapter: ApiAdapter = {
       });
       return toDetails(order);
     }, { minMs: 400, maxMs: 800 }),
+
+  getActiveOrder: () =>
+    withLatency<OrderWithDetails | null>(() => {
+      const live = db
+        .orders()
+        .filter((o) => o.passengerId === currentPassengerId())
+        .map((o) => resolveLiveStatus(o))
+        .filter((o) => o.status === "searching" || o.status === "accepted" || o.status === "in_progress")
+        .sort((a, b) => b.createdAt - a.createdAt)[0];
+      return live ? toDetails(live) : null;
+    }, { minMs: 120, maxMs: 300 }),
 
   getOrder: (orderId: string) =>
     withLatency<OrderWithDetails>(() => {

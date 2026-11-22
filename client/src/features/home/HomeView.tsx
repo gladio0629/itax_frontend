@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from "react";
-import type { Profile, RouteSuggestion, SavedAddressInfo, ServiceType } from "@/api/types";
+import type { OrderWithDetails, Profile, RouteSuggestion, SavedAddressInfo, ServiceType } from "@/api/types";
 import { api } from "@/api/client";
 import { useT } from "@/lib/i18n/provider";
 import { detailsSummary } from "@/features/order/addressDetails";
@@ -178,6 +178,9 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 
 type HomeSheetProps = {
   panelRef: RefObject<HTMLDivElement>;
+  /** A live order: the "Faol buyurtma" row opens its tracking screen. */
+  activeOrder?: OrderWithDetails | null;
+  onActiveOrder?: () => void;
   profile: Profile | null;
   fromLabel: string | null;
   toLabel: string | null;
@@ -205,6 +208,33 @@ type HomeSheetProps = {
  * places and no recent routes gets the "new user" layout: one search field
  * and the prompt to save home and work.
  */
+/** "Faol buyurtma": the live order, its route and where it stands. */
+function ActiveOrderRow({ order, onClick }: { order: OrderWithDetails; onClick: () => void }) {
+  const { t } = useT();
+  const state =
+    order.status === "searching"
+      ? t("live.search.title")
+      : order.status === "in_progress"
+        ? t("track.inProgress")
+        : order.driverArrived
+          ? t("track.arrived")
+          : t("live.onTheWay");
+  return (
+    <button type="button" onClick={onClick} className="flex min-h-16 shrink-0 items-center gap-3.5 rounded-iz-card bg-iz-green-soft px-3.5 py-2.5 text-left active:opacity-80">
+      <span aria-hidden className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-iz-green text-iz-on-green">
+        <Icon name={order.extras?.serviceType === "delivery" ? "box" : "car"} size={20} />
+        <span className="absolute -right-0.5 -top-0.5 h-3 w-3 animate-pulse rounded-full border-2 border-iz-green-soft bg-iz-green-text" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-iz-green-text">{t("home.activeOrder")}</span>
+        <span className="truncate text-[15px] font-extrabold text-iz-ink">{`${order.fromCity.name} → ${order.toCity.name}`}</span>
+        <span className="truncate text-[12px] font-semibold text-iz-muted">{state}</span>
+      </span>
+      <Icon name="chevronRight" size={18} className="shrink-0 text-iz-green-text" />
+    </button>
+  );
+}
+
 export function HomeSheet(p: HomeSheetProps) {
   const { t } = useT();
   const first = p.profile?.firstName || p.profile?.name?.split(/\s+/)[0] || "";
@@ -220,6 +250,7 @@ export function HomeSheet(p: HomeSheetProps) {
       className="no-scrollbar absolute inset-x-0 bottom-0 z-20 flex max-h-[78%] flex-col gap-3.5 overflow-y-auto overscroll-contain rounded-t-iz-sheet bg-iz-sheet px-5 pb-[calc(max(var(--safe-bottom),16px)+8px)] pt-3 shadow-[0_-10px_40px_var(--iz-shadow)]"
     >
       <span aria-hidden className="h-[5px] w-10 shrink-0 self-center rounded-full bg-iz-chip-border" />
+      {p.activeOrder && p.onActiveOrder && <ActiveOrderRow order={p.activeOrder} onClick={p.onActiveOrder} />}
       <div className="flex flex-col gap-0.5">
         <span className="text-[14px] font-semibold text-iz-muted">{first && !isNew ? t("home.hello", { name: first }) : t("home.welcome")}</span>
         <h1 className="text-[26px] font-extrabold leading-[34px] text-iz-ink">{t("home.whereTo")}</h1>

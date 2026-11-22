@@ -245,3 +245,9 @@ exist.
   "Still needed" (`accounts`, `phoneChange`, `accountDeletion`, `notificationTopics`).
 - **Support contact**: the e-mail on "Biz haqimizda" is fixed in the client config (`SUPPORT_EMAIL`); a
   `GET /api/v1/support/contact { phone, email }` would let it change without a release.
+
+### Home: "Faol buyurtma" (owner, 2026-11-22)
+
+Home shows a row for the passenger's live order (searching, driver on the way or arrived, on the trip); tapping it
+opens tracking. Needed: `GET /api/v1/orders/active` → the newest live `Order` or `204`. Until then the http adapter
+looks for one on the first history page.

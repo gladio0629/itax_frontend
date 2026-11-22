@@ -632,6 +632,13 @@ export const httpAdapter: ApiAdapter = {
     return { orders: res.data.map(mapOrder), nextCursor };
   },
 
+  // No "active order" endpoint: the newest live one on the first history page.
+  getActiveOrder: async () => {
+    const res = await http.get<Api.OrderPage>(API_PATHS.orderHistory, { limit: HISTORY_LIMIT });
+    const live = res.data.map(mapOrder).find((o) => o.status === "searching" || o.status === "accepted" || o.status === "in_progress");
+    return live ?? null;
+  },
+
   // -------------------------------------------------------- notifications
   getNotifications: async () => {
     const res = await http.get<Api.NotificationPage>(API_PATHS.notifications, { limit: 50 });

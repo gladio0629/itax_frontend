@@ -163,6 +163,8 @@ export interface ApiAdapter {
   rateOrder(orderId: string, rating: number, reasons?: string[], note?: string): Promise<OrderWithDetails>;
   /** `service` and `q` (city or driver name) where `historySearch` is on. */
   getOrderHistory(params?: { status?: OrderStatus; service?: ServiceType; q?: string; cursor?: number }): Promise<OrderHistoryPage>;
+  /** The passenger's live order (searching, driver on the way, on the trip), if any: Home's "Faol buyurtma". */
+  getActiveOrder(): Promise<OrderWithDetails | null>;
 
   getSavedCards(): Promise<SavedCard[]>;
   /** `provider` is required by the real backend (walletCardLink); the
