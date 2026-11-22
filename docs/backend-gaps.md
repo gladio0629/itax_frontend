@@ -12,6 +12,13 @@ request/response shapes proposed for each missing feature.
 - [Driver](backend-gaps/driver.md)
 - [Admin](backend-gaps/admin.md)
 
+Redesign v2 (2026-11-22): each per-app file has a section `## Redesign v2` with the endpoints the new screens
+expect. One entry per endpoint across the three files; the reviewer keeps them free of duplicates.
+- Client: none yet.
+- Driver: registration referral, licence, service types, review progress, registration options (`/api/v1/legal` is
+  being dropped: legal links use `VITE_SITE_URL`).
+- Admin: header search `GET /admin/v1/search`. Phone reveal endpoint dropped (full phones in admin, 2026-11-22).
+
 Conventions in all proposals: ids are UUIDs, money is integer tiyin, lists are `{ data, cursor }`,
 and errors are `{ error: { key, params } }`.
 
