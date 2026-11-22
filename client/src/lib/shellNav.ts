@@ -16,6 +16,9 @@ export type ShellNav = {
   backTitle: string | null;
   /** Register this screen's bar title; returns the unregister cleanup. */
   registerBar: (title: string) => () => void;
+  /** Design v2 screens draw their own menu/back button: while claimed the
+   * shell hides its floating control. Returns the release cleanup. */
+  claimChrome: () => () => void;
 };
 
 export const ShellNavContext = createContext<ShellNav | null>(null);

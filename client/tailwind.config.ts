@@ -60,6 +60,9 @@ export default {
           sos: "var(--iz-sos)",
           "switch-off": "var(--iz-switch-off)",
           map: "var(--iz-map)",
+          connector: "var(--iz-connector)",
+          dash: "var(--iz-dash)",
+          "map-pin": "var(--iz-map-pin)",
         },
       },
       // Family, sizes and shadows resolve through design tokens so the iOS

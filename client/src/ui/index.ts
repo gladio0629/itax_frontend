@@ -3,7 +3,7 @@ export { Icon, type IconName } from "./Icon";
 export { PrimaryButton, DangerButton, TextButton, IconButton } from "./Button";
 export { Field, TextAreaField, SectionLabel, IconTile } from "./Field";
 export { Chip, Segmented, Switch, Stepper, type SegmentOption } from "./Choice";
-export { Screen, Sheet, HeaderBar, Steps } from "./Screen";
+export { Screen, Sheet, HeaderBar, Steps, useShellChrome } from "./Screen";
 export { BottomSheet } from "./BottomSheet";
 export { StateEmpty, StateError, StateLoading, StateOffline, OfflineBanner, useOnline } from "./States";
 export { ListRow, Logo, Initials, Badge } from "./Rows";

@@ -47,6 +47,9 @@
   --iz-sos: #c8281c;
 
   --iz-switch-off: #8a97a8;
+  --iz-connector: #9aa7b6; /* dotted line between route points */
+  --iz-dash: #b7c1ce; /* dashed "add" outlines */
+  --iz-map-pin: #0b1524; /* pickup dot, menu button over the map */
   --iz-map: #e9edf2;
   --iz-map-road: #ffffff;
   --iz-backdrop: rgba(11, 21, 36, 0.45);
@@ -107,6 +110,9 @@
   --iz-sos: #e0392c;
 
   --iz-switch-off: #4a5b70;
+  --iz-connector: #4a5b70;
+  --iz-dash: #3a4c63;
+  --iz-map-pin: #0b1524;
   --iz-map: #0e1826;
   --iz-map-road: #1a2738;
   --iz-backdrop: rgba(0, 0, 0, 0.6);

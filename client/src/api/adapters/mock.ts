@@ -828,6 +828,7 @@ export const mockAdapter: ApiAdapter = {
 
   getRecentRoutes: () =>
     withLatency(() => {
+      if (getTestScenarios().newPassenger) return [];
       const mine = db
         .orders()
         .filter((o) => o.passengerId === currentPassengerId())
@@ -891,7 +892,9 @@ export const mockAdapter: ApiAdapter = {
       // No pickup yet: distances come out as 0 (roadDistanceKm of an unknown city).
       const fromCityId = fromAddressId ? addressOf(fromAddressId).cityId : "";
       const details = savedAddressDetails();
-      return mySavedAddresses().map((address) => {
+      // "Yangi yo'lovchi": only what the passenger saves in this session.
+      const list = getTestScenarios().newPassenger ? mySavedAddresses().filter((a) => savedChanges().added.includes(a.id)) : mySavedAddresses();
+      return list.map((address) => {
         const distanceKm = roadDistanceKm(fromCityId, address.cityId);
         return { address, area: cityOf(address.cityId).region, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
       });

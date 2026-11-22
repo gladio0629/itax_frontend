@@ -7,7 +7,6 @@ export const uz = {
   "drawer.bonuslar": "Bonuslar",
   "drawer.tarix": "Tarix",
   "drawer.sozlamalar": "Sozlamalar",
-  "drawer.version": "Versiya {{version}}",
 
   "common.back": "Orqaga",
   "common.close": "Yopish",
@@ -662,6 +661,32 @@ export const uz = {
   "language.code.uz": "UZ",
   "language.code.ru": "RU",
   "language.code.en": "EN",
+
+  // Design v2: home and menu
+  "home.hello": "Salom, {{name}}",
+  "home.welcome": "Xush kelibsiz",
+  "home.fromLabel": "Qayerdan",
+  "home.toLabel": "Qayerga",
+  "home.toPlaceholder": "Shahar yoki manzilni yozing",
+  "home.fromPlaceholder": "Olish nuqtasini tanlang",
+  "home.swap": "Manzillarni almashtirish",
+  "home.service": "Buyurtma turi",
+  "home.servicePassenger": "Yo'lovchi",
+  "home.serviceDelivery": "Dostavka",
+  "home.saved": "Saqlangan manzillar",
+  "home.saveAddress": "Manzil saqlash",
+  "home.saveAddressTitle": "Saqlanadigan manzil",
+  "home.addressSaved": "Manzil saqlandi",
+  "home.recentRoutes": "Oxirgi yo'nalishlar",
+  "home.emptyPromptTitle": "Uy va ish manzilini saqlang",
+  "home.emptyPromptDesc": "Keyingi safar bir tegishda tanlaysiz",
+  "home.currentCity": "Joriy shahar: {{city}}",
+  "home.myLocation": "Joriy joylashuvim",
+  "home.loadFailed": "Ma'lumot yuklanmadi",
+  "menu.bonusLabel": "Bonuslarim",
+  "menu.account": "Akkaunt",
+  "menu.help": "Yordam kerakmi?",
+  "menu.notifications": "Bildirishnomalar",
 };
 
 export type Dictionary = typeof uz;

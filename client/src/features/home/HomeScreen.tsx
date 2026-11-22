@@ -1,20 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Bell, ChevronRight, LocateFixed, MapPin, PersonStanding } from "@/lib/icons";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
-import type { Address, AddressDetails, SavedAddressInfo } from "@/api/types";
+import type { Address, AddressDetails, Profile, RouteSuggestion, SavedAddressInfo } from "@/api/types";
 import { MapCanvas } from "@/components/MapCanvas";
 import { LiveMap, LIVE_MAP } from "@/components/LiveMap";
 import { useGeolocation } from "@shared/map/useGeolocation";
 import type { MapMarker } from "@shared/map/MapView";
 import { addressPoint } from "@/features/order/mapPoints";
-import { Skeleton } from "@/components/Skeleton";
-import { Logo } from "@/components/Logo";
 import { LowConnectionBanner } from "@/components/LowConnectionBanner";
-import { MapButton } from "@/components/ui/MapButton";
-import { SearchPill } from "@/components/ui/SearchPill";
-import { ListRow } from "@/components/ui/ListRow";
-import { PinBubble } from "@/components/ui/PinBubble";
 import { setDefaultFromAddress, useOrderStore } from "@/stores/orderStore";
 import { useFloatingControl } from "@/stores/floatingControlStore";
 import { useT } from "@/lib/i18n/provider";
@@ -23,9 +16,10 @@ import { OrderSheet } from "@/features/order/OrderSheet";
 import { Toast } from "@/components/Toast";
 import { SearchScreen } from "@/features/order/SearchScreen";
 import { detailsSummary } from "@/features/order/addressDetails";
-import { formatDuration } from "@/features/order/duration";
 import { isApiError } from "@shared/http/errors";
 import { ruleErrorKey, serverErrorKey } from "@/lib/apiError";
+import { HomeSheet, PickupPin, HomeTopBar } from "./HomeView";
+import { Icon } from "@/ui";
 import type { QuoteRenewal } from "@/features/order/OrderSheet";
 
 // Where new drafts start: the adapter's default pickup (sample data:
@@ -49,8 +43,14 @@ export default function OrderingHome() {
   const { draft, setField, reset } = useOrderStore();
   const [params, setParams] = useSearchParams();
   const flow = params.get("flow");
-  const searchTarget = params.get("target") === "from" ? "from" : "to";
-  const [eta, setEta] = useState<number | null>(null);
+  const targetParam = params.get("target");
+  const searchTarget: "from" | "to" | "save" = targetParam === "from" || targetParam === "save" ? targetParam : "to";
+  /** A recent route narrows the drop-off search to its city. */
+  const searchCity = params.get("city") ?? undefined;
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [cityNames, setCityNames] = useState<Record<string, string>>({});
+  const [recent, setRecent] = useState<RouteSuggestion[]>([]);
+  const [recentLoading, setRecentLoading] = useState(true);
   const [saved, setSaved] = useState<SavedAddressInfo[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState(false);
@@ -77,7 +77,17 @@ export default function OrderingHome() {
   const view = flow === "search" ? "search" : flow === "route" && toAddress ? "route" : "home";
 
   useEffect(() => {
-    if (api.capabilities.pickupEta) api.getPickupEta().then((r) => setEta(r.minutes)).catch(() => {});
+    api.getProfile().then(setProfile).catch(() => setProfile(null));
+    api
+      .getCities()
+      .then((cs) => setCityNames(Object.fromEntries(cs.map((c) => [c.id, c.name]))))
+      .catch(() => setCityNames({}));
+    // Recent routes: no endpoint on the real backend yet (backend-gaps/client.md) — the section hides.
+    api
+      .getRecentRoutes()
+      .then(setRecent)
+      .catch(() => setRecent([]))
+      .finally(() => setRecentLoading(false));
   }, []);
 
   // Back on Home after the order flow: refetch saved addresses, since the
@@ -115,7 +125,8 @@ export default function OrderingHome() {
     return () => ro.disconnect();
   }, [view]);
   useEffect(() => {
-    setFabPlacement(view === "home" ? { hidden: false, bottomPx: panelH } : { hidden: true });
+    // Above the sheet and the "where am I" button.
+    setFabPlacement(view === "home" ? { hidden: false, bottomPx: panelH + 72 } : { hidden: true });
   }, [view, panelH, setFabPlacement]);
   useEffect(() => () => setFabPlacement({ hidden: false, bottomPx: null }), [setFabPlacement]);
 
@@ -212,24 +223,33 @@ export default function OrderingHome() {
     );
   }
 
-  // The pickup pin with its ETA bubble: a marker on the interactive map,
-  // centred over the drawn one.
-  const pickupPin = (
-    <span className="flex flex-col items-center">
-      {api.capabilities.pickupEta && (
-        <PinBubble icon={<PersonStanding className="h-5 w-5" />} caption={t("pin.pickup")} value={eta != null ? t("pin.eta", { n: eta }) : "…"} />
-      )}
-      <span className="mt-1 h-5 w-[3px] rounded-full bg-ink" aria-hidden="true" />
-      <span className="-mt-1 h-3 w-3 rounded-full border-[3px] border-ink bg-card" aria-hidden="true" />
-    </span>
-  );
   const markers: MapMarker[] = [];
   if (me) markers.push({ id: "me", position: me, kind: "user", animate: true });
-  // The dot's centre (6px above the pin's bottom edge) sits on the point.
-  if (pickupPoint) markers.push({ id: "pickup", position: pickupPoint, anchor: "bottom", content: <span className="-mb-[6px] block">{pickupPin}</span> });
+  if (pickupPoint) markers.push({ id: "pickup", position: pickupPoint, content: <PickupPin /> });
+
+  function swap() {
+    const d = useOrderStore.getState().draft;
+    if (!d.toAddressId) return;
+    setField("fromAddressId", d.toAddressId);
+    setField("toAddressId", d.fromAddressId);
+    setField("fromDetails", d.toDetails);
+    setField("toDetails", d.fromDetails);
+  }
+
+  async function saveAddress(addr: Address) {
+    try {
+      await api.saveAddress({ addressId: addr.id });
+      setSavedReload((n) => n + 1);
+      setToast(t("home.addressSaved"));
+    } catch (e) {
+      setToast(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey));
+    }
+  }
+
+  const searchTitle = searchTarget === "from" ? t("order.from") : searchTarget === "save" ? t("home.saveAddressTitle") : t("order.to");
 
   return (
-    <div className="relative h-full overflow-hidden bg-bg">
+    <div className="relative h-full overflow-hidden bg-iz-map">
       {/* Full-screen interactive map behind the sheet; the drawn map where it isn't available. */}
       <LiveMap
         className="absolute inset-0"
@@ -241,50 +261,34 @@ export default function OrderingHome() {
         // which would pull the map back while the passenger is panning it.
         fitKey={`${pickupPoint ? draft.fromAddressId : me ? "me" : "none"}:${recentre}`}
         markers={markers}
-        // The sheet covers the bottom, the pickup caption the top.
+        // The top bar covers the top, the sheet the bottom.
         padding={{ top: 88, bottom: panelH }}
         fallback={
           <>
             <MapCanvas className="absolute inset-0" />
             <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-col items-center" style={{ height: `calc(100% - ${panelH}px)` }}>
-              <div className="mb-auto mt-auto">{pickupPin}</div>
+              <div className="mb-auto mt-auto">
+                <PickupPin />
+              </div>
             </div>
           </>
         }
       />
 
-      {/* Pickup caption, top centre. */}
-      <button
-        type="button"
-        onClick={() => go({ flow: "search", target: "from" })}
-        aria-label={`${t("home.pickupChange")}: ${fromAddress?.label ?? ""}`}
-        // Over real map labels the caption needs its own backing.
-        className={`absolute left-1/2 max-w-[60%] -translate-x-1/2 text-center ${LIVE_MAP ? "rounded-card bg-card/85 px-3 py-1 shadow-[0_2px_12px_rgba(0,0,0,0.12)] backdrop-blur-sm" : ""}`}
-        style={{ top: `calc(var(--safe-top) + ${LIVE_MAP ? 10 : 16}px)` }}
-      >
-        <span className="flex items-center justify-center gap-0.5 text-sub text-ink/70">
-          {t("order.pickupCaption")} <ChevronRight className="h-3.5 w-3.5" />
-        </span>
-        <span className="block truncate text-control font-semibold text-ink">{fromAddress?.label ?? t("order.choosePlace")}</span>
-      </button>
-
-      <Link
-        to="/notifications"
-        aria-label={t("home.notifications")}
-        className="absolute right-4 flex h-12 w-12 items-center justify-center rounded-full bg-card text-ink shadow-[0_2px_12px_rgba(0,0,0,0.16)]"
-        style={{ top: "calc(var(--safe-top) + 16px)" }}
-      >
-        <Bell className="h-5 w-5" />
-      </Link>
+      <HomeTopBar
+        cityName={fromAddress ? cityNames[fromAddress.cityId] : undefined}
+        onCity={() => go({ flow: "search", target: "from" })}
+      />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 [&>*]:pointer-events-auto" style={{ paddingTop: "calc(var(--safe-top) + 76px)" }}>
         <LowConnectionBanner />
       </div>
 
-      <MapButton
-        aria-label={t("home.locateMe")}
-        className="absolute right-3"
-        style={{ bottom: panelH + 12 }}
+      <button
+        type="button"
+        aria-label={t("home.myLocation")}
+        className="absolute right-5 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-iz-sheet text-iz-ink shadow-[0_8px_20px_var(--iz-shadow)] active:scale-95"
+        style={{ bottom: panelH + 16 }}
         // "Where am I": the adapter resolves the device position (the map's
         // centre in the demo) to a pickup point.
         onClick={() =>
@@ -297,72 +301,48 @@ export default function OrderingHome() {
             .catch((e) => setToast(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey)))
         }
       >
-        <LocateFixed className="h-5 w-5" />
-      </MapButton>
+        <Icon name="locate" size={22} />
+      </button>
 
-      <div
-        ref={panelRef}
-        role="region"
-        aria-label={t("home.orderSheet")}
-        className="absolute inset-x-0 bottom-0 z-20 rounded-t-sheet-home bg-card px-4 pt-2 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
-        style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}
-      >
-        <div className="flex justify-center" aria-hidden="true">
-          <span className="h-[5px] w-9 rounded-full bg-ink/15" />
-        </div>
-        <div className="mb-4 mt-2 flex items-center gap-3">
-          <span className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
-            <Logo size={48} />
-          </span>
-          <h1 className="text-display font-bold text-ink">{t("home.title")}</h1>
-        </div>
-
-        <SearchPill label={t("home.whereTo")} onClick={() => go({ flow: "search", target: "to" })} />
-
-        <div className="mt-3">
-          {savedLoading ? (
-            <div className="space-y-2 py-2">
-              <Skeleton className="h-12 w-full rounded-control" />
-              <Skeleton className="h-12 w-full rounded-control" />
-            </div>
-          ) : savedError ? (
-            <button
-              onClick={() => setSavedReload((n) => n + 1)}
-              className="inline-flex min-h-[44px] items-center text-sub font-semibold text-danger underline"
-            >
-              {t("common.errorMessage")} — {t("common.retry")}
-            </button>
-          ) : saved.length === 0 ? (
-            <p className="py-3 text-sub text-ink/60">{t("home.noSavedAddresses")}</p>
-          ) : (
-            <div aria-label={t("order.savedAddresses")} role="group">
-              {saved.map(({ address, area, details, etaMinutes }, i) => (
-                <ListRow
-                  key={address.id}
-                  icon={<MapPin className="h-5 w-5" />}
-                  title={address.label}
-                  subtitle={(details && detailsSummary(details, t)) || area}
-                  trailing={etaMinutes != null ? formatDuration(etaMinutes, t) : undefined}
-                  last={i === saved.length - 1}
-                  onClick={() => {
-                    setPoint("to", address, details ?? {});
-                    go({ flow: "route" });
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <HomeSheet
+        panelRef={panelRef}
+        profile={profile}
+        fromLabel={fromAddress?.label ?? null}
+        toLabel={toAddress?.label ?? null}
+        serviceType={draft.serviceType}
+        onServiceType={(v) => setField("serviceType", v)}
+        onFrom={() => go({ flow: "search", target: "from" })}
+        onTo={() => go({ flow: "search", target: "to" })}
+        onSwap={swap}
+        saved={saved}
+        savedLoading={savedLoading}
+        savedError={savedError}
+        onRetrySaved={() => setSavedReload((n) => n + 1)}
+        onSaved={(info) => {
+          setPoint("to", info.address, info.details ?? {});
+          go({ flow: "route" });
+        }}
+        onAddSaved={() => go({ flow: "search", target: "save" })}
+        recent={recent}
+        recentLoading={recentLoading}
+        cityNames={cityNames}
+        onRecent={(r) => go({ flow: "search", target: "to", city: r.toCityId })}
+      />
 
       {view === "search" && (
         <SearchScreen
-          title={searchTarget === "from" ? t("order.from") : t("order.to")}
+          title={searchTitle}
           fromLabel={searchTarget === "to" ? fromAddress?.label : undefined}
           fromAddressId={searchTarget === "to" ? draft.fromAddressId : undefined}
-          excludeCityId={searchTarget === "to" ? fromAddress?.cityId : toAddress?.cityId}
+          excludeCityId={searchTarget === "to" && !searchCity ? fromAddress?.cityId : searchTarget === "from" ? toAddress?.cityId : undefined}
+          onlyCityId={searchTarget === "to" ? searchCity : undefined}
           onClose={back}
           onSelect={(addr, entrance) => {
+            if (searchTarget === "save") {
+              void saveAddress(addr);
+              back();
+              return;
+            }
             setPoint(searchTarget, addr, undefined, entrance);
             // A drop-off goes on to the route; a new pickup returns home.
             if (searchTarget === "to") go({ flow: "route" }, true);
@@ -374,3 +354,4 @@ export default function OrderingHome() {
     </div>
   );
 }
+

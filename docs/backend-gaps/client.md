@@ -110,3 +110,18 @@ Off (backend still lacks them, `docs/backend-gaps.md` §0): `stops`, `orderOptio
 - A cancel enum value for "price reconsidered" / "chose another way".
 - Tips, safety/share/support, help, bonus, saved cards list, accounts, phone change, deletion, profile `trips_count`/avatar,
   per-topic notification switches.
+
+## Redesign v2
+
+Endpoints the redesigned passenger app (design v2, 2026-11-22) calls or needs. Conventions as above: ids UUID,
+money integer tiyin, lists `{ data, cursor }`, errors `{ error: { key, params } }`. The client renders only what the
+server returns; no numbers are computed on the device.
+
+### Home: recent routes (group 3)
+
+The "Oxirgi yo'nalishlar" tiles. Today `getRecentRoutes` is unsupported in the http adapter, so the section is hidden.
+
+- `GET /api/v1/routes/recent?limit=4` (auth: passenger)
+- Response `200`: `{ "data": [ { "from_city_id": "uuid", "to_city_id": "uuid", "distance_m": 308000, "price_from": 12000000 | null, "label": "Toshkent — Samarqand" } ] }`
+  — the passenger's own last distinct city pairs, newest first. Same item shape as `GET /api/v1/routes/popular`.
+- Errors: `401 AUTH_REQUIRED`.

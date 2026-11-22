@@ -135,7 +135,7 @@ export function OfflineBanner({ className }: { className?: string }) {
     <div
       role="status"
       className={cn(
-        "flex items-center gap-3.5 rounded-iz-card bg-[#0b1524] py-3.5 pl-4 pr-3.5 shadow-[0_10px_30px_var(--iz-shadow-strong)]",
+        "flex items-center gap-3.5 rounded-iz-card bg-iz-head py-3.5 pl-4 pr-3.5 shadow-[0_10px_30px_var(--iz-shadow-strong)]",
         className
       )}
     >
@@ -143,8 +143,8 @@ export function OfflineBanner({ className }: { className?: string }) {
         <Icon name="wifiOff" size={22} strokeWidth={2.2} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-[15px] font-extrabold text-white">{t("state.offline.banner")}</span>
-        <span className="text-[13px] text-[#9fb0c3]">{t("state.offline.bannerDesc")}</span>
+        <span className="text-[15px] font-extrabold text-iz-head-text">{t("state.offline.banner")}</span>
+        <span className="text-[13px] text-iz-head-muted">{t("state.offline.bannerDesc")}</span>
       </span>
     </div>
   );

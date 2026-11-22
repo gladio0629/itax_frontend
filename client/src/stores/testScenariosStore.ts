@@ -11,6 +11,8 @@ export type TestScenarios = {
   walletLimit: boolean;
   fastForward: boolean;
   bonusBelowMin: boolean;
+  /** No saved places and no trips yet (Home's new-user layout). */
+  newPassenger: boolean;
 };
 
 const SCENARIOS_KEY = "izgo_client_test_scenarios";
@@ -22,6 +24,7 @@ const defaultScenarios: TestScenarios = {
   walletLimit: false,
   fastForward: false,
   bonusBelowMin: false,
+  newPassenger: false,
 };
 
 function loadScenarios(): TestScenarios {
