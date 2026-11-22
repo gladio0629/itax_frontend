@@ -10,7 +10,7 @@ import { errorMessage } from "@/lib/errors";
 import { waitReview } from "@/lib/waitReview";
 import { formatAmount, formatDate, formatDuration } from "@/lib/format";
 import { useFeedSignal } from "@/stores/feedSignal";
-import { Armchair, ArrowRight, ArrowUpDown, Bell, CalendarDays, ChevronDown, Inbox, Package, RefreshCw, SlidersHorizontal } from "@/lib/icons";
+import { Armchair, ArrowLeftRight, ArrowRight, ArrowUpDown, Bell, CalendarDays, ChevronDown, Inbox, Package, RefreshCw, SlidersHorizontal } from "@/lib/icons";
 import { Screen, HeaderButton } from "@/components/Screen";
 import { Chip } from "@/components/Chip";
 import { Sheet } from "@/components/Sheet";
@@ -140,6 +140,10 @@ export default function HomeScreen() {
   const dirs = page?.directions ?? [];
   // The chosen direction, else the server's seat summary, else the driver's only direction.
   const current = dirs.find((d) => d.id === direction) ?? page?.seats?.direction ?? (dirs.length === 1 ? dirs[0] : null);
+  // Different city pairs among the directions (A→B and B→A are one pair).
+  const cityPairs = new Set(dirs.map((d) => [d.from.id, d.to.id].sort().join("|"))).size;
+  // One city pair served both ways, nothing chosen: the pair, "A ⇄ B".
+  const pair = !current && cityPairs === 1 && dirs.length === 2 ? dirs[0] : null;
   // Swapping only changes the feed filter, so not without one.
   const reverse = current && api.capabilities.feedFilters ? dirs.find((d) => d.from.id === current.to.id && d.to.id === current.from.id) : undefined;
   const dateChoice = date === "today" || date === "tomorrow" ? null : page?.dates.find((d) => d.date === date) ?? null;
@@ -232,10 +236,16 @@ export default function HomeScreen() {
                     <ArrowRight className="h-4 w-4 shrink-0 text-brand-ink" />
                     <span className="truncate">{current.to.name}</span>
                   </>
+                ) : pair ? (
+                  <>
+                    <span className="truncate">{pair.from.name}</span>
+                    <ArrowLeftRight className="h-4 w-4 shrink-0 text-brand-ink" />
+                    <span className="truncate">{pair.to.name}</span>
+                  </>
                 ) : !page ? (
                   <Skeleton className="h-6 w-44 bg-surface" />
-                ) : direction === "all" && (dirs.length > 1 || page.directions === null) ? (
-                  // Several directions, or unknown right now: the feed shows all of them.
+                ) : direction === "all" && (cityPairs > 1 || page.directions === null) ? (
+                  // Several city pairs, or unknown right now: the feed shows all of them.
                   t("home.allDirections")
                 ) : (
                   t("home.noRoute")
