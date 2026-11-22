@@ -33,7 +33,7 @@ export function RouteLine({
 }) {
   const city = size === "lg" ? "text-lg" : "text-base";
   const points = [
-    { p: pickup, label: pickupLabel, kind: "end" as const, dot: "bg-yellow ring-4 ring-yellow/20" },
+    { p: pickup, label: pickupLabel, kind: "end" as const, dot: "bg-brand ring-4 ring-brand/20" },
     ...stops.map((p, i) => ({ p, label: stopLabel?.(i + 1) ?? "", kind: "stop" as const, dot: "" })),
     { p: dropoff, label: dropoffLabel, kind: "end" as const, dot: "bg-ink ring-4 ring-ink/15" },
   ];
@@ -82,7 +82,7 @@ export function PlaceDetails({ place }: { place: AnyPlace }) {
     <>
       {line && <p className="tabular text-sm text-ink">{line}</p>}
       {intercom ? (
-        <p className="tabular mt-1 inline-flex h-7 items-center gap-1.5 rounded-button bg-yellow/15 px-2 text-sm font-bold text-gold">
+        <p className="tabular mt-1 inline-flex h-7 items-center gap-1.5 rounded-button bg-brand/15 px-2 text-sm font-bold text-brand-ink">
           <KeyRound className="h-4 w-4" />
           {t("addr.intercom", { v: intercom })}
         </p>

@@ -35,7 +35,7 @@ export default function CardsScreen() {
                 <li
                   key={c.id}
                   className="relative flex h-24 flex-col justify-between overflow-hidden rounded-card p-4 text-white shadow-1"
-                  style={{ background: c.brand === "humo" ? "linear-gradient(135deg,#0E6F6F,#0A4848)" : "linear-gradient(135deg,#264A9F,#152A61)" }}
+                  style={{ background: c.brand === "humo" ? "linear-gradient(135deg,#0E6F6F,#0A4848)" : "linear-gradient(135deg,#142235,#0B1524)" }}
                 >
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-bold uppercase tracking-wide">{c.brand}</span>

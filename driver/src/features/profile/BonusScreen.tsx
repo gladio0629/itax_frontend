@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn";
 const LEVEL_TONE: Record<BonusLevel["key"], string> = {
   bronze: "bg-[#94531F] text-white",
   silver: "bg-[#AEB7C8] text-[#0e1630]",
-  gold: "bg-yellow text-on-yellow",
+  gold: "bg-brand text-on-brand",
 };
 
 export default function BonusScreen() {
@@ -43,7 +43,7 @@ export default function BonusScreen() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm text-[#C3CCE4]">{t("bonus.commissionNow")}</p>
-                  <p className="tabular text-4xl font-bold text-[#F6BF0E]">
+                  <p className="tabular text-4xl font-bold text-brand">
                     {pct}%
                     {b.active && <s className="ml-2 text-lg font-medium text-[#C3CCE4]">{b.baseCommissionPct}%</s>}
                   </p>
@@ -78,7 +78,7 @@ export default function BonusScreen() {
                   );
                 })}
               </div>
-              <p className="mt-2 text-sm text-[#F6BF0E]">
+              <p className="mt-2 text-sm text-brand">
                 {b.nextLevel ? t("bonus.toNext", { level: t(`bonus.level.${b.nextLevel.key}`), n: b.tripsToNext }) : t("bonus.topReached")}
               </p>
             </section>
@@ -86,7 +86,7 @@ export default function BonusScreen() {
             <div className="grid grid-cols-2 gap-3">
               <Card className="p-4">
                 <p className="text-sm text-muted">{t("bonus.saved")}</p>
-                <Money value={b.savedThisWeek} className="mt-1 block text-xl font-bold text-gold" />
+                <Money value={b.savedThisWeek} className="mt-1 block text-xl font-bold text-brand-ink" />
               </Card>
               <Card className="p-4">
                 <p className="text-sm text-muted">{t("bonus.currentLevel")}</p>
@@ -102,7 +102,7 @@ export default function BonusScreen() {
                   const current = l.key === b.currentLevel.key;
                   const reached = l.reached;
                   return (
-                    <li key={l.key} aria-current={current ? "true" : undefined} className={cn("flex min-h-[64px] items-center gap-3 px-4 py-3", current && "bg-yellow/10")}>
+                    <li key={l.key} aria-current={current ? "true" : undefined} className={cn("flex min-h-[64px] items-center gap-3 px-4 py-3", current && "bg-brand/10")}>
                       <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", LEVEL_TONE[l.key])}>
                         {reached ? <Check className="h-5 w-5" /> : <Trophy className="h-5 w-5" />}
                       </span>
@@ -110,7 +110,7 @@ export default function BonusScreen() {
                         <p className="text-base font-bold text-ink">{t(`bonus.level.${l.key}`)}</p>
                         <p className="tabular text-sm text-muted">{t("bonus.levelRow", { n: l.tripsRequired })}</p>
                       </div>
-                      <span className={cn("tabular text-xl font-bold", l.commissionPct === 0 ? "text-gold" : "text-ink")}>{l.commissionPct}%</span>
+                      <span className={cn("tabular text-xl font-bold", l.commissionPct === 0 ? "text-brand-ink" : "text-ink")}>{l.commissionPct}%</span>
                     </li>
                   );
                 })}

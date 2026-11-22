@@ -15,15 +15,17 @@ function readStored(): Theme | null {
   }
 }
 
-// Night (navy) is the driver default regardless of the OS preference.
+// Redesign v2: light sheets by default; "Tungi rejim" makes the sheets dark.
+// The top of every screen is Ink in both themes, so the status-bar colour
+// stays Ink.
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => readStored() ?? "dark");
+  const [theme, setThemeState] = useState<Theme>(() => readStored() ?? "light");
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", theme === "dark" ? "#0a1330" : "#f2f4f9");
+      ?.setAttribute("content", "#0B1524");
   }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {

@@ -4,7 +4,7 @@
 import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
 import {
-  BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_COLORS, CAR_MODELS, DEBT_LIMIT, DEBT_NEAR_RATIO,
+  BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_BRANDS, CAR_COLORS, DEBT_LIMIT, DEBT_NEAR_RATIO, LICENSE_CATEGORIES, REVIEW_ETA_MIN,
   CHILD_SEAT_AGES, DEFAULT_CAPABILITIES, TIP_AMOUNTS, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor,
   levelFor, passengers, persist, presetState, pushNotification, replaceState, state, weekTrips,
   type BookingRecord, type DetailsRecord, type DriverState, type RequestRecord, type StopRecord, type TripRecord, type WhenRecord,
@@ -14,6 +14,7 @@ import { offsetPoint } from "@shared/map/geo";
 import { groupDigits } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
+  DocSlot, RegistrationReview,
   AcceptBlock, AcceptedPage, BonusInfo, Booking, BookingDay, CapabilitiesInput, DebtState, TestOrderVariant, TestPreset, Direction,
   DriverCapabilities, DriverProfile, FeedPage, FeedQuery, HistoryItem, HistoryPage, HomeSummary, LedgerPage, OfferPlace,
   OrderExtras, OrderKind, OrderOption, PassengerInfo, Place, RequestAlert, ReviewKind, ReviewRequest, RideRequest, RoutesPage,
@@ -21,6 +22,14 @@ import type {
 } from "../types";
 
 const TEST_OTP = "0000";
+const DOC_FILE_NAME: Record<DocSlot, string> = {
+  license_front: "guvohnoma_old",
+  license_back: "guvohnoma_orqa",
+  tech_passport_front: "texpasport_old",
+  tech_passport_back: "texpasport_orqa",
+  car_photo: "mashina",
+  selfie: "selfi",
+};
 const LEDGER_PAGE_SIZE = 12;
 const STAGES: TripStage[] = ["to_pickup", "waiting", "in_progress", "completed"];
 const CANCEL_REASONS = ["cancel.reason.passengerNoShow", "cancel.reason.wrongAddress", "cancel.reason.carIssue", "cancel.reason.passengerAsked", "cancel.reason.other"];
@@ -913,7 +922,7 @@ export const mockAdapter: ApiAdapter = {
   // Simulated picker: no real file, a local name "uploads" in under a second.
   uploadDocument: (slot) =>
     withLatency(() => {
-      const name = `${slot === "license" ? "guvohnoma" : slot === "registration" ? "texpasport" : "selfi"}_${Math.floor(1000 + Math.random() * 9000)}.jpg`;
+      const name = `${DOC_FILE_NAME[slot]}_${Math.floor(1000 + Math.random() * 9000)}.jpg`;
       return { ref: name, name };
     }, { minMs: 500, maxMs: 800, noFail: true }),
 
@@ -923,12 +932,19 @@ export const mockAdapter: ApiAdapter = {
     return ({ ...s0.session });
   }, { noFail: true }),
 
+  // Sample data has no real pages to open: reserved example.com addresses.
+  getLegalLinks: () => withLatency(() => ({ termsUrl: "https://example.com/izgo/driver-terms", privacyUrl: "https://example.com/izgo/privacy" }), { noFail: true }),
+
   getRegistrationOptions: () =>
     withLatency(() => ({
       cities: CITIES.map((c) => ({ id: c.id, name: c.name })),
-      carModels: CAR_MODELS,
+      carBrands: CAR_BRANDS.map((b) => ({ brand: b.brand, models: [...b.models] })),
       carColors: CAR_COLORS,
       years: Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - i),
+      seatCounts: [1, 2, 3, 4, 5, 6, 7],
+      carClasses: ["economy", "comfort", "business", "minivan"],
+      serviceTypes: ["passengers", "delivery"],
+      licenseCategories: [...LICENSE_CATEGORIES],
       platePattern: "01 A 123 BC",
     })),
 
@@ -945,44 +961,78 @@ export const mockAdapter: ApiAdapter = {
       return submitForReview("otp_verify", { phone: requestId.split(":")[1] ?? "" }, [900, 1400]);
     }),
 
-  savePersonal: ({ name, cityId }) =>
+  savePersonal: ({ firstName, lastName, birthDate, cityId, referralCode }) =>
     withLatency(() => {
       const s = state();
-      if (name.trim().split(/\s+/).length < 2 || name.trim().length < 5) throw new ApiError("NAME_INVALID");
+      if (firstName.trim().length < 2 || lastName.trim().length < 2) throw new ApiError("NAME_INVALID");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) throw new ApiError("BIRTH_DATE_INVALID");
       if (!CITIES.some((c) => c.id === cityId)) throw new ApiError("CITY_REQUIRED");
-      s.draft = { ...s.draft, name: name.trim(), cityId };
+      const code = referralCode?.trim().toUpperCase();
+      if (code && !/^[A-Z0-9]{4,8}$/.test(code)) throw new ApiError("REFERRAL_INVALID");
+      s.draft = { ...s.draft, name: `${firstName.trim()} ${lastName.trim()}`, cityId, birthDate, referralCode: code || undefined };
+      s.session = { ...s.session, stage: "license" };
+      persist();
+      return { ...s.session };
+    }),
+
+  saveLicense: ({ number, issuedAt, expiresAt, categories, frontRef, backRef }) =>
+    withLatency(() => {
+      const s = state();
+      if (!frontRef || !backRef) throw new ApiError("DOCS_REQUIRED");
+      if (number.replace(/\s/g, "").length < 6) throw new ApiError("LICENSE_NUMBER_INVALID");
+      if (!issuedAt || !expiresAt) throw new ApiError("LICENSE_DATES_REQUIRED");
+      if (!categories.length) throw new ApiError("LICENSE_CATEGORY_REQUIRED");
+      s.draft = { ...s.draft, license: { number: number.trim().toUpperCase(), issuedAt, expiresAt, categories, frontRef, backRef } };
       s.session = { ...s.session, stage: "car" };
       persist();
       return { ...s.session };
     }),
 
-  saveCar: ({ model, colorKey, plate, year }) =>
+  saveCar: ({ brand, model, plate, year, seats, colorKey, carClass, serviceTypes, techPassportFrontRef, techPassportBackRef, carPhotoRef }) =>
     withLatency(() => {
       const s = state();
       const normalized = plate.toUpperCase().replace(/\s+/g, " ").trim();
+      if (!brand || !model) throw new ApiError("MODEL_REQUIRED");
       // Uzbek plates: "01 A 123 BC" (private) or "01 123 ABC" (company).
-      if (!model) throw new ApiError("MODEL_REQUIRED");
-      if (!CAR_COLORS.some((c) => c.key === colorKey)) throw new ApiError("COLOR_REQUIRED");
       if (!/^\d{2} ([A-Z] \d{3} [A-Z]{2}|\d{3} [A-Z]{3})$/.test(normalized)) throw new ApiError("PLATE_INVALID");
-      s.draft = { ...s.draft, car: { model, colorKey, plate: normalized, year } };
-      s.session = { ...s.session, stage: "documents" };
+      if (!CAR_COLORS.some((c) => c.key === colorKey)) throw new ApiError("COLOR_REQUIRED");
+      if (!serviceTypes.length) throw new ApiError("SERVICE_TYPE_REQUIRED");
+      if (!techPassportFrontRef || !techPassportBackRef || !carPhotoRef) throw new ApiError("DOCS_REQUIRED");
+      s.draft = { ...s.draft, car: { model: `${brand} ${model}`, colorKey, plate: normalized, year, seats, carClass, serviceTypes } };
+      s.session = { ...s.session, stage: "selfie" };
       persist();
       return { ...s.session };
     }),
 
-  submitDocuments: ({ licenseFile, registrationFile }) =>
+  submitRegistration: ({ selfieRef, acceptTerms }) =>
     withLatency(() => {
       const s = state();
-      if (!licenseFile || !registrationFile) throw new ApiError("DOCS_REQUIRED");
+      if (!acceptTerms) throw new ApiError("TERMS_REQUIRED");
+      if (!selfieRef) throw new ApiError("SELFIE_REQUIRED");
       s.profile.documents = [
-        { kind: "license", status: "auto_review", fileName: licenseFile },
-        { kind: "registration", status: "auto_review", fileName: registrationFile },
+        { kind: "license", status: "auto_review", fileName: s.draft.license?.frontRef },
+        { kind: "registration", status: "auto_review" },
       ];
-      const review = submitForReview("driver_registration", {}, [3000, 4000]);
+      const review = submitForReview("driver_registration", {}, [6000, 8000]);
       s.session = { ...s.session, stage: "review", documentsReviewId: review.id };
       persist();
       return review;
     }, { minMs: 400, maxMs: 700 }),
+
+  // Sample progress: the four sections pass one after another over the review's lifetime.
+  getRegistrationReview: () =>
+    withLatency(() => {
+      const s = state();
+      settleReviews(s);
+      const keys = ["personal", "license", "car", "selfie"] as const;
+      const r = s.reviews.find((x) => x.id === s.session.documentsReviewId);
+      const done = s.registered || !r ? 1 : Math.min(1, (Date.now() - r.createdAt) / Math.max(1, r.resolvesAt - r.createdAt));
+      const passed = done >= 1 ? 4 : Math.floor(done * 4);
+      return {
+        sections: keys.map((key, i) => ({ key, status: i < passed ? "approved" : i === passed ? "checking" : "queued" })),
+        etaMinutes: REVIEW_ETA_MIN,
+      } satisfies RegistrationReview;
+    }, { noFail: true }),
 
   logout: () =>
     withLatency(() => {

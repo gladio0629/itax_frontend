@@ -1,7 +1,7 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, type CSSProperties } from "react";
 import { Navigate, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { useLocationReporting } from "@/lib/useLocationReporting";
-import { TabBar } from "./TabBar";
+import { TAB_ROOTS, TabBar } from "./TabBar";
 import { useSession } from "@/stores/sessionStore";
 import { useQuery } from "@/lib/useQuery";
 import { api } from "@/api/client";
@@ -12,7 +12,7 @@ import { toast } from "@/lib/toast";
 import { useFeedSignal } from "@/stores/feedSignal";
 import { RequestBanner } from "./RequestBanner";
 
-/** Tab-bar layout for every signed-in screen. The tab bar stays on sub-pages. */
+/** Layout for every signed-in screen. The floating tab bar shows on the four tab roots only. */
 export function AppShell() {
   const session = useSession((s) => s.session);
   const { t } = useT();
@@ -45,12 +45,17 @@ export function AppShell() {
   if (session && session.stage !== "active") return <Navigate to="/register" replace />;
 
   const debtWarn = summary.data && summary.data.debt.level !== "ok";
+  const showTabs = (TAB_ROOTS as readonly string[]).includes(location.pathname);
   return (
-    <div className="relative flex h-full flex-col">
+    <div
+      className="relative flex h-full flex-col"
+      // Room the scroll areas leave for the floating tab bar (.pb-tabbar, Screen footer).
+      style={{ "--tabbar-space": showTabs ? "calc(var(--tabbar-h) + var(--tabbar-gap) + var(--safe-bottom))" : "0px" } as CSSProperties}
+    >
       <RequestBanner />
       <a
         href="#app-main"
-        className="sr-only z-[70] rounded-button bg-yellow px-4 text-sm font-bold text-on-yellow focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:flex focus:h-12 focus:items-center"
+        className="sr-only z-[70] rounded-full bg-brand px-4 text-sm font-bold text-on-brand focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:flex focus:h-12 focus:items-center"
       >
         {t("common.skip")}
       </a>
@@ -61,7 +66,7 @@ export function AppShell() {
           </Suspense>
         </ChunkBoundary>
       </main>
-      <TabBar badge={{ "/wallet": !!debtWarn, "/": summary.data?.newRequests ?? 0 }} />
+      {showTabs && <TabBar badge={{ "/wallet": !!debtWarn, "/": summary.data?.newRequests ?? 0 }} />}
     </div>
   );
 }

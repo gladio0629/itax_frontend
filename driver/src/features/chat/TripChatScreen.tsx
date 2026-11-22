@@ -77,8 +77,8 @@ export default function TripChatScreen() {
       ) : (
         <>
           {chat.textOnly && (
-            <p className="mx-4 mb-2 flex shrink-0 items-start gap-2 rounded-card bg-accent/15 px-3 py-2 text-sm text-ink">
-              <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            <p className="mx-4 mb-2 flex shrink-0 items-start gap-2 rounded-card bg-brand-ink/15 px-3 py-2 text-sm text-ink">
+              <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-brand-ink" />
               {t("chat.textOnlyNote")}
             </p>
           )}
@@ -127,7 +127,7 @@ export default function TripChatScreen() {
                 type="submit"
                 disabled={sending || !draft.trim()}
                 aria-label={t("chat.send")}
-                className="press flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow text-on-yellow disabled:opacity-40"
+                className="press flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand disabled:opacity-40"
               >
                 {sending ? <Spinner className="h-5 w-5" /> : <Send className="h-5 w-5" />}
               </button>
@@ -148,12 +148,12 @@ function Bubble({ m, peer }: { m: ChatMessage; peer: string }) {
       <div
         className={cn(
           "max-w-[80%] rounded-card px-3 py-2 text-base",
-          mine ? "rounded-br-none bg-yellow text-on-yellow" : "rounded-bl-none bg-surface text-ink shadow-1"
+          mine ? "rounded-br-none bg-brand text-on-brand" : "rounded-bl-none bg-surface text-ink shadow-1"
         )}
       >
         <span className="sr-only">{mine ? t("chat.you") : peer}: </span>
         <p className="whitespace-pre-wrap break-words">{text}</p>
-        <p className={cn("tabular mt-0.5 text-right text-xs", mine ? "text-on-yellow/70" : "text-muted")}>{formatTime(m.at)}</p>
+        <p className={cn("tabular mt-0.5 text-right text-xs", mine ? "text-on-brand/70" : "text-muted")}>{formatTime(m.at)}</p>
       </div>
     </li>
   );

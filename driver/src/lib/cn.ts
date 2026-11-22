@@ -4,7 +4,7 @@
 type Falsy = false | null | undefined | 0 | "";
 
 // Arbitrary text-[…] counts as a size only when it carries a length unit.
-const SIZE = /^text-(xs|sm|base|lg|xl|[234]xl|\[[\d.]+(px|em|rem|%)\])$/;
+const SIZE = /^text-(2xs|xs|13|sm|15|base|17|lg|xl|[234]xl|\[[\d.]+(px|em|rem|%)\])$/;
 const ALIGN = /^text-(left|center|right|justify)$/;
 
 function group(cls: string): string | null {
@@ -20,7 +20,7 @@ function group(cls: string): string | null {
   else if (SIZE.test(base)) g = "text-size";
   else if (ALIGN.test(base)) g = "text-align";
   else if (/^text-/.test(base)) g = "text-color";
-  else if (/^font-(medium|bold)$/.test(base)) g = "font-weight";
+  else if (/^font-(normal|medium|semibold|bold|extrabold)$/.test(base)) g = "font-weight";
   else if (/^bg-gradient/.test(base)) g = "bg-image";
   else if (/^bg-/.test(base)) g = "bg";
   else if (/^shadow(-|$)/.test(base)) g = "shadow";

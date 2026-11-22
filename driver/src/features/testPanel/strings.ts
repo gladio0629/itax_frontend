@@ -27,6 +27,8 @@ const uz = {
   resetTitle: "Hammasini tiklaysizmi?",
   resetDesc: "Barcha namunaviy ma'lumotlar boshlang'ich holatga qaytadi.",
   applied: "Holat qo'llandi",
+  uiGallery: "UI namunalari",
+  uiGalleryHint: "Yangi dizayn komponentlari va holatlar",
 };
 
 export type TestPanelKey = keyof typeof uz;
@@ -56,6 +58,8 @@ const ru: Record<TestPanelKey, string> = {
   resetTitle: "Сбросить всё?",
   resetDesc: "Все примерные данные вернутся к исходному состоянию.",
   applied: "Состояние применено",
+  uiGallery: "Образцы UI",
+  uiGalleryHint: "Компоненты нового дизайна и состояния",
 };
 
 const en: Record<TestPanelKey, string> = {
@@ -83,6 +87,8 @@ const en: Record<TestPanelKey, string> = {
   resetTitle: "Reset everything?",
   resetDesc: "All sample data returns to its starting state.",
   applied: "State applied",
+  uiGallery: "UI samples",
+  uiGalleryHint: "New design components and states",
 };
 
 const TEXT: Record<Locale, Record<TestPanelKey, string>> = { uz, ru, en };

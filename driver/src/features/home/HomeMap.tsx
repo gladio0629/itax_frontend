@@ -76,7 +76,7 @@ export function HomeMap({
       // The same marker as on the drawn map.
       content: (
         <span className="relative block h-7 w-7 rounded-full bg-white shadow-2">
-          <span className="absolute inset-[5px] rounded-full bg-yellow" />
+          <span className="absolute inset-[5px] rounded-full bg-brand" />
         </span>
       ),
     });
