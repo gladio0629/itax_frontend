@@ -53,7 +53,7 @@ export default function RegistrationFlow() {
   }, [stage, resetDraft]);
 
   // Steps live in the history (?step=…), so the header arrow and the phone's
-  // back button (Capacitor's webview goes back in history) open the previous
+  // back button (lib/backButton: history.back()) open the previous
   // step with its data. Under the steps sits a "guard" entry: reaching it
   // re-opens the previous step, or on step 1 asks whether to sign out.
   const serverStep = isFormStep(stage) ? stage : null;
