@@ -1,5 +1,7 @@
-import { type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n/provider";
+import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import { IconButton } from "./Button";
 
 /**
@@ -19,9 +21,10 @@ export function HeaderBar({
   right?: ReactNode;
   className?: string;
 }) {
+  const { t } = useT();
   return (
     <div className={cn("flex items-center justify-between gap-3", className)}>
-      {onBack ? <IconButton icon="back" label={backLabel ?? ""} onClick={onBack} /> : <span className="h-11 w-11 shrink-0" aria-hidden />}
+      {onBack ? <IconButton icon="back" label={backLabel ?? t("common.back")} onClick={onBack} /> : <span className="h-11 w-11 shrink-0" aria-hidden />}
       {title != null && <h1 className="min-w-0 flex-1 truncate text-center text-[17px] font-bold text-iz-head-text">{title}</h1>}
       {right ?? <span className="h-11 w-11 shrink-0" aria-hidden />}
     </div>
@@ -134,12 +137,19 @@ export function Sheet({
       <div className={cn("no-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-5 pb-4 pt-6", bodyClassName)}>
         {children}
       </div>
-      {footer && (
-        <div className="flex shrink-0 flex-col gap-1 px-5 pb-[calc(max(var(--safe-bottom),16px)+8px)] pt-3 kb:pb-[calc(var(--kb-inset)+12px)]">
-          {footer}
-        </div>
-      )}
+      {footer && <SheetFooter>{footer}</SheetFooter>}
       {!footer && <div aria-hidden className="h-[var(--safe-bottom)] shrink-0 kb:h-[var(--kb-inset)]" />}
     </section>
+  );
+}
+
+/** Sheet footer; registers itself so the sample-data test button never covers the main button. */
+function SheetFooter({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLiftFloatingControl(ref);
+  return (
+    <div ref={ref} className="flex shrink-0 flex-col gap-1 px-5 pb-[calc(max(var(--safe-bottom),16px)+8px)] pt-3 kb:pb-[calc(var(--kb-inset)+12px)]">
+      {children}
+    </div>
   );
 }

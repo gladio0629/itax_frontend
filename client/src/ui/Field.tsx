@@ -45,7 +45,7 @@ type FieldShellProps = {
 
 function shellClasses(multiline?: boolean, readOnly?: boolean, invalid?: boolean) {
   return cn(
-    "group flex w-full items-center gap-3.5 rounded-iz-field border-2 bg-iz-field px-3",
+    "group flex w-full cursor-text items-center gap-3.5 rounded-iz-field border-2 bg-iz-field px-3",
     invalid ? "border-iz-danger" : "border-transparent",
     multiline ? "min-h-[68px] items-start py-3" : "h-[68px]",
     !readOnly &&
@@ -54,13 +54,13 @@ function shellClasses(multiline?: boolean, readOnly?: boolean, invalid?: boolean
 }
 
 function FieldBody({
-  id,
+  labelId,
   label,
   icon,
   trailing,
   children,
 }: {
-  id: string;
+  labelId: string;
   label: string;
   icon?: IconName;
   trailing?: ReactNode;
@@ -77,9 +77,7 @@ function FieldBody({
         </span>
       )}
       <span className={cn("flex min-w-0 flex-1 flex-col gap-0.5", !icon && "pl-1")}>
-        <label htmlFor={id} className="text-[11px] font-bold uppercase leading-4 tracking-[0.8px] text-iz-muted">
-          {label}
-        </label>
+        <span id={labelId} className="text-[11px] font-bold uppercase leading-4 tracking-[0.8px] text-iz-muted">{label}</span>
         {children}
       </span>
       {trailing}
@@ -116,22 +114,23 @@ export const Field = forwardRef<HTMLInputElement, FieldShellProps & Omit<InputHT
     const msgId = `${inputId}-msg`;
     return (
       <div className={cn("flex flex-col gap-1.5", className)}>
-        <div className={shellClasses(false, readOnly, !!error)}>
-          <FieldBody id={inputId} label={label} icon={icon} trailing={trailing ?? (readOnly ? <Icon name="lock" size={18} className="shrink-0 text-iz-muted" /> : null)}>
+        <label htmlFor={inputId} className={shellClasses(false, readOnly, !!error)}>
+          <FieldBody labelId={`${inputId}-label`} label={label} icon={icon} trailing={trailing ?? (readOnly ? <Icon name="lock" size={18} className="shrink-0 text-iz-muted" /> : null)}>
             <input
               ref={ref}
               id={inputId}
+              aria-labelledby={`${inputId}-label`}
               readOnly={readOnly}
               aria-invalid={error ? true : undefined}
               aria-describedby={error || hint ? msgId : undefined}
               className={cn(
-                "h-[22px] w-full min-w-0 border-0 bg-transparent p-0 text-[16px] font-extrabold text-iz-ink outline-none placeholder:font-semibold placeholder:text-iz-muted placeholder:opacity-70",
+                "iz-input h-[22px] w-full min-w-0 border-0 bg-transparent p-0 text-[16px] font-extrabold text-iz-ink outline-none placeholder:font-semibold placeholder:text-iz-muted placeholder:opacity-70",
                 readOnly && "text-iz-muted"
               )}
               {...input}
             />
           </FieldBody>
-        </div>
+        </label>
         <FieldMessage id={msgId} error={error} hint={hint} />
       </div>
     );
@@ -148,9 +147,9 @@ export const TextAreaField = forwardRef<
   const msgId = `${inputId}-msg`;
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <div className={shellClasses(true, input.readOnly, !!error)}>
+      <label htmlFor={inputId} className={shellClasses(true, input.readOnly, !!error)}>
         <FieldBody
-          id={inputId}
+          labelId={`${inputId}-label`}
           label={label}
           icon={icon}
           trailing={trailing ?? (counter ? <span className="shrink-0 self-start text-[12px] font-semibold tabular-nums text-iz-muted">{counter}</span> : null)}
@@ -158,14 +157,15 @@ export const TextAreaField = forwardRef<
           <textarea
             ref={ref}
             id={inputId}
+            aria-labelledby={`${inputId}-label`}
             rows={rows}
             aria-invalid={error ? true : undefined}
             aria-describedby={error || hint ? msgId : undefined}
-            className="field-sizing-content w-full min-w-0 resize-none border-0 bg-transparent p-0 text-[15px] font-semibold leading-[22px] text-iz-ink outline-none placeholder:text-iz-muted placeholder:opacity-70"
+            className="iz-input field-sizing-content w-full min-w-0 resize-none border-0 bg-transparent p-0 text-[16px] font-semibold leading-[22px] text-iz-ink outline-none placeholder:text-iz-muted placeholder:opacity-70"
             {...input}
           />
         </FieldBody>
-      </div>
+      </label>
       <FieldMessage id={msgId} error={error} hint={hint} />
     </div>
   );

@@ -67,18 +67,20 @@ type IconProps = Omit<SVGProps<SVGSVGElement>, "children"> & {
   size?: number;
   /** default 2; the primary-button arrow uses 2.4. */
   strokeWidth?: number;
+  /** Solid shape in the current colour (rating stars, seat badge). */
+  filled?: boolean;
 };
 
 /** Decorative by default (aria-hidden). Give it `aria-label` + role="img" only when it carries meaning on its own. */
-export function Icon({ name, size = 20, strokeWidth = 2, ...rest }: IconProps) {
+export function Icon({ name, size = 20, strokeWidth = 2, filled, ...rest }: IconProps) {
   return (
     <svg
       aria-hidden={rest["aria-label"] ? undefined : true}
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
+      fill={filled ? "currentColor" : "none"}
+      stroke={filled ? "none" : "currentColor"}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"

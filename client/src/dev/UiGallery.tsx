@@ -55,6 +55,7 @@ export default function UiGallery() {
   const [count, setCount] = useState(2);
   const [sheet, setSheet] = useState(false);
   const [name, setName] = useState("Aziz");
+  const [note, setNote] = useState("");
 
   const toggle = (id: string) => setChips((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
 
@@ -166,7 +167,7 @@ export default function UiGallery() {
         closeLabel={t("common.close")}
         footer={<PrimaryButton onClick={() => setSheet(false)}>{t("common.confirm")}</PrimaryButton>}
       >
-        <Field label="Izoh" placeholder="..." />
+        <Field label="Izoh" placeholder="..." value={note} onChange={(e) => setNote(e.target.value)} />
         <div className="flex flex-wrap gap-2">
           <Chip selected onClick={() => undefined}>Rejam o'zgardi</Chip>
           <Chip selected={false} onClick={() => undefined}>Uzoq kutdim</Chip>

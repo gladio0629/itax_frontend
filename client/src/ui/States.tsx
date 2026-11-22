@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/cn";
 import { PrimaryButton, TextButton } from "./Button";
@@ -154,6 +155,8 @@ export function OfflineBanner({ className }: { className?: string }) {
  */
 export function StateOffline({ onRetry, retrying }: { onRetry: () => void; retrying?: boolean }) {
   const { t } = useT();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useLiftFloatingControl(sheetRef);
   return (
     <div className="absolute inset-0 z-40 flex flex-col justify-between overflow-hidden bg-iz-map">
       <svg aria-hidden viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full opacity-50">
@@ -165,7 +168,7 @@ export function StateOffline({ onRetry, retrying }: { onRetry: () => void; retry
         </g>
       </svg>
       <OfflineBanner className="relative mx-5 mt-[calc(var(--safe-top)+12px)]" />
-      <div className="relative flex flex-col items-center gap-4 rounded-t-iz-sheet bg-iz-sheet px-7 pb-[max(var(--safe-bottom),24px)] pt-7 text-center shadow-[0_-10px_40px_var(--iz-shadow)]">
+      <div ref={sheetRef} className="relative flex flex-col items-center gap-4 rounded-t-iz-sheet bg-iz-sheet px-7 pb-[max(var(--safe-bottom),24px)] pt-7 text-center shadow-[0_-10px_40px_var(--iz-shadow)]">
         <span className="flex h-[88px] w-[88px] items-center justify-center rounded-[30px] bg-iz-field text-iz-ink">
           <Icon name="wifiOff" size={40} />
         </span>

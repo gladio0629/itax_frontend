@@ -5,6 +5,10 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [ta
 /** Focus the first control, trap Tab, close on Escape, restore focus on close. */
 export function useDialogA11y(open: boolean, onClose: () => void, panelRef: React.RefObject<HTMLDivElement>) {
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  // Latest onClose without re-running the effect (an inline handler would
+  // otherwise move focus back to the first control on every render).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -15,7 +19,7 @@ export function useDialogA11y(open: boolean, onClose: () => void, panelRef: Reac
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab" || !panelRef.current) return;
@@ -37,5 +41,5 @@ export function useDialogA11y(open: boolean, onClose: () => void, panelRef: Reac
       document.removeEventListener("keydown", onKeyDown);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose, panelRef]);
+  }, [open, panelRef]);
 }
