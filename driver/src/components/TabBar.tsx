@@ -34,7 +34,7 @@ export function TabBar({ badge }: { badge?: Partial<Record<TabRoot, boolean | nu
             key={to}
             to={to}
             end={end}
-            aria-label={t(key)}
+            aria-label={count > 0 ? `${t(key)}, ${t("tab.newCount", { n: count })}` : t(key)}
             className={({ isActive }) =>
               cn(
                 "press relative flex h-12 items-center justify-center gap-2 rounded-full text-sm font-extrabold",
@@ -55,7 +55,6 @@ export function TabBar({ badge }: { badge?: Partial<Record<TabRoot, boolean | nu
                   )}
                 </span>
                 {isActive && <span aria-hidden="true">{t(key)}</span>}
-                {count > 0 && <span className="sr-only">{t("tab.newCount", { n: count })}</span>}
               </>
             )}
           </NavLink>

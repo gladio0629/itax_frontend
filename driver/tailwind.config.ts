@@ -52,6 +52,9 @@ export default {
         warning: "rgb(var(--color-warning-rgb) / <alpha-value>)",
         "warning-icon": "var(--color-warning-icon)",
         "warning-soft": "var(--color-warning-soft)",
+        // Solid warning fill (#F79009) with Ink on it (banners).
+        "warning-fill": "var(--color-warning-icon)",
+        "on-warning": "rgb(var(--color-night-rgb) / <alpha-value>)",
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', "Manrope", "system-ui", "sans-serif"],
