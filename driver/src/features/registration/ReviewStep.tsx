@@ -54,7 +54,15 @@ export function ReviewStep({ reviewId, onApproved, onRejected, onContinue }: { r
   const [state, setState] = useState<"pending" | "approved" | "rejected">("pending");
   const cb = useRef({ onApproved, onRejected });
   cb.current = { onApproved, onRejected };
-  const review = useQuery<RegistrationReview | null>(() => api.getRegistrationReview(), [], { pollMs: state === "pending" ? 2000 : null });
+  const review = useQuery<RegistrationReview | null>(() => api.getRegistrationReview(), []);
+  // Poll while pending; stop for good once the server says it has no per-section report (null).
+  const reload = review.reload;
+  const noReport = review.data === null;
+  useEffect(() => {
+    if (state !== "pending" || noReport) return;
+    const id = setInterval(() => reload(true), 2000);
+    return () => clearInterval(id);
+  }, [state, noReport, reload]);
 
   useEffect(() => {
     if (!reviewId) return;

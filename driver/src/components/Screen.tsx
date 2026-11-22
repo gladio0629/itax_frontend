@@ -7,20 +7,25 @@ import { cn } from "@/lib/cn";
 /** Top padding of the Ink header: the design's 56 at minimum, more under a tall status bar. */
 const TOP_PAD = "max(calc(var(--safe-top) + 12px), 56px)";
 
-/** Below this viewport height the Ink top compresses (keyboard open on Android, where the webview resizes; small phones). */
-const COMPACT_MAX_H = 640;
+/** The tallest viewport seen since load: a drop of more than KEYBOARD_DROP from it means the keyboard is open. */
+let tallest = 0;
+const KEYBOARD_DROP = 150;
 
 function measureCompact(): boolean {
+  tallest = Math.max(tallest, window.innerHeight);
   const vv = window.visualViewport;
   // iOS: the webview keeps its height and the keyboard covers it (visual viewport shrinks).
-  const keyboardOver = vv ? window.innerHeight - vv.height > 150 : false;
-  return keyboardOver || window.innerHeight < COMPACT_MAX_H;
+  const keyboardOver = vv ? window.innerHeight - vv.height > KEYBOARD_DROP : false;
+  // Android: the webview itself gets shorter.
+  const resized = tallest - window.innerHeight > KEYBOARD_DROP;
+  return keyboardOver || resized;
 }
 
 /**
- * True while the screen is short: the on-screen keyboard is open (either the
- * webview resized, or the keyboard covers it) or the phone is small. The Ink
- * top then gives its room to the sheet and the main button.
+ * True while the on-screen keyboard is open: either the webview got shorter
+ * than its tallest height (Android) or the keyboard covers it (iOS). The Ink
+ * top then gives its room to the sheet and the main button. Small phones
+ * without a keyboard stay in the full layout.
  */
 export function useKeyboardOpen(): boolean {
   const [compact, setCompact] = useState(() => (typeof window === "undefined" ? false : measureCompact()));

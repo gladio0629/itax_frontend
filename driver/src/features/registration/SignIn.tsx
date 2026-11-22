@@ -46,27 +46,30 @@ function UzFlag() {
   );
 }
 
-/** Decorative route sketch on the Main screen (no data in it). */
+/** Decorative route sketch on the Main screen (no data in it). Shrinks on short screens. */
 function HeroSketch({ you }: { you: string }) {
   return (
-    <div className="relative min-h-[150px] flex-1" aria-hidden="true">
-      <svg width="350" height="200" viewBox="0 0 350 200" className="absolute bottom-0 left-0 block max-w-full">
-        <circle cx="60" cy="150" r="32" fill="none" stroke="#17273B" strokeWidth="2" />
-        <circle cx="60" cy="150" r="56" fill="none" stroke="#132032" strokeWidth="2" />
-        <path d="M60 150 C 120 20, 240 10, 296 70" fill="none" stroke="#2EDB85" strokeWidth="3" strokeLinecap="round" strokeDasharray="1 10" />
-        <circle cx="60" cy="150" r="15" fill="#2EDB85" fillOpacity="0.25" />
-        <circle cx="60" cy="150" r="7" fill="#2EDB85" />
-        <g transform="rotate(-8 178 36)">
-          <rect x="160" y="26" width="38" height="20" rx="8" fill="#FFFFFF" />
-          <rect x="167" y="30" width="13" height="12" rx="3" fill="#0B1524" />
-        </g>
-        <circle cx="296" cy="70" r="13" fill="#FFFFFF" />
-        <circle cx="296" cy="70" r="5" fill="#0B1524" />
-      </svg>
-      <span className="absolute bottom-5 left-[88px] flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full bg-night-2 px-3 text-13 font-bold text-white">
-        <Navigation className="h-3.5 w-3.5 text-brand" />
-        {you}
-      </span>
+    <div className="relative min-h-0 flex-1 overflow-hidden" aria-hidden="true">
+      {/* Short screens: an empty Ink area instead of a squeezed sketch. */}
+      <div className="absolute bottom-0 left-0 aspect-[350/200] [@media(max-height:700px)]:hidden h-full max-h-[200px] max-w-full">
+        <svg viewBox="0 0 350 200" preserveAspectRatio="xMinYMax meet" className="absolute inset-0 block h-full w-full">
+          <circle cx="60" cy="150" r="32" fill="none" stroke="#17273B" strokeWidth="2" />
+          <circle cx="60" cy="150" r="56" fill="none" stroke="#132032" strokeWidth="2" />
+          <path d="M60 150 C 120 20, 240 10, 296 70" fill="none" stroke="#2EDB85" strokeWidth="3" strokeLinecap="round" strokeDasharray="1 10" />
+          <circle cx="60" cy="150" r="15" fill="#2EDB85" fillOpacity="0.25" />
+          <circle cx="60" cy="150" r="7" fill="#2EDB85" />
+          <g transform="rotate(-8 178 36)">
+            <rect x="160" y="26" width="38" height="20" rx="8" fill="#FFFFFF" />
+            <rect x="167" y="30" width="13" height="12" rx="3" fill="#0B1524" />
+          </g>
+          <circle cx="296" cy="70" r="13" fill="#FFFFFF" />
+          <circle cx="296" cy="70" r="5" fill="#0B1524" />
+        </svg>
+        <span className="absolute bottom-[10%] left-[25%] flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full bg-night-2 px-3 text-13 font-bold text-white">
+          <Navigation className="h-3.5 w-3.5 text-brand" />
+          {you}
+        </span>
+      </div>
     </div>
   );
 }
@@ -93,18 +96,13 @@ function PhoneScreen({ digits, setDigits, onSent }: { digits: string; setDigits:
 
   return (
     <div className="flex h-full flex-col bg-night">
-      <div className="on-night flex min-h-0 flex-1 flex-col gap-4 px-6 pb-7 text-white" style={{ paddingTop: compact ? "calc(var(--safe-top) + 12px)" : TOP_PAD }}>
-        <div className="flex items-center justify-between gap-3">
+      <div className="on-night flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-6 pb-7 text-white" style={{ paddingTop: compact ? "calc(var(--safe-top) + 12px)" : TOP_PAD }}>
+        <div className="flex shrink-0 items-center justify-between gap-3">
           <span className="flex items-center gap-2.5">
             <img src={logoOnDark} alt="IZGO" width={84} height={36} className="block h-9 w-[84px]" />
             <span className="flex h-[26px] items-center rounded-full bg-brand px-2.5 text-2xs font-extrabold tracking-[1px] text-on-brand">{t("reg.driverBadge")}</span>
           </span>
           <span className="flex items-center gap-2">
-            {DEMO_MODE && (
-              <Link to={TEST_PANEL_PATH} aria-label={testPanelText(locale, "title")} className="press flex h-11 w-11 items-center justify-center rounded-full border border-night-line">
-                <FlaskConical className="h-[18px] w-[18px] text-night-muted" />
-              </Link>
-            )}
             <button
               type="button"
               onClick={() => setLangOpen(true)}
@@ -116,7 +114,7 @@ function PhoneScreen({ digits, setDigits, onSent }: { digits: string; setDigits:
           </span>
         </div>
         {compact ? <div className="flex-1" /> : <HeroSketch you={t("reg.heroYou")} />}
-        <h1 className={cn("font-extrabold", compact ? "text-2xl" : "text-[32px] leading-10")}>
+        <h1 className={cn("shrink-0 font-extrabold", compact ? "text-2xl" : "text-[32px] leading-10")}>
           {t("reg.heroLine1")} <span className="text-brand">{t("reg.heroLine2")}</span>
         </h1>
       </div>
@@ -169,6 +167,12 @@ function PhoneScreen({ digits, setDigits, onSent }: { digits: string; setDigits:
           <p className="text-center text-xs leading-[18px] text-muted">
             <LegalSentence template="reg.consent" termsKey="reg.consentTerms" privacyKey="reg.consentPrivacy" links={links} />
           </p>
+        )}
+        {DEMO_MODE && !compact && (
+          <Link to={TEST_PANEL_PATH} className="press -my-2 mx-auto flex h-11 items-center gap-1.5 px-3 text-xs font-bold text-muted">
+            <FlaskConical className="h-4 w-4" />
+            {testPanelText(locale, "title")}
+          </Link>
         )}
       </form>
       <LanguageSheet open={langOpen} onClose={() => setLangOpen(false)} />
@@ -270,13 +274,13 @@ function OtpScreen({
 
   return (
     <div className="flex h-full flex-col bg-night">
-      <div className="on-night flex min-h-0 flex-1 flex-col gap-4 px-6 pb-7 text-white" style={{ paddingTop: compact ? "calc(var(--safe-top) + 12px)" : TOP_PAD }}>
+      <div className="on-night flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-6 pb-7 text-white" style={{ paddingTop: compact ? "calc(var(--safe-top) + 12px)" : TOP_PAD }}>
         <HeaderButton label={t("common.back")} onClick={onChangePhone}>
           <ChevronLeft className="h-5 w-5" />
         </HeaderButton>
         <div className="flex-1" />
         {!compact && (
-          <span className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-night-2 text-brand" aria-hidden="true">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-night-2 text-brand [@media(max-height:700px)]:hidden" aria-hidden="true">
             <MessageSquare className="h-7 w-7" />
           </span>
         )}

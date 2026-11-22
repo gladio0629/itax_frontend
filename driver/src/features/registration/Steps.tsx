@@ -1,5 +1,5 @@
 // Registration steps 1–4 of the redesign: personal → licence → car → selfie.
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api } from "@/api/client";
 import type { CarClass, CarInput, DocSlot, LicenseInput, PersonalInput, RegistrationOptions, ServiceType, Session } from "@/api/types";
 import { useT, type TranslationKey } from "@/lib/i18n/provider";
@@ -14,9 +14,9 @@ import { DateField, FieldLabel, FormNotice, LegalSentence, PhotoTile, PickerFiel
 
 /** What the driver typed, kept while moving back and forth between steps. */
 export type RegDraft = {
-  personal?: PersonalInput;
-  license?: Omit<LicenseInput, "frontRef" | "backRef">;
-  car?: Omit<CarInput, "techPassportFrontRef" | "techPassportBackRef" | "carPhotoRef">;
+  personal?: Partial<PersonalInput>;
+  license?: Partial<Omit<LicenseInput, "frontRef" | "backRef">>;
+  car?: Partial<Omit<CarInput, "techPassportFrontRef" | "techPassportBackRef" | "carPhotoRef">>;
   uploads: Partial<Record<DocSlot, Upload>>;
 };
 
@@ -64,11 +64,14 @@ export function PersonalStep({ options, draft, setDraft, onSaved, onBack, notice
   const [referralCode, setReferralCode] = useState(d?.referralCode ?? "");
   const { busy, error, run } = useSubmit(t);
   const shown = ["NAME_INVALID", "BIRTH_DATE_INVALID", "CITY_REQUIRED", "REFERRAL_INVALID"];
+  // Every change goes to the draft, so leaving the step (help, camera, reload) keeps it.
+  useEffect(() => {
+    setDraft((x) => ({ ...x, personal: { firstName, lastName, birthDate, cityId, referralCode } }));
+  }, [firstName, lastName, birthDate, cityId, referralCode, setDraft]);
 
   const save = () =>
     run(async () => {
       const input: PersonalInput = { firstName, lastName, birthDate, cityId, referralCode: referralCode.trim() || undefined };
-      setDraft((x) => ({ ...x, personal: input }));
       onSaved(await api.savePersonal(input));
     });
 
@@ -132,11 +135,13 @@ export function LicenseStep({ options, draft, setDraft, onSaved, onBack }: StepP
   const front = uploads.get("license_front").upload;
   const back = uploads.get("license_back").upload;
 
+  useEffect(() => {
+    setDraft((x) => ({ ...x, license: { number, issuedAt, expiresAt, categories } }));
+  }, [number, issuedAt, expiresAt, categories, setDraft]);
+
   const save = () =>
     run(async () => {
-      const info = { number, issuedAt, expiresAt, categories };
-      setDraft((x) => ({ ...x, license: info }));
-      onSaved(await api.saveLicense({ ...info, frontRef: front?.ref ?? "", backRef: back?.ref ?? "" }));
+      onSaved(await api.saveLicense({ number, issuedAt, expiresAt, categories, frontRef: front?.ref ?? "", backRef: back?.ref ?? "" }));
     });
 
   const toggle = (c: string) => setCategories((xs) => (xs.includes(c) ? xs.filter((x) => x !== c) : [...xs, c]));
@@ -193,14 +198,16 @@ export function LicenseStep({ options, draft, setDraft, onSaved, onBack }: StepP
 
 // ----------------------------------------------------------------- 3. car
 
-/** "01" + "A 123 BC" on a plate-shaped box; the value is "01 A 123 BC". */
-function PlateField({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
+/** "01" + "A 123 BC" on a plate-shaped box, kept as two parts (joined when saved). */
+type PlateParts = { region: string; rest: string };
+const splitPlate = (plate?: string): PlateParts => {
+  const m = /^(\d{2})\s+(.*)$/.exec(plate ?? "");
+  return m ? { region: m[1], rest: m[2] } : { region: "", rest: plate ?? "" };
+};
+const joinPlate = (p: PlateParts) => `${p.region} ${p.rest}`.trim();
+
+function PlateField({ value, onChange, error }: { value: PlateParts; onChange: (v: PlateParts) => void; error?: string }) {
   const { t } = useT();
-  const [region, rest] = useMemo(() => {
-    const m = /^(\d{0,2})\s?(.*)$/.exec(value) ?? ["", "", ""];
-    return [m[1], m[2]];
-  }, [value]);
-  const set = (r: string, x: string) => onChange(`${r} ${x}`.trim());
   return (
     <div>
       <div className={cn("flex min-h-[68px] items-center justify-between gap-3 rounded-field border-2 bg-raised px-4 py-2.5", error ? "border-danger" : "border-raised")}>
@@ -214,8 +221,8 @@ function PlateField({ value, onChange, error }: { value: string; onChange: (v: s
             inputMode="numeric"
             autoComplete="off"
             placeholder="01"
-            value={region}
-            onChange={(e) => set(e.target.value.replace(/\D/g, "").slice(0, 2), rest)}
+            value={value.region}
+            onChange={(e) => onChange({ ...value, region: e.target.value.replace(/\D/g, "").slice(0, 2) })}
             className="tabular w-9 border-r-2 border-night bg-transparent text-center text-17 font-extrabold outline-none placeholder:text-night/30 focus-visible:outline-none"
           />
           <input
@@ -224,8 +231,8 @@ function PlateField({ value, onChange, error }: { value: string; onChange: (v: s
             autoComplete="off"
             spellCheck={false}
             placeholder="A 123 BC"
-            value={rest}
-            onChange={(e) => set(region, e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "").replace(/\s+/g, " ").slice(0, 9))}
+            value={value.rest}
+            onChange={(e) => onChange({ ...value, rest: e.target.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "").replace(/\s+/g, " ").slice(0, 9) })}
             className="tabular w-[108px] bg-transparent px-2 text-lg font-extrabold tracking-[1.5px] outline-none placeholder:text-night/30 focus-visible:outline-none"
           />
           <span className="flex flex-col items-center justify-center gap-0.5 px-1.5 text-[9px] font-extrabold text-[#1EB0D8]" aria-hidden="true">
@@ -250,7 +257,7 @@ export function CarStep({ options, draft, setDraft, onSaved, onBack }: StepProps
   const d = draft.car;
   const [brand, setBrand] = useState(d?.brand ?? "");
   const [model, setModel] = useState(d?.model ?? "");
-  const [plate, setPlate] = useState(d?.plate ?? "");
+  const [plate, setPlate] = useState<PlateParts>(() => splitPlate(d?.plate));
   const [year, setYear] = useState<number | undefined>(d?.year);
   const [seats, setSeats] = useState<number | undefined>(d?.seats);
   const [colorKey, setColorKey] = useState(d?.colorKey ?? "");
@@ -268,12 +275,15 @@ export function CarStep({ options, draft, setDraft, onSaved, onBack }: StepProps
   const photo = uploads.get("car_photo");
   const tpCount = (tpFront.upload ? 1 : 0) + (tpBack.upload ? 1 : 0);
 
+  useEffect(() => {
+    setDraft((x) => ({ ...x, car: { brand, model, plate: joinPlate(plate), year, seats, colorKey, carClass, serviceTypes } }));
+  }, [brand, model, plate, year, seats, colorKey, carClass, serviceTypes, setDraft]);
+
   const save = () =>
     run(async () => {
       if (!year || !seats) throw { code: "SEATS_REQUIRED" };
       if (!carClass) throw { code: "CAR_CLASS_REQUIRED" };
-      const info = { brand, model, plate, year, seats, colorKey, carClass, serviceTypes };
-      setDraft((x) => ({ ...x, car: info }));
+      const info = { brand, model, plate: joinPlate(plate), year, seats, colorKey, carClass, serviceTypes };
       onSaved(
         await api.saveCar({
           ...info,
@@ -284,7 +294,7 @@ export function CarStep({ options, draft, setDraft, onSaved, onBack }: StepProps
       );
     });
 
-  const ready = !!brand && !!model && !!plate && !!year && !!seats && !!colorKey && !!carClass && serviceTypes.length > 0 && tpCount === 2 && !!photo.upload;
+  const ready = !!brand && !!model && !!plate.region && !!plate.rest.trim() && !!year && !!seats && !!colorKey && !!carClass && serviceTypes.length > 0 && tpCount === 2 && !!photo.upload;
   const colorName = colorKey ? t(`color.${colorKey}` as TranslationKey) : "";
 
   return (
@@ -440,9 +450,17 @@ export function SelfieStep({ options, draft, setDraft, onSaved, onBack }: StepPr
       desc={t("reg.selfieDesc")}
       footer={
         selfie.upload ? (
-          <Button size="lg" fullWidth loading={busy} disabled={!terms || uploads.busy} onClick={submit}>
-            {t("reg.submitDocs")}
-          </Button>
+          <div className="flex flex-col gap-3">
+            <label className="flex cursor-pointer items-start gap-3 rounded-field bg-raised p-3.5">
+              <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5 h-6 w-6 shrink-0 accent-[#0C7A43]" />
+              <span className="text-13 leading-[19px] text-ink">
+                <LegalSentence template="reg.accept" termsKey="reg.acceptTerms" privacyKey="reg.acceptPrivacy" links={links} />
+              </span>
+            </label>
+            <Button size="lg" fullWidth loading={busy} disabled={!terms || uploads.busy} onClick={submit}>
+              {t("reg.submitDocs")}
+            </Button>
+          </div>
         ) : (
           <Button size="lg" fullWidth loading={selfie.busy} onClick={() => uploads.pick("selfie")}>
             {t("reg.takeSelfie")}
@@ -491,12 +509,6 @@ export function SelfieStep({ options, draft, setDraft, onSaved, onBack }: StepPr
           </li>
         ))}
       </ul>
-      <label className="mt-2 flex min-h-12 cursor-pointer items-start gap-3 rounded-field bg-raised p-4">
-        <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5 h-6 w-6 shrink-0 accent-[#0C7A43]" />
-        <span className="text-sm leading-[21px] text-ink">
-          <LegalSentence template="reg.accept" termsKey="reg.acceptTerms" privacyKey="reg.acceptPrivacy" links={links} />
-        </span>
-      </label>
       {uploads.error && <FormNotice>{uploads.error}</FormNotice>}
       {error && <FormNotice>{error.msg}</FormNotice>}
     </RegShell>

@@ -1,7 +1,7 @@
 // Sign-in and registration (redesign v2): Main → Otp → personal → licence →
 // car → selfie → automatic check → Yo'nalishlarim (first run). The server's
 // session stage decides the step; going back opens an earlier step to edit.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { Session, SessionStage } from "@/api/types";
@@ -19,9 +19,10 @@ import { ErrorState } from "@/components/ErrorState";
 import { RouteFallback } from "@/components/RouteFallback";
 import { RoutesEditor } from "@/features/routes/RoutesEditor";
 import { SignIn } from "./SignIn";
-import { CarStep, LicenseStep, PersonalStep, SelfieStep, type RegDraft } from "./Steps";
+import { CarStep, LicenseStep, PersonalStep, SelfieStep } from "./Steps";
 import { ReviewStep } from "./ReviewStep";
 import { FormNotice, RegShell } from "./parts";
+import { useRegDraft } from "./draftStore";
 
 const FORM_STEPS = ["personal", "license", "car", "selfie"] as const;
 type FormStep = (typeof FORM_STEPS)[number];
@@ -34,7 +35,7 @@ export default function RegistrationFlow() {
   const refresh = useSession((s) => s.refresh);
   const navigate = useNavigate();
   const options = useQuery(() => api.getRegistrationOptions(), [session?.stage === "signed_out"]);
-  const [draft, setDraftState] = useState<RegDraft>({ uploads: {} });
+  const [draft, setDraft, resetDraft] = useRegDraft();
   /** An earlier step opened with "back" (null: the server's step). */
   const [editing, setEditing] = useState<FormStep | null>(null);
   /** Keep the review screen up after approval until the driver taps "Bosh sahifaga". */
@@ -42,10 +43,15 @@ export default function RegistrationFlow() {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  // Submitted (or signed out): the typed data is no longer needed on the phone.
+  const stage = session?.stage;
+  useEffect(() => {
+    if (stage === "review" || stage === "signed_out") resetDraft();
+  }, [stage, resetDraft]);
+
   if (!session) return null;
   if (session.stage === "active" && !approved) return <Navigate to="/" replace />;
 
-  const setDraft = (fn: (d: RegDraft) => RegDraft) => setDraftState(fn);
   const saved = (s: Session) => {
     setEditing(null);
     setSession(s);
@@ -55,7 +61,7 @@ export default function RegistrationFlow() {
     setLoggingOut(true);
     try {
       setSession(await api.logout());
-      setDraftState({ uploads: {} });
+      resetDraft();
       setEditing(null);
       setLogoutOpen(false);
     } catch (e) {
@@ -79,7 +85,6 @@ export default function RegistrationFlow() {
         onRejected={() => refresh().catch(() => {})}
         onContinue={() => {
           setApproved(false);
-          setDraftState({ uploads: {} });
           if (session.stage !== "routes") navigate("/", { replace: true });
         }}
       />
