@@ -3,6 +3,68 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 4 admin: redesign-admin `12b9ae3..c9b3236` (7 commits: round 3 fixes, groups 4 and 5): RED
+
+Checks:
+- Detached checkout: typecheck, `VITE_DEMO_MODE=false` build and `check:no-network` pass. `dist` has no test panel or "demo" text and no site URL.
+- There is no approvals route. Two-person approval is gone everywhere: Save → `ChangeConfirmModal` → Confirm, with a double-send guard.
+- The branch has not merged `redesign-v2` since `376a0a0`. Merge it (`1870b85` and later) before the next round.
+
+Screens (demo build, 1440×900):
+- Ledger, Operators and Tariffs match `Ledger.png`, `Operators.png` and `Tariffs.png`.
+- Phones are shown in full. Cargo sizes are S–3XL.
+
+Must fix
+- `DashboardScreen.tsx:353-435` (`MoneyAndStatus`): the restored stats are incomplete.
+  - Back: income, average order, total wallet balance, income over time, orders by status (list), income by route and by city.
+  - Missing: completed/cancelled/expired order tiles, total passengers, total/blocked/online drivers, and the registrations chart.
+  - With the real server this shows 2 tiles and 2 charts. `statsFromApi` (`httpMapper.ts:505-527`) does map online drivers and the completed/cancelled/expired counts, but no screen draws them.
+- `DashboardScreen.tsx:56-59` and `MarketingScreen.tsx:51-60`: when `getStats` fails, "Daromad va buyurtmalar" just disappears. On a period change the old figures stay with no notice. Show an error with retry, and mark old figures as stale.
+- `OperatorQueueView.tsx:42-48,67-78`:
+  - `loadActive` has no request-order guard. A late `null` from the refresh after "finish" can overwrite the task that "Boshlash" just started. The card disappears and the next start fails with `ACTIVE_TASK_EXISTS`.
+  - "Boshlash" is clickable before the active task has loaded (`:180`). The old QueueTab waited for it.
+- Rule 2: `OperatorsBoard.tsx:42-45,188`: the supervisor board never refreshes, and the waiting time is computed once ("5 daq" forever). The old InProgressTab reloaded every 15 s with a ticking timer. The done column (`:173`) also lost the from/to date range and paging: "Hammasi" renders every entry.
+- `docs/backend-gaps/admin.md`: duplicates and stale entries. One entry per endpoint.
+  - Duplicates: ledger `kind`/`q`/`driver_id` (`:75`, `:127`, `:144-145`); Group 5 `:159`/`:70`, `:160`/`:69`, `:163`/`:77` and `:167`/`:77-79`.
+  - Stale: `:75` `driver_id` on correction items, `:76` `GET /admin/v1/tariffs?q=&active=`, `:65` the `adminTariffsGet` fallback and the phone reveal, `:47` `wallet.correction.approve`, and the `:51` callback mapping.
+
+Owner calls
+- Tariffs in production: the new tariff model has no endpoint, so with the real server the Tariffs page shows only "not available yet" (`TariffsScreen.tsx:157-167`). The old screen edited the per-route tariffs on `/admin/v1/tariffs`, which exists. Either keep the old editor in http mode until the new endpoint exists, or accept that tariffs cannot be changed from the panel until then.
+- Corrections in production: `POST /admin/v1/wallet/correction` returns `pending_approval`, and the creator cannot approve their own entry. With the approve step removed, no correction from the panel takes effect until the backend applies corrections on create. The UI says so and does not claim success (`LedgerScreen.tsx:193-203`). This is a backend task (`admin.md:134`).
+- Marketing page for superadmin, owner and menejer: `ALL_SECTIONS` (`mockDb/db.ts:163`) has no `marketing`, so only the marketolog sees the funnel, commission chart and order types. The main doc says these roles see "hamma bo'lim va statistika".
+
+Later
+- Group 4:
+  - `LedgerFixDialog.tsx:200-207`: the debt limit is no longer shown while typing a correction (rule 2).
+  - `LedgerFixDialog.tsx:74`: a driver beyond the first 500 cannot be picked, and Save stays disabled with no reason.
+  - `LedgerScreen.tsx:250`: the footer counts rows in the browser (max 500). Use the server's total, as in the design.
+  - `LedgerScreen.tsx:61`: if the summary fails, the KPI tiles vanish.
+  - Flags with nothing behind them in http: ledger summary, kind/q/period filters, `entry_id`, `note`/`driver_name` (`http.ts:552-567`, `httpMapper.ts:322-333`).
+  - `AuditScreen.tsx:79-80,103`: old audit actions (`tariff.approve`, `wallet.correction.approve` and others) show as raw codes.
+  - `NumberField.tsx:72-75` rounds 2500.5 to 2501 with no notice.
+  - Developer wording in the UI: "Backend tasdiq bosqichini…" (`LedgerScreen.tsx:197`), "serverda hali yo'q… backend" (`TariffsScreen.tsx:163`).
+  - `httpMapper.ts:179`: a missing `trips_count` becomes 0. Show "—".
+  - `TariffsScreen.tsx:128-132`: if the cities request fails, the city filter is hidden with no notice.
+  - The Dashboard period is no longer kept in the URL.
+- Group 5:
+  - `OperatorQueueView.tsx`: stats tiles vanish when they fail to load (`:49-55`); a failed refresh shows old data with no notice (`:101`); one shared `actionError` (`:198`); `CurrentTask` has no `key={task.id}` (`:106`).
+  - `OperatorsBoard.tsx:211`: done cards show only the time, so with 7 or 30 days different days look the same.
+  - The read-only orders and drivers windows lack the design's "faqat ko'ra olasiz" banner. Tarix opens on "Mening vazifalarim" (the design opens on "Buyurtmalar").
+  - `http.ts:384`: `getStaffCounts` sends no `status`.
+  - "Filtrlarni tozalash" is gone from Staff, Audit and Tarix.
+  - Mock checks: `rejectQueueItem` and `finishTask` do not check the status or assignee; `getOperatorCounts` defaults to today; `avgHandleSec` counts from `waitingSinceAt`.
+  - Raw `rgba` shadows (`OperatorsBoard.tsx:180`, `tariffParts.tsx:73`).
+
+OK
+- `DriverHistory` uses the server's `counts`, with StaleNotice.
+- The "Safarlar" column is back and "Onlayn" stays out. There is one code-length fallback. The passenger id is shown in full.
+- Operator results are exactly the five decided ones, with a reason required for "Rad etish". "Keyinga qoldirish" keeps the waiting time.
+- Roles come from `me.sections`/`actions`. An operator sees only their own history, and the drivers list has no balance.
+- Editing the result and comment in Tarix follows main doc §2.5 ("Natija va izohni tahrirlash mumkin").
+- Staff: phone is required for every role, email for every role except operator. Pickable roles come from `creatableRoles`, and server errors are shown.
+- No browser maths: tariff examples, balances and stats all come from the server. Sample numbers are only in mock and seed.
+- The legacy cleanup leaves no imports behind. Complaints stays. No big new feature beyond the design.
+
 ## 2026-11-22, round 4 merge: driver into `redesign-v2`
 
 Owner decision after round 4: the client restores both delivery features, swapping pickup and drop-off and reordering the drop-offs.
