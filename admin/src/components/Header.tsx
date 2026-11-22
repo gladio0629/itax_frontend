@@ -18,8 +18,10 @@ export function Header({
 }) {
   return (
     <header className="flex min-h-[76px] shrink-0 flex-wrap items-center gap-x-5 gap-y-3 border-b border-line bg-white px-5 py-3 lg:flex-nowrap lg:px-8 lg:py-0">
-      <div ref={titleRef} className="flex min-w-0 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-col">
         {showFallback && <h1 className="truncate text-22 font-extrabold text-ink">{fallbackTitle}</h1>}
+        {/* Portal target only: React never renders children into it directly. */}
+        <div ref={titleRef} className="flex min-w-0 flex-col gap-0.5 empty:hidden" />
       </div>
       <div className="ml-auto flex min-w-0 items-center gap-3">
         {api.capabilities.globalSearch && <GlobalSearch className="w-[220px] xl:w-[320px]" />}

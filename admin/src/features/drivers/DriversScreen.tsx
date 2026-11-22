@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { Ban, Car, CheckCircle2, Eye, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge, type BadgeTone } from "@/components/Badge";
@@ -49,6 +50,7 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz
 
 export function DriversScreen() {
   const [search, setSearch] = useState("");
+  useSearchFromUrl(setSearch);
   const [status, setStatus] = useState<ArchivableStatusFilter<DriverStatus>>("all");
   const query: DriverQuery = { search, status };
   const { items: drivers, error, reload } = useAdapterList(api.getDrivers, query);

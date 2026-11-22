@@ -158,7 +158,7 @@ export function DataTable<T>({
                         : undefined
                     }
                     className={cn(
-                      "border-b border-line last:border-0 hover:bg-surface/60",
+                      "border-b border-line last:border-0 hover:bg-[#f8f9fb]",
                       onRowClick && "cursor-pointer focus-visible:bg-surface focus-visible:outline-offset-[-2px]"
                     )}
                   >

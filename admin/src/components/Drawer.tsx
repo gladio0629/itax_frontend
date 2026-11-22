@@ -23,10 +23,14 @@ export function Drawer({
   // Callers pass inline arrows; keep the latest without re-running the focus effect.
   const close = useRef(onClose);
   close.current = onClose;
+  // Opener captured during the opening render (before autoFocus moves focus).
+  const openerRef = useRef<HTMLElement | null>(null);
+  if (!open) openerRef.current = null;
+  else if (openerRef.current === null && document.activeElement instanceof HTMLElement) openerRef.current = document.activeElement;
 
   useEffect(() => {
     if (!open) return;
-    const prev = document.activeElement as HTMLElement | null;
+    const prev = openerRef.current;
     // Respect autoFocus inside the drawer; otherwise move focus to the panel.
     if (!panel.current?.contains(document.activeElement)) panel.current?.focus();
     function onKey(e: KeyboardEvent) {
@@ -35,7 +39,7 @@ export function Drawer({
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      prev?.focus?.();
+      if (prev?.isConnected) prev.focus();
     };
   }, [open]);
 

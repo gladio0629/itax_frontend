@@ -45,10 +45,15 @@ export function Modal({
   closeRef.current = onClose;
   const busyRef = useRef(busy);
   busyRef.current = busy;
+  // Remember the opener while rendering the opening frame: by the time an
+  // effect runs, autoFocus inside the dialog has already moved focus.
+  const openerRef = useRef<HTMLElement | null>(null);
+  if (!open) openerRef.current = null;
+  else if (openerRef.current === null && document.activeElement instanceof HTMLElement) openerRef.current = document.activeElement;
 
   useEffect(() => {
     if (!open) return;
-    const opener = document.activeElement as HTMLElement | null;
+    const opener = openerRef.current;
     const node = panel.current;
     // Respect autoFocus inside; otherwise focus the first control.
     if (node && !node.contains(document.activeElement)) {
@@ -85,7 +90,7 @@ export function Modal({
     return () => {
       node?.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
-      opener?.focus?.();
+      if (opener?.isConnected) opener.focus();
     };
   }, [open]);
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { Ban, CheckCircle2, Eye, Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Avatar } from "@/components/Avatar";
@@ -32,6 +33,7 @@ const STATUS_OPTIONS: { value: ArchivableStatusFilter<PassengerStatus>; label: s
 
 export function PassengersScreen() {
   const [search, setSearch] = useState("");
+  useSearchFromUrl(setSearch);
   const [status, setStatus] = useState<ArchivableStatusFilter<PassengerStatus>>("all");
   const query: PassengerQuery = { search, status };
   const { items: passengers, error, reload } = useAdapterList(api.getPassengers, query);

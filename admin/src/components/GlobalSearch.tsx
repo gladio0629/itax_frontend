@@ -14,9 +14,10 @@ const KIND: Record<GlobalSearchKind, { label: string; icon: typeof Car }> = {
 };
 
 /** Where a hit opens. Detail routes arrive with groups 3 and 5; until then
- * the list page with the search prefilled. */
+ * the list page with its search prefilled (order id, or the person's name,
+ * which is what those lists search by). */
 export function searchHitPath(hit: GlobalSearchHit): string {
-  const q = `?q=${encodeURIComponent(hit.id)}`;
+  const q = `?q=${encodeURIComponent(hit.kind === "order" ? hit.id : hit.title)}`;
   switch (hit.kind) {
     case "order":
       return `/orders${q}`;
@@ -112,7 +113,7 @@ export function GlobalSearch({ className }: { className?: string }) {
               go(hits[active]);
             }
           }}
-          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-ink outline-none placeholder:font-medium placeholder:text-muted"
+          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-ink shadow-none outline-none placeholder:font-medium placeholder:text-muted focus-visible:shadow-none"
         />
       </label>
       {showList && (

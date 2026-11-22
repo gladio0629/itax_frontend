@@ -62,7 +62,7 @@ export const Input = forwardRef<HTMLInputElement, Props>(
               aria-invalid={error ? true : undefined}
               aria-describedby={error || hint ? msgId : undefined}
               className={cn(
-                "w-full min-w-0 bg-transparent text-15 font-bold text-ink outline-none placeholder:font-semibold placeholder:text-muted/70",
+                "w-full min-w-0 bg-transparent text-15 font-bold text-ink outline-none focus-visible:shadow-none placeholder:font-semibold placeholder:text-muted/70",
                 className
               )}
               {...rest}
@@ -96,7 +96,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, AreaProps>(({ label, hin
             rows={rows}
             aria-invalid={error ? true : undefined}
             aria-describedby={error || hint ? msgId : undefined}
-            className={cn("w-full resize-none bg-transparent text-15 font-semibold leading-[22px] text-ink outline-none placeholder:text-muted/70", className)}
+            className={cn("w-full resize-none bg-transparent focus-visible:shadow-none text-15 font-semibold leading-[22px] text-ink outline-none placeholder:text-muted/70", className)}
             {...rest}
           />
         </span>
@@ -125,7 +125,7 @@ export const SearchInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTML
         placeholder={label}
         autoComplete="off"
         spellCheck={false}
-        className="min-w-0 flex-1 bg-transparent text-13 font-semibold text-ink outline-none placeholder:text-muted"
+        className="min-w-0 flex-1 bg-transparent text-13 font-semibold text-ink outline-none focus-visible:shadow-none placeholder:text-muted"
         {...rest}
       />
     </label>

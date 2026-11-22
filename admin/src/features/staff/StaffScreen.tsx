@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { Ban, CheckCircle2, Pencil, Plus, RotateCcw, Trash2, UsersRound } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Avatar } from "@/components/Avatar";
@@ -37,6 +38,7 @@ const STATUS_OPTIONS: { value: ArchivableStatusFilter<StaffStatus>; label: strin
 export function StaffScreen() {
   const { me } = usePermissions();
   const [search, setSearch] = useState("");
+  useSearchFromUrl(setSearch);
   const [role, setRole] = useState<AdminRole | "all">("all");
   const [status, setStatus] = useState<ArchivableStatusFilter<StaffStatus>>("all");
   const query: StaffQuery = { search, role, status };

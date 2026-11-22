@@ -93,7 +93,7 @@ export function Sidebar({ me, badges, onLogout }: { me: Me | null; badges: Secti
                         cn(
                           "relative flex h-11 items-center justify-center gap-3 rounded-nav px-3 text-sm xl:justify-start",
                           "focus-visible:outline-green",
-                          isActive ? "bg-ink-2 font-bold text-white" : "font-semibold text-ink-muted hover:bg-ink-2/60 hover:text-white"
+                          isActive ? "bg-ink-2 font-bold text-white" : "font-semibold text-ink-muted hover:bg-[rgba(20,34,53,0.6)] hover:text-white"
                         )
                       }
                     >
