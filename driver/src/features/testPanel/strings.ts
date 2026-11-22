@@ -27,6 +27,8 @@ const uz = {
   resetTitle: "Hammasini tiklaysizmi?",
   resetDesc: "Barcha namunaviy ma'lumotlar boshlang'ich holatga qaytadi.",
   applied: "Holat qo'llandi",
+  minimal: "Minimal server ma'lumoti",
+  minimalHint: "Haqiqiy backend hozir yubormaydigan maydonlarsiz (vaqt, yo'lovchi, ETA, kutish, xulosa)",
   uiGallery: "UI namunalari",
   uiGalleryHint: "Yangi dizayn komponentlari va holatlar",
 };
@@ -58,6 +60,8 @@ const ru: Record<TestPanelKey, string> = {
   resetTitle: "Сбросить всё?",
   resetDesc: "Все примерные данные вернутся к исходному состоянию.",
   applied: "Состояние применено",
+  minimal: "Минимум данных с сервера",
+  minimalHint: "Без полей, которых реальный бэкенд пока не присылает (время, пассажир, ETA, ожидание, итог)",
   uiGallery: "Образцы UI",
   uiGalleryHint: "Компоненты нового дизайна и состояния",
 };
@@ -87,6 +91,8 @@ const en: Record<TestPanelKey, string> = {
   resetTitle: "Reset everything?",
   resetDesc: "All sample data returns to its starting state.",
   applied: "State applied",
+  minimal: "Minimal server data",
+  minimalHint: "Without the fields the real backend doesn't send yet (time, passenger, ETA, waiting, summary)",
   uiGallery: "UI samples",
   uiGalleryHint: "New design components and states",
 };

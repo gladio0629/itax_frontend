@@ -1,7 +1,8 @@
 // Building blocks shared by the registration screens (redesign v2).
-import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useId, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
+import { SITE_URL } from "@/config";
 import type { DocSlot, LegalLinks } from "@/api/types";
 import { Calendar, Camera, Check, ChevronLeft, ChevronRight, HelpCircle } from "@/lib/icons";
 import { useT, type TranslationKey } from "@/lib/i18n/provider";
@@ -321,10 +322,10 @@ export function useDocUploads(
 /** Sample picture for a "photo" taken with the simulated picker. */
 function DocIllustration() {
   return (
-    <span className="absolute inset-0 bg-gradient-to-br from-[#DDE5EE] to-[#C9D4E0]" aria-hidden="true">
-      <span className="absolute left-3 top-3.5 h-[38px] w-[30px] rounded-md bg-[#AEBBCB]" />
-      <span className="absolute left-[52px] top-[18px] h-1.5 w-[70px] max-w-[45%] rounded-full bg-[#AEBBCB]" />
-      <span className="absolute left-[52px] top-8 h-1.5 w-[50px] max-w-[35%] rounded-full bg-[#AEBBCB]" />
+    <span className="absolute inset-0 bg-gradient-to-br from-ph-1 to-ph-2" aria-hidden="true">
+      <span className="absolute left-3 top-3.5 h-[38px] w-[30px] rounded-md bg-ph-3" />
+      <span className="absolute left-[52px] top-[18px] h-1.5 w-[70px] max-w-[45%] rounded-full bg-ph-3" />
+      <span className="absolute left-[52px] top-8 h-1.5 w-[50px] max-w-[35%] rounded-full bg-ph-3" />
     </span>
   );
 }
@@ -364,7 +365,7 @@ export function PhotoTile({
           </span>
         </span>
       ) : (
-        <span className="flex h-[92px] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-[#B8C2CF] text-muted dark:border-night-line">
+        <span className="flex h-[92px] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-dash text-muted">
           {busy ? <Spinner className="h-5 w-5" /> : <Camera className="h-5 w-5 text-ink" />}
           <span className="text-xs font-bold">{t("reg.photoTake")}</span>
         </span>
@@ -381,17 +382,9 @@ export function PhotoTile({
 
 // ------------------------------------------------------------------ legal
 
-/** The legal links from the server (empty in the real build until it has them). */
+/** Terms and privacy pages on the public website (VITE_SITE_URL); none when it isn't set. */
 export function useLegalLinks(): LegalLinks {
-  const [links, setLinks] = useState<LegalLinks>({});
-  useEffect(() => {
-    let alive = true;
-    api.getLegalLinks().then((l) => alive && setLinks(l), () => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return links;
+  return SITE_URL ? { termsUrl: `${SITE_URL}/terms`, privacyUrl: `${SITE_URL}/privacy` } : {};
 }
 
 /**

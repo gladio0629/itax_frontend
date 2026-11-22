@@ -3,9 +3,10 @@ import { clearAppStorage } from "@/mockDb/storage";
 
 // Network-condition toggles of the test panel (sample-data mode only).
 // Read by the mock latency layer and the slow-connection banner.
-export type TestNetwork = { slowInternet: boolean; forceErrors: boolean };
+/** `minimalData`: the adapter leaves out every optional field the real backend doesn't send yet. */
+export type TestNetwork = { slowInternet: boolean; forceErrors: boolean; minimalData: boolean };
 const KEY = "izgo_driver_test_network";
-const defaults: TestNetwork = { slowInternet: false, forceErrors: false };
+const defaults: TestNetwork = { slowInternet: false, forceErrors: false, minimalData: false };
 
 function load(): TestNetwork {
   try {

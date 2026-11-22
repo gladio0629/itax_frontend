@@ -3,6 +3,151 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 4 admin: redesign-admin `12b9ae3..c9b3236` (7 commits: round 3 fixes, groups 4 and 5): RED
+
+Checks:
+- Detached checkout: typecheck, `VITE_DEMO_MODE=false` build and `check:no-network` pass. `dist` has no test panel or "demo" text and no site URL.
+- There is no approvals route. Two-person approval is gone everywhere: Save → `ChangeConfirmModal` → Confirm, with a double-send guard.
+- The branch has not merged `redesign-v2` since `376a0a0`. Merge it (`1870b85` and later) before the next round.
+
+Screens (demo build, 1440×900):
+- Ledger, Operators and Tariffs match `Ledger.png`, `Operators.png` and `Tariffs.png`.
+- Phones are shown in full. Cargo sizes are S–3XL.
+
+Must fix
+- `DashboardScreen.tsx:353-435` (`MoneyAndStatus`): the restored stats are incomplete.
+  - Back: income, average order, total wallet balance, income over time, orders by status (list), income by route and by city.
+  - Missing: completed/cancelled/expired order tiles, total passengers, total/blocked/online drivers, and the registrations chart.
+  - With the real server this shows 2 tiles and 2 charts. `statsFromApi` (`httpMapper.ts:505-527`) does map online drivers and the completed/cancelled/expired counts, but no screen draws them.
+- `DashboardScreen.tsx:56-59` and `MarketingScreen.tsx:51-60`: when `getStats` fails, "Daromad va buyurtmalar" just disappears. On a period change the old figures stay with no notice. Show an error with retry, and mark old figures as stale.
+- `OperatorQueueView.tsx:42-48,67-78`:
+  - `loadActive` has no request-order guard. A late `null` from the refresh after "finish" can overwrite the task that "Boshlash" just started. The card disappears and the next start fails with `ACTIVE_TASK_EXISTS`.
+  - "Boshlash" is clickable before the active task has loaded (`:180`). The old QueueTab waited for it.
+- Rule 2: `OperatorsBoard.tsx:42-45,188`: the supervisor board never refreshes, and the waiting time is computed once ("5 daq" forever). The old InProgressTab reloaded every 15 s with a ticking timer. The done column (`:173`) also lost the from/to date range and paging: "Hammasi" renders every entry.
+- `docs/backend-gaps/admin.md`: duplicates and stale entries. One entry per endpoint.
+  - Duplicates: ledger `kind`/`q`/`driver_id` (`:75`, `:127`, `:144-145`); Group 5 `:159`/`:70`, `:160`/`:69`, `:163`/`:77` and `:167`/`:77-79`.
+  - Stale: `:75` `driver_id` on correction items, `:76` `GET /admin/v1/tariffs?q=&active=`, `:65` the `adminTariffsGet` fallback and the phone reveal, `:47` `wallet.correction.approve`, and the `:51` callback mapping.
+
+Owner calls
+- Tariffs in production: the new tariff model has no endpoint, so with the real server the Tariffs page shows only "not available yet" (`TariffsScreen.tsx:157-167`). The old screen edited the per-route tariffs on `/admin/v1/tariffs`, which exists. Either keep the old editor in http mode until the new endpoint exists, or accept that tariffs cannot be changed from the panel until then.
+- Corrections in production: `POST /admin/v1/wallet/correction` returns `pending_approval`, and the creator cannot approve their own entry. With the approve step removed, no correction from the panel takes effect until the backend applies corrections on create. The UI says so and does not claim success (`LedgerScreen.tsx:193-203`). This is a backend task (`admin.md:134`).
+- Marketing page for superadmin, owner and menejer: `ALL_SECTIONS` (`mockDb/db.ts:163`) has no `marketing`, so only the marketolog sees the funnel, commission chart and order types. The main doc says these roles see "hamma bo'lim va statistika".
+
+Later
+- Group 4:
+  - `LedgerFixDialog.tsx:200-207`: the debt limit is no longer shown while typing a correction (rule 2).
+  - `LedgerFixDialog.tsx:74`: a driver beyond the first 500 cannot be picked, and Save stays disabled with no reason.
+  - `LedgerScreen.tsx:250`: the footer counts rows in the browser (max 500). Use the server's total, as in the design.
+  - `LedgerScreen.tsx:61`: if the summary fails, the KPI tiles vanish.
+  - Flags with nothing behind them in http: ledger summary, kind/q/period filters, `entry_id`, `note`/`driver_name` (`http.ts:552-567`, `httpMapper.ts:322-333`).
+  - `AuditScreen.tsx:79-80,103`: old audit actions (`tariff.approve`, `wallet.correction.approve` and others) show as raw codes.
+  - `NumberField.tsx:72-75` rounds 2500.5 to 2501 with no notice.
+  - Developer wording in the UI: "Backend tasdiq bosqichini…" (`LedgerScreen.tsx:197`), "serverda hali yo'q… backend" (`TariffsScreen.tsx:163`).
+  - `httpMapper.ts:179`: a missing `trips_count` becomes 0. Show "—".
+  - `TariffsScreen.tsx:128-132`: if the cities request fails, the city filter is hidden with no notice.
+  - The Dashboard period is no longer kept in the URL.
+- Group 5:
+  - `OperatorQueueView.tsx`: stats tiles vanish when they fail to load (`:49-55`); a failed refresh shows old data with no notice (`:101`); one shared `actionError` (`:198`); `CurrentTask` has no `key={task.id}` (`:106`).
+  - `OperatorsBoard.tsx:211`: done cards show only the time, so with 7 or 30 days different days look the same.
+  - The read-only orders and drivers windows lack the design's "faqat ko'ra olasiz" banner. Tarix opens on "Mening vazifalarim" (the design opens on "Buyurtmalar").
+  - `http.ts:384`: `getStaffCounts` sends no `status`.
+  - "Filtrlarni tozalash" is gone from Staff, Audit and Tarix.
+  - Mock checks: `rejectQueueItem` and `finishTask` do not check the status or assignee; `getOperatorCounts` defaults to today; `avgHandleSec` counts from `waitingSinceAt`.
+  - Raw `rgba` shadows (`OperatorsBoard.tsx:180`, `tariffParts.tsx:73`).
+
+OK
+- `DriverHistory` uses the server's `counts`, with StaleNotice.
+- The "Safarlar" column is back and "Onlayn" stays out. There is one code-length fallback. The passenger id is shown in full.
+- Operator results are exactly the five decided ones, with a reason required for "Rad etish". "Keyinga qoldirish" keeps the waiting time.
+- Roles come from `me.sections`/`actions`. An operator sees only their own history, and the drivers list has no balance.
+- Editing the result and comment in Tarix follows main doc §2.5 ("Natija va izohni tahrirlash mumkin").
+- Staff: phone is required for every role, email for every role except operator. Pickable roles come from `creatableRoles`, and server errors are shown.
+- No browser maths: tariff examples, balances and stats all come from the server. Sample numbers are only in mock and seed.
+- The legacy cleanup leaves no imports behind. Complaints stays. No big new feature beyond the design.
+
+## 2026-11-22, round 4 merge: driver into `redesign-v2`
+
+Owner decision after round 4: the client restores both delivery features, swapping pickup and drop-off and reordering the drop-offs.
+
+Merged `redesign-driver` at `750065f`, `--no-ff`, with no conflicts. Two commits came after the review (`8101dba`, `750065f`):
+- the Home route line no longer blocks the offers (`FeedPage.directions` may be `null`), which fixes the round 4 "later" item;
+- one city pair served both ways shows as "A ⇄ B".
+
+Both were reviewed before the merge.
+- Handoff: `docs/handoff-driver.md` has nothing open.
+- `docs/backend-gaps.md` index: the driver line now lists the work flow, wallet and profile sections.
+- After the merge, on `redesign-v2`: `npm ci` (driver), typecheck, `VITE_DEMO_MODE=false` build and `check:no-network` for all three apps, `cap sync` for the driver.
+
+## 2026-11-22, round 4 (client and driver after the owner answers; admin later)
+
+Checks: clean detached checkouts, `tsc -b --noEmit`, `VITE_DEMO_MODE=false npm run build`, `check:no-network`, grep of `dist`, `npx cap sync`. All pass for both. `dist` has no test panel or "demo" text. The only site URL in `dist` is the bare `https://xasanow.uz`. Neither app tracks `.env` any more. Both keep `SITE_URL` with its default in `src/config.ts`.
+Also committed this round: `docs/izgo-asosiy-hujjat.md` with the owner's two journal rows (`417ec38`).
+
+### redesign-client `c73e9d8..253cbd0` (6 commits): RED
+Round 3 must-fix and restores, all done:
+- MapPick: the address is cleared when the pin moves, when geocoding fails and when locating fails. "Bu joy" is disabled while there is no address (`MapPick.tsx:99,111,132,218`).
+- Restored: the pickup ETA bubble (`capabilities.pickupEta`), the ETA and Tafsilotlar summary on saved places, and the version line in the menu.
+- `SITE_URL` default in `config.ts:20`. `client/.env` is untracked, and `.env.example` and the handoff are updated.
+
+New: the delivery flow in design v2 (`features/cargo/*`, four steps).
+- It matches `Cargo.png`, `CargoContacts.png` and `CargoTerms.png` (demo build, 390×844).
+- Body sizes are exactly S–3XL. Labels, specs and prices come from the server. The insurance fee exists only in `mock.ts`.
+- uz/ru/en have 666 keys each.
+- The deleted OrderSheet, class picker, wishes and the rest have no imports left.
+- 60c5465 "sheets in the URL" is navigation plumbing (back closes the sheet, then goes to the previous step), not a new feature.
+
+Must fix
+- `CargoFlow.tsx:141-142,365,420`: when `getCargoRules` fails, nothing reports it and nothing retries.
+  - On the "terms" step `step === "terms" && rules` is false, so the Yuk screen renders with step 3 lit.
+  - Its "Davom etish" goes to Kontakt, and Kontakt leads back to the same screen. Payment is never reached.
+  - Show an error with retry (`rulesQ.refetch`), as the old sheet did (`common.loadFailedRetry`).
+- `CargoFlow.tsx:162-166`, `CargoTermsScreen.tsx:139`: when `getRideAlong` fails, "Kabinada hamroh" is just disabled with its normal caption, so it looks unavailable. Show the error with retry (the old `RideAlongRow` had `onRetry`).
+- `HomeScreen.tsx:213`: after a delivery order only the payment entry is replaced. The flow, contacts and terms entries stay in history and all render Home, so Android back from tracking needs 3 extra presses that do nothing. Go back to the base entry before navigating to tracking.
+- Rule 2, silent removals in the delivery flow (the old OrderSheet had them, c73e9d8 `OrderSheet.tsx:440,472`). Restore them, or the owner signs off:
+  - swapping pickup and drop-off;
+  - reordering the drop-offs.
+
+Later
+- `CargoFlow.tsx:313-317`: a network error in the contacts check shows under the receiver's name field.
+- `CargoFlow.tsx:148`: if the profile does not load, the sender shows "—" with no retry.
+- The contact name fields lost `maxLength` (`rules.riderNameMaxLength`).
+- `CargoSheets.tsx:53`: an empty warehouse list shows an empty sheet.
+- `CargoFlow.tsx:52`: `decodeSheet` does not check the `info:` topic.
+- `HomeScreen.tsx:212`: `window.open` after `await` is blocked in mobile Safari (web build only; it matters once the server sends `payment.redirect_url`).
+- `MenuDrawer.tsx:12`: `APP_VERSION = "1.1.0"` is hard-coded. Inject it at build time.
+- `cargo.v2.insuranceDesc` ("Shartlari va narxi serverdan") is placeholder text from the PNG. Real text from the owner.
+- `docs/backend-gaps/client.md:80` still says recent routes are used by "no screen". The insurance entry has four endpoint changes in one bullet; use one entry per endpoint.
+- Unused key `class.title`. `httpMapper.ts:244` doc comment sits on the wrong function. Raw `border-white` in `HomeView.tsx:29`.
+- The recent route still ignores `fromCityId` (round 3).
+- The sender's own phone shows masked on Kontaktlar.
+
+### redesign-driver `f82d972..19dbf19` (4 commits): GREEN
+Round 3 must-fix, all done:
+- `FinishedScreen.tsx:40`: cash only from the server's `cashToCollect`.
+- `HomeScreen.tsx:209`: `AcceptedError` with retry when `getAccepted` fails and nothing is cached.
+- `/delete-account` link kept (owner allowed it).
+- Calls: `httpMapper.ts` `tripPassenger` reads `passenger { name, rating, call_number }` once the server sends it. Until then there is no call button. This is documented in `docs/backend-gaps/driver.md`. The old "number hidden" toast never dialled anyone either.
+
+Restored (rule 2):
+- Wallet: balance after each entry, the today card (earnings, trips, average, all from the server), the saved-cards line, and the debt amount with its limit.
+- Home: the map card (`HomeMap.tsx`; drawn map without a token).
+- Request: seat positions (`seat_ids`) on the card and the detail.
+- Finished: the rating received.
+
+Round 3 "later" items fixed:
+- no false "request gone" while accepting;
+- "after commission" only when the server sends a commission;
+- `TripScreen` polls `getAccepted` every 20 s instead of 8 s;
+- "Mening yo'nalishim" in http mode reads `GET /drivers/me/routes`;
+- request-sound switch only with `capabilities.requestAlerts`;
+- handoff shortened ("nothing open").
+
+Screens (demo build, 390×844): Home, Wallet and Request match `Home.png`, `Wallet.png` and `Request.png`, plus the restored blocks. The map card on Home pushes the requests list down by one card height.
+
+Later
+- `http.ts` `feedDirections`: if the first `GET /drivers/me/routes` fails, `getFeed` fails too, so offers do not show until a retry. Fall back to `[]` for the route line instead.
+- Unused key `caps.childSeatHint` (uz/ru/en).
+
 ## 2026-11-22, owner answers after round 3 (what each terminal does now)
 
 New owner rule: no big new features, screens or flows that are neither in the design nor in the current app. Reviewers flag them. Small undesigned details and page transition animations are allowed.

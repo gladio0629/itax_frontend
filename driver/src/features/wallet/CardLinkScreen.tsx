@@ -5,7 +5,7 @@ import type { PayProvider } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { errorMessage } from "@/lib/errors";
 import { Check, Info, ShieldCheck } from "@/lib/icons";
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { Screen } from "@/components/Screen";
 import { Card, SectionLabel } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { ReviewStatus } from "@/components/ReviewStatus";
@@ -42,9 +42,7 @@ export default function CardLinkScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <ScreenHeader title={t("cards.link")} back="/wallet/cards" />
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
+    <Screen back="/wallet/cards" title={t("cards.link")} bodyClassName="flex flex-col">
         {step === "choose" && (
           <>
             <SectionLabel>{t("cards.provider")}</SectionLabel>
@@ -56,12 +54,12 @@ export default function CardLinkScreen() {
                   role="radio"
                   aria-checked={provider === p}
                   onClick={() => setProvider(p)}
-                  className={cn("press flex h-16 w-full items-center gap-3 rounded-card bg-surface px-4 text-left shadow-1", provider === p && "ring-2 ring-inset ring-brand")}
+                  className={cn("press flex min-h-[68px] w-full items-center gap-3.5 rounded-field border-2 px-4 text-left", provider === p ? "border-ink bg-surface" : "border-raised bg-raised")}
                 >
                   <ProviderTile provider={p} />
                   <span className="flex-1 text-base font-bold text-ink">{providerName(p)}</span>
-                  <span className={cn("flex h-6 w-6 items-center justify-center rounded-full border-2", provider === p ? "border-brand bg-brand text-on-brand" : "border-ink/30")}>
-                    {provider === p && <Check className="h-4 w-4" />}
+                  <span className={cn("flex h-6 w-6 items-center justify-center rounded-full border-2", provider === p ? "border-ink" : "border-line")} aria-hidden="true">
+                    {provider === p && <span className="h-3 w-3 rounded-full bg-ink" />}
                   </span>
                 </button>
               ))}
@@ -87,14 +85,14 @@ export default function CardLinkScreen() {
                 <p className="text-base font-bold text-ink">{t("cards.providerPage", { provider: providerName(provider) })}</p>
               </div>
               <div className="space-y-3 p-4">
-                <div className="flex h-14 items-center rounded-button bg-raised px-4 text-base tracking-widest text-muted" aria-hidden="true">
+                <div className="flex h-14 items-center rounded-field bg-raised px-4 text-base tracking-widest text-muted" aria-hidden="true">
                   8600 •••• •••• ••••
                 </div>
                 <div className="grid grid-cols-2 gap-3" aria-hidden="true">
-                  <div className="flex h-14 items-center rounded-button bg-raised px-4 text-muted">MM/YY</div>
-                  <div className="flex h-14 items-center rounded-button bg-raised px-4 text-muted">SMS</div>
+                  <div className="flex h-14 items-center rounded-field bg-raised px-4 text-muted">MM/YY</div>
+                  <div className="flex h-14 items-center rounded-field bg-raised px-4 text-muted">SMS</div>
                 </div>
-                <p className="flex gap-2 rounded-button bg-warning/15 p-3 text-sm text-ink">
+                <p className="flex gap-2 rounded-field bg-warning-soft p-3 text-sm text-ink">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                   {t("cards.providerTest")}
                 </p>
@@ -124,7 +122,7 @@ export default function CardLinkScreen() {
 
         {step === "done" && (
           <div className="flex flex-1 animate-fade-up flex-col items-center py-10 text-center">
-            <span className="mb-5 flex h-20 w-20 animate-check-pop items-center justify-center rounded-full bg-success text-bg">
+            <span className="mb-5 flex h-20 w-20 animate-check-pop items-center justify-center rounded-full bg-brand text-on-brand">
               <Check className="h-9 w-9" />
             </span>
             <p className="text-xl font-bold text-ink">{t("cards.success")}</p>
@@ -135,7 +133,6 @@ export default function CardLinkScreen() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Screen>
   );
 }

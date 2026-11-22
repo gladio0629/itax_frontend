@@ -9,11 +9,11 @@ export function DebtBanner({ level, onTopup, className }: { level: DebtLevel; on
   if (level === "ok") return null;
   const blocked = level === "blocked";
   return (
-    <div role="alert" className={cn("flex animate-fade-up items-center gap-3 rounded-card p-3 pl-4 shadow-1", blocked ? "bg-danger-fill text-white" : "bg-warning-fill text-on-warning", className)}>
+    <div role="alert" className={cn("flex animate-fade-up items-center gap-3 rounded-field p-3 pl-4", blocked ? "bg-danger-soft text-danger" : "bg-warning-soft text-warning", className)}>
       <AlertTriangle className="h-5 w-5 shrink-0" />
-      <p className="min-w-0 flex-1 text-sm font-medium">{blocked ? t("wallet.blockedBanner") : t("wallet.nearBanner")}</p>
+      <p className="min-w-0 flex-1 text-13 font-bold">{blocked ? t("wallet.blockedBanner") : t("wallet.nearBanner")}</p>
       {onTopup && (
-        <button type="button" onClick={onTopup} className="press h-12 shrink-0 rounded-button bg-black/20 px-4 text-sm font-bold">
+        <button type="button" onClick={onTopup} className="press h-11 shrink-0 rounded-full bg-surface px-4 text-13 font-extrabold text-ink">
           {t("wallet.topup")}
         </button>
       )}

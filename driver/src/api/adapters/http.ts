@@ -11,8 +11,8 @@ import type { ApiAdapter, ApiCapabilities, ServerEvent } from "../adapterTypes";
 import type {
   AcceptedPage,
   CityRef,
+  Direction,
   DocSlot,
-  LegalLinks,
   RegistrationSectionKey,
   RegistrationSectionStatus,
   DriverRoute,
@@ -25,9 +25,11 @@ import type {
   RoutesPage,
   Session,
   SessionStage,
+  TopupOptions,
 } from "../types";
 import { session } from "../httpSession";
 import {
+  type ApiCargoCapabilities,
   CANCEL_REASON_KEY,
   type CityNames,
   mapFieldError,
@@ -48,10 +50,12 @@ import {
   toApiPlate,
   toCapabilities,
   toDebtState,
+  toSom,
   toDriverProfile,
   toLedgerEntry,
   toNotification,
   toRoutesInput,
+  routesToDirections,
   toRoutesPage,
   toTiyin,
   stepActionOf,
@@ -82,13 +86,19 @@ const capabilities: ApiCapabilities = {
   profileMatching: false,
   bonus: false,
   help: false,
-  driverCapabilities: true,
+  // The contract's capabilities are wishes (removed 2026-11-22); the cargo sizes endpoint isn't there yet.
+  driverCapabilities: false,
   profileChangePhone: false,
   profileChangeCar: false,
   requestAlerts: false,
   ledgerFilters: false,
   notificationCategories: false,
   locationReporting: true,
+  // No endpoints yet (docs/backend-gaps/driver.md, "Redesign v2").
+  ratePassenger: false,
+  sos: false,
+  // No account-deletion endpoint yet: Sozlamalar links to the site's page instead.
+  deleteAccount: false,
 };
 
 // ------------------------------------------------------ settled "reviews"
@@ -121,6 +131,9 @@ let statusCache: { at: number; value: Api.DriverStatus } | null = null;
 let ledgerPages: { cursors: (string | null)[]; items: LedgerEntry[][] } = { cursors: [], items: [] };
 let historyPages: { cursors: (string | null)[]; items: Api.TripWithOrder[][] } = { cursors: [], items: [] };
 let summaryCache: { at: number; value: HomeSummary } | null = null;
+/** The driver's directions for Home (from GET /drivers/me/routes): the feed polls every 5 s, routes change only on PUT. */
+let directionsCache: { at: number; value: Direction[] } | null = null;
+const DIRECTIONS_MAX_AGE_MS = 60_000;
 /** The driver's car from the last GET /drivers/me (shown read-only in "Imkoniyatlarim"). */
 let lastCar: Api.Car | undefined;
 
@@ -133,6 +146,7 @@ function clearTabState() {
   lastNotifications = [];
   statusCache = null;
   summaryCache = null;
+  directionsCache = null;
   ledgerPages = { cursors: [], items: [] };
   historyPages = { cursors: [], items: [] };
   lastCar = undefined;
@@ -229,13 +243,28 @@ const historyMore = () => !!historyPages.cursors[historyPages.items.length - 1];
 // ------------------------------------------------------------------ routes
 async function readRoutes(): Promise<RoutesPage> {
   const [r, cities] = await Promise.all([http.get<Api.DriverRoutes>(API_PATHS.driverRoutes), cityRefs()]);
-  return toRoutesPage(r, cities);
+  return remember(toRoutesPage(r, cities));
+}
+
+function remember(page: RoutesPage): RoutesPage {
+  directionsCache = { at: Date.now(), value: routesToDirections(page.routes) };
+  return page;
+}
+
+/** Never a guessed "no route": a failed re-read keeps the last known list, else null (unknown). The offers load either way. */
+async function feedDirections(): Promise<Direction[] | null> {
+  if (directionsCache && Date.now() - directionsCache.at < DIRECTIONS_MAX_AGE_MS) return directionsCache.value;
+  try {
+    return routesToDirections((await readRoutes()).routes);
+  } catch {
+    return directionsCache?.value ?? null;
+  }
 }
 
 /** PUT replaces the whole set and issues new ids: always answer with its response. */
 async function putRoutes(routes: DriverRoute[], cities: CityRef[]): Promise<RoutesPage> {
   try {
-    return toRoutesPage(await http.put<Api.DriverRoutes>(API_PATHS.driverRoutes, toRoutesInput(routes)), cities);
+    return remember(toRoutesPage(await http.put<Api.DriverRoutes>(API_PATHS.driverRoutes, toRoutesInput(routes)), cities));
   } catch (err) {
     throw mapRoutesError(err);
   }
@@ -334,11 +363,13 @@ async function optionalEndpoint<T>(call: () => Promise<T>, fallback: T): Promise
   }
 }
 const OPT = {
-  legal: "/api/v1/legal",
   referral: "/api/v1/drivers/registration/referral",
   license: "/api/v1/drivers/registration/license",
   serviceTypes: "/api/v1/drivers/me/service-types",
   review: "/api/v1/drivers/registration/review",
+  topupOptions: "/api/v1/wallet/topup/options",
+  cargoCapabilities: "/api/v1/drivers/me/cargo-capabilities",
+  account: "/api/v1/drivers/me",
 } as const;
 type ApiRegistrationReview = {
   sections: { key: RegistrationSectionKey; status: RegistrationSectionStatus }[];
@@ -431,12 +462,6 @@ export const httpAdapter: ApiAdapter = {
     platePattern: "01 A 123 BC",
     realDocuments: true,
   }),
-
-  getLegalLinks: () =>
-    optionalEndpoint<LegalLinks>(
-      () => http.get<{ terms_url?: string; privacy_url?: string }>(OPT.legal).then((r) => ({ termsUrl: r.terms_url, privacyUrl: r.privacy_url })),
-      {}
-    ).catch((): LegalLinks => ({})),
 
   async requestOtp(phone) {
     const apiPhone = toApiPhone(phone);
@@ -546,6 +571,12 @@ export const httpAdapter: ApiAdapter = {
       null
     ),
 
+  async deleteAccount() {
+    await http.delete(OPT.account);
+    await session.logout().catch(() => {});
+    return { stage: "signed_out" };
+  },
+
   async logout() {
     await session.logout();
     return { stage: "signed_out" };
@@ -594,8 +625,9 @@ export const httpAdapter: ApiAdapter = {
   getHomeSummary: () => homeSummary(),
 
   async getFeed() {
-    const [page, cities] = await Promise.all([http.get<Api.OfferPage>(API_PATHS.tripOffers, { limit: 50 }), cityNames()]);
-    return { items: page.data.map((o) => offerToRequest(o, cities)), seats: null, directions: [], dates: [] };
+    // The offers carry no direction filter; the directions are the driver's routes, for the "Mening yo'nalishim" line.
+    const [page, cities, directions] = await Promise.all([http.get<Api.OfferPage>(API_PATHS.tripOffers, { limit: 50 }), cityNames(), feedDirections()]);
+    return { items: page.data.map((o) => offerToRequest(o, cities)), seats: null, directions, dates: [] };
   },
   markFeedSeen: async () => {},
   getRejectReasons: async () => Object.values(REJECT_REASON_KEY).map((key) => ({ key })),
@@ -692,6 +724,22 @@ export const httpAdapter: ApiAdapter = {
     summaryCache = null;
   },
   getTripSummary: notSupported,
+
+  // No single-item GETs: read the list the screens already use and pick the item.
+  async getRequest(requestId) {
+    const page = await httpAdapter.getFeed({ direction: "all", date: "today", type: "all" });
+    const r = page.items.find((x) => x.id === requestId);
+    if (!r) throw new ApiError("REQUEST_NOT_FOUND");
+    return r;
+  },
+  async getBooking(bookingId) {
+    const page = await httpAdapter.getAccepted();
+    const b = page.days.flatMap((d) => d.trips.flatMap((tr) => tr.bookings)).find((x) => x.id === bookingId);
+    if (!b) throw new ApiError("TRIP_NOT_FOUND");
+    return b;
+  },
+  ratePassenger: notSupported,
+  sendSos: notSupported,
   getTripChat: notSupported,
   sendTripMessage: notSupported,
 
@@ -743,9 +791,24 @@ export const httpAdapter: ApiAdapter = {
 
   // Limits from the TopupRequest schema (100 000 – 1 000 000 000 tiyin);
   // providers from its enum. The presets are just quick-pick buttons.
-  getTopupOptions: async () => ({ presets: [20_000, 50_000, 100_000, 200_000], min: 1_000, max: 10_000_000, providers: ["payme", "click"] }),
+  // GET /api/v1/wallet/topup/options is not in the contract yet (backend-gaps/driver.md, "Redesign v2"):
+  // until then no presets and no limits here — the amount is typed and the server validates it.
+  getTopupOptions: () =>
+    optionalEndpoint<TopupOptions>(
+      () =>
+        http.get<{ presets: number[]; min?: number; max?: number; providers?: Api.PayProvider[] }>(OPT.topupOptions).then((r) => ({
+          presets: (r.presets ?? []).map(toSom),
+          min: r.min != null ? toSom(r.min) : undefined,
+          max: r.max != null ? toSom(r.max) : undefined,
+          providers: r.providers?.length ? r.providers : ["payme", "click"],
+        })),
+      // The contract's PayProvider values.
+      { presets: [], providers: ["payme", "click"] }
+    ),
 
-  async requestTopup(amount, provider) {
+  async requestTopup(amount, provider, cardId) {
+    // The contract's TopupRequest has no saved card yet.
+    if (cardId) return notSupported();
     const body: Api.TopupRequest = { amount: toTiyin(amount), provider };
     const res = await session.idempotency
       .run("walletTopup", body, (key) => http.post<Api.TopupSession>(API_PATHS.walletTopup, body, { idempotencyKey: key }))
@@ -801,7 +864,7 @@ export const httpAdapter: ApiAdapter = {
   getAppInfo: async () => ({ version: appVersion, build: "web" }),
   async getCapabilities() {
     const [caps, me] = await Promise.all([
-      http.get<Api.DriverCapabilities>(API_PATHS.driverCapabilities),
+      http.get<ApiCargoCapabilities>(OPT.cargoCapabilities),
       http.get<Api.DriverProfile>(API_PATHS.driverMe),
     ]);
     lastCar = me.car;
@@ -809,9 +872,9 @@ export const httpAdapter: ApiAdapter = {
   },
 
   async setCapabilities(input) {
-    let saved: Api.DriverCapabilities;
+    let saved: ApiCargoCapabilities;
     try {
-      saved = await http.put<Api.DriverCapabilities>(API_PATHS.driverCapabilities, toApiCapabilities(input));
+      saved = await http.put<ApiCargoCapabilities>(OPT.cargoCapabilities, toApiCapabilities(input));
     } catch (err) {
       throw mapFieldError(err);
     }
