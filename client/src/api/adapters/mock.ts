@@ -68,6 +68,7 @@ import type {
   QuoteLine,
   RouteSuggestion,
   SavedAddressInfo,
+  SavedPlaceKind,
   SavedCard,
   Seat,
   SeatPosition,
@@ -361,6 +362,12 @@ const SEEDED_SAVED_DETAILS: Record<string, AddressDetails> = {
 /** The seeded saved addresses plus/minus what saveAddress /
  * removeSavedAddress changed (nothing, until a screen calls them). */
 const SAVED_CHANGES_KEY = "saved_address_changes";
+/** Name and kind the passenger gave a saved place (design v2). */
+const SAVED_META_KEY = "saved_address_meta";
+type SavedMeta = { name?: string; kind?: SavedPlaceKind };
+function savedMeta(): Record<string, SavedMeta> {
+  return readJSON<Record<string, SavedMeta>>(SAVED_META_KEY, {});
+}
 type SavedChanges = { added: string[]; removed: string[] };
 function savedChanges(): SavedChanges {
   return readJSON<SavedChanges>(SAVED_CHANGES_KEY, { added: [], removed: [] });
@@ -896,13 +903,18 @@ export const mockAdapter: ApiAdapter = {
       const list = getTestScenarios().newPassenger ? mySavedAddresses().filter((a) => savedChanges().added.includes(a.id)) : mySavedAddresses();
       return list.map((address) => {
         const distanceKm = roadDistanceKm(fromCityId, address.cityId);
-        return { address, area: cityOf(address.cityId).region, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
+        const meta = savedMeta()[address.id] ?? {};
+        return { address, ...meta, area: cityOf(address.cityId).region, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
       });
     }, { minMs: 150, maxMs: 350 }),
 
-  saveAddress: ({ addressId, details }) =>
+  saveAddress: ({ addressId, name, kind, details }) =>
     withLatency<SavedAddressInfo>(() => {
       const address = addressOf(addressId);
+      const metaAll = savedMeta();
+      const meta: SavedMeta = { ...(name?.trim() ? { name: name.trim().slice(0, 40) } : {}), ...(kind ? { kind } : {}) };
+      metaAll[addressId] = meta;
+      writeJSON(SAVED_META_KEY, metaAll);
       const c = savedChanges();
       writeJSON(SAVED_CHANGES_KEY, { added: [...c.added.filter((id) => id !== addressId), addressId], removed: c.removed.filter((id) => id !== addressId) });
       const normalized = normalizeDetails(details);
@@ -910,7 +922,7 @@ export const mockAdapter: ApiAdapter = {
       if (normalized) all[addressId] = normalized;
       else delete all[addressId];
       writeJSON(SAVED_DETAILS_KEY, all);
-      return { address, area: cityOf(address.cityId).region, details: normalized };
+      return { address, ...meta, area: cityOf(address.cityId).region, details: normalized };
     }),
 
   removeSavedAddress: (addressId) =>

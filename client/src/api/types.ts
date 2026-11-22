@@ -346,8 +346,15 @@ export type AddressSearchResult = {
   entrance?: string;
 };
 
+/** What a saved place is for (design v2 "Uy / Ish / Boshqa"). */
+export type SavedPlaceKind = "home" | "work" | "other";
+
 export type SavedAddressInfo = {
   address: Address;
+  /** The passenger's name for it ("Uy", "Ish", …); unset: use address.label. */
+  name?: string;
+  /** Unset when the source doesn't keep a kind (current backend). */
+  kind?: SavedPlaceKind;
   /** Area line under the name (region). */
   area?: string;
   /** Tafsilotlar remembered for this saved address. */

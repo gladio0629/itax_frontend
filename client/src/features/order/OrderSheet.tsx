@@ -24,13 +24,13 @@ import { TimeSelector } from "./TimeSelector";
 import { PaymentMethodSection } from "./PaymentMethodSection";
 import { timingSummary } from "./timingSummary";
 import { RouteFields, type RouteStopLabels, type RouteTarget } from "./RouteFields";
-import { AddressDetailsSheet } from "./AddressDetailsSheet";
+import { AddressDetailsScreen } from "@/features/address/AddressDetailsScreen";
+import { AddressFlow } from "@/features/address/AddressFlow";
 import { DriverComment } from "./OrderExtras";
 import { CarClassPicker } from "./CarClassPicker";
 import { IstaklarRow, IstaklarSheet } from "./IstaklarSheet";
 import { ContactFields, ContactNote, LuggageStepper, PromoRow, RiderSection, type RiderError } from "./TripDetails";
 import { CargoInfoChips, CargoInfoSheet, CargoTabs, LoadersControl, PricingModeControl, RideAlongRow, WarehouseSheet } from "./KargoControls";
-import { SearchScreen } from "./SearchScreen";
 import { detailsSummary } from "./addressDetails";
 import { formatDuration } from "./duration";
 
@@ -159,7 +159,7 @@ export function OrderSheet({
   /** A new address starts without the old one's Tafsilotlar; a saved
    * address brings its own back from the adapter, and an entrance variant
    * picked in search (the adapter's) fills in "Podyezd". */
-  function pickAddress(which: RouteTarget | "newStop", addr: Address, entrance?: string) {
+  function pickAddress(which: RouteTarget | "newStop", addr: Address, entrance?: string, entered?: AddressDetails) {
     let target: RouteTarget;
     if (which === "newStop") {
       const uid = newStopUid();
@@ -178,6 +178,11 @@ export function OrderSheet({
     }
     // Where the order can't carry Tafsilotlar, the draft holds none.
     if (!caps.addressDetails) return;
+    // Details typed on the map step (AddressFlow) are final for this point.
+    if (entered) {
+      setPointDetails(target, { ...entered, ...(entrance ? { entrance } : {}) });
+      return;
+    }
     const picked: AddressDetails = entrance ? { entrance } : {};
     if (entrance) setPointDetails(target, picked);
     api
@@ -973,7 +978,8 @@ export function OrderSheet({
         )}
 
         {picker && (
-          <SearchScreen
+          <AddressFlow
+            target={picker === "from" ? "from" : picker === "to" ? "to" : "stop"}
             title={
               picker === "from"
                 ? t("order.from")
@@ -983,12 +989,14 @@ export function OrderSheet({
                 ? stopLabels?.add ?? t("stops.add")
                 : (stopLabels?.item ?? ((n: number) => t("stops.label", { n })))(draft.stops.findIndex((st) => st.uid === picker.stop) + 1)
             }
-            fromLabel={picker === "from" ? undefined : addresses.from?.label}
+            fromLabel={addresses.from?.label}
+            toLabel={addresses.to?.label}
             fromAddressId={picker === "from" ? undefined : draft.fromAddressId}
+            rules={rules}
             {...pickerScope(picker)}
             onClose={() => setPicker(null)}
-            onSelect={(addr, entrance) => {
-              pickAddress(picker, addr, entrance);
+            onDone={(addr, entrance, details) => {
+              pickAddress(picker, addr, entrance, details);
               setPicker(null);
             }}
           />
@@ -1035,13 +1043,17 @@ export function OrderSheet({
         )}
 
         {detailsFor && addressById(pointAddressId(detailsFor, draft)) && (
-          <AddressDetailsSheet
+          <AddressDetailsScreen
             // Re-mount per point so the form starts from that point's details.
             key={typeof detailsFor === "string" ? detailsFor : detailsFor.stop}
             address={addressById(pointAddressId(detailsFor, draft))!}
             value={pointDetails(detailsFor)}
             rules={rules}
-            onSave={(d) => setPointDetails(detailsFor, d)}
+            mode="point"
+            onDone={(d) => {
+              setPointDetails(detailsFor, d);
+              setDetailsFor(null);
+            }}
             onClose={() => setDetailsFor(null)}
           />
         )}

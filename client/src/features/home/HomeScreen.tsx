@@ -14,7 +14,7 @@ import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { OrderSheet } from "@/features/order/OrderSheet";
 import { Toast } from "@/components/Toast";
-import { SearchScreen } from "@/features/order/SearchScreen";
+import { AddressFlow } from "@/features/address/AddressFlow";
 import { detailsSummary } from "@/features/order/addressDetails";
 import { isApiError } from "@shared/http/errors";
 import { ruleErrorKey, serverErrorKey } from "@/lib/apiError";
@@ -47,6 +47,8 @@ export default function OrderingHome() {
   const searchTarget: "from" | "to" | "save" = targetParam === "from" || targetParam === "save" ? targetParam : "to";
   /** A recent route narrows the drop-off search to its city. */
   const searchCity = params.get("city") ?? undefined;
+  /** Open the point picker on the map (Home "+", design: MapPick). */
+  const searchOnMap = params.get("map") === "1";
   const [profile, setProfile] = useState<Profile | null>(null);
   const [cityNames, setCityNames] = useState<Record<string, string>>({});
   const [recent, setRecent] = useState<RouteSuggestion[]>([]);
@@ -236,16 +238,6 @@ export default function OrderingHome() {
     setField("toDetails", d.fromDetails);
   }
 
-  async function saveAddress(addr: Address) {
-    try {
-      await api.saveAddress({ addressId: addr.id });
-      setSavedReload((n) => n + 1);
-      setToast(t("home.addressSaved"));
-    } catch (e) {
-      setToast(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey));
-    }
-  }
-
   const searchTitle = searchTarget === "from" ? t("order.from") : searchTarget === "save" ? t("home.saveAddressTitle") : t("order.to");
 
   return (
@@ -322,7 +314,7 @@ export default function OrderingHome() {
           setPoint("to", info.address, info.details ?? {});
           go({ flow: "route" });
         }}
-        onAddSaved={() => go({ flow: "search", target: "save" })}
+        onAddSaved={() => go({ flow: "search", target: "save", map: "1" })}
         recent={recent}
         recentLoading={recentLoading}
         cityNames={cityNames}
@@ -330,20 +322,26 @@ export default function OrderingHome() {
       />
 
       {view === "search" && (
-        <SearchScreen
+        <AddressFlow
+          key={`${searchTarget}:${searchCity ?? ""}`}
+          target={searchTarget}
           title={searchTitle}
-          fromLabel={searchTarget === "to" ? fromAddress?.label : undefined}
+          fromLabel={fromAddress?.label}
+          toLabel={toAddress?.label}
           fromAddressId={searchTarget === "to" ? draft.fromAddressId : undefined}
           excludeCityId={searchTarget === "to" && !searchCity ? fromAddress?.cityId : searchTarget === "from" ? toAddress?.cityId : undefined}
           onlyCityId={searchTarget === "to" ? searchCity : undefined}
+          startOnMap={searchOnMap}
+          onSwap={searchTarget === "save" ? undefined : swap}
           onClose={back}
-          onSelect={(addr, entrance) => {
+          onDone={(addr, entrance, details) => {
             if (searchTarget === "save") {
-              void saveAddress(addr);
+              setSavedReload((n) => n + 1);
+              setToast(t("home.addressSaved"));
               back();
               return;
             }
-            setPoint(searchTarget, addr, undefined, entrance);
+            setPoint(searchTarget, addr, details, entrance);
             // A drop-off goes on to the route; a new pickup returns home.
             if (searchTarget === "to") go({ flow: "route" }, true);
             else back();

@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject } from "react";
 import type { Profile, RouteSuggestion, SavedAddressInfo, ServiceType } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
 import { Icon, SectionLabel, Segmented, useShellChrome, useStatusBar, type IconName } from "@/ui";
 
@@ -114,6 +115,13 @@ function ServiceSwitch({ value, onChange, withIcons }: { value: ServiceType; onC
 }
 
 function SavedChip({ info, onClick, wide }: { info: SavedAddressInfo; onClick: () => void; wide: boolean }) {
+  const { t } = useT();
+  // Home / work: the kind's word in the current language; else the name the
+  // passenger gave, else the place itself. The line under it is the place.
+  const named = info.kind === "home" || info.kind === "work";
+  const title = named ? t(`details.kind.${info.kind}` as TranslationKey) : info.name ?? info.address.label;
+  const subtitle = named || info.name ? info.address.label : info.area;
+  const icon: IconName = info.kind === "home" ? "home" : info.kind === "work" ? "briefcase" : "pin";
   return (
     <button
       type="button"
@@ -124,11 +132,11 @@ function SavedChip({ info, onClick, wide }: { info: SavedAddressInfo; onClick: (
       )}
     >
       <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-iz-selected text-iz-on-selected">
-        <Icon name="pin" size={18} />
+        <Icon name={icon} size={18} />
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-[14px] font-extrabold text-iz-ink">{info.address.label}</span>
-        {info.area && <span className="truncate text-[12px] font-semibold text-iz-muted">{info.area}</span>}
+        <span className="truncate text-[14px] font-extrabold text-iz-ink">{title}</span>
+        {subtitle && <span className="truncate text-[12px] font-semibold text-iz-muted">{subtitle}</span>}
       </span>
     </button>
   );

@@ -125,3 +125,20 @@ The "Oxirgi yo'nalishlar" tiles. Today `getRecentRoutes` is unsupported in the h
 - Response `200`: `{ "data": [ { "from_city_id": "uuid", "to_city_id": "uuid", "distance_m": 308000, "price_from": 12000000 | null, "label": "Toshkent — Samarqand" } ] }`
   — the passenger's own last distinct city pairs, newest first. Same item shape as `GET /api/v1/routes/popular`.
 - Errors: `401 AUTH_REQUIRED`.
+
+### Saved places: kind (group 4)
+
+"Manzilni saqlash" offers Uy / Ish / Boshqa. Home shows home/work with their own icon and the word in the
+passenger's language. `SavedPlace` has a `name` only, and `SavedPlaceCreate` rejects unknown fields, so the http
+adapter sends the translated word as `name` and no kind.
+
+- `POST /api/v1/places/saved`: add optional `"kind": "home" | "work" | "other"` to the request.
+- `GET /api/v1/places/saved`: add `"kind"` (nullable) to every item.
+- Rule to agree on: at most one `home` and one `work` per passenger? (Today nothing limits it.) Error key if so,
+  e.g. `PLACE_KIND_TAKEN` with `params: { kind }`.
+
+### Address details on route points (group 4, unchanged need)
+
+The redesign keeps Podyezd, Qavat, Kvartira, Domofon kodi and "Haydovchiga izoh" per route point
+(`saveAddressDetails`, `capabilities.addressDetails`). Still needed on the order as listed under
+"Still needed from the backend" above.

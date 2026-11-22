@@ -45,6 +45,7 @@ import type { DeliveryVehicleSpec,
   ReviewRequest,
   RouteSuggestion,
   SavedAddressInfo,
+  SavedPlaceKind,
   SavedCard,
   Seat,
   UpdateOrderInput,
@@ -110,7 +111,7 @@ export interface ApiAdapter {
   /** `fromAddressId` ("" = no pickup yet) only adds distances where known. */
   getSavedAddresses(fromAddressId: string): Promise<SavedAddressInfo[]>;
   /** Keep a picked point as a saved address (name defaults to its label). */
-  saveAddress(input: { addressId: string; name?: string; details?: AddressDetails }): Promise<SavedAddressInfo>;
+  saveAddress(input: { addressId: string; name?: string; kind?: SavedPlaceKind; details?: AddressDetails }): Promise<SavedAddressInfo>;
   /** Forget a saved address (an id getSavedAddresses returned). */
   removeSavedAddress(addressId: string): Promise<void>;
   reverseGeocode(x: number, y: number, excludeCityId?: string, onlyCityId?: string): Promise<Address>;

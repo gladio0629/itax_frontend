@@ -372,6 +372,8 @@ async function searchPlaces(query: string, near: Point | undefined, onlyCityId?:
 
 function savedInfo(p: Point): SavedAddressInfo {
   // No distance / ETA for saved places in the contract.
+  // The contract keeps the name (shown as the label) but no kind yet
+  // (docs/backend-gaps/client.md, Redesign v2).
   return { address: p.address, area: p.area || undefined, details: p.details };
 }
 
@@ -456,6 +458,7 @@ export const httpAdapter: ApiAdapter = {
     return res.data.map((sp) => savedInfo(rememberSaved(sp)));
   },
   getSavedAddressDetails: async (addressId) => points.get(addressId)?.details ?? null,
+  // `kind` isn't in SavedPlaceCreate yet (unknown fields are rejected): not sent.
   saveAddress: async ({ addressId, name, details }) => {
     const p = pointOf(addressId);
     const body: Api.SavedPlaceCreate = { name: (name ?? p.address.label).trim().slice(0, 100), lat: p.lat, lng: p.lng };
