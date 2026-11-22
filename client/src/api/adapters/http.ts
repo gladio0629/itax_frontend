@@ -92,6 +92,7 @@ const capabilities: ClientCapabilities = {
   editPickup: false,
   // RatingInput carries one reason; a comment goes as the "custom" reason (5 stars).
   ratingNote: false,
+  historySearch: false,
 };
 
 function unsupported(): Promise<never> {

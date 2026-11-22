@@ -208,3 +208,23 @@ Needed for the full design:
   Capability `ratingNote` turns the full version on.
 - **Tips, trip share link, support phone** — unchanged (`tips`, `safety` off). SOS opens a sheet with the support
   number and "Safarni ulashish"; emergency contacts were removed from the app.
+
+### History and bonus: History, HistoryDetail, KbHistory, Bonus (group 8)
+
+Owner decision (2026-11-22): this build is not going to production yet, so everything below works fully in the mock
+adapter; the http adapter keeps the capability off until the endpoint exists.
+
+- **History search and service filter** (design History / KbHistory, "Shahar yoki haydovchi", Hammasi / Yo'lovchi /
+  Dostavka): `GET /api/v1/orders?type=passenger|delivery&q=<text>&status=…&cursor=…`. `q` matches the from/to city
+  name and the driver's name, case-insensitive. Capability `historySearch`.
+- **Trip times on the order** (design HistoryDetail, "08:40 … 12:55"): `"started_at"` and `"finished_at"`
+  (DateTime) on `Order`. UI fields `startedAt`, `finishedAt`.
+- **The passenger's rating on the order** (design HistoryDetail, "Sizning bahoyingiz", stars and the reason):
+  `"rating": { "stars": 5, "reasons": ["polite"], "comment": "…" }` on `GET /orders/{id}`, plus a verdict
+  `"rating_editable": true` (today the http adapter assumes `true`).
+- **Delivery size label** on the order (history cards "Dostavka, M"): `"vehicle_label": "M"` next to `vehicle_type`,
+  so the client never maps vehicle ids to sizes. UI field `cargoSize`.
+- **Bonus ways to earn** (design Bonus, "Har bir do'st uchun +15 000", "Shu oyda 5 ta safar · 3 / 5"):
+  `GET /api/v1/bonus/sources` → `{ data: [{ id, icon, title_key, description_key, amount_this_month, action,
+  "reward": <tiyin | null>, "progress": { "done": 3, "total": 5 } | null }] }`. Bonus endpoints are still missing
+  altogether (capability `bonuses`).

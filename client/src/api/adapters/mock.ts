@@ -636,22 +636,63 @@ function liveInfo(order: Order): Pick<OrderWithDetails, "driverArrived" | "drive
   return {};
 }
 
+/**
+ * The sample orders seeded before this session have no stored extras: give
+ * them realistic ones (points in their cities; about one in five a delivery
+ * with a body size), derived from the id so they stay the same.
+ */
+function seededExtras(order: Order): OrderExtras {
+  const h = hashSeed(order.id);
+  const froms = defaultAddressesForCity(order.fromCityId);
+  const tos = defaultAddressesForCity(order.toCityId);
+  const delivery = h % 5 === 0;
+  return {
+    fromAddressId: froms[h % Math.max(1, froms.length)]?.id ?? "",
+    toAddressId: tos[Math.floor(h / 8) % Math.max(1, tos.length)]?.id ?? "",
+    timing: { timeMode: "now" },
+    serviceType: delivery ? "delivery" : "passenger",
+    cargo: delivery ? { vehicle: DELIVERY_VEHICLES[h % DELIVERY_VEHICLES.length] } : undefined,
+  };
+}
+
+/** Trip start and end: the live timeline, or (seeded trips) from the route length. */
+function tripTimes(order: Order): { startedAt?: number; finishedAt?: number } {
+  const t = order.timeline;
+  if (t?.tripStartsAt && (order.status === "in_progress" || order.status === "completed")) {
+    return { startedAt: t.tripStartsAt, finishedAt: order.status === "completed" ? t.tripEndsAt : undefined };
+  }
+  if (order.status !== "completed") return {};
+  const startedAt = order.createdAt + (10 + (hashSeed(order.id) % 25)) * 60_000;
+  return { startedAt, finishedAt: startedAt + Math.round((order.distanceKm / 70) * 60) * 60_000 };
+}
+
 function toDetails(order: Order): OrderWithDetails {
   const driver = order.driverId ? db.drivers().find((d) => d.id === order.driverId) : undefined;
   const ratingEditable =
     order.status === "completed" && (!order.rating || Date.now() - order.createdAt < RATING_EDIT_WINDOW_MS);
-  return {
+  const details: OrderWithDetails = {
     ...order,
     driver,
     fromCity: cityOf(order.fromCityId),
     toCity: cityOf(order.toCityId),
     ratingEditable,
     lockedReasonKey: order.status === "completed" && !ratingEditable ? "history.rating.lockedReason" : undefined,
-    extras: loadOrderExtras()[order.id],
+    extras: loadOrderExtras()[order.id] ?? seededExtras(order),
     editable: order.status === "accepted",
+    ...tripTimes(order),
     driverPhone: driver && (order.status === "accepted" || order.status === "in_progress") ? sampleDriverPhone(driver.id) : undefined,
     ...liveInfo(order),
   };
+  if (order.rating) {
+    const stored = readJSON<Record<string, { reasons: string[]; note?: string }>>(RATING_REASONS_KEY, {})[order.id];
+    // Seeded 5-star trips get one of the usual reasons, so they read like real ones.
+    const seeded = ["history.reason.polite", "history.reason.conversation", "history.reason.comfort", "history.reason.simple"];
+    details.ratingReasons = stored?.reasons ?? (order.rating === 5 ? [seeded[hashSeed(order.id) % seeded.length]] : []);
+    details.ratingComment = stored?.note;
+  }
+  const vehicle = details.extras?.serviceType === "delivery" ? details.extras.cargo?.vehicle : undefined;
+  if (vehicle) details.cargoSize = VEHICLES[vehicle].sizeLabel;
+  return details;
 }
 
 function genId(prefix: string) {
@@ -739,6 +780,7 @@ export const mockAdapter: ApiAdapter = {
     pickupEta: true,
     editPickup: true,
     ratingNote: true,
+    historySearch: true,
   },
 
   // The sample data keeps no server session: the auth store's own flag
@@ -1202,10 +1244,18 @@ export const mockAdapter: ApiAdapter = {
         .filter((o) => o.passengerId === currentPassengerId())
         .sort((a, b) => b.createdAt - a.createdAt);
       if (params?.status) list = list.filter((o) => o.status === params.status);
+      let detailed = list.map(toDetails);
+      if (params?.service) detailed = detailed.filter((o) => (o.extras?.serviceType ?? "passenger") === params.service);
+      const q = params?.q?.trim().toLocaleLowerCase();
+      if (q) {
+        detailed = detailed.filter((o) =>
+          [o.fromCity.name, o.toCity.name, o.driver?.name ?? ""].some((s) => s.toLocaleLowerCase().includes(q))
+        );
+      }
       const pageSize = 8;
       const cursor = params?.cursor ?? 0;
-      const orders = list.slice(cursor, cursor + pageSize).map(toDetails);
-      const nextCursor = cursor + pageSize < list.length ? cursor + pageSize : null;
+      const orders = detailed.slice(cursor, cursor + pageSize);
+      const nextCursor = cursor + pageSize < detailed.length ? cursor + pageSize : null;
       return { orders, nextCursor };
     }),
 
@@ -1487,7 +1537,29 @@ export const mockAdapter: ApiAdapter = {
         ledger
           .filter((e) => e.sourceId === sourceId && e.type === "earn" && isSameMonth(e.createdAt, Date.now()))
           .reduce((sum, e) => sum + e.amount, 0);
+      const tripsThisMonth = db
+        .orders()
+        .filter((o) => o.passengerId === currentPassengerId() && o.status === "completed" && isSameMonth(o.createdAt, Date.now())).length;
       return [
+        {
+          id: "invite",
+          icon: "invite",
+          titleKey: "bonus.source.invite.title",
+          descriptionKey: "bonus.source.invite.desc",
+          amountThisMonth: thisMonth("invite"),
+          action: "invite",
+          reward: 15_000,
+        },
+        {
+          id: "goal",
+          icon: "goal",
+          titleKey: "bonus.source.goal.title",
+          descriptionKey: "bonus.source.goal.desc",
+          amountThisMonth: thisMonth("goal"),
+          action: "goto_order",
+          reward: 20_000,
+          progress: { done: Math.min(5, tripsThisMonth), total: 5 },
+        },
         {
           id: "trip",
           icon: "order",
@@ -1497,20 +1569,13 @@ export const mockAdapter: ApiAdapter = {
           action: "goto_order",
         },
         {
-          id: "invite",
-          icon: "invite",
-          titleKey: "bonus.source.invite.title",
-          descriptionKey: "bonus.source.invite.desc",
-          amountThisMonth: thisMonth("invite"),
-          action: "invite",
-        },
-        {
           id: "rate",
           icon: "rate",
           titleKey: "bonus.source.rate.title",
           descriptionKey: "bonus.source.rate.desc",
           amountThisMonth: thisMonth("rate"),
           action: "rate_trip",
+          reward: 3_000,
         },
       ];
     }),

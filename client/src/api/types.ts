@@ -357,6 +357,14 @@ export type OrderWithDetails = Order & {
   priceLines?: QuoteLine[];
   /** Payme / Click: the provider page to pay on, when the server gives one. */
   paymentUrl?: string;
+  /** What the passenger chose with their rating (reason keys) and wrote. */
+  ratingReasons?: string[];
+  ratingComment?: string;
+  /** When the trip started and ended (ms), once known. */
+  startedAt?: number;
+  finishedAt?: number;
+  /** Delivery: the body size label the server shows ("M", "XL"). */
+  cargoSize?: string;
   /** A number the passenger can call for this trip (the driver's, or a relay). */
   driverPhone?: string;
   /** Minutes until the driver reaches the pickup (accepted, not arrived yet). */
@@ -473,6 +481,8 @@ export type ClientCapabilities = {
   pickupEta: boolean;
   /** Tafsilotlar may change the pickup of a live order (else only the drop-off). */
   editPickup: boolean;
+  /** Order history: search (city, driver) and the Yo'lovchi / Dostavka filter. */
+  historySearch: boolean;
   /** A comment with any rating, next to the reasons. Off: only with 5 stars,
    * sent in place of a reason (the contract keeps one reason). */
   ratingNote: boolean;
@@ -537,7 +547,7 @@ export type BonusSummary = {
 };
 
 export type BonusAction = "goto_order" | "invite" | "rate_trip";
-export type BonusSourceIcon = "order" | "invite" | "rate";
+export type BonusSourceIcon = "order" | "invite" | "rate" | "goal";
 
 export type BonusSource = {
   id: string;
@@ -546,6 +556,10 @@ export type BonusSource = {
   descriptionKey: string;
   amountThisMonth: number;
   action: BonusAction;
+  /** What one completion pays ("+15 000"); unset when it varies (a share of the price). */
+  reward?: number;
+  /** A task with a target ("Shu oyda 5 ta safar": 3 / 5). */
+  progress?: { done: number; total: number };
 };
 
 export type BonusHistoryEntry = {

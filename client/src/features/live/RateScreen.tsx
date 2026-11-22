@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { OrderWithDetails, RouteSuggestion, TipOptions } from "@/api/types";
 import { serverErrorKey } from "@/lib/apiError";
@@ -28,6 +28,8 @@ export function RateScreen() {
   const { orderId = "" } = useParams();
   const navigate = useNavigate();
   const resetDraft = useOrderStore((s) => s.reset);
+  // Opened from a past trip (Tarix): leaving goes back there.
+  const fromHistory = useSearchParams()[0].get("from") === "history";
 
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -76,6 +78,10 @@ export function RateScreen() {
   }, [pending, orderId]);
 
   function leave() {
+    if (fromHistory) {
+      navigate(-1);
+      return;
+    }
     resetDraft();
     navigate("/home", { replace: true });
   }

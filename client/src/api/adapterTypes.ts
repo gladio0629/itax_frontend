@@ -161,7 +161,8 @@ export interface ApiAdapter {
   updateOrder(orderId: string, patch: UpdateOrderInput): Promise<OrderWithDetails>;
   cancelOrder(orderId: string, reason: string): Promise<OrderWithDetails>;
   rateOrder(orderId: string, rating: number, reasons?: string[], note?: string): Promise<OrderWithDetails>;
-  getOrderHistory(params?: { status?: OrderStatus; cursor?: number }): Promise<OrderHistoryPage>;
+  /** `service` and `q` (city or driver name) where `historySearch` is on. */
+  getOrderHistory(params?: { status?: OrderStatus; service?: ServiceType; q?: string; cursor?: number }): Promise<OrderHistoryPage>;
 
   getSavedCards(): Promise<SavedCard[]>;
   /** `provider` is required by the real backend (walletCardLink); the
