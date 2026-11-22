@@ -14,7 +14,6 @@ import type {
   ComplaintType as SeedComplaintType,
   ComplaintStatus,
   ComplaintNote,
-  Tariff as SeedTariff,
   OrderKind,
   CargoBodySize,
   DriverLevel,
@@ -28,11 +27,6 @@ import type {
   Action,
   AuditEntry as SeedAuditEntry,
   AuditAction,
-  TariffProposal as SeedTariffProposal,
-  TariffProposalType,
-  AdjustmentProposal as SeedAdjustmentProposal,
-  ReviewKind,
-  ReviewRequest,
   QueueItem as SeedQueueItem,
   QueueReason as SeedQueueReason,
   QueueStatus,
@@ -83,9 +77,6 @@ export type Complaint = Omit<SeedComplaint, "type"> & {
 /** Real API actions are dotted strings ("staff.update"); the sample data
  * uses its own AuditAction names. */
 export type AuditEntry = Omit<SeedAuditEntry, "action"> & { action: AuditAction | (string & {}) };
-/** `subjectLabel`: what to show when the driver isn't known (the real list
- * only carries a wallet id). */
-export type AdjustmentProposal = SeedAdjustmentProposal & { subjectLabel?: string };
 export type WalletEntryType = SeedWalletEntryType | "trip_payment" | "bonus";
 export type WalletEntry = Omit<SeedWalletEntry, "type"> & { type: WalletEntryType };
 export type QueueReason = SeedQueueReason | "driver_application" | "document_update";
@@ -93,15 +84,8 @@ export type QueueReason = SeedQueueReason | "driver_application" | "document_upd
  * carry only a subject id); `subjectLabel` is shown instead. */
 export type QueueItem = Omit<SeedQueueItem, "reason" | "phone"> & { reason: QueueReason; phone: string | null; subjectLabel?: string };
 export type HistoryEntry = Omit<SeedHistoryEntry, "reason" | "phone"> & { reason: QueueReason; phone: string | null; subjectLabel?: string };
-/** Contract car classes (tariffs). */
+/** Passenger car classes (Standart, Komfort, Biznes, Miniven). */
 export type TariffCarClass = "economy" | "comfort" | "business" | "minivan";
-export type Tariff = SeedTariff & {
-  perMin?: number;
-  minFare?: number;
-  carClass?: TariffCarClass;
-};
-export type TariffProposal = Omit<SeedTariffProposal, "patch"> & { patch: Partial<Tariff> };
-export type TariffNumericField = "baseFare" | "perKmCar" | "perKmSeat" | "frontSeatSurcharge" | "fuelAdjustmentPct" | "commissionPct" | "perMin" | "minFare";
 
 /**
  * What the active adapter can do. The mock can do everything; the http
@@ -123,19 +107,24 @@ export type AdapterCapabilities = {
   orderCreate: boolean;
   orderEdit: boolean;
   orderPassenger: boolean;
+  /** Ledger: search, kind chips and period filter. */
   walletLedgerFilters: boolean;
   walletDriverName: boolean;
-  adjustmentProposalsList: boolean;
-  tariffSearch: boolean;
-  tariffProposalValues: boolean;
+  /** Ledger kinds this backend reports (chips are shown only for these). */
+  walletKinds: readonly WalletEntryType[];
+  /** Ledger KPI tiles (getLedgerSummary). */
+  ledgerSummary: boolean;
+  /** "Qaysi yozuvga" on a correction (entry reference). */
+  correctionEntryRef: boolean;
+  /** New tariff model (fuel price, markups, extras, level commissions). */
+  tariffSettings: boolean;
+  /** Tariffs per city ("Shahar" filter). */
+  tariffCities: boolean;
   queueFilters: boolean;
   historyFilters: boolean;
   historyEdit: boolean;
   operatorCounts: boolean;
   sectionBadges: boolean;
-  /** Tariff fields this backend knows, in display order. */
-  tariffFields: readonly TariffNumericField[];
-  tariffCarClass: boolean;
   /** Order statuses the list can be filtered by. */
   orderStatuses: readonly OrderStatus[];
   /** Order fields the edit form shows (and the backend accepts). */
@@ -205,9 +194,6 @@ export type {
   Section,
   Action,
   AuditAction,
-  TariffProposalType,
-  ReviewKind,
-  ReviewRequest,
   QueueStatus,
   HistoryResult,
 };
@@ -227,6 +213,73 @@ export type OrderWithNames = Order & {
 };
 
 export type WalletLedgerRow = WalletEntry & { driverName: string };
+
+// ---------------------------------------------------------------------
+// v2 group 4: ledger, correction, tariff settings. All values from the
+// server; the UI only edits inputs and shows what comes back.
+// ---------------------------------------------------------------------
+
+/** Ledger KPI tiles; null = not reported (hidden). */
+export type LedgerSummary = {
+  toppedUpToday: number | null;
+  /** Display text, e.g. "Payme 61% · Click 39%". */
+  topupSplit: string | null;
+  commissionToday: number | null;
+  commissionTrips: number | null;
+  driversAtLimit: number | null;
+  reconciliation: { matchPct: number; at: number } | null;
+};
+
+/** A correction entry: one request (decision 2026-11-22, no second person). */
+export type WalletCorrectionInput = {
+  driverId: string;
+  /** Optional: the ledger entry this corrects (`capabilities.correctionEntryRef`). */
+  entryId?: string;
+  /** Signed so'm: positive adds, negative takes. */
+  amount: number;
+  reason: string;
+};
+/** `applied: false` = the server did not apply it (e.g. it still holds
+ * corrections for approval); the UI must say so, never claim success. */
+export type WalletCorrectionResult = { applied: boolean; entry: WalletLedgerRow | null };
+
+export type FuelKind = "gas" | "petrol";
+export type MarkupKind = "percent" | "sum";
+export type TariffMarkup = { fuel: FuelKind; markupKind: MarkupKind; markupValue: number };
+export type TariffExtraKey = "free_wait_min" | "wait_per_min" | "stop" | "loader" | "cancel_fee";
+
+/** Tariff model (doc 2.5, 2026-11-22): base = distance × 1 litre of fuel;
+ * per class / body markup in percent or so'm; extra fees; level
+ * commissions. Examples are the server's, for the saved values. */
+export type TariffSettings = {
+  cityId: string | null;
+  fuel: { kind: FuelKind; label: string; pricePerLitre: number; updatedAt: number | null }[];
+  classes: ({ key: TariffCarClass; label: string; seats: number | null; examplePrice: number | null } & TariffMarkup)[];
+  bodies: ({ size: CargoBodySize; exampleBase: number | null; examplePrice: number | null } & TariffMarkup)[];
+  extras: { key: TariffExtraKey; label: string; unit: "min" | "som"; value: number }[];
+  levels: { level: DriverLevel; commissionPct: number; minTripsWeek: number | null; minRating: number | null; maxCancelsWeek: number | null }[];
+  /** km the example columns use ("Misol, 40 km"). */
+  exampleDistanceKm: number | null;
+  /** The dark "Narx qanday hisoblanadi" card, as the server computed it. */
+  example: {
+    title: string;
+    distanceKm: number;
+    fuelLabel: string;
+    fuelPrice: number;
+    base: number;
+    markupLabel: string;
+    markup: number;
+    total: number;
+  } | null;
+};
+
+/** One section per save. */
+export type TariffSettingsPatch =
+  | { section: "fuel"; fuel: { kind: FuelKind; pricePerLitre: number }[] }
+  | { section: "classes"; classes: ({ key: TariffCarClass } & TariffMarkup)[] }
+  | { section: "bodies"; bodies: ({ size: CargoBodySize } & TariffMarkup)[] }
+  | { section: "extras"; extras: { key: TariffExtraKey; value: number; unit: "min" | "som" }[] }
+  | { section: "levels"; levels: TariffSettings["levels"] };
 
 /** A staff row plus the adapter's own verdict on whether the current admin
  * may edit/block/archive this particular person — never re-derived from
@@ -471,12 +524,14 @@ export type DriverTrips = {
   /** Months the filter offers (YYYY-MM), newest first. */
   months: string[];
 };
-export type WalletQuery = { search?: string; type?: WalletEntryType | "all" };
-export type TariffQuery = { search?: string; status?: "active" | "archived" | "all" };
+export type WalletQuery = {
+  search?: string;
+  type?: WalletEntryType | "all";
+  /** One driver's entries (real API: driver_id). */
+  driverId?: string;
+  period?: ListPeriod;
+};
 
-export type ProposalStatusFilter = "pending_second" | "approved" | "rejected" | "all";
-export type TariffProposalQuery = { status?: ProposalStatusFilter };
-export type AdjustmentProposalQuery = { status?: ProposalStatusFilter };
 
 export type ComplaintCategoryFilter = "all" | "fraud" | "service";
 export type ComplaintQuery = {

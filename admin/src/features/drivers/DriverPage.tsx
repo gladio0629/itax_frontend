@@ -90,9 +90,8 @@ export function DriverPage() {
   const tabs: { to: string; label: string; end?: boolean; external?: boolean }[] = [
     { to: `/drivers/${driver.id}`, label: "Umumiy", end: true },
     ...(caps.driverTrips ? [{ to: `/drivers/${driver.id}/history`, label: "Tarix" }] : []),
-    ...(me?.sections.includes("wallet") && caps.walletLedgerFilters
-      ? [{ to: `/wallet?q=${encodeURIComponent(driver.name)}`, label: "Hamyon", external: true }]
-      : []),
+    // The ledger filters by driver in http mode too (driver_id).
+    ...(me?.sections.includes("wallet") ? [{ to: `/wallet?driver=${encodeURIComponent(driver.id)}`, label: "Hamyon", external: true }] : []),
     ...(driver.documents ? [{ to: `/drivers/${driver.id}/documents`, label: "Hujjatlar" }] : []),
     ...(me?.sections.includes("audit") && caps.auditSearch ? [{ to: `/audit?q=${encodeURIComponent(driver.id)}`, label: "Audit", external: true }] : []),
   ];

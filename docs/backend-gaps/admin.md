@@ -9,9 +9,8 @@ Money: the UI works in so'm, the API in tiyin. The mapper multiplies or divides 
 | Adapter method | Operation | Notes / mismatches |
 |---|---|---|
 | `requestLogin(identifier)` | `adminLoginEmail` (email) · `adminLoginSms {phone}` (operator, no email) | The email path needs the staff phone at step 2. The login screen asks for it (`needsPhone`). There is no `resend_after` for admin, so the UI uses a 60 s cooldown and relies on 429. Each challenge's `code_length` sets the number of code boxes and the auto-submit length (`codeLength`); without it the UI shows 6 boxes and accepts 4+ digits for SMS. |
-| `verifyLoginStep(id, code, {phone})` | `adminLoginSms {challenge_id, email_code, phone}` → `adminLoginVerify {challenge_id, sms_code}` | The final step returns an already-approved local review id. No timers. |
+| `verifyLoginStep(id, code, {phone})` | `adminLoginSms {challenge_id, email_code, phone}` → `adminLoginVerify {challenge_id, sms_code}` | The final step signs in directly (`{ done: true }`). No timers. |
 | `resendLoginCode(id)` | repeats `adminLoginEmail` / `adminLoginSms` | Uses the new `challenge_id` and `code_length` from the response. |
-| `getReviewStatus` | NONE (local) | Results that are already settled, kept in memory. |
 | `logout` | `adminLogout` (Bearer, 5 s timeout) | Revokes the session on the server; the same token gets 401 afterwards (checked). Any failure (offline, timeout, 401) is swallowed and the tab still clears its memory. Called by the adapter itself, because `shared/http/session.ts` `logout()` skips the server call for admin. |
 | `isAuthenticated` | local | Tokens are in memory only. A reload means a full login. `AdminToken` has no refresh token, so a 401 means logging in again. |
 | `getMe` | `adminMe` | `full_name` → name. Missing: `phone`, `actions`, `landingPath`, avatar. `actions` is derived 1:1 from `sections` (`operator` → `operatorWork`). `landingPath` is the first allowed section. Sections: `operator` → `operators`; `complaints` and `audit` show their sidebar entries and routes when listed. |
@@ -37,13 +36,8 @@ Money: the UI works in so'm, the API in tiyin. The mapper multiplies or divides 
 | `createOrderForPassenger` | **NONE** | No endpoint; hidden (`capabilities.orderCreate`). |
 | `getWalletLedger` | `adminWalletLedger {wallet_id, driver_id}` | Missing: `kind` filter, search, and a driver name or id on `LedgerEntry` (only `wallet_id`). Kinds: `trip_payment`, `commission`, `topup`, `correction`→adjustment, `bonus`. The backoffice still serves sample ledger data. |
 | `getDriverWalletInfo` | `adminDriversGet` (+ `adminWalletLedger?driver_id&limit=1` to learn `wallet_id`) | **Gap:** `AdminDriver` has no `wallet_id` or `debt_limit`. A driver with no ledger rows can't receive a correction. |
-| `proposeWalletAdjustment` | `adminWalletCorrection` + `Idempotency-Key` | The key is reused on retry of the same body. Reason 5–500 characters (`capabilities.adjustmentReasonMinLength`). |
-| `getAdjustmentProposals({status})` | `adminWalletCorrectionList {approval_status}` | `pending_second` → `pending_approval`. The "approve or reject by ID" workaround and the in-tab list are gone; the wallet screen lists pending corrections with approve/reject buttons. `created_by_name` → proposer. Items carry `wallet_id` only, so the row shows "Hamyon #…" unless the driver's wallet id is already known from the ledger. |
-| `approveAdjustment` / `rejectAdjustment(id, reason)` | `adminWalletCorrectionApprove` / `…Reject {reason ≥3}` | The creator's own approve/reject gets 403 `self_approval`, shown on screen. |
-| `getTariffs` | `adminTariffsList` | Fields differ completely. The UI-only fields (`perKmSeat`, `frontSeatSurcharge`, `fuelAdjustmentPct`) are hidden. The API fields `per_min`, `min_fare`, `car_class` are shown (`capabilities.tariffFields`). No `q` and no status filter, so the list is split by `active`. |
-| `getTariffProposals` | derived from `Tariff.pending_change` | **Gap:** `pending_change` has no proposed values, so the UI shows only the action and the time. |
-| `proposeTariffCreate` / `Edit` / `Archive` | `adminTariffsCreate` / `adminTariffsUpdate` (full `TariffInput`, merged with the current values) / `adminTariffsDelete` | |
-| `approveTariffProposal` / `rejectTariffProposal(id, reason)` | `adminTariffsApprove` / `adminTariffsReject` | The proposal id is the tariff id. |
+| `createWalletCorrection` | `adminWalletCorrection` + `Idempotency-Key` | One request after the confirm modal (decision 2026-11-22). Reason 5–500 characters. Reported as applied only when the response says `approval_status: approved`; see "Redesign v2 → Group 4". |
+| `getTariffSettings` / `updateTariffSettings` | **NONE** | Old per-route tariffs (`adminTariffs*`) are no longer used: replaced by the fuel/markup model, see "Redesign v2 → Group 4". |
 | `getComplaints({status, subjectType, assignedToMe})` | `adminComplaintsList {status, subject_type, assigned_to}` | Status: `open`↔open, `in_progress`↔reviewing, `resolved`↔resolved, `rejected`↔dismissed. Categories (`driver_behavior`, `passenger_behavior`, `payment`, `safety`, `lost_item`, `app_issue`, `other`) get their own labels. The list has no notes, so each card has a "Izohlarni ko'rish" button (`getComplaint`). Hidden in http mode: free-text search and the sample fraud/service split (no `q`, no category filter). Shown: subject filter and "assigned to me". `assigned_to`/`author_id` are staff ids, named from `/me` and the staff list when the role may read it, else `#1a2b3c4d`. |
 | `getComplaint(id)` | `adminComplaintsGet` | Complaint with notes. |
 | `assignComplaint(id, staffId)` | `adminComplaintsAssign {staff_id}` + `adminComplaintsGet` | "O'zimga biriktirish" (open → in_progress on the server). |
@@ -79,7 +73,6 @@ No WebSocket in admin: `/ws` accepts passenger/driver tokens only.
 - `GET /admin/v1/orders?q=`, a passenger name on the admin order, and an admin verdict per order (`can_edit`, `can_cancel`).
   Create order for a passenger.
 - `GET /admin/v1/wallet/ledger?kind=&q=` and `LedgerEntry.driver_id`; `driver_id` on correction list items.
-- `Tariff.pending_change.values: Partial<TariffFields>`, so the second approver can see what they approve.
 - `GET /admin/v1/tariffs?q=&active=`.
 - `QueueItem.{phone, subject_name}` (the operator calls this number; shown in full), plus `GET /admin/v1/operator/queue?kind=&q=`.
   `GET /admin/v1/operator/history?result=&from_date=&to_date=&operator_id=`, with an operator name on the item.
@@ -132,3 +125,28 @@ Field and endpoint names below are the frontend's proposal; error keys follow th
 **Links between screens**
 - "Audit tarixi" (order panel) and the driver "Audit" tab open the audit log filtered by that object. Needs `GET /admin/v1/audit?entity_id=<uuid>` (or `q`); hidden while `auditSearch` is false.
 - The driver "Hamyon" tab opens the ledger filtered by that driver. Needs `GET /admin/v1/wallet/ledger?driver_id=` (already listed above as ledger filters); hidden while `walletLedgerFilters` is false.
+
+### Group 4: ledger, correction entry, tariffs (decision 2026-11-22)
+
+**No second person.** A tariff change and a ledger correction are made by one staff member in two UI steps (Save → confirm modal with old → new → Confirm). The frontend sends exactly one request on Confirm and nothing on Cancel. The server writes the audit entry.
+
+**Blocks production until the backend changes:**
+- `POST /admin/v1/wallet/correction` must apply the correction on create (ledger row written, balance updated) and return it as applied. Today it returns `approval_status: pending_approval` and the creator cannot approve their own entry (`self_approval`), so with the approve UI removed a correction from the panel would never take effect. The UI says so instead of claiming success.
+- `GET/POST /admin/v1/wallet/correction/{id}/approve|reject`, `GET /admin/v1/wallet/correction?approval_status=` and `/admin/v1/tariffs/{id}/approve|reject` are no longer called by the admin.
+- The new tariff model has no endpoint yet, so in http mode the Tariffs page shows "not available yet" (`capabilities.tariffSettings = false`). The old per-route tariff endpoints (`/admin/v1/tariffs`) are no longer used.
+
+**Correction**
+- `CorrectionCreate` + optional `entry_id` (the ledger entry being corrected, "Qaysi yozuvga"; `correctionEntryRef`). Errors: `VALIDATION_ERROR` (amount 0, reason outside 5–500), `NOT_FOUND` (entry of another wallet).
+- Response: the written `LedgerEntry` (or `Correction` with `applied_entry_id`) so the UI can show it.
+- Optional preview for the confirm modal: `POST /admin/v1/wallet/correction/preview` → `{ balance_before, balance_after }`. Until it exists the modal shows the current balance only, never a computed new one.
+
+**Ledger**
+- `LedgerEntry` additions: `driver_id`, `driver_name`, `note` (display text such as "Safar #48190 · 5%" or "Payme · tranzaksiya ••8821").
+- `GET /admin/v1/wallet/ledger`: add `kind`, `q`, `from_date`/`to_date` (`walletLedgerFilters`). Kinds the UI knows: `topup`, `commission`, `trip_payment`, `correction`, `bonus`, plus `tip` (choy puli) and `penalty` (jarima) if the backend adds them (the docs do not define them; chips appear only for kinds in `walletKinds`).
+- `GET /admin/v1/wallet/summary` → `{ topped_up_today, topup_split?: string, commission_today, commission_trips, drivers_at_limit, reconciliation?: { match_pct, at } }` (KPI tiles; `ledgerSummary`).
+
+**Tariff settings** (`tariffSettings`, `tariffCities`)
+- `GET /admin/v1/tariff-settings?city_id=` → `{ city_id, fuel: [{ kind: "gas"|"petrol", label, price_per_litre, updated_at }], classes: [{ key: economy|comfort|business|minivan, label, seats, fuel, markup_kind: "percent"|"sum", markup_value, example_price }], bodies: [{ size: S…3XL, fuel, markup_kind, markup_value, example_base, example_price }], extras: [{ key: free_wait_min|wait_per_min|stop|loader|cancel_fee, label, unit: "min"|"som", value }], levels: [{ level: bronze|silver|gold, commission_pct, min_trips_week, min_rating, max_cancels_week }], example_distance_km, example: { title, distance_km, fuel_label, fuel_price, base, markup_label, markup, total } }`. Money in tiyin; a `sum` markup is money, a `percent` markup is a number.
+- `PATCH /admin/v1/tariff-settings` with `Idempotency-Key`, body `{ city_id, <one section> }` (`fuel` | `classes` | `bodies` | `extras` | `levels`) → the full settings with fresh examples. Applies to new orders only; existing orders keep their price (doc 2.5). Errors: `VALIDATION_ERROR` (negative, commission > 100, unknown key).
+- `GET /admin/v1/tariff-settings/cities` → `{ data: { id, name }[] }` (the "Shahar" filter; only if tariffs differ per city).
+- Dashboard: `fuel_price_updated_at` (or an attention item) for the "Gaz narxi N kundan beri yangilanmagan" card.

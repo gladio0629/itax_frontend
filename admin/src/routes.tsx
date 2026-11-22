@@ -14,7 +14,7 @@ const DriversScreen = lazy(() => import("@/features/drivers/DriversScreen").then
 const DriverPage = lazy(() => import("@/features/drivers/DriverPage").then((m) => ({ default: m.DriverPage })));
 const PassengersScreen = lazy(() => import("@/features/passengers/PassengersScreen").then((m) => ({ default: m.PassengersScreen })));
 const OrdersScreen = lazy(() => import("@/features/orders/OrdersScreen").then((m) => ({ default: m.OrdersScreen })));
-const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen").then((m) => ({ default: m.WalletScreen })));
+const LedgerScreen = lazy(() => import("@/features/wallet/LedgerScreen").then((m) => ({ default: m.LedgerScreen })));
 const TariffsScreen = lazy(() => import("@/features/tariffs/TariffsScreen").then((m) => ({ default: m.TariffsScreen })));
 const ComplaintsScreen = lazy(() => import("@/features/complaints/ComplaintsScreen").then((m) => ({ default: m.ComplaintsScreen })));
 const StaffScreen = lazy(() => import("@/features/staff/StaffScreen").then((m) => ({ default: m.StaffScreen })));
@@ -111,11 +111,11 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/wallet"
+          path="/wallet/*"
           element={
             <RequireSection section="wallet">
               <Lazy>
-                <WalletScreen />
+                <LedgerScreen />
               </Lazy>
             </RequireSection>
           }

@@ -32,6 +32,7 @@ export default {
         "green-hover": "var(--green-hover)",
         "error-soft-hover": "var(--error-soft-hover)",
         "row-hover": "var(--row-hover)",
+        "row-highlight": "var(--row-highlight)",
         "line-strong": "var(--line-strong)",
         surface: "var(--surface)",
         line: "var(--line)",

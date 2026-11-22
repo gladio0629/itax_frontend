@@ -13,13 +13,9 @@ import {
   upsertStaffMember,
   addAuditEntry,
   getAuditLog as readAuditLog,
-  getReviewRequest,
-  saveReviewRequest,
-  getTariffProposals as readTariffProposals,
-  saveTariffProposal,
-  getAdjustmentProposals as readAdjustmentProposals,
-  saveAdjustmentProposal,
   getSession,
+  getTariffSettingsRecord,
+  saveTariffSettingsRecord,
   setSession,
   getQueue as readQueue,
   saveQueue,
@@ -27,9 +23,6 @@ import {
   saveHistory,
   type AdminUser,
   type AdminRole,
-  type ReviewRequest,
-  type TariffProposal,
-  type AdjustmentProposal,
   type QueueItem,
   type HistoryEntry,
 } from "@/mockDb/db";
@@ -51,9 +44,6 @@ import type {
   PassengerQuery,
   OrderQuery,
   WalletQuery,
-  TariffQuery,
-  TariffProposalQuery,
-  AdjustmentProposalQuery,
   ComplaintQuery,
   AuditQuery,
   OperatorQueueQuery,
@@ -77,6 +67,14 @@ import type {
   DriverTripRow,
   DriverLevel,
   Section,
+  FuelKind,
+  TariffCarClass,
+  TariffExtraKey,
+  TariffMarkup,
+  TariffSettings,
+  TariffSettingsPatch,
+  LedgerSummary,
+  WalletCorrectionResult,
 } from "../types";
 
 const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
@@ -152,47 +150,6 @@ type LoginAttemptState = {
   attemptsLeft: number;
 };
 const loginAttempts = new Map<string, LoginAttemptState>();
-
-function resolveReview(req: ReviewRequest): ReviewRequest {
-  if (req.status === "pending" && Date.now() >= req.resolvesAt) {
-    req.status = "approved";
-    saveReviewRequest(req);
-  }
-  return req;
-}
-
-function applyTariffProposal(p: TariffProposal) {
-  if (p.type === "create") {
-    const tariff: Tariff = {
-      id: `tar_${Date.now().toString(36)}`,
-      archived: false,
-      ...(p.patch as Omit<Tariff, "id" | "archived">),
-    };
-    db.addTariff(tariff);
-  } else if (p.type === "edit" && p.tariffId) {
-    db.updateTariff(p.tariffId, p.patch);
-  } else if (p.type === "archive" && p.tariffId) {
-    db.updateTariff(p.tariffId, { archived: true });
-  }
-}
-
-function applyAdjustment(p: AdjustmentProposal) {
-  const driver = db.getDriver(p.driverId);
-  if (!driver) return;
-  const newBalance = driver.walletBalance + p.amount;
-  db.addWalletEntry({
-    id: `wal_adj_${Date.now().toString(36)}`,
-    driverId: p.driverId,
-    type: "adjustment",
-    amount: p.amount,
-    reason: p.reason,
-    createdByAdminId: p.proposedById,
-    createdByAdminName: p.proposedByName,
-    createdAt: Date.now(),
-    balanceAfter: newBalance,
-  });
-  db.updateDriver(p.driverId, { walletBalance: newBalance });
-}
 
 function decorateOrder(o: Order): OrderWithNames {
   const passengers = db.passengers();
@@ -369,6 +326,64 @@ function pctDelta(cur: number, prev: number): number | null {
   return Math.round(((cur - prev) / prev) * 100);
 }
 
+// ---------------------------------------------------------------------
+// v2 group 4: tariff settings view (the mock plays the server and computes
+// the example prices from the stored inputs).
+// ---------------------------------------------------------------------
+const EXAMPLE_KM = 40;
+const FUEL_LABEL: Record<FuelKind, string> = { gas: "Gaz (metan)", petrol: "Benzin AI-92" };
+const FUEL_SHORT: Record<FuelKind, string> = { gas: "Gaz", petrol: "Benzin" };
+const CLASS_LABEL: Record<TariffCarClass, string> = { economy: "Standart", comfort: "Komfort", business: "Biznes", minivan: "Miniven" };
+const CLASS_SEATS: Record<TariffCarClass, number> = { economy: 4, comfort: 4, business: 4, minivan: 6 };
+const EXTRA_META: Record<TariffExtraKey, { label: string; unit: "min" | "som" }> = {
+  free_wait_min: { label: "Bepul kutish", unit: "min" },
+  wait_per_min: { label: "Kutish, har daqiqa", unit: "som" },
+  stop: { label: "Oraliq to'xtash", unit: "som" },
+  loader: { label: "Yukchi, 1 kishi", unit: "som" },
+  cancel_fee: { label: "Bekor qilish jarimasi", unit: "som" },
+};
+const TARIFF_SECTION_LABEL: Record<TariffSettingsPatch["section"], string> = {
+  fuel: "yoqilg'i narxi",
+  classes: "yo'lovchi klasslari",
+  bodies: "dostavka kuzovlari",
+  extras: "qo'shimcha to'lovlar",
+  levels: "daraja komissiyalari",
+};
+
+function tariffSettingsView(cityId: string | null): TariffSettings {
+  const rec = getTariffSettingsRecord(cityId ?? "all");
+  const fuelPrice = (k: FuelKind) => rec.fuel.find((f) => f.kind === k)?.pricePerLitre ?? 0;
+  const priced = (m: TariffMarkup) => {
+    const base = EXAMPLE_KM * fuelPrice(m.fuel);
+    const markup = m.markupKind === "percent" ? Math.round((base * m.markupValue) / 100) : m.markupValue;
+    return { base, markup, total: base + markup };
+  };
+  const std = rec.classes[0];
+  const stdPrice = std ? priced(std) : null;
+  return {
+    cityId,
+    fuel: rec.fuel.map((f) => ({ kind: f.kind, label: FUEL_LABEL[f.kind], pricePerLitre: f.pricePerLitre, updatedAt: f.updatedAt })),
+    classes: rec.classes.map((c) => ({ ...c, label: CLASS_LABEL[c.key], seats: CLASS_SEATS[c.key], examplePrice: priced(c).total })),
+    bodies: rec.bodies.map((b) => ({ ...b, exampleBase: priced(b).base, examplePrice: priced(b).total })),
+    extras: rec.extras.map((e) => ({ ...e, ...EXTRA_META[e.key] })),
+    levels: rec.levels.map((l) => ({ ...l })),
+    exampleDistanceKm: EXAMPLE_KM,
+    example:
+      std && stdPrice
+        ? {
+            title: `${CLASS_LABEL[std.key]}, ${EXAMPLE_KM} km`,
+            distanceKm: EXAMPLE_KM,
+            fuelLabel: `${FUEL_SHORT[std.fuel]}, 1 litr`,
+            fuelPrice: fuelPrice(std.fuel),
+            base: stdPrice.base,
+            markupLabel: std.markupKind === "percent" ? `Ustama (${std.markupValue}%)` : "Ustama (summa)",
+            markup: stdPrice.markup,
+            total: stdPrice.total,
+          }
+        : null,
+  };
+}
+
 function toQueueListItem(q: QueueItem): QueueListItem {
   return { ...q };
 }
@@ -390,16 +405,11 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
   orderPassenger: true,
   walletLedgerFilters: true,
   walletDriverName: true,
-  adjustmentProposalsList: true,
-  tariffSearch: true,
-  tariffProposalValues: true,
   queueFilters: true,
   historyFilters: true,
   historyEdit: true,
   operatorCounts: true,
   sectionBadges: true,
-  tariffFields: ["baseFare", "perKmCar", "perKmSeat", "frontSeatSurcharge", "fuelAdjustmentPct", "commissionPct"],
-  tariffCarClass: false,
   orderStatuses: ["completed", "cancelled", "in_progress", "accepted", "searching", "no_driver"],
   orderEditFields: ["seats", "timeWindow", "note"],
   orderNoteMaxLength: null,
@@ -424,6 +434,11 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
   driverTrips: true,
   passengerCounts: true,
   passengerJoinedFilter: true,
+  walletKinds: ["topup", "commission", "tip", "adjustment", "penalty", "cash", "card"],
+  ledgerSummary: true,
+  correctionEntryRef: true,
+  tariffSettings: true,
+  tariffCities: true,
 };
 
 export const mockAdapter: ApiAdapter = {
@@ -522,49 +537,6 @@ export const mockAdapter: ApiAdapter = {
       };
     }),
 
-  getReviewStatus: (id) =>
-    withLatency<ReviewRequest>(() => {
-      const existing = getReviewRequest(id);
-      if (!existing) throw new ApiError("NOT_FOUND", "Tekshiruv so'rovi topilmadi");
-      const req = resolveReview(existing);
-      if (req.status === "approved" && !req.payload?.applied) {
-        if (req.kind === "tariff_second_approve") {
-          const proposalId = req.payload?.proposalId as string | undefined;
-          const proposal = proposalId ? readTariffProposals().find((p) => p.id === proposalId) : undefined;
-          if (proposal) {
-            applyTariffProposal(proposal);
-            saveTariffProposal({ ...proposal, status: "approved", resolvedAt: Date.now() });
-            addAuditEntry({
-              actorId: proposal.proposedById,
-              actorName: proposal.proposedByName,
-              action: "tariff_second_approve",
-              targetType: "tariff",
-              targetId: proposal.tariffId ?? "new",
-              detail: `Tarif o'zgarishi ikkinchi admin tomonidan tasdiqlandi (so'rov: ${proposal.id})`,
-            });
-          }
-        }
-        if (req.kind === "wallet_adjust_second_approve") {
-          const proposalId = req.payload?.proposalId as string | undefined;
-          const proposal = proposalId ? readAdjustmentProposals().find((p) => p.id === proposalId) : undefined;
-          if (proposal) {
-            applyAdjustment(proposal);
-            saveAdjustmentProposal({ ...proposal, status: "approved", resolvedAt: Date.now() });
-            addAuditEntry({
-              actorId: proposal.proposedById,
-              actorName: proposal.proposedByName,
-              action: "wallet_adjust_approve",
-              targetType: "driver",
-              targetId: proposal.driverId,
-              detail: `Hamyon tuzatishi tasdiqlandi (so'rov: ${proposal.id})`,
-            });
-          }
-        }
-        req.payload = { ...req.payload, applied: true };
-        saveReviewRequest(req);
-      }
-      return req;
-    }),
 
   logout: () =>
     withLatency<void>(() => {
@@ -652,6 +624,20 @@ export const mockAdapter: ApiAdapter = {
         routeCount.set(key, r);
       }
       const attention: AttentionItem[] = [];
+      if (sections.includes("tariffs")) {
+        const fuel = getTariffSettingsRecord("all").fuel;
+        const oldest = fuel.reduce((m, f) => (f.updatedAt < m.updatedAt ? f : m), fuel[0]);
+        const days = oldest ? Math.floor((Date.now() - oldest.updatedAt) / DAY_MS) : 0;
+        if (oldest && days >= 2) {
+          attention.push({
+            id: "fuel",
+            tone: "info",
+            title: `${oldest.kind === "gas" ? "Gaz" : "Benzin"} narxi ${days} kundan beri yangilanmagan`,
+            detail: "Tariflarda 1 litr narxini tekshiring",
+            section: "tariffs",
+          });
+        }
+      }
       if (sections.includes("operators")) {
         const waiting = readQueue().filter((q) => q.status === "waiting");
         if (waiting.length) {
@@ -1292,11 +1278,14 @@ export const mockAdapter: ApiAdapter = {
   getWalletLedger: (query: WalletQuery) =>
     withLatency<WalletLedgerRow[]>(() => {
       const drivers = db.drivers();
+      const bounds = periodBounds(query.period);
       let rows = [...db.walletEntries()].sort((a, b) => b.createdAt - a.createdAt);
+      if (query.driverId) rows = rows.filter((e) => e.driverId === query.driverId);
       if (query.type && query.type !== "all") rows = rows.filter((e) => e.type === query.type);
+      rows = rows.filter((e) => inBounds(e.createdAt, bounds));
       const decorated = rows.map((e) => ({ ...e, driverName: drivers.find((d) => d.id === e.driverId)?.name ?? "—" }));
       if (!query.search) return decorated;
-      return decorated.filter((e) => matchesSearch(e.driverName, query.search));
+      return decorated.filter((e) => matchesSearch(`${e.id} ${e.driverName} ${e.note ?? ""}`, query.search));
     }),
 
   getDriverWalletInfo: (driverId) =>
@@ -1306,199 +1295,126 @@ export const mockAdapter: ApiAdapter = {
       return { balance: d.walletBalance, debtLimit: d.debtLimit };
     }),
 
-  proposeWalletAdjustment: (driverId, amount, reason) =>
-    withLatency<AdjustmentProposal>(() => {
+  getLedgerSummary: () =>
+    withLatency<LedgerSummary>(() => {
       const actor = currentAdmin();
-      const proposal: AdjustmentProposal = {
-        id: `adj_${Date.now().toString(36)}`,
-        driverId,
-        amount,
+      requireSection(actor, "wallet");
+      const today = [mockToday(), Infinity] as [number, number];
+      const todays = db.walletEntries().filter((e) => inBounds(e.createdAt, today));
+      const topups = todays.filter((e) => e.type === "topup");
+      const payme = topups.filter((e) => e.note?.startsWith("Payme")).reduce((s, e) => s + e.amount, 0);
+      const topupSum = topups.reduce((s, e) => s + e.amount, 0);
+      const commissions = todays.filter((e) => e.type === "commission");
+      return {
+        toppedUpToday: topupSum,
+        topupSplit: topupSum ? `Payme ${Math.round((payme / topupSum) * 100)}% · Click ${100 - Math.round((payme / topupSum) * 100)}%` : null,
+        commissionToday: -commissions.reduce((s, e) => s + e.amount, 0),
+        commissionTrips: commissions.length,
+        driversAtLimit: db.drivers().filter((d) => !d.archived && d.atDebtLimit).length,
+        reconciliation: { matchPct: 100, at: mockToday() + 6 * 3600_000 },
+      };
+    }),
+
+  createWalletCorrection: (input) =>
+    withLatency<WalletCorrectionResult>(() => {
+      const actor = currentAdmin();
+      requireSection(actor, "wallet");
+      const driver = db.getDriver(input.driverId);
+      if (!driver) throw new ApiError("DRIVER_NOT_FOUND", "Haydovchi topilmadi.");
+      const reason = input.reason.trim();
+      if (!Number.isFinite(input.amount) || input.amount === 0) throw new ApiError("VALIDATION_ERROR", "Summa 0 bo'lmasin.");
+      if (reason.length < 5 || reason.length > 500) throw new ApiError("VALIDATION_ERROR", "Sabab 5–500 belgi bo'lsin.");
+      const ref = input.entryId ? db.walletEntries().find((e) => e.id === input.entryId && e.driverId === input.driverId) : undefined;
+      if (input.entryId && !ref) throw new ApiError("NOT_FOUND", "Yozuv topilmadi.");
+      const balanceAfter = driver.walletBalance + input.amount;
+      const entry = {
+        id: `wal_fix_${Date.now().toString(36)}`,
+        driverId: driver.id,
+        type: "adjustment" as const,
+        amount: input.amount,
         reason,
-        proposedById: actor.id,
-        proposedByName: actor.name,
-        status: "pending_second",
+        note: ref ? `${reason} (yozuv ${ref.id})` : reason,
+        createdByAdminId: actor.id,
+        createdByAdminName: actor.name,
         createdAt: Date.now(),
+        balanceAfter,
       };
-      saveAdjustmentProposal(proposal);
+      db.addWalletEntry(entry);
+      db.updateDriver(driver.id, { walletBalance: balanceAfter, atDebtLimit: balanceAfter <= driver.debtLimit });
       addAuditEntry({
         actorId: actor.id,
         actorName: actor.name,
-        action: "wallet_adjust_propose",
-        targetType: "driver",
-        targetId: driverId,
-        detail: `Tuzatish taklif qilindi: ${amount} (${reason})`,
+        action: "wallet_correction",
+        targetType: "wallet",
+        targetId: entry.id,
+        detail: `${driver.name}: ${input.amount > 0 ? "+" : ""}${input.amount} so'm. Sabab: ${reason}${ref ? `. Yozuv: ${ref.id}` : ""}`,
       });
-      return proposal;
+      return { applied: true, entry: { ...entry, driverName: driver.name } };
     }),
 
-  getAdjustmentProposals: (query: AdjustmentProposalQuery) =>
-    withLatency(() => {
-      const rows = readAdjustmentProposals();
-      if (!query.status || query.status === "all") return rows;
-      return rows.filter((p) => p.status === query.status);
-    }),
-
-  approveAdjustment: (proposalId) =>
-    withLatency<ReviewRequest>(() => {
-      const proposal = readAdjustmentProposals().find((p) => p.id === proposalId);
-      if (!proposal) throw new ApiError("NOT_FOUND", "So'rov topilmadi");
-      const now = Date.now();
-      const delay = 2000 + Math.random() * 2000;
-      const req: ReviewRequest = {
-        id: `rev_${now}_${Math.random().toString(36).slice(2, 7)}`,
-        kind: "wallet_adjust_second_approve",
-        status: "pending",
-        createdAt: now,
-        resolvesAt: now + delay,
-        payload: { proposalId },
-      };
-      saveReviewRequest(req);
-      saveAdjustmentProposal({ ...proposal, reviewRequestId: req.id });
-      return req;
-    }),
-
-  rejectAdjustment: (proposalId) =>
-    withLatency<AdjustmentProposal>(() => {
+  getTariffSettings: (cityId) =>
+    withLatency<TariffSettings>(() => {
       const actor = currentAdmin();
-      const proposal = readAdjustmentProposals().find((p) => p.id === proposalId);
-      if (!proposal) throw new ApiError("NOT_FOUND", "So'rov topilmadi");
-      const updated: AdjustmentProposal = { ...proposal, status: "rejected", resolvedAt: Date.now() };
-      saveAdjustmentProposal(updated);
-      addAuditEntry({
-        actorId: actor.id,
-        actorName: actor.name,
-        action: "wallet_adjust_reject",
-        targetType: "wallet_adjustment",
-        targetId: proposalId,
-        detail: "Tuzatish rad etildi",
-      });
-      return updated;
+      requireSection(actor, "tariffs");
+      return tariffSettingsView(cityId);
     }),
 
-  getTariffs: (query: TariffQuery) =>
-    withLatency<Tariff[]>(() => {
-      let rows = db.tariffs();
-      if (query.status === "active") rows = rows.filter((t) => !t.archived);
-      if (query.status === "archived") rows = rows.filter((t) => t.archived);
-      if (query.search) rows = rows.filter((t) => matchesSearch(t.name, query.search));
-      return rows;
-    }),
-  getTariffProposals: (query: TariffProposalQuery) =>
-    withLatency(() => {
-      const rows = readTariffProposals();
-      if (!query.status || query.status === "all") return rows;
-      return rows.filter((p) => p.status === query.status);
-    }),
+  getTariffCities: () =>
+    withLatency(() => db.cities().map((c) => ({ id: c.id, name: c.name }))),
 
-  proposeTariffCreate: (input) =>
-    withLatency<TariffProposal>(() => {
+  updateTariffSettings: (cityId, patch) =>
+    withLatency<TariffSettings>(() => {
       const actor = currentAdmin();
-      const proposal: TariffProposal = {
-        id: `tpf_${Date.now().toString(36)}`,
-        type: "create",
-        patch: input,
-        proposedById: actor.id,
-        proposedByName: actor.name,
-        status: "pending_second",
-        createdAt: Date.now(),
-      };
-      saveTariffProposal(proposal);
-      addAuditEntry({
-        actorId: actor.id,
-        actorName: actor.name,
-        action: "tariff_propose",
-        targetType: "tariff",
-        targetId: "new",
-        detail: `Yangi tarif taklif qilindi: ${input.name}`,
-      });
-      return proposal;
-    }),
-
-  proposeTariffEdit: (tariffId, patch) =>
-    withLatency<TariffProposal>(() => {
-      const actor = currentAdmin();
-      const proposal: TariffProposal = {
-        id: `tpf_${Date.now().toString(36)}`,
-        type: "edit",
-        tariffId,
-        patch,
-        proposedById: actor.id,
-        proposedByName: actor.name,
-        status: "pending_second",
-        createdAt: Date.now(),
-      };
-      saveTariffProposal(proposal);
-      addAuditEntry({
-        actorId: actor.id,
-        actorName: actor.name,
-        action: "tariff_propose",
-        targetType: "tariff",
-        targetId: tariffId,
-        detail: "Tarif o'zgarishi taklif qilindi",
-      });
-      return proposal;
-    }),
-
-  proposeTariffArchive: (tariffId) =>
-    withLatency<TariffProposal>(() => {
-      const actor = currentAdmin();
-      const proposal: TariffProposal = {
-        id: `tpf_${Date.now().toString(36)}`,
-        type: "archive",
-        tariffId,
-        patch: {},
-        proposedById: actor.id,
-        proposedByName: actor.name,
-        status: "pending_second",
-        createdAt: Date.now(),
-      };
-      saveTariffProposal(proposal);
-      addAuditEntry({
-        actorId: actor.id,
-        actorName: actor.name,
-        action: "tariff_propose",
-        targetType: "tariff",
-        targetId: tariffId,
-        detail: "Tarifni arxivlash taklif qilindi",
-      });
-      return proposal;
-    }),
-
-  approveTariffProposal: (proposalId) =>
-    withLatency<ReviewRequest>(() => {
-      const proposal = readTariffProposals().find((p) => p.id === proposalId);
-      if (!proposal) throw new ApiError("NOT_FOUND", "So'rov topilmadi");
-      const now = Date.now();
-      const delay = 2000 + Math.random() * 2000;
-      const req: ReviewRequest = {
-        id: `rev_${now}_${Math.random().toString(36).slice(2, 7)}`,
-        kind: "tariff_second_approve",
-        status: "pending",
-        createdAt: now,
-        resolvesAt: now + delay,
-        payload: { proposalId },
-      };
-      saveReviewRequest(req);
-      saveTariffProposal({ ...proposal, reviewRequestId: req.id });
-      return req;
-    }),
-
-  rejectTariffProposal: (proposalId) =>
-    withLatency<TariffProposal>(() => {
-      const actor = currentAdmin();
-      const proposal = readTariffProposals().find((p) => p.id === proposalId);
-      if (!proposal) throw new ApiError("NOT_FOUND", "So'rov topilmadi");
-      const updated: TariffProposal = { ...proposal, status: "rejected", resolvedAt: Date.now() };
-      saveTariffProposal(updated);
-      addAuditEntry({
-        actorId: actor.id,
-        actorName: actor.name,
-        action: "tariff_reject",
-        targetType: "tariff_proposal",
-        targetId: proposalId,
-        detail: "Tarif o'zgarishi rad etildi",
-      });
-      return updated;
+      requireSection(actor, "tariffs");
+      const key = cityId ?? "all";
+      const rec = getTariffSettingsRecord(key);
+      const before = JSON.stringify(rec[patch.section]);
+      const nonNeg = (n: number) => Number.isFinite(n) && n >= 0;
+      switch (patch.section) {
+        case "fuel":
+          for (const f of patch.fuel) {
+            if (!nonNeg(f.pricePerLitre) || f.pricePerLitre === 0) throw new ApiError("VALIDATION_ERROR", "Yoqilg'i narxi 0 dan katta bo'lsin.");
+            const cur = rec.fuel.find((x) => x.kind === f.kind);
+            if (cur && cur.pricePerLitre !== f.pricePerLitre) Object.assign(cur, { pricePerLitre: f.pricePerLitre, updatedAt: Date.now() });
+          }
+          break;
+        case "classes":
+          for (const c of patch.classes) {
+            if (!nonNeg(c.markupValue)) throw new ApiError("VALIDATION_ERROR", "Ustama manfiy bo'lmasin.");
+            Object.assign(rec.classes.find((x) => x.key === c.key) ?? {}, c);
+          }
+          break;
+        case "bodies":
+          for (const b of patch.bodies) {
+            if (!nonNeg(b.markupValue)) throw new ApiError("VALIDATION_ERROR", "Ustama manfiy bo'lmasin.");
+            Object.assign(rec.bodies.find((x) => x.size === b.size) ?? {}, b);
+          }
+          break;
+        case "extras":
+          for (const e of patch.extras) {
+            if (!nonNeg(e.value)) throw new ApiError("VALIDATION_ERROR", "Qiymat manfiy bo'lmasin.");
+            Object.assign(rec.extras.find((x) => x.key === e.key) ?? {}, { value: e.value });
+          }
+          break;
+        case "levels":
+          for (const l of patch.levels) {
+            if (!nonNeg(l.commissionPct) || l.commissionPct > 100) throw new ApiError("VALIDATION_ERROR", "Komissiya 0–100% oralig'ida bo'lsin.");
+            Object.assign(rec.levels.find((x) => x.level === l.level) ?? {}, l);
+          }
+          break;
+      }
+      saveTariffSettingsRecord(key, rec);
+      if (JSON.stringify(rec[patch.section]) !== before) {
+        addAuditEntry({
+          actorId: actor.id,
+          actorName: actor.name,
+          action: "tariff_update",
+          targetType: "tariff",
+          targetId: `${key}:${patch.section}`,
+          detail: `Tarif o'zgartirildi (${TARIFF_SECTION_LABEL[patch.section]}${cityId ? `, ${db.cities().find((c) => c.id === cityId)?.name ?? cityId}` : ""})`,
+        });
+      }
+      return tariffSettingsView(cityId);
     }),
 
   getComplaints: (query: ComplaintQuery) =>

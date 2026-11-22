@@ -7,10 +7,10 @@ import {
   type Order,
   type Complaint,
   type ComplaintNote,
-  type Tariff,
   type WalletEntry,
 } from "@/seed/generate";
 import { makeRng } from "@/lib/prng";
+import type { CargoBodySize, FuelKind, TariffCarClass, TariffExtraKey, TariffMarkup, TariffSettings } from "@/api/types";
 import { readJSON, writeJSON, clearAppStorage, readSessionJSON, writeSessionJSON, clearSessionStorage } from "./storage";
 
 let cache: SeedData | null = null;
@@ -25,7 +25,7 @@ function load(): SeedData {
   if (stored) {
     // Persisted data is from an older shape of the mock "server" — rather
     // than crash on missing/renamed fields, wipe this app's storage and
-    // reseed everything (staff, audit log, proposals included).
+    // reseed everything (staff, audit log and tariff settings included).
     clearAppStorage();
   }
   const fresh = generateSeed();
@@ -91,19 +91,6 @@ export const db = {
   addComplaintNote(id: string, note: ComplaintNote) {
     const c = load().complaints.find((x) => x.id === id);
     if (c) c.notes.push(note);
-    persist();
-  },
-
-  getTariff(id: string) {
-    return load().tariffs.find((t) => t.id === id);
-  },
-  updateTariff(id: string, patch: Partial<Tariff>) {
-    const t = load().tariffs.find((x) => x.id === id);
-    if (t) Object.assign(t, patch);
-    persist();
-  },
-  addTariff(tariff: Tariff) {
-    load().tariffs.push(tariff);
     persist();
   },
 
@@ -348,12 +335,8 @@ export type AuditAction =
   | "order_edit"
   | "order_cancel"
   | "order_to_operator"
-  | "wallet_adjust_propose"
-  | "wallet_adjust_approve"
-  | "wallet_adjust_reject"
-  | "tariff_propose"
-  | "tariff_second_approve"
-  | "tariff_reject"
+  | "wallet_correction"
+  | "tariff_update"
   | "complaint_assign"
   | "complaint_status"
   | "complaint_note"
@@ -395,72 +378,64 @@ export function addAuditEntry(entry: Omit<AuditEntry, "id" | "createdAt">): Audi
   return full;
 }
 
-export type ReviewKind = "tariff_second_approve" | "wallet_adjust_second_approve";
-export type ReviewRequest = {
-  id: string;
-  kind: ReviewKind;
-  status: "pending" | "approved" | "rejected";
-  createdAt: number;
-  resolvesAt: number;
-  payload?: Record<string, unknown>;
+// --- Tariff settings (v2 model), one record per city; "all" = default. ---
+// Stored inputs only; the mock adapter (playing the server) computes the
+// examples from them. ---
+export type StoredTariffSettings = {
+  fuel: { kind: FuelKind; pricePerLitre: number; updatedAt: number }[];
+  classes: ({ key: TariffCarClass } & TariffMarkup)[];
+  bodies: ({ size: CargoBodySize } & TariffMarkup)[];
+  extras: { key: TariffExtraKey; value: number }[];
+  levels: TariffSettings["levels"];
 };
+const TARIFF_SETTINGS_KEY = "tariff_settings_v2";
 
-const REVIEW_KEY = "review_requests";
-export function getReviewRequests(): ReviewRequest[] {
-  return readJSON<ReviewRequest[]>(REVIEW_KEY, []);
-}
-export function saveReviewRequest(req: ReviewRequest) {
-  const all = getReviewRequests().filter((r) => r.id !== req.id);
-  all.unshift(req);
-  writeJSON(REVIEW_KEY, all);
-}
-export function getReviewRequest(id: string): ReviewRequest | undefined {
-  return getReviewRequests().find((r) => r.id === id);
+function defaultTariffSettings(): StoredTariffSettings {
+  // Sample values (design-v2 Tariffs). Fuel "updated" 2 days before the
+  // sample data's day, so the dashboard has a stale-fuel card to show.
+  const updatedAt = load().generatedAt - 2 * 86_400_000;
+  return {
+    fuel: [
+      { kind: "gas", pricePerLitre: 2_500, updatedAt },
+      { kind: "petrol", pricePerLitre: 10_600, updatedAt },
+    ],
+    classes: [
+      { key: "economy", fuel: "gas", markupKind: "sum", markupValue: 50_000 },
+      { key: "comfort", fuel: "gas", markupKind: "percent", markupValue: 60 },
+      { key: "business", fuel: "gas", markupKind: "percent", markupValue: 100 },
+      { key: "minivan", fuel: "gas", markupKind: "sum", markupValue: 70_000 },
+    ],
+    bodies: [
+      { size: "S", fuel: "gas", markupKind: "sum", markupValue: 50_000 },
+      { size: "M", fuel: "gas", markupKind: "percent", markupValue: 100 },
+      { size: "L", fuel: "petrol", markupKind: "sum", markupValue: 80_000 },
+      { size: "XL", fuel: "petrol", markupKind: "percent", markupValue: 30 },
+      { size: "XXL", fuel: "petrol", markupKind: "percent", markupValue: 50 },
+      { size: "3XL", fuel: "petrol", markupKind: "sum", markupValue: 300_000 },
+    ],
+    extras: [
+      { key: "free_wait_min", value: 5 },
+      { key: "wait_per_min", value: 500 },
+      { key: "stop", value: 10_000 },
+      { key: "loader", value: 30_000 },
+      { key: "cancel_fee", value: 5_000 },
+    ],
+    levels: [
+      { level: "bronze", commissionPct: 10, minTripsWeek: null, minRating: null, maxCancelsWeek: null },
+      { level: "silver", commissionPct: 5, minTripsWeek: 18, minRating: 4.8, maxCancelsWeek: 3 },
+      { level: "gold", commissionPct: 0, minTripsWeek: 25, minRating: 4.9, maxCancelsWeek: 2 },
+    ],
+  };
 }
 
-export type TariffProposalType = "create" | "edit" | "archive";
-export type TariffProposal = {
-  id: string;
-  type: TariffProposalType;
-  tariffId?: string;
-  patch: Partial<Tariff>;
-  proposedById: string;
-  proposedByName: string;
-  status: "pending_second" | "approved" | "rejected";
-  reviewRequestId?: string;
-  createdAt: number;
-  resolvedAt?: number;
-};
-const TARIFF_PROPOSALS_KEY = "tariff_proposals";
-export function getTariffProposals(): TariffProposal[] {
-  return readJSON<TariffProposal[]>(TARIFF_PROPOSALS_KEY, []);
+export function getTariffSettingsRecord(cityKey: string): StoredTariffSettings {
+  const all = readJSON<Record<string, StoredTariffSettings>>(TARIFF_SETTINGS_KEY, {});
+  return all[cityKey] ?? all.all ?? defaultTariffSettings();
 }
-export function saveTariffProposal(p: TariffProposal) {
-  const all = getTariffProposals().filter((x) => x.id !== p.id);
-  all.unshift(p);
-  writeJSON(TARIFF_PROPOSALS_KEY, all);
-}
-
-export type AdjustmentProposal = {
-  id: string;
-  driverId: string;
-  amount: number;
-  reason: string;
-  proposedById: string;
-  proposedByName: string;
-  status: "pending_second" | "approved" | "rejected";
-  reviewRequestId?: string;
-  createdAt: number;
-  resolvedAt?: number;
-};
-const ADJUSTMENT_KEY = "wallet_adjustment_proposals";
-export function getAdjustmentProposals(): AdjustmentProposal[] {
-  return readJSON<AdjustmentProposal[]>(ADJUSTMENT_KEY, []);
-}
-export function saveAdjustmentProposal(p: AdjustmentProposal) {
-  const all = getAdjustmentProposals().filter((x) => x.id !== p.id);
-  all.unshift(p);
-  writeJSON(ADJUSTMENT_KEY, all);
+export function saveTariffSettingsRecord(cityKey: string, rec: StoredTariffSettings) {
+  const all = readJSON<Record<string, StoredTariffSettings>>(TARIFF_SETTINGS_KEY, {});
+  all[cityKey] = rec;
+  writeJSON(TARIFF_SETTINGS_KEY, all);
 }
 
 // --- Session lives in sessionStorage only: cleared on tab close, never

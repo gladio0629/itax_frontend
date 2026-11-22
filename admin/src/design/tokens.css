@@ -16,6 +16,7 @@
   --green-hover: #27c877; /* primary button hover */
   --error-soft-hover: #fbdcd8; /* danger button hover */
   --row-hover: #f8f9fb; /* table row hover */
+  --row-highlight: #f7fffa; /* correction rows in the ledger */
   --line-strong: #d4dbe4; /* route / timeline connector */
   /* Charts (Dashboard): today's bar uses green + Ink, other days these. */
   --chart-passenger: #9eebc3;

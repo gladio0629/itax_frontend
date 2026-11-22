@@ -143,7 +143,9 @@ export type Order = {
   };
 };
 
-export type WalletEntryType = "cash" | "card" | "commission" | "topup" | "adjustment";
+/** "tip" (choy puli) and "penalty" (jarima) are shown only when the server
+ * reports them (`capabilities.walletKinds`). */
+export type WalletEntryType = "cash" | "card" | "commission" | "topup" | "adjustment" | "tip" | "penalty";
 export type WalletEntry = {
   id: string;
   driverId: string;
@@ -155,6 +157,8 @@ export type WalletEntry = {
   createdByAdminName?: string;
   createdAt: number;
   balanceAfter: number;
+  /** Server display text: "Safar #48190 · 5%", "Payme · tranzaksiya ••8821". */
+  note?: string | null;
 };
 
 export type ComplaintType =
@@ -308,7 +312,7 @@ const COMPLAINT_TEMPLATES: Record<ComplaintType, string[]> = {
 // Bump whenever the shape of persisted seed data changes, so a browser
 // holding an old-shape localStorage snapshot gets a fresh reseed instead of
 // crashing on missing/renamed fields.
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export type SeedData = {
   schemaVersion: number;
@@ -601,6 +605,47 @@ function enrichV2(d: { drivers: Driver[]; passengers: Passenger[]; orders: Order
       driverPayout: done && driver ? o.price - Math.round((o.price * pct) / 100) : null,
       cancelledBy: o.status === "cancelled" ? rng.pick<"passenger" | "driver" | "admin">(["passenger", "passenger", "driver", "admin"]) : null,
     } satisfies Partial<Order>);
+  }
+
+  // Ledger: a few tips and penalties, notes on every entry, balances rebuilt.
+  for (const dr of d.drivers) {
+    for (let i = 0; i < 2; i++) {
+      const tip = rng.bool(0.6);
+      d.walletEntries.push({
+        id: `wal_${dr.id}_x${i}`,
+        driverId: dr.id,
+        type: tip ? "tip" : "penalty",
+        amount: tip ? rng.int(5, 20) * 1000 : -rng.int(3, 10) * 1000,
+        createdAt: NOW - rng.int(0, 20) * 86_400_000 - rng.int(0, 20_000) * 1000,
+        balanceAfter: 0,
+      });
+    }
+  }
+  d.walletEntries.sort((a, b) => a.createdAt - b.createdAt);
+  const balance = new Map<string, number>();
+  for (const e of d.walletEntries) {
+    const b = (balance.get(e.driverId) ?? 0) + e.amount;
+    balance.set(e.driverId, b);
+    e.balanceAfter = b;
+    const pct = d.drivers.find((x) => x.id === e.driverId)?.commissionPct ?? 10;
+    e.note =
+      e.type === "topup"
+        ? `${rng.bool(0.6) ? "Payme" : "Click"} · tranzaksiya ••${rng.int(1000, 9999)}`
+        : e.type === "commission"
+          ? `Safar #${rng.int(10, 170)} · ${pct}%`
+          : e.type === "tip"
+            ? "Yo'lovchidan"
+            : e.type === "penalty"
+              ? "Safar oxirgi daqiqada bekor qilindi"
+              : e.type === "cash"
+                ? `Naqd safar #${rng.int(10, 170)}`
+                : e.type === "card"
+                  ? `Karta safar #${rng.int(10, 170)}`
+                  : null;
+  }
+  for (const dr of d.drivers) {
+    dr.walletBalance = balance.get(dr.id) ?? 0;
+    dr.atDebtLimit = dr.walletBalance <= dr.debtLimit;
   }
 
   for (const p of d.passengers) {

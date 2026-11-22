@@ -43,7 +43,7 @@ export function AccountScreen() {
         </div>
         <p className="text-sm text-ink/60">
           Kirish ikki bosqichli tasdiqlash bilan himoyalangan (email va telefon kodlari; operatorlar uchun faqat telefon kodi). Tarif
-          va hamyon tuzatishlari ikkinchi admin tasdiqlashini talab qiladi. Harakatsizlikdan 15 daqiqadan so'ng tizimdan avtomatik
+          o'zgarishi va tuzatish yozuvi ikki bosqichda saqlanadi: "Saqlash", keyin "Tasdiqlash". Harakatsizlikdan 15 daqiqadan so'ng tizimdan avtomatik
           chiqiladi.
         </p>
       </Card>

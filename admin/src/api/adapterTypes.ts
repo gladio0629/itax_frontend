@@ -6,14 +6,10 @@ import type {
   PassengerStatus,
   Complaint,
   ComplaintStatus,
-  Tariff,
   AdminUser,
   AdminRole,
   StaffStatus,
   AuditEntry,
-  TariffProposal,
-  AdjustmentProposal,
-  ReviewRequest,
   OrderWithNames,
   MarketingStats,
   StatsPeriod,
@@ -34,9 +30,6 @@ import type {
   PassengerQuery,
   OrderQuery,
   WalletQuery,
-  TariffQuery,
-  TariffProposalQuery,
-  AdjustmentProposalQuery,
   ComplaintQuery,
   AuditQuery,
   OperatorQueueQuery,
@@ -55,6 +48,11 @@ import type {
   DriverTrips,
   DriverTripsQuery,
   OrderStatus,
+  LedgerSummary,
+  WalletCorrectionInput,
+  WalletCorrectionResult,
+  TariffSettings,
+  TariffSettingsPatch,
 } from "./types";
 
 /**
@@ -77,7 +75,6 @@ export interface ApiAdapter {
   /** `extra.phone` is sent when the step asked for it (`needsPhone`). */
   verifyLoginStep(requestId: string, code: string, extra?: { phone?: string }): Promise<LoginStepResult>;
   resendLoginCode(requestId: string): Promise<{ testCode?: string; resendSeconds: number; codeLength?: number }>;
-  getReviewStatus(reviewId: string): Promise<ReviewRequest>;
   logout(): Promise<void>;
   getMe(): Promise<Me>;
   isAuthenticated(): boolean;
@@ -158,19 +155,21 @@ export interface ApiAdapter {
   getWalletLedger(query: WalletQuery): Promise<WalletLedgerRow[]>;
   /** `debtLimit: null` = the backend doesn't report it. */
   getDriverWalletInfo(driverId: string): Promise<{ balance: number; debtLimit: number | null }>;
-  proposeWalletAdjustment(driverId: string, amount: number, reason: string): Promise<AdjustmentProposal>;
-  getAdjustmentProposals(query: AdjustmentProposalQuery): Promise<AdjustmentProposal[]>;
-  approveAdjustment(proposalId: string): Promise<ReviewRequest>;
-  rejectAdjustment(proposalId: string, reason?: string): Promise<AdjustmentProposal>;
+  /** Ledger KPI tiles; `capabilities.ledgerSummary`. */
+  getLedgerSummary(): Promise<LedgerSummary>;
+  /** A correction entry, applied by this one request after the admin's
+   * Save → confirm modal → Confirm (decision 2026-11-22). The old entry is
+   * never edited; the server writes the audit entry. */
+  createWalletCorrection(input: WalletCorrectionInput): Promise<WalletCorrectionResult>;
 
-  // --- tariffs ---
-  getTariffs(query: TariffQuery): Promise<Tariff[]>;
-  getTariffProposals(query: TariffProposalQuery): Promise<TariffProposal[]>;
-  proposeTariffCreate(input: Omit<Tariff, "id" | "archived">): Promise<TariffProposal>;
-  proposeTariffEdit(tariffId: string, patch: Partial<Tariff>): Promise<TariffProposal>;
-  proposeTariffArchive(tariffId: string): Promise<TariffProposal>;
-  approveTariffProposal(proposalId: string): Promise<ReviewRequest>;
-  rejectTariffProposal(proposalId: string, reason?: string): Promise<TariffProposal>;
+  // --- tariffs (v2 model; `capabilities.tariffSettings`) ---
+  /** `cityId` null = the default for all regions. */
+  getTariffSettings(cityId: string | null): Promise<TariffSettings>;
+  /** Cities with their own tariff; `capabilities.tariffCities`. */
+  getTariffCities(): Promise<{ id: string; name: string }[]>;
+  /** One section per request, sent only after the confirm modal. Returns
+   * the saved settings (with fresh server examples). */
+  updateTariffSettings(cityId: string | null, patch: TariffSettingsPatch): Promise<TariffSettings>;
 
   // --- complaints ("Shikoyatlar") ---
   getComplaints(query: ComplaintQuery): Promise<Complaint[]>;

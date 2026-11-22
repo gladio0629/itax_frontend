@@ -7,7 +7,6 @@ import type * as Api from "@shared/api/openapi";
 import { formatDayShort } from "@/lib/format";
 import type {
   ActiveTask,
-  AdjustmentProposal,
   AdminRole,
   AuditEntry,
   Complaint,
@@ -26,14 +25,20 @@ import type {
   DashboardPeriod,
   ListPeriod,
   DriverTrips,
+  TariffSettings,
+  TariffSettingsPatch,
+  CargoBodySize,
+  DriverLevel,
+  FuelKind,
+  MarkupKind,
+  TariffCarClass,
+  TariffExtraKey,
   Passenger,
   QueueReason,
   QueueStatus,
   Section,
   StaffRow,
   StatsPeriod,
-  Tariff,
-  TariffProposal,
   WalletEntryType,
   WalletLedgerRow,
 } from "./types";
@@ -312,10 +317,10 @@ const LEDGER_KIND: Record<Api.LedgerKind, WalletEntryType> = {
   bonus: "bonus",
 };
 
-export function ledgerFromApi(e: Api.LedgerEntry): WalletLedgerRow {
+export function ledgerFromApi(e: Api.LedgerEntry, driverId?: string): WalletLedgerRow {
   return {
     id: e.id,
-    driverId: "",
+    driverId: driverId ?? "",
     type: LEDGER_KIND[e.kind] ?? "adjustment",
     amount: toSom(e.amount),
     orderId: e.reference_id ?? undefined,
@@ -324,33 +329,6 @@ export function ledgerFromApi(e: Api.LedgerEntry): WalletLedgerRow {
     // LedgerEntry carries only wallet_id (capabilities.walletDriverName = false).
     driverName: `Hamyon #${shortId(e.wallet_id)}`,
   };
-}
-
-const APPROVAL: Record<Api.ApprovalStatus, AdjustmentProposal["status"]> = {
-  pending_approval: "pending_second",
-  approved: "approved",
-  rejected: "rejected",
-};
-
-export function correctionFromApi(c: Api.CorrectionListItem, driverId: string, me: Me | null): AdjustmentProposal {
-  return {
-    id: c.id,
-    driverId,
-    // The correction names a wallet, not a driver.
-    subjectLabel: `Hamyon #${shortId(c.wallet_id)}`,
-    amount: toSom(c.amount),
-    reason: c.reason,
-    proposedById: c.created_by,
-    proposedByName: c.created_by_name?.trim() || (me && c.created_by === me.id ? me.name : `#${shortId(c.created_by)}`),
-    status: APPROVAL[c.approval_status],
-    createdAt: toMs(c.created_at),
-  };
-}
-
-export function approvalToApi(status: AdjustmentProposal["status"] | "all" | undefined): Api.ApprovalStatus | undefined {
-  if (status === "pending_second") return "pending_approval";
-  if (status === "approved" || status === "rejected") return status;
-  return undefined;
 }
 
 // ----------------------------------------------------------- complaints
@@ -427,59 +405,6 @@ export function auditFromApi(e: Api.AuditEntry, nameOf: StaffNameOf): AuditEntry
     targetId: e.entity_id,
     detail: auditDetail(e.before, e.after),
     createdAt: toMs(e.created_at),
-  };
-}
-
-// -------------------------------------------------------------- tariffs
-export function tariffFromApi(t: Api.Tariff): Tariff {
-  return {
-    id: t.id,
-    name: t.name,
-    baseFare: toSom(t.base_fare),
-    perKmCar: toSom(t.per_km),
-    perMin: toSom(t.per_min),
-    minFare: toSom(t.min_fare),
-    commissionPct: t.commission_percent,
-    carClass: t.car_class,
-    // UI-only fields the contract doesn't have (hidden via tariffFields).
-    perKmSeat: 0,
-    frontSeatSurcharge: 0,
-    fuelAdjustmentPct: 0,
-    archived: !t.active,
-  };
-}
-
-/** A pending create still shows up in the list as inactive; it belongs to
- * the proposals, not to "archived". */
-export const isPendingCreate = (t: Api.Tariff) => t.pending_change?.action === "create";
-
-export function tariffToInput(t: Pick<Tariff, "name" | "baseFare" | "perKmCar" | "commissionPct"> & Partial<Tariff>): Api.TariffInput {
-  return {
-    name: t.name,
-    car_class: t.carClass ?? "economy",
-    base_fare: toTiyin(t.baseFare),
-    per_km: toTiyin(t.perKmCar),
-    per_min: toTiyin(t.perMin ?? 0),
-    min_fare: toTiyin(t.minFare ?? 0),
-    commission_percent: t.commissionPct,
-  };
-}
-
-const PROPOSAL_TYPE = { create: "create", update: "edit", delete: "archive" } as const;
-
-export function tariffProposalFromApi(t: Api.Tariff, me: Me | null): TariffProposal | null {
-  const pc = t.pending_change;
-  if (!pc || t.approval_status !== "pending_approval") return null;
-  return {
-    id: t.id,
-    type: PROPOSAL_TYPE[pc.action ?? "update"],
-    tariffId: t.id,
-    // pending_change has no proposed values (gap): show the action only.
-    patch: { name: t.name },
-    proposedById: pc.requested_by ?? "",
-    proposedByName: me && pc.requested_by === me.id ? me.name : pc.requested_by ? `#${shortId(pc.requested_by)}` : "—",
-    status: "pending_second",
-    createdAt: toMs(pc.requested_at),
   };
 }
 
@@ -731,4 +656,99 @@ export function driverTripsFromApi(t: ApiDriverTrips): DriverTrips {
       cancelledBy: r.cancelled_by,
     })),
   };
+}
+
+// ---------------------------------------------------- v2 tariff settings
+/** Expected GET/PATCH /admin/v1/tariff-settings (not in openapi.yml yet;
+ * docs/backend-gaps/admin.md). Money in tiyin; labels come from the server. */
+type ApiMarkup = { fuel: FuelKind; markup_kind: MarkupKind; markup_value: number };
+export type ApiTariffSettings = {
+  city_id: string | null;
+  fuel: { kind: FuelKind; label: string; price_per_litre: Api.Money; updated_at: string | null }[];
+  classes: ({ key: TariffCarClass; label: string; seats: number | null; example_price: Api.Money | null } & ApiMarkup)[];
+  bodies: ({ size: CargoBodySize; example_base: Api.Money | null; example_price: Api.Money | null } & ApiMarkup)[];
+  extras: { key: TariffExtraKey; label: string; unit: "min" | "som"; value: number }[];
+  levels: { level: DriverLevel; commission_pct: number; min_trips_week: number | null; min_rating: number | null; max_cancels_week: number | null }[];
+  example_distance_km: number | null;
+  example: {
+    title: string;
+    distance_km: number;
+    fuel_label: string;
+    fuel_price: Api.Money;
+    base: Api.Money;
+    markup_label: string;
+    markup: Api.Money;
+    total: Api.Money;
+  } | null;
+};
+
+const markupFromApi = (m: ApiMarkup) => ({
+  fuel: m.fuel,
+  markupKind: m.markup_kind,
+  // Percent stays a number; a fixed sum is money (tiyin → so'm).
+  markupValue: m.markup_kind === "sum" ? toSom(m.markup_value) : m.markup_value,
+});
+const markupToApi = (m: { fuel: FuelKind; markupKind: MarkupKind; markupValue: number }): ApiMarkup => ({
+  fuel: m.fuel,
+  markup_kind: m.markupKind,
+  markup_value: m.markupKind === "sum" ? toTiyin(m.markupValue) : m.markupValue,
+});
+const moneyOrNull = (v: Api.Money | null) => (v === null ? null : toSom(v));
+/** Extras: "som" values are money, "min" values are minutes. */
+const extraFromApi = (unit: "min" | "som", v: number) => (unit === "som" ? toSom(v) : v);
+
+export function tariffSettingsFromApi(t: ApiTariffSettings): TariffSettings {
+  return {
+    cityId: t.city_id,
+    fuel: t.fuel.map((f) => ({ kind: f.kind, label: f.label, pricePerLitre: toSom(f.price_per_litre), updatedAt: f.updated_at ? toMs(f.updated_at) : null })),
+    classes: t.classes.map((c) => ({ key: c.key, label: c.label, seats: c.seats, examplePrice: moneyOrNull(c.example_price), ...markupFromApi(c) })),
+    bodies: t.bodies.map((b) => ({ size: b.size, exampleBase: moneyOrNull(b.example_base), examplePrice: moneyOrNull(b.example_price), ...markupFromApi(b) })),
+    extras: t.extras.map((e) => ({ key: e.key, label: e.label, unit: e.unit, value: extraFromApi(e.unit, e.value) })),
+    levels: t.levels.map((l) => ({
+      level: l.level,
+      commissionPct: l.commission_pct,
+      minTripsWeek: l.min_trips_week,
+      minRating: l.min_rating,
+      maxCancelsWeek: l.max_cancels_week,
+    })),
+    exampleDistanceKm: t.example_distance_km,
+    example: t.example
+      ? {
+          title: t.example.title,
+          distanceKm: t.example.distance_km,
+          fuelLabel: t.example.fuel_label,
+          fuelPrice: toSom(t.example.fuel_price),
+          base: toSom(t.example.base),
+          markupLabel: t.example.markup_label,
+          markup: toSom(t.example.markup),
+          total: toSom(t.example.total),
+        }
+      : null,
+  };
+}
+
+/** One section per PATCH. Extras need their unit to convert money. */
+export function tariffPatchToApi(cityId: string | null, p: TariffSettingsPatch) {
+  const base = { city_id: cityId };
+  switch (p.section) {
+    case "fuel":
+      return { ...base, fuel: p.fuel.map((f) => ({ kind: f.kind, price_per_litre: toTiyin(f.pricePerLitre) })) };
+    case "classes":
+      return { ...base, classes: p.classes.map((c) => ({ key: c.key, ...markupToApi(c) })) };
+    case "bodies":
+      return { ...base, bodies: p.bodies.map((b) => ({ size: b.size, ...markupToApi(b) })) };
+    case "extras":
+      return { ...base, extras: p.extras.map((e) => ({ key: e.key, value: e.unit === "min" ? e.value : toTiyin(e.value) })) };
+    case "levels":
+      return {
+        ...base,
+        levels: p.levels.map((l) => ({
+          level: l.level,
+          commission_pct: l.commissionPct,
+          min_trips_week: l.minTripsWeek,
+          min_rating: l.minRating,
+          max_cancels_week: l.maxCancelsWeek,
+        })),
+      };
+  }
 }

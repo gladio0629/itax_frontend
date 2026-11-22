@@ -21,10 +21,7 @@ import type {
   LoginStepResult,
   Me,
   OrderCancelReasonCode,
-  ReviewKind,
-  ReviewRequest,
   StaffRow,
-  Tariff,
 } from "../types";
 
 const http = session.http;
@@ -46,16 +43,11 @@ const CAPABILITIES: AdapterCapabilities = {
   orderPassenger: false,
   walletLedgerFilters: false,
   walletDriverName: false,
-  adjustmentProposalsList: true,
-  tariffSearch: false,
-  tariffProposalValues: false,
   queueFilters: false,
   historyFilters: false,
   historyEdit: false,
   operatorCounts: false,
   sectionBadges: false,
-  tariffFields: ["baseFare", "perKmCar", "perMin", "minFare", "commissionPct"],
-  tariffCarClass: true,
   orderStatuses: ["searching", "accepted", "arrived", "in_progress", "completed", "cancelled", "expired"],
   orderEditFields: ["note", "paymentMethod", "schedule"],
   orderNoteMaxLength: 200,
@@ -82,11 +74,18 @@ const CAPABILITIES: AdapterCapabilities = {
   driverTrips: false,
   passengerCounts: false,
   passengerJoinedFilter: false,
+  // v2 group 4
+  walletKinds: ["topup", "commission", "adjustment", "trip_payment", "bonus"],
+  ledgerSummary: false,
+  correctionEntryRef: false,
+  tariffSettings: false,
+  tariffCities: false,
 };
 
 const CANCEL_REASONS: readonly OrderCancelReasonCode[] = ["admin_decision", "passenger_request", "driver_request", "duplicate", "fraud", "other"];
 const LOGOUT_TIMEOUT_MS = 5_000;
 const ADMIN_SEARCH_PATH = "/admin/v1/search";
+const TARIFF_SETTINGS_PATH = "/admin/v1/tariff-settings";
 // Expected (not in openapi.yml yet), see docs/backend-gaps/admin.md:
 const orderOperatorTaskPath = (id: string) => `${API_PATHS.adminOrder(id)}/operator-task`;
 const driverTripsPath = (id: string) => `${API_PATHS.adminDriver(id)}/trips`;
@@ -137,16 +136,6 @@ async function staffNameOf(): Promise<map.StaffNameOf> {
   return (id) => (me && id === me.id ? me.name : rawStaff.get(id)?.full_name);
 }
 
-/** Results of actions that are already final on the server, shown through
- * the shared ReviewStatus component (settled immediately — no timers). */
-const reviews = new Map<string, ReviewRequest>();
-function settledReview(kind: ReviewKind, status: "approved" | "rejected" = "approved"): ReviewRequest {
-  const now = Date.now();
-  const r: ReviewRequest = { id: uuidV4(), kind, status, createdAt: now, resolvesAt: now };
-  reviews.set(r.id, r);
-  return r;
-}
-
 // Three-step login state, keyed by our own requestId (codes are never kept).
 type LoginFlow =
   | { step: "email_code"; email: string; challengeId: string }
@@ -176,47 +165,26 @@ function clearCaches() {
   rawDrivers.clear();
   rawPassengers.clear();
   rawStaff.clear();
-  rawTariffs.clear();
   walletIds.clear();
   staffNamesLoaded = null;
   activeTask = null;
   logins.clear();
-  reviews.clear();
 }
 session.onEnd(clearCaches);
 
 // ------------------------------------------------------------- caches
-// Last rows the server sent, so actions that need the full object (tariff
-// PUT, archive results) don't refetch. Never persisted.
+// Last rows the server sent, so actions that need the full object (archive
+// results) don't refetch. Never persisted.
 const rawDrivers = new Map<string, Api.AdminDriver>();
 const rawPassengers = new Map<string, Api.AdminPassenger>();
 const rawStaff = new Map<string, Api.Staff>();
-const rawTariffs = new Map<string, Api.Tariff>();
 /** driverId → wallet_id, learned from the ledger (AdminDriver has no wallet_id). */
 const walletIds = new Map<string, string>();
-const driverOfWallet = (walletId: string) => {
-  for (const [driverId, w] of walletIds) if (w === walletId) return driverId;
-  return "";
-};
 let activeTask: Api.QueueItem | null = null;
 
 function remember<T extends { id: string }>(cache: Map<string, T>, rows: T[]): T[] {
   for (const r of rows) cache.set(r.id, r);
   return rows;
-}
-
-let tariffsInFlight: Promise<Api.Tariff[]> | null = null;
-function loadTariffs(): Promise<Api.Tariff[]> {
-  // The screen asks for active + archived + proposals in the same tick:
-  // those share one request; anything after it settles fetches fresh data.
-  if (!tariffsInFlight) {
-    tariffsInFlight = fetchAll<Api.Tariff>(API_PATHS.adminTariffs)
-      .then((rows) => remember(rawTariffs, rows))
-      .finally(() => {
-        tariffsInFlight = null;
-      });
-  }
-  return tariffsInFlight;
 }
 
 async function walletIdFor(driverId: string): Promise<string> {
@@ -337,11 +305,6 @@ export const httpAdapter: ApiAdapter = {
     return { resendSeconds: RESEND_SECONDS, codeLength: codeLength(ch) };
   },
 
-  async getReviewStatus(reviewId) {
-    const r = reviews.get(reviewId);
-    if (!r) fail("NOT_FOUND");
-    return r as ReviewRequest;
-  },
 
   // Revoke the token on the server first (same token gets 401 afterwards),
   // then clear memory. Offline/timeout/401 still signs out locally.
@@ -558,82 +521,47 @@ export const httpAdapter: ApiAdapter = {
   },
 
   // --- wallet -----------------------------------------------------------
-  async getWalletLedger() {
-    const rows = await fetchAll<Api.LedgerEntry>(API_PATHS.adminWalletLedger);
-    return rows.map(map.ledgerFromApi);
+  async getWalletLedger(query) {
+    // Type, search and period filters are not in the contract (walletLedgerFilters = false).
+    const rows = await fetchAll<Api.LedgerEntry>(API_PATHS.adminWalletLedger, { driver_id: query.driverId || undefined });
+    if (query.driverId && rows[0]) walletIds.set(query.driverId, rows[0].wallet_id);
+    return rows.map((e) => map.ledgerFromApi(e, query.driverId));
   },
   async getDriverWalletInfo(driverId) {
     const d = await http.get<Api.AdminDriver>(API_PATHS.adminDriver(driverId));
     rawDrivers.set(d.id, d);
     return { balance: map.toSom(d.wallet_balance), debtLimit: null };
   },
-  async proposeWalletAdjustment(driverId, amount, reason) {
-    const r = reason.trim();
-    if (r.length < 5) invalid("Sababni kiriting (kamida 5 ta belgi).");
-    const body: Api.CorrectionCreate = { wallet_id: await walletIdFor(driverId), amount: map.toTiyin(amount), reason: r };
+  getLedgerSummary: notSupported,
+  async createWalletCorrection(input) {
+    const r = input.reason.trim();
+    if (r.length < 5 || r.length > 500) invalid("Sabab 5–500 belgi bo'lsin.");
+    if (!Number.isFinite(input.amount) || input.amount === 0) invalid("Summa 0 bo'lmasin.");
+    // The contract has no entry reference yet (capabilities.correctionEntryRef = false).
+    const body: Api.CorrectionCreate = { wallet_id: await walletIdFor(input.driverId), amount: map.toTiyin(input.amount), reason: r };
     const c = await session.idempotency.run("adminWalletCorrection", body, (key) =>
       http.post<Api.Correction>(API_PATHS.adminWalletCorrection, body, { idempotencyKey: key })
     );
-    return map.correctionFromApi(c, driverId, await currentMe().catch(() => null));
-  },
-  async getAdjustmentProposals(query) {
-    const me = await currentMe().catch(() => null);
-    const rows = await fetchAll<Api.CorrectionListItem>(API_PATHS.adminWalletCorrection, { approval_status: map.approvalToApi(query.status) });
-    return rows.map((c) => map.correctionFromApi(c, driverOfWallet(c.wallet_id), me));
-  },
-  async approveAdjustment(proposalId) {
-    // The creator can't approve their own correction (403 self_approval).
-    const c = await http.post<Api.Correction>(API_PATHS.adminWalletCorrectionApprove(proposalId.trim()));
-    return settledReview("wallet_adjust_second_approve", c.approval_status === "rejected" ? "rejected" : "approved");
-  },
-  async rejectAdjustment(proposalId, reason) {
-    const body: Api.ApprovalReject = { reason: rejectReason(reason) };
-    const c = await http.post<Api.Correction>(API_PATHS.adminWalletCorrectionReject(proposalId.trim()), body);
-    return map.correctionFromApi(c, driverOfWallet(c.wallet_id), meCache);
+    // Decision 2026-11-22: one person, applied on this request. Until the
+    // backend drops its approval step, a pending correction is reported as
+    // not applied (the UI says so instead of claiming success).
+    return { applied: c.approval_status === "approved", entry: null };
   },
 
-  // --- tariffs ----------------------------------------------------------
-  async getTariffs(query) {
-    const rows = await loadTariffs();
-    const status = query.status ?? "all";
-    return rows
-      .filter((t) => status === "all" || (status === "active" ? t.active : !t.active && !map.isPendingCreate(t)))
-      .map(map.tariffFromApi);
+  // --- tariffs (v2 model): expected endpoints, see docs/backend-gaps/admin.md ---
+  async getTariffSettings(cityId) {
+    return map.tariffSettingsFromApi(await http.get<map.ApiTariffSettings>(TARIFF_SETTINGS_PATH, { city_id: cityId ?? undefined }));
   },
-  async getTariffProposals() {
-    const me = await currentMe().catch(() => null);
-    return (await loadTariffs()).map((t) => map.tariffProposalFromApi(t, me)).filter((p): p is NonNullable<typeof p> => p !== null);
+  async getTariffCities() {
+    const res = await http.get<{ data: { id: string; name: string }[] }>(`${TARIFF_SETTINGS_PATH}/cities`);
+    return res.data;
   },
-  async proposeTariffCreate(input) {
-    if (!input.carClass) invalid("Mashina klassini tanlang.");
-    const t = await http.post<Api.Tariff>(API_PATHS.adminTariffs, map.tariffToInput(input));
-    rawTariffs.set(t.id, t);
-    return map.tariffProposalFromApi(t, meCache) ?? fail("INTERNAL_ERROR");
-  },
-  async proposeTariffEdit(tariffId, patch) {
-    // PUT takes the whole TariffInput: merge the change into the current values.
-    const current = rawTariffs.get(tariffId) ?? (await http.get<Api.Tariff>(API_PATHS.adminTariff(tariffId)));
-    const merged: Tariff = { ...map.tariffFromApi(current), ...patch };
-    const t = await http.put<Api.Tariff>(API_PATHS.adminTariff(tariffId), map.tariffToInput(merged));
-    rawTariffs.set(t.id, t);
-    return map.tariffProposalFromApi(t, meCache) ?? fail("INTERNAL_ERROR");
-  },
-  async proposeTariffArchive(tariffId) {
-    const t = await http.delete<Api.Tariff>(API_PATHS.adminTariff(tariffId));
-    rawTariffs.set(t.id, t);
-    return map.tariffProposalFromApi(t, meCache) ?? fail("INTERNAL_ERROR");
-  },
-  async approveTariffProposal(proposalId) {
-    const t = await http.post<Api.Tariff>(API_PATHS.adminTariffApprove(proposalId));
-    rawTariffs.set(t.id, t);
-    return settledReview("tariff_second_approve");
-  },
-  async rejectTariffProposal(proposalId, reason) {
-    const before = rawTariffs.get(proposalId);
-    const t = await http.post<Api.Tariff>(API_PATHS.adminTariffReject(proposalId), { reason: rejectReason(reason) } satisfies Api.ApprovalReject);
-    rawTariffs.set(t.id, t);
-    const proposal = (before && map.tariffProposalFromApi(before, meCache)) ?? map.tariffProposalFromApi({ ...t, approval_status: "pending_approval", pending_change: { action: "update" } }, meCache);
-    return { ...(proposal ?? fail("INTERNAL_ERROR")), status: "rejected", resolvedAt: Date.now() };
+  async updateTariffSettings(cityId, patch) {
+    const body = map.tariffPatchToApi(cityId, patch);
+    const t = await session.idempotency.run("adminTariffSettings", body, (key) =>
+      http.patch<map.ApiTariffSettings>(TARIFF_SETTINGS_PATH, body, { idempotencyKey: key })
+    );
+    return map.tariffSettingsFromApi(t);
   },
 
   // --- complaints -------------------------------------------------------
