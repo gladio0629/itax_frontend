@@ -2,7 +2,7 @@
 
 Changes outside `admin/` that the admin redesign needs. The admin terminal does not edit these files; the reviewer applies them.
 
-## 1. Phone numbers in full in admin (decision 2026-11-22)
+## 1. Phone numbers in full in admin (decision 2026-11-22) — DONE (design doc; main doc v1.8)
 
 Owner decision: in the admin panel phone numbers are shown in full everywhere, for all roles. No masking, no "Telefonni ochish" button, no reveal audit entry. Format: `+998 90 123 45 67`.
 
@@ -19,3 +19,16 @@ Admin code already follows it (commit "admin v2: show phone numbers in full"). S
 - Design files `design-v2/admin/*.dc.html` still show masked numbers (`+998 9• ••• •• 21`) and a "Telefonni ochish" button. The admin code ignores those parts; no change needed unless the canvas is regenerated.
 
 Not affected: F-26 (PII masked in central logs) and open question 10 (passenger and driver seeing each other's number) are about other things.
+
+## 2. Operator windows, results and postpone (owner answers, 2026-11-22) — DONE (main doc `7c0d0ff`)
+
+Group 5 follows the design and the owner's answers. Shared docs to update:
+
+- `docs/izgo-asosiy-hujjat.md`, 2.5 "Operator", line "Operator o'zi faqat "Navbat" va "Tarix" oynalarini ko'radi.":
+  - new: `Operator o'zi "Navbat" va "Tarix" oynalarini ko'radi; "Tarix"da o'z vazifalari va buyurtmalar (faqat ko'rish), alohida "Haydovchilar" (faqat ko'rish, balanssiz). [QAROR] (2026-11-22)`
+- Same section, add:
+  - `- Vazifa natijalari: Hal qilindi, Javob bermadi, Qayta qo'ng'iroq, Menejerga yuborildi, Rad etish (sabab majburiy). [QAROR] (2026-11-22)`
+  - `- "Keyinga qoldirish": vazifa navbatga qaytadi, kutish vaqti saqlanadi. [QAROR] (2026-11-22)`
+- 2.5 "Marketolog": `Marketolog "Umumiy statistika" (Marketing) sahifasini va daromad/buyurtma holatlari bo'limini faqat ko'radi. [QAROR] (2026-11-22)`
+- 9 "Qarorlar jurnali": one row for the three points above.
+- Backend parts are in `docs/backend-gaps/admin.md`, "Group 5".

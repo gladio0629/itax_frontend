@@ -1,5 +1,6 @@
 import { forwardRef, useId } from "react";
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 type Props = InputHTMLAttributes<HTMLInputElement> & {
@@ -132,3 +133,50 @@ export const SearchInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTML
   )
 );
 SearchInput.displayName = "SearchInput";
+
+type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
+  label: string;
+  hint?: string;
+  error?: string;
+  options: { value: string; label: string; disabled?: boolean }[];
+};
+
+/** v2 select field: same box as Input, native <select> inside. */
+export const SelectField = forwardRef<HTMLSelectElement, SelectProps>(({ label, hint, error, options, className, id, ...rest }, ref) => {
+  const autoId = useId();
+  const selectId = id ?? autoId;
+  const msgId = `${selectId}-msg`;
+  return (
+    <div className="w-full">
+      <div className={cn(fieldBox(!!error), "relative")}>
+        <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+          <label htmlFor={selectId} className="label-caps text-muted">
+            {label}
+            {rest.required && (
+              <span className="ml-1 text-error" aria-hidden>
+                *
+              </span>
+            )}
+          </label>
+          <select
+            ref={ref}
+            id={selectId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error || hint ? msgId : undefined}
+            className={cn("w-full min-w-0 cursor-pointer appearance-none bg-transparent pr-6 text-15 font-bold text-ink outline-none", className)}
+            {...rest}
+          >
+            {options.map((o) => (
+              <option key={o.value} value={o.value} disabled={o.disabled}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </span>
+        <ChevronDown aria-hidden className="pointer-events-none h-4 w-4 shrink-0 text-muted" />
+      </div>
+      <FieldMessage id={msgId} error={error} hint={hint} />
+    </div>
+  );
+});
+SelectField.displayName = "SelectField";

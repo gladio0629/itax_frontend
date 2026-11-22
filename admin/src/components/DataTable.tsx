@@ -32,6 +32,11 @@ type Props<T> = {
   emptyDescription?: string;
   /** Render without the white card around it (when the caller already has one). */
   bare?: boolean;
+  /** Total matching rows as the server counts them. Without it the footer
+   * shows how many rows were loaded, never "jami" (lists may be cut off). */
+  total?: number | null;
+  /** Extra class per row (e.g. the selected one). */
+  rowClassName?: (row: T) => string | undefined;
 };
 
 /** Generic client-side search/sort/pagination table shared by the drivers,
@@ -50,6 +55,8 @@ export function DataTable<T>({
   emptyTitle = "Hech narsa topilmadi",
   emptyDescription = "Qidiruv shartlariga mos yozuv yo'q.",
   bare,
+  total,
+  rowClassName,
 }: Props<T>) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -158,7 +165,8 @@ export function DataTable<T>({
                         : undefined
                     }
                     className={cn(
-                      "border-b border-line last:border-0 hover:bg-[#f8f9fb]",
+                      "border-b border-line last:border-0 hover:bg-row-hover",
+                      rowClassName?.(row),
                       onRowClick && "cursor-pointer focus-visible:bg-surface focus-visible:outline-offset-[-2px]"
                     )}
                   >
@@ -179,7 +187,9 @@ export function DataTable<T>({
           </div>
 
           <Pagination
-            summary={`${safePage * pageSize + 1}–${safePage * pageSize + pageRows.length}, jami ${formatNumber(sorted.length)}`}
+            summary={`${safePage * pageSize + 1}–${safePage * pageSize + pageRows.length}, ${
+              total != null && !searchFields ? `jami ${formatNumber(total)}` : `${formatNumber(sorted.length)} ta`
+            }`}
             hasPrev={safePage > 0}
             hasNext={safePage < pageCount - 1}
             onPrev={() => setPage((p) => Math.max(0, p - 1))}

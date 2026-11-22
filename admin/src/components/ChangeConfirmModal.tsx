@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ArrowRight, ClipboardList, ShieldCheck } from "lucide-react";
 import { Button } from "./Button";
 import { Modal, ModalNote } from "./Modal";
+import { cn } from "@/lib/cn";
 
 export type ChangeRow = {
   label: string;
@@ -22,7 +23,8 @@ export function ChangeConfirmModal({
   open,
   title = "O'zgarishni tasdiqlang",
   description = "Quyidagi qiymatlar o'zgaradi. \"Tasdiqlash\" bosilgandan keyin kuchga kiradi.",
-  rows,
+  rows = [],
+  facts,
   extra,
   confirmLabel = "Tasdiqlash",
   loading,
@@ -33,7 +35,11 @@ export function ChangeConfirmModal({
   open: boolean;
   title?: string;
   description?: ReactNode;
-  rows: ChangeRow[];
+  /** Old → new rows (tariffs). */
+  rows?: ChangeRow[];
+  /** Plain "what will be written" lines when there is no old value (a new
+   * ledger entry): label + value. */
+  facts?: { label: string; value: ReactNode }[];
   /** Extra content under the rows (e.g. the reason of a ledger correction). */
   extra?: ReactNode;
   confirmLabel?: string;
@@ -56,12 +62,23 @@ export function ChangeConfirmModal({
           <Button variant="soft" onClick={onCancel} disabled={loading}>
             Bekor qilish
           </Button>
-          <Button variant="primary" loading={loading} onClick={onConfirm} disabled={rows.length === 0} autoFocus>
+          <Button variant="primary" loading={loading} onClick={onConfirm} disabled={rows.length === 0 && !facts?.length} autoFocus>
             {confirmLabel}
           </Button>
         </>
       }
     >
+      {facts && facts.length > 0 && (
+        <dl className="overflow-hidden rounded-box shadow-hairline">
+          {facts.map((f, i) => (
+            <div key={i} className={cn("flex items-start justify-between gap-4 px-3 py-3", i > 0 && "border-t border-line")}>
+              <dt className="shrink-0 text-sm font-semibold text-muted">{f.label}</dt>
+              <dd className="tabular text-right text-sm font-extrabold text-ink">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {rows.length > 0 && (
       <div className="overflow-hidden rounded-box shadow-hairline">
         <table className="w-full text-left text-sm">
           <caption className="sr-only">O'zgarishlar: eski va yangi qiymat</caption>
@@ -98,6 +115,7 @@ export function ChangeConfirmModal({
           </tbody>
         </table>
       </div>
+      )}
       {extra}
       <ModalNote icon={<ClipboardList className="h-4 w-4" aria-hidden />}>
         Kim, qachon va nimani o'zgartirgani audit jurnaliga yoziladi.

@@ -293,7 +293,6 @@ export const ru: Dictionary = {
   "profile.capabilities": "Мои возможности",
   "caps.intro": "По отмеченным пунктам вам будут приходить подходящие заказы.",
   "caps.introSaved": "Ваши возможности сохраняются в профиле.",
-  "caps.childSeatHint": "Для какого возраста детей",
   "caps.ages": "Возрастные группы кресла",
   "caps.pets": "Беру животных",
   "caps.bigLuggage": "Вместительный багажник",

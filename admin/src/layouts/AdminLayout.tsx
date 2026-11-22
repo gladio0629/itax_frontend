@@ -13,21 +13,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { PageHeaderContext, usePageHeaderSlots } from "./PageHeader";
 import type { SectionBadges } from "@/api/types";
 
-/** Fallback titles for screens that don't render <PageHeader> yet
- * (matched by path prefix, so detail routes inherit their section). */
-const TITLES: [string, string][] = [
-  ["/dashboard", "Umumiy statistika"],
-  ["/drivers", "Haydovchilar"],
-  ["/passengers", "Yo'lovchilar"],
-  ["/orders", "Buyurtmalar"],
-  ["/wallet", "Hamyon va to'lovlar"],
-  ["/tariffs", "Tariflar"],
-  ["/complaints", "Shikoyatlar"],
-  ["/staff", "Xodimlar"],
-  ["/operators", "Operatorlar"],
-  ["/audit", "Audit jurnali"],
-  ["/account", "Profil"],
-];
 
 export function AdminLayout() {
   const location = useLocation();
@@ -49,8 +34,6 @@ export function AdminLayout() {
 
   const { warning, secondsLeft, extend } = useIdleLogout(handleLogout);
 
-  const fallbackTitle = TITLES.find(([p]) => location.pathname.startsWith(p))?.[1] ?? "IZGO Admin";
-
   return (
     <PageHeaderContext.Provider value={{ titleEl: slots.titleEl, actionsEl: slots.actionsEl, claim: slots.claim }}>
       <div className="flex h-screen bg-surface">
@@ -62,7 +45,7 @@ export function AdminLayout() {
         </a>
         <Sidebar me={me} badges={badges} onLogout={handleLogout} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <Header fallbackTitle={fallbackTitle} showFallback={!slots.claimed} titleRef={slots.setTitleEl} actionsRef={slots.setActionsEl} />
+          <Header titleRef={slots.setTitleEl} actionsRef={slots.setActionsEl} />
           <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-6 outline-none lg:px-8 lg:pt-7">
             <div className="flex min-w-0 flex-col gap-5">
               {meError && !me ? (

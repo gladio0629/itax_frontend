@@ -3,6 +3,113 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, owner answers on the client removals (round 5)
+
+The client terminal gets these:
+- Restore "Haydovchiga yozish" in the live order.
+- Restore the saved-card list and "Karta ulash" under Karta in the live order's O'zgartirish.
+- The second iOS confirmation on cancel is not needed and stays out.
+
+Also committed: `docs/izgo-asosiy-hujjat.md` from the main chat (`7c0d0ff`). It covers the operator windows, the five results, postpone, and the marketolog's Marketing page. This closes admin handoff §2.
+
+## 2026-11-22, round 6 merge: admin `1928d19` into `redesign-v2`
+
+Owner decision:
+- "Hozir onlayn haydovchilar" stays out, because drivers have no online status. The admin terminal read decision 5 correctly.
+- Two items go to the admin terminal: the debt-limit drivers count (`driversOverLimit`) and the orders/completed over-time chart.
+
+Merged `redesign-admin` at `1928d19` as YELLOW, `--no-ff`, with no conflicts.
+- `docs/handoff-admin.md`:
+  - §1 is marked DONE: the design doc line is in place, and the main doc has had it since v1.8;
+  - §2 is main doc text, which stays with the main chat.
+- `docs/backend-gaps.md` index: the admin line now lists the redesign v2 groups.
+- After the merge, all three apps pass typecheck, the `VITE_DEMO_MODE=false` build and `check:no-network`.
+
+## 2026-11-22, round 6: driver `0a2d568` merged; admin `1928d19` YELLOW (merged afterwards, see above)
+
+### redesign-driver `750065f..0a2d568` (1 commit): GREEN, merged
+- `HistoryCard.tsx`: a cancelled trip shows the server's earnings instead of a hard-coded 0.
+- The unused key `caps.childSeatHint` is removed from uz/ru/en.
+- Merged `--no-ff` with no conflicts.
+- After the merge, all three apps pass typecheck, the `VITE_DEMO_MODE=false` build and `check:no-network`. `cap sync` passes for the driver.
+
+### redesign-admin `c9b3236..1928d19` (merge of `redesign-v2` at `2cad494` and 1 commit): YELLOW
+Checks: typecheck, `VITE_DEMO_MODE=false` build and `check:no-network` pass. `dist` has no test panel or "demo" text. Screens checked: Dashboard and Marketing (demo, superadmin).
+
+Fixed from round 4:
+- Stats: these come back from `getStats`:
+  - order totals (all, completed, cancelled, expired);
+  - passengers (total and new);
+  - drivers (total, active, blocked);
+  - the registrations chart.
+  
+  `StatsSection` handles errors: a failure shows "Qayta urinish", and a failed period change keeps the old figures with a StaleNotice. A request-order guard is in place.
+- Operator queue: a sequence guard on the active task. "Boshlash" stays disabled until the active task has loaded. `CurrentTask` has `key`.
+- Operators board: refreshes every 15 s (skipped while the tab is hidden), timers tick every second, the done column pages by 20, the date shows outside "today", and a custom date range is back.
+- Marketing for superadmin, owner and menejer: a "Marketing" item in Asosiy. The marketolog still sees it as "Umumiy statistika".
+- `docs/backend-gaps/admin.md`: no duplicate endpoints left, and the stale approve, reveal and old-tariff rows are gone.
+
+To fix (rule 2; the online-drivers figure stays out by owner decision, see the merge entry above):
+- Two figures from the old StatsScreen are still missing (`63575a8:admin/src/features/dashboard/StatsScreen.tsx:123,188`):
+  - "Qarz limitiga yetgan haydovchilar" (`driversOverLimit`);
+  - the orders/completed over-time chart.
+
+Note: in the demo the "Ro'yxatdan o'tganlar" and "Daromad dinamikasi" charts show one point on 7-noy for the period "Bugun". This is mock data, not a finding.
+
+## 2026-11-22, round 5: client `253cbd0..2aa8f8e` (live order and rating) and owner answers after round 4
+
+Owner answers:
+- Not for production now. A feature the server lacks may work only in mock. Reviewers no longer flag missing real-backend fallbacks or http-mode gaps.
+- Reviewers still flag price or commission maths in screens, failing builds, secrets, broken flows and big unrequested features.
+- Admin:
+  - the new tariff model and ledger corrections work in mock only;
+  - no old route-tariff editor;
+  - Marketing is also for superadmin, owner and menejer. Add `marketing` to their sections; this item is now must-fix for the admin.
+- The round 4 admin "owner calls" about tariffs and corrections are closed.
+
+### redesign-client `253cbd0..2aa8f8e` (2 commits and a merge of `redesign-v2`): RED
+Checks:
+- Typecheck, `VITE_DEMO_MODE=false` build and `check:no-network` pass.
+- `dist` has no test panel or "demo" text. The only site URL is the bare origin.
+- uz/ru/en have 637 keys each. No imports of the deleted files remain.
+
+Screens (demo build, 390×844, full order Toshkent → Samarqand):
+- Search, Driver, OnTrip and Rate match `Search.png`, `Driver.png`, `OnTrip.png` and `Rate.png`.
+- Search shows the route line instead of the design's radar with nearby cars. That is the drawn map, so not a finding.
+- "Keyingi safar uchun taklif" on Rate is the old screen's suggestion, kept.
+- The demo `localStorage` from an older build broke the quote ("Narx olinmadi" on every try). After clearing it, the flow works. This only affects demo data, so it is not a finding.
+
+Must fix
+- `features/live/LiveOrderScreen.tsx:113-115,227`: the cancel sheet pushes `?sheet=cancel`, and `confirmCancel` then replaces only that entry with `/home`. The history becomes `[track, home]`, so Android back on Home returns to the cancelled order. Pop the sheet entry before leaving.
+- `LiveOrderScreen.tsx:123`: if the ride completes while SOS or edit is open, the replace to Rate swaps only the sheet entry. After rating, back goes to track, which sees "completed" and opens Rate again, a loop. Rate's stars are prefilled, so "Yuborish" re-sends the rating with `reasons: []` and overwrites the stored reasons. Close the sheet first, then redirect.
+- Still open from round 4 (no cargo file changed in these commits):
+  - cargo rules failure loop (`CargoFlow.tsx:141-142,365,420`);
+  - "Kabinada hamroh" error without retry;
+  - dead history entries after a delivery order (`HomeScreen.tsx:213`; the same pattern also leaves the order-flow entries under a passenger ride);
+  - restore swap pickup/drop-off and reorder drop-offs in the delivery flow (owner decision).
+
+Later
+- `LiveOrderScreen.tsx:461,237,244`: the X on the cancelled and no-driver views pushes `/home`, which leaves the dead order under it. Use `replace`, as the panel buttons do.
+- `LiveOrderScreen.tsx:185-193`: auto-close pops only one entry. With `edit:to` open it lands on an empty `?sheet=edit`.
+- `LiveOrderScreen.tsx:118-127`: a late poll for the old order after "Qayta qidirish" can bring NoDriver back for about 1.5 s. A second tap then repeats the order twice. Ignore stale responses.
+- `RateScreen.tsx:102,284`: the custom tip is not checked against `tips.min`/`max` before sending.
+- `LiveOrderScreen.tsx:252`: double-tapping share calls `navigator.share` twice and shows an error toast.
+- `LiveOrderScreen.tsx:34-41`: the countdown shows a stale value for the first second.
+- `EditOrderScreen.tsx:141,166`: confirming the same time still sends `timing`. Save with no changes sends `{}` and says "saved".
+- Rule 2, small removals (keep them out only if the owner agrees):
+  - the "message driver" button, which only showed a "not available" toast;
+  - the saved-card list and "Karta ulash" inside the live edit's payment;
+  - the iOS second confirmation on cancel.
+
+OK
+- Rating and tip are each sent once: a retry skips the rating, and the button is disabled while sending.
+- The cancel sheet closes when the trip starts. Edit sends only changed fields.
+- NoDriver: changing the time, then "Qayta qidirish", passes the new timing.
+- SOS is support plus share. Android back closes a sheet first.
+- Phases (search, no driver, to pickup, arrived, trip, cancelled, completed → Rate) match the six PNGs.
+- No money maths in screens. The countdown, minutes left and progress are display of the server's timestamps and kilometres.
+- Emergency contacts are removed (screen, route, settings row, adapter, i18n), as decided.
+
 ## 2026-11-22, round 4 admin: redesign-admin `12b9ae3..c9b3236` (7 commits: round 3 fixes, groups 4 and 5): RED
 
 Checks:

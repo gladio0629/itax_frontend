@@ -20,7 +20,19 @@ expect. One entry per endpoint across the three files; the reviewer keeps them f
   trip `passenger` with `call_number`, trip summary, passenger rating, SOS, home earnings); wallet (top-up options,
   `WalletBalance` additions, pay with a saved card); profile (capabilities, delete account `DELETE /drivers/me`,
   profile fields, level, history filters).
-- Admin: header search `GET /admin/v1/search`. Phone reveal endpoint dropped (full phones in admin, 2026-11-22).
+- Admin: one section "Redesign v2: missing endpoints and fields", grouped as follows:
+  - me and permissions (incl. `marketing` for every senior role);
+  - search and dashboard (incl. `GET /admin/v1/search`);
+  - orders;
+  - drivers and passengers;
+  - wallet (correction applied on create, no approval step);
+  - tariffs (new tariff-settings model);
+  - operator queue (postpone, five results);
+  - staff;
+  - audit, complaints, export;
+  - lists.
+  
+  The phone reveal and the two-person approve/reject endpoints are dropped (decisions of 2026-11-22).
 
 Conventions in all proposals: ids are UUIDs, money is integer tiyin, lists are `{ data, cursor }`,
 and errors are `{ error: { key, params } }`.

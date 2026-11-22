@@ -309,7 +309,6 @@ export const uz = {
   "profile.capabilities": "Imkoniyatlarim",
   "caps.intro": "Belgilaganlaringiz bo'yicha sizga mos buyurtmalar keladi.",
   "caps.introSaved": "Imkoniyatlaringiz profilingizda saqlanadi.",
-  "caps.childSeatHint": "Qaysi yoshdagi bolalar uchun",
   "caps.ages": "O'rindiq yosh guruhlari",
   "caps.pets": "Hayvon olaman",
   "caps.bigLuggage": "Katta bagaj sig'imi",

@@ -14,7 +14,10 @@ import type {
   ComplaintType as SeedComplaintType,
   ComplaintStatus,
   ComplaintNote,
-  Tariff as SeedTariff,
+  OrderKind,
+  CargoBodySize,
+  DriverLevel,
+  DriverDocument,
 } from "@/seed/generate";
 import type {
   AdminUser,
@@ -24,23 +27,23 @@ import type {
   Action,
   AuditEntry as SeedAuditEntry,
   AuditAction,
-  TariffProposal as SeedTariffProposal,
-  TariffProposalType,
-  AdjustmentProposal as SeedAdjustmentProposal,
-  ReviewKind,
-  ReviewRequest,
   QueueItem as SeedQueueItem,
   QueueReason as SeedQueueReason,
   QueueStatus,
   HistoryEntry as SeedHistoryEntry,
-  HistoryResult,
+  HistoryResult as SeedHistoryResult,
 } from "@/mockDb/db";
 
 // The seed types are shared with the mock. The real API knows a few more
 // values (driver "rejected", order "arrived"/"expired", ledger "bonus"…), so
 // the UI types below widen them; the mock simply never produces the extras.
 export type DriverStatus = SeedDriverStatus | "rejected";
-export type Driver = Omit<SeedDriver, "status"> & { status: DriverStatus };
+/** `walletBalance: null` = not sent to this caller (the operator's
+ * read-only drivers window never receives balances). */
+export type Driver = Omit<SeedDriver, "status" | "walletBalance"> & { status: DriverStatus; walletBalance: number | null };
+/** "unresolved" = the real API's only non-resolved outcome; it can't tell
+ * "Javob bermadi" from "Qayta qo'ng'iroq", so it gets a neutral label. */
+export type HistoryResult = SeedHistoryResult | "unresolved";
 export type OrderStatus = SeedOrderStatus | "arrived" | "expired";
 export type PaymentMethod = SeedPaymentMethod | "wallet" | "payme" | "click";
 export type Order = Omit<SeedOrder, "status" | "paymentMethod"> & {
@@ -78,26 +81,28 @@ export type Complaint = Omit<SeedComplaint, "type"> & {
 };
 /** Real API actions are dotted strings ("staff.update"); the sample data
  * uses its own AuditAction names. */
-export type AuditEntry = Omit<SeedAuditEntry, "action"> & { action: AuditAction | (string & {}) };
-/** `subjectLabel`: what to show when the driver isn't known (the real list
- * only carries a wallet id). */
-export type AdjustmentProposal = SeedAdjustmentProposal & { subjectLabel?: string };
+export type AuditEntry = Omit<SeedAuditEntry, "action"> & {
+  action: AuditAction | (string & {});
+  /** v2 (server): actor's role label, category and client IP as the server shows it. */
+  actorRole?: AdminRole | null;
+  category?: AuditCategory | null;
+  ip?: string | null;
+};
+export type AuditCategory = "money" | "tariff" | "block" | "personal" | "login" | "staff";
 export type WalletEntryType = SeedWalletEntryType | "trip_payment" | "bonus";
 export type WalletEntry = Omit<SeedWalletEntry, "type"> & { type: WalletEntryType };
 export type QueueReason = SeedQueueReason | "driver_application" | "document_update";
 /** `phone` is null when the backend doesn't send one (real API queue items
  * carry only a subject id); `subjectLabel` is shown instead. */
 export type QueueItem = Omit<SeedQueueItem, "reason" | "phone"> & { reason: QueueReason; phone: string | null; subjectLabel?: string };
-export type HistoryEntry = Omit<SeedHistoryEntry, "reason" | "phone"> & { reason: QueueReason; phone: string | null; subjectLabel?: string };
-/** Contract car classes (tariffs). */
-export type TariffCarClass = "economy" | "comfort" | "business" | "minivan";
-export type Tariff = SeedTariff & {
-  perMin?: number;
-  minFare?: number;
-  carClass?: TariffCarClass;
+export type HistoryEntry = Omit<SeedHistoryEntry, "reason" | "phone" | "result"> & {
+  reason: QueueReason;
+  result: HistoryResult;
+  phone: string | null;
+  subjectLabel?: string;
 };
-export type TariffProposal = Omit<SeedTariffProposal, "patch"> & { patch: Partial<Tariff> };
-export type TariffNumericField = "baseFare" | "perKmCar" | "perKmSeat" | "frontSeatSurcharge" | "fuelAdjustmentPct" | "commissionPct" | "perMin" | "minFare";
+/** Passenger car classes (Standart, Komfort, Biznes, Miniven). */
+export type TariffCarClass = "economy" | "comfort" | "business" | "minivan";
 
 /**
  * What the active adapter can do. The mock can do everything; the http
@@ -119,19 +124,32 @@ export type AdapterCapabilities = {
   orderCreate: boolean;
   orderEdit: boolean;
   orderPassenger: boolean;
+  /** Ledger: search, kind chips and period filter. */
   walletLedgerFilters: boolean;
   walletDriverName: boolean;
-  adjustmentProposalsList: boolean;
-  tariffSearch: boolean;
-  tariffProposalValues: boolean;
+  /** Ledger kinds this backend reports (chips are shown only for these). */
+  walletKinds: readonly WalletEntryType[];
+  /** Ledger KPI tiles (getLedgerSummary). */
+  ledgerSummary: boolean;
+  /** "Qaysi yozuvga" on a correction (entry reference). */
+  correctionEntryRef: boolean;
+  /** New tariff model (fuel price, markups, extras, level commissions). */
+  tariffSettings: boolean;
+  /** Tariffs per city ("Shahar" filter). */
+  tariffCities: boolean;
+  /** v2 group 5 */
+  queuePostpone: boolean;
+  operatorMyStats: boolean;
+  /** Results the operator can finish a task with, in display order. */
+  operatorResults: readonly HistoryResult[];
+  staffCounts: boolean;
+  auditCategories: boolean;
+  marketing: boolean;
   queueFilters: boolean;
   historyFilters: boolean;
   historyEdit: boolean;
   operatorCounts: boolean;
   sectionBadges: boolean;
-  /** Tariff fields this backend knows, in display order. */
-  tariffFields: readonly TariffNumericField[];
-  tariffCarClass: boolean;
   /** Order statuses the list can be filtered by. */
   orderStatuses: readonly OrderStatus[];
   /** Order fields the edit form shows (and the backend accepts). */
@@ -159,6 +177,19 @@ export type AdapterCapabilities = {
   auditApiFilters: boolean;
   /** Header search over orders, drivers, passengers and staff (v2). */
   globalSearch: boolean;
+  /** v2 group 3 */
+  orderCounts: boolean;
+  orderKindFilter: boolean;
+  orderDateFilter: boolean;
+  /** "Operatorga yuborish" on an order. */
+  orderToOperator: boolean;
+  driverCounts: boolean;
+  driverRouteFilter: boolean;
+  driverLevelFilter: boolean;
+  /** Driver history (trips per driver). */
+  driverTrips: boolean;
+  passengerCounts: boolean;
+  passengerJoinedFilter: boolean;
 };
 
 /** One header-search hit. The server returns only what the current admin
@@ -188,14 +219,14 @@ export type {
   Section,
   Action,
   AuditAction,
-  TariffProposalType,
-  ReviewKind,
-  ReviewRequest,
   QueueStatus,
-  HistoryResult,
 };
 
+export type { OrderKind, CargoBodySize, DriverLevel, DriverDocument };
+
 export type OrderWithNames = Order & {
+  /** Passenger phone in full, when the server sends it. */
+  passengerPhone?: string | null;
   passengerName: string;
   driverName: string | null;
   fromCityName: string;
@@ -207,10 +238,81 @@ export type OrderWithNames = Order & {
 
 export type WalletLedgerRow = WalletEntry & { driverName: string };
 
+// ---------------------------------------------------------------------
+// v2 group 4: ledger, correction, tariff settings. All values from the
+// server; the UI only edits inputs and shows what comes back.
+// ---------------------------------------------------------------------
+
+/** Ledger KPI tiles; null = not reported (hidden). */
+export type LedgerSummary = {
+  toppedUpToday: number | null;
+  /** Display text, e.g. "Payme 61% · Click 39%". */
+  topupSplit: string | null;
+  commissionToday: number | null;
+  commissionTrips: number | null;
+  driversAtLimit: number | null;
+  reconciliation: { matchPct: number; at: number } | null;
+};
+
+/** A correction entry: one request (decision 2026-11-22, no second person). */
+export type WalletCorrectionInput = {
+  driverId: string;
+  /** Optional: the ledger entry this corrects (`capabilities.correctionEntryRef`). */
+  entryId?: string;
+  /** Signed so'm: positive adds, negative takes. */
+  amount: number;
+  reason: string;
+};
+/** `applied: false` = the server did not apply it (e.g. it still holds
+ * corrections for approval); the UI must say so, never claim success. */
+export type WalletCorrectionResult = { applied: boolean; entry: WalletLedgerRow | null };
+
+export type FuelKind = "gas" | "petrol";
+export type MarkupKind = "percent" | "sum";
+export type TariffMarkup = { fuel: FuelKind; markupKind: MarkupKind; markupValue: number };
+export type TariffExtraKey = "free_wait_min" | "wait_per_min" | "stop" | "loader" | "cancel_fee";
+
+/** Tariff model (doc 2.5, 2026-11-22): base = distance × 1 litre of fuel;
+ * per class / body markup in percent or so'm; extra fees; level
+ * commissions. Examples are the server's, for the saved values. */
+export type TariffSettings = {
+  cityId: string | null;
+  fuel: { kind: FuelKind; label: string; pricePerLitre: number; updatedAt: number | null }[];
+  classes: ({ key: TariffCarClass; label: string; seats: number | null; examplePrice: number | null } & TariffMarkup)[];
+  bodies: ({ size: CargoBodySize; exampleBase: number | null; examplePrice: number | null } & TariffMarkup)[];
+  extras: { key: TariffExtraKey; label: string; unit: "min" | "som"; value: number }[];
+  levels: { level: DriverLevel; commissionPct: number; minTripsWeek: number | null; minRating: number | null; maxCancelsWeek: number | null }[];
+  /** km the example columns use ("Misol, 40 km"). */
+  exampleDistanceKm: number | null;
+  /** The dark "Narx qanday hisoblanadi" card, as the server computed it. */
+  example: {
+    title: string;
+    distanceKm: number;
+    fuelLabel: string;
+    fuelPrice: number;
+    base: number;
+    markupLabel: string;
+    markup: number;
+    total: number;
+  } | null;
+};
+
+/** One section per save. */
+export type TariffSettingsPatch =
+  | { section: "fuel"; fuel: { kind: FuelKind; pricePerLitre: number }[] }
+  | { section: "classes"; classes: ({ key: TariffCarClass } & TariffMarkup)[] }
+  | { section: "bodies"; bodies: ({ size: CargoBodySize } & TariffMarkup)[] }
+  | { section: "extras"; extras: { key: TariffExtraKey; value: number; unit: "min" | "som" }[] }
+  | { section: "levels"; levels: TariffSettings["levels"] };
+
 /** A staff row plus the adapter's own verdict on whether the current admin
  * may edit/block/archive this particular person — never re-derived from
  * creatableRoles in a screen. */
-export type StaffRow = AdminUser & { canEdit: boolean };
+export type StaffRow = AdminUser & {
+  canEdit: boolean;
+  /** How this person signs in (server): "email_sms" or "sms"; null = not reported. */
+  loginMethod?: "email_sms" | "sms" | null;
+};
 
 /** What the current admin is allowed to see and do — the ONLY source of
  * truth for permissions on the client. Every screen, the sidebar, route
@@ -229,7 +331,7 @@ export type Me = {
   landingPath: string;
 };
 
-export type StatsPeriod = "7d" | "30d" | "90d";
+export type StatsPeriod = "today" | "7d" | "30d" | "90d";
 
 /** The one "Umumiy statistika" page every role with the "stats" section
  * gets — demographics AND money (income, commission, average order value,
@@ -246,15 +348,15 @@ export type MarketingStats = {
   driversActive: number | null;
   driversBlocked: number | null;
   driversNew: number | null;
-  /** Real API only: drivers online right now / at the debt limit. */
+  /** Drivers online right now (not shown: owner decision) / at the debt limit. */
   driversOnline?: number | null;
   driversOverLimit?: number | null;
-  /** Real API only: order totals for the period. */
+  /** Order totals for the period. */
   ordersTotal?: number | null;
   ordersCompleted?: number | null;
   ordersCancelled?: number | null;
   ordersExpired?: number | null;
-  /** Real API only: orders and completed orders per day. */
+  /** Orders and completed orders per day. */
   ordersOverTime?: { date: string; orders: number; completed: number }[] | null;
   ordersByStatus: { status: OrderStatus; count: number }[] | null;
   ordersByRoute: { from: string; to: string; count: number }[] | null;
@@ -270,10 +372,19 @@ export type MarketingStats = {
 
 export type LoginStep = "email_code" | "phone_code";
 
+/** The one fallback when the server sends no `code_length`: 6 boxes,
+ * codes of 4–6 digits accepted (SMS codes may be shorter). */
+export const LOGIN_CODE_FALLBACK = { length: 6, minLength: 4 } as const;
+
+/**
+ * Admin login (doc 2.5, design Main + Verify). Email accounts: email code,
+ * then the staff phone + SMS code (`needsPhone`: the phone is sent together
+ * with the email code). Operators: phone + SMS code only. Nothing is
+ * remembered on the device; the session ends on logout.
+ */
 export type LoginStartResult = {
   requestId: string;
   steps: LoginStep[];
-  maskedDestination: string;
   /** Set by the mock adapter only (sample-data build); never by the server. */
   testCode?: string;
   resendSeconds: number;
@@ -292,7 +403,6 @@ export type LoginStepResult =
       done: false;
       requestId: string;
       step: LoginStep;
-      maskedDestination: string;
       testCode?: string;
       resendSeconds: number;
       attemptsLeft: number;
@@ -300,7 +410,8 @@ export type LoginStepResult =
       codeMinLength?: number;
       codeLength?: number;
     }
-  | { done: true; reviewId: string };
+  /** Signed in: the session exists now (no review/approval step). */
+  | { done: true };
 
 // ---------------------------------------------------------------------
 // List query params. Every list screen sends these to the adapter, which
@@ -312,15 +423,147 @@ export type LoginStepResult =
 export type ArchivableStatusFilter<S extends string> = S | "archived" | "all";
 
 export type StaffQuery = { search?: string; role?: AdminRole | "all"; status?: ArchivableStatusFilter<StaffStatus> };
-export type DriverQuery = { search?: string; status?: ArchivableStatusFilter<DriverStatus> };
-export type PassengerQuery = { search?: string; status?: ArchivableStatusFilter<PassengerStatus> };
-export type OrderQuery = { search?: string; status?: OrderStatus | "all"; passengerId?: string };
-export type WalletQuery = { search?: string; type?: WalletEntryType | "all" };
-export type TariffQuery = { search?: string; status?: "active" | "archived" | "all" };
+export type DriverQuery = {
+  search?: string;
+  status?: ArchivableStatusFilter<DriverStatus>;
+  /** capabilities.driverRouteFilter / driverLevelFilter */
+  route?: string | "all";
+  level?: DriverLevel | "all";
+};
+export type PassengerQuery = {
+  search?: string;
+  status?: ArchivableStatusFilter<PassengerStatus>;
+  /** Registered in this period (the server resolves the dates);
+   * capabilities.passengerJoinedFilter. */
+  joined?: ListPeriod;
+};
+export type OrderQuery = {
+  search?: string;
+  status?: OrderStatus | "all";
+  passengerId?: string;
+  /** capabilities.orderKindFilter */
+  kind?: OrderKind | "all";
+  /** Created in this period (the server resolves the dates);
+   * capabilities.orderDateFilter. */
+  period?: ListPeriod;
+};
 
-export type ProposalStatusFilter = "pending_second" | "approved" | "rejected" | "all";
-export type TariffProposalQuery = { status?: ProposalStatusFilter };
-export type AdjustmentProposalQuery = { status?: ProposalStatusFilter };
+/** Relative period filters; the server turns them into dates. */
+export type ListPeriod = "all" | "today" | "yesterday" | "7d" | "30d" | "90d";
+
+/** Chip counters, decided by the server (`null` = not reported). The
+ * screen never counts rows itself: lists may be cut off. */
+export type ListCounts<K extends string> = Partial<Record<K | "all", number>>;
+
+// ---------------------------------------------------------------------
+// Redesign v2 (group 3): dashboard, order detail, driver profile/history.
+// Every number, label and verdict below comes from the server.
+// ---------------------------------------------------------------------
+
+export type DashboardPeriod = "today" | "7d" | "30d" | "90d";
+
+/** A KPI: value, change vs the previous period in % (server), sparkline. */
+export type Kpi = { value: number; deltaPct: number | null; spark: number[] | null };
+
+export type AttentionItem = {
+  id: string;
+  tone: "info" | "warning" | "danger";
+  title: string;
+  detail: string;
+  /** Where the card leads; shown only when the admin has that section. */
+  section: Section;
+};
+
+export type Dashboard = {
+  period: DashboardPeriod;
+  orders: Kpi | null;
+  activeDrivers: Kpi | null;
+  newPassengers: Kpi | null;
+  /** In so'm. */
+  commission: Kpi | null;
+  /** Last 14 days. `passenger`/`delivery` are null when the server only
+   * reports the total. */
+  ordersByDay: { date: number; total: number; passenger: number | null; delivery: number | null }[] | null;
+  topRoutes: { from: string; to: string; count: number }[] | null;
+  /** null = not reported or not allowed for this admin. */
+  recentOrders: OrderWithNames[] | null;
+  attention: AttentionItem[] | null;
+};
+
+export type OrderTimelineStep = {
+  title: string;
+  detail: string | null;
+  /** epoch ms; `estimated` marks a server forecast ("~19:40"). */
+  at: number | null;
+  estimated?: boolean;
+  state: "done" | "current" | "pending";
+};
+
+export type OrderPriceLine = {
+  label: string;
+  amount: number;
+  /** "payout" is the driver's share (shown green), "total" a sum line. */
+  kind: "line" | "commission" | "payout" | "total";
+};
+
+export type OrderDetail = OrderWithNames & {
+  passengerRating: number | null;
+  driverRating: number | null;
+  /** "Chevrolet Cobalt · 01 A 123 BC" */
+  driverCar: string | null;
+  carClassLabel: string | null;
+  /** Status history (server); null = not reported. */
+  steps: OrderTimelineStep[] | null;
+  priceLines: OrderPriceLine[] | null;
+  /** Server verdict: the order can still be edited. */
+  canEdit: boolean;
+};
+
+export type DriverTripRow = {
+  orderId: string;
+  kind: OrderKind;
+  at: number;
+  fromName: string;
+  toName: string;
+  /** "Dilnoza R. · 2 kishi" / "Nodira S. · Kuzov M" (server display text). */
+  subject: string;
+  price: number;
+  paymentMethod: PaymentMethod;
+  commission: number | null;
+  payout: number | null;
+  status: OrderStatus;
+  cancelledBy: "passenger" | "driver" | "admin" | null;
+};
+
+export type DriverProfile = Driver & {
+  recentTrips: DriverTripRow[] | null;
+};
+
+export type DriverTripsQuery = { kind?: OrderKind | "cancelled" | "all"; month?: string /* YYYY-MM */ };
+export type DriverTrips = {
+  month: string;
+  summary: {
+    trips: number;
+    tripsTotal: number;
+    income: number;
+    commission: number;
+    commissionAvgPct: number | null;
+    cancelled: number;
+    cancelledPct: number | null;
+  } | null;
+  counts: ListCounts<OrderKind | "cancelled"> | null;
+  rows: DriverTripRow[];
+  /** Months the filter offers (YYYY-MM), newest first. */
+  months: string[];
+};
+export type WalletQuery = {
+  search?: string;
+  type?: WalletEntryType | "all";
+  /** One driver's entries (real API: driver_id). */
+  driverId?: string;
+  period?: ListPeriod;
+};
+
 
 export type ComplaintCategoryFilter = "all" | "fraud" | "service";
 export type ComplaintQuery = {
@@ -331,12 +574,43 @@ export type ComplaintQuery = {
   assignedToMe?: boolean;
 };
 
-export type AuditQuery = { search?: string; action?: string; dateFrom?: string; dateTo?: string; entityType?: string };
+export type AuditQuery = {
+  search?: string;
+  action?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  entityType?: string;
+  /** capabilities.auditCategories */
+  category?: AuditCategory | "all";
+};
 
-export type OperatorQueueQuery = { search?: string; reason?: QueueReason | "all" };
+export type OperatorQueueQuery = { search?: string; reason?: QueueReason | "all"; operatorId?: string | "all" };
 export type OperatorInProgressQuery = { search?: string };
-export type OperatorHistoryQuery = { search?: string; result?: HistoryResult | "all"; dateFrom?: string; dateTo?: string };
+export type OperatorHistoryQuery = {
+  search?: string;
+  result?: HistoryResult | "all";
+  dateFrom?: string;
+  dateTo?: string;
+  reason?: QueueReason | "all";
+};
 export type OperatorApprovedQuery = OperatorHistoryQuery & { operatorId?: string | "all" };
 
 export type SectionBadges = Partial<Record<Section, number>>;
 export type OperatorCounts = { queue: number; inProgress: number; approvedToday: number };
+
+/** The operator's own day (OperatorView KPIs), from the server. */
+export type OperatorMyStats = { resolvedToday: number; noAnswerToday: number; avgHandleSec: number | null };
+
+export type MarketingPeriod = "3m" | "6m" | "12m";
+/** Marketolog's page (design Marketing). null blocks are hidden. */
+export type Marketing = {
+  period: MarketingPeriod;
+  monthlyOrders: Kpi | null;
+  activePassengers: Kpi | null;
+  activeDrivers: Kpi | null;
+  averageCheck: Kpi | null;
+  /** Commission per month, so'm, oldest first. */
+  commissionByMonth: { month: string; value: number }[] | null;
+  funnel: { title: string; steps: { label: string; count: number; pct: number }[] } | null;
+  orderTypes: { passengerPct: number; deliveryPct: number } | null;
+};
