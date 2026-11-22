@@ -312,7 +312,7 @@ const COMPLAINT_TEMPLATES: Record<ComplaintType, string[]> = {
 // Bump whenever the shape of persisted seed data changes, so a browser
 // holding an old-shape localStorage snapshot gets a fresh reseed instead of
 // crashing on missing/renamed fields.
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export type SeedData = {
   schemaVersion: number;
@@ -642,6 +642,29 @@ function enrichV2(d: { drivers: Driver[]; passengers: Passenger[]; orders: Order
                 : e.type === "card"
                   ? `Karta safar #${rng.int(10, 170)}`
                   : null;
+  }
+  // A few drivers who took cash trips and didn't top up: their unpaid
+  // commission pushes them to the debt limit, so "Qarz limitiga yetgan"
+  // has real sample rows. Own RNG keeps every other value as it was.
+  const debtRng = makeRng(SEED + 23);
+  const debtors = d.drivers.filter((dr) => !dr.archived && dr.status === "active").filter((_, i) => i % 4 === 1).slice(0, 4);
+  for (const dr of debtors) {
+    const before = balance.get(dr.id) ?? 0;
+    const trips = debtRng.int(6, 14);
+    const amount = dr.debtLimit - before - debtRng.int(0, 12) * 1000;
+    if (amount >= 0) continue;
+    const entry: WalletEntry = {
+      id: `wal_${dr.id}_debt`,
+      driverId: dr.id,
+      type: "commission",
+      amount,
+      // After the driver's last entry, so the running balance stays right.
+      createdAt: Math.min(NOW, Math.max(0, ...d.walletEntries.filter((e) => e.driverId === dr.id).map((e) => e.createdAt)) + debtRng.int(5, 90) * 60_000),
+      balanceAfter: before + amount,
+      note: `${trips} ta naqd safar komissiyasi`,
+    };
+    d.walletEntries.push(entry);
+    balance.set(dr.id, before + amount);
   }
   for (const dr of d.drivers) {
     dr.walletBalance = balance.get(dr.id) ?? 0;
