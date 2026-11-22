@@ -15,6 +15,7 @@ import * as map from "../httpMapper";
 import type {
   AdapterCapabilities,
   Complaint,
+  GlobalSearchHit,
   LoginStartResult,
   LoginStepResult,
   Me,
@@ -67,10 +68,13 @@ const CAPABILITIES: AdapterCapabilities = {
   complaintResolution: true,
   auditSearch: false,
   auditApiFilters: true,
+  // GET /admin/v1/search is not in the contract yet (docs/backend-gaps/admin.md).
+  globalSearch: false,
 };
 
 const CANCEL_REASONS: readonly OrderCancelReasonCode[] = ["admin_decision", "passenger_request", "driver_request", "duplicate", "fraud", "other"];
 const LOGOUT_TIMEOUT_MS = 5_000;
+const ADMIN_SEARCH_PATH = "/admin/v1/search";
 
 function fail(code: string, params: ErrorParams = {}): never {
   throw new ApiError(code, adminErrorMessage(code, params), { params });
@@ -348,6 +352,15 @@ export const httpAdapter: ApiAdapter = {
 
   getCities: notSupported,
   getSectionBadges: notSupported,
+
+  // Expected endpoint (not in openapi.yml yet; hidden via capabilities until
+  // the backend ships it): GET /admin/v1/search?q= → { items: GlobalSearchHit[] }.
+  async globalSearch(query) {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const res = await http.get<{ items: GlobalSearchHit[] }>(ADMIN_SEARCH_PATH, { q });
+    return res.items;
+  },
 
   // --- staff ------------------------------------------------------------
   async getStaff(query) {

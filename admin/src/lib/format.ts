@@ -4,6 +4,13 @@ export function formatSom(value: number): string {
   return `${sign}${abs.toLocaleString("fr-FR").replace(/,/g, " ")} so'm`;
 }
 
+/** "1 284" — digit groups with a no-break space; "−" for negatives (v2 tables). */
+export function formatNumber(value: number): string {
+  const abs = Math.abs(Math.round(value));
+  const grouped = String(abs).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+  return value < 0 ? `\u2212${grouped}` : grouped;
+}
+
 export function formatKm(value: number): string {
   return `${Math.round(value).toLocaleString("fr-FR").replace(/,/g, " ")} km`;
 }

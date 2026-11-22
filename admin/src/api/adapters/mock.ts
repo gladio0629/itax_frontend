@@ -63,6 +63,7 @@ import type {
   OperatorCounts,
   ArchivableStatusFilter,
   AdapterCapabilities,
+  GlobalSearchHit,
 } from "../types";
 
 const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
@@ -275,6 +276,7 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
   complaintResolution: false,
   auditSearch: true,
   auditApiFilters: false,
+  globalSearch: true,
 };
 
 export const mockAdapter: ApiAdapter = {
@@ -568,6 +570,38 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   getCities: () => withLatency(() => db.cities()),
+
+  globalSearch: (query) =>
+    withLatency<GlobalSearchHit[]>(() => {
+      const actor = currentAdmin();
+      const q = query.trim();
+      if (q.length < 2) return [];
+      const sections = ROLE_SECTIONS[actor.role];
+      const hits: GlobalSearchHit[] = [];
+      if (sections.includes("orders")) {
+        for (const o of db.orders().map(decorateOrder)) {
+          if (matchesSearch(`${o.id} ${o.passengerName} ${o.driverName ?? ""}`, q))
+            hits.push({ kind: "order", id: o.id, title: `#${o.id}`, subtitle: `${o.fromCityName} → ${o.toCityName} · ${o.passengerName}` });
+        }
+      }
+      if (sections.includes("drivers")) {
+        for (const d of db.drivers()) {
+          if (matchesSearch(`${d.id} ${d.name} ${d.plate} ${d.phoneMasked}`, q))
+            hits.push({ kind: "driver", id: d.id, title: d.name, subtitle: `${d.phoneMasked} · ${d.plate}` });
+        }
+      }
+      if (sections.includes("passengers")) {
+        for (const p of db.passengers()) {
+          if (matchesSearch(`${p.id} ${p.name} ${p.phoneMasked}`, q)) hits.push({ kind: "passenger", id: p.id, title: p.name, subtitle: p.phoneMasked });
+        }
+      }
+      if (sections.includes("staff")) {
+        for (const u of readStaff()) {
+          if (!u.archived && matchesSearch(`${u.name} ${u.email}`, q)) hits.push({ kind: "staff", id: u.id, title: u.name, subtitle: u.email || u.role });
+        }
+      }
+      return hits.slice(0, 12);
+    }),
 
   getSectionBadges: () =>
     withLatency<SectionBadges>(() => {

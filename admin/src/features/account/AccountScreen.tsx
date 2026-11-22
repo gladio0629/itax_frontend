@@ -3,7 +3,7 @@ import { Card } from "@/components/Card";
 import { Avatar } from "@/components/Avatar";
 import { Badge } from "@/components/Badge";
 import { Skeleton } from "@/components/Skeleton";
-import { ROLE_LABEL } from "@/components/Topbar";
+import { ROLE_LABEL } from "@/lib/roles";
 import { usePermissions } from "@/hooks/usePermissions";
 import { DEMO_MODE } from "@/config";
 

@@ -46,6 +46,7 @@ import type {
   SectionBadges,
   OperatorCounts,
   AdapterCapabilities,
+  GlobalSearchHit,
 } from "./types";
 
 /**
@@ -78,6 +79,9 @@ export interface ApiAdapter {
   getStats(period: StatsPeriod): Promise<MarketingStats>;
 
   getCities(): Promise<City[]>;
+
+  /** Header search ("ID, telefon, ism"); `capabilities.globalSearch`. */
+  globalSearch(query: string): Promise<GlobalSearchHit[]>;
 
   /** Sidebar notification counts, computed entirely server-side. */
   getSectionBadges(): Promise<SectionBadges>;

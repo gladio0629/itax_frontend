@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
 import { ListToolbar } from "@/components/ListToolbar";
 import { FilterSelect } from "@/components/FilterSelect";
-import { ROLE_LABEL } from "@/components/Topbar";
+import { ROLE_LABEL } from "@/lib/roles";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAdapterList } from "@/hooks/useAdapterList";

@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Input } from "./Input";
+import { SearchInput } from "./Input";
+import { Pagination } from "./Pagination";
+import { formatNumber } from "@/lib/format";
 import { EmptyState } from "./EmptyState";
 
 export type Column<T> = {
@@ -28,6 +30,8 @@ type Props<T> = {
   emptyIcon?: ReactNode;
   emptyTitle?: string;
   emptyDescription?: string;
+  /** Render without the white card around it (when the caller already has one). */
+  bare?: boolean;
 };
 
 /** Generic client-side search/sort/pagination table shared by the drivers,
@@ -45,6 +49,7 @@ export function DataTable<T>({
   emptyIcon,
   emptyTitle = "Hech narsa topilmadi",
   emptyDescription = "Qidiruv shartlariga mos yozuv yo'q.",
+  bare,
 }: Props<T>) {
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -87,27 +92,27 @@ export function DataTable<T>({
   return (
     <div className="flex flex-col gap-4">
       {searchFields && (
-        <div className="max-w-sm">
-          <Input
-            placeholder={searchPlaceholder}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(0);
-            }}
-            leftIcon={<Search className="h-4 w-4" />}
-          />
-        </div>
+        <SearchInput
+          className="w-[300px] max-w-full"
+          label={searchPlaceholder.replace(/\.{3}|…/g, "")}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(0);
+          }}
+          icon={<Search className="h-4 w-4" aria-hidden />}
+        />
       )}
 
       {sorted.length === 0 ? (
         <EmptyState icon={emptyIcon ?? <Search />} title={emptyTitle} description={emptyDescription} />
       ) : (
-        <>
-          <div className="overflow-x-auto rounded-card border border-border bg-card">
+        <div className={cn("flex min-w-0 flex-col gap-4", !bare && "rounded-card bg-white p-4 shadow-card")}>
+          {/* The table scrolls inside its own box; the page never scrolls sideways. */}
+          <div className="min-w-0 overflow-x-auto rounded-box shadow-hairline">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-border bg-ink/[0.02]">
+                <tr className="bg-surface">
                   {columns.map((col) => {
                     const active = sortKey === col.key;
                     const SortIcon = !active ? ChevronsUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
@@ -117,16 +122,16 @@ export function DataTable<T>({
                         scope="col"
                         style={{ width: col.width }}
                         aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
-                        className={cn("h-12 whitespace-nowrap px-3 text-xs font-semibold text-ink/60 xl:px-4", col.align === "right" && "text-right")}
+                        className={cn("h-11 whitespace-nowrap px-3 text-2xs font-bold uppercase tracking-[0.6px] text-muted", col.align === "right" && "text-right")}
                       >
                         {col.sortValue ? (
                           <button
                             type="button"
-                            className={cn("-mx-2 inline-flex h-8 items-center gap-1 rounded-button px-2 hover:bg-ink/5 hover:text-ink", active && "text-ink")}
+                            className={cn("-mx-2 inline-flex h-8 items-center gap-1 rounded-full px-2 uppercase hover:bg-white hover:text-ink", active && "text-ink")}
                             onClick={() => toggleSort(col.key)}
                           >
                             {col.header}
-                            <SortIcon className={cn("h-3 w-3", !active && "text-ink/30")} aria-hidden />
+                            <SortIcon className={cn("h-3 w-3", !active && "text-muted/50")} aria-hidden />
                           </button>
                         ) : (
                           col.header
@@ -153,8 +158,8 @@ export function DataTable<T>({
                         : undefined
                     }
                     className={cn(
-                      "border-b border-border last:border-0 even:bg-ink/[0.015] hover:bg-accent-5",
-                      onRowClick && "cursor-pointer focus-visible:bg-accent-5 focus-visible:outline-offset-[-2px]"
+                      "border-b border-line last:border-0 hover:bg-surface/60",
+                      onRowClick && "cursor-pointer focus-visible:bg-surface focus-visible:outline-offset-[-2px]"
                     )}
                   >
                     {columns.map((col) => (
@@ -162,7 +167,7 @@ export function DataTable<T>({
                         key={col.key}
                         title={col.truncate?.title(row)}
                         style={col.truncate ? { maxWidth: col.truncate.maxWidth } : undefined}
-                        className={cn("h-12 whitespace-nowrap px-3 py-2 text-ink xl:px-4", col.align === "right" && "tabular text-right", col.truncate && "truncate")}
+                        className={cn("h-[60px] whitespace-nowrap px-3 py-2 text-sm font-semibold text-ink", col.align === "right" && "tabular text-right", col.truncate && "truncate")}
                       >
                         {col.render(row)}
                       </td>
@@ -173,37 +178,14 @@ export function DataTable<T>({
             </table>
           </div>
 
-          <div className="flex items-center justify-between gap-4 text-sm text-ink/60">
-            <span className="tabular">
-              {safePage * pageSize + 1}–{Math.min(sorted.length, safePage * pageSize + pageRows.length)} / {sorted.length}
-            </span>
-            {pageCount > 1 && (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={safePage === 0}
-                  aria-label="Oldingi sahifa"
-                  className="flex h-8 w-8 items-center justify-center rounded-button border border-border bg-card text-ink hover:bg-ink/[0.04] disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="tabular min-w-12 text-center text-ink">
-                  {safePage + 1} / {pageCount}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                  disabled={safePage >= pageCount - 1}
-                  aria-label="Keyingi sahifa"
-                  className="flex h-8 w-8 items-center justify-center rounded-button border border-border bg-card text-ink hover:bg-ink/[0.04] disabled:opacity-40"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        </>
+          <Pagination
+            summary={`${safePage * pageSize + 1}–${safePage * pageSize + pageRows.length}, jami ${formatNumber(sorted.length)}`}
+            hasPrev={safePage > 0}
+            hasNext={safePage < pageCount - 1}
+            onPrev={() => setPage((p) => Math.max(0, p - 1))}
+            onNext={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+          />
+        </div>
       )}
     </div>
   );

@@ -13,11 +13,11 @@ function onArrow<K extends string>(e: KeyboardEvent, items: TabItem<K>[], value:
   document.getElementById(`${id}-${next.key}`)?.focus();
 }
 
-/** Section tabs: underline style, yellow indicator on the active tab, optional counters. */
+/** Section tabs (v2): 44px, 800 when active, 3px green underline, optional counters. */
 export function Tabs<K extends string>({ items, value, onChange, label }: { items: TabItem<K>[]; value: K; onChange: (k: K) => void; label: string }) {
   const id = useId();
   return (
-    <div role="tablist" aria-label={label} className="flex gap-6 border-b border-border" onKeyDown={(e) => onArrow(e, items, value, onChange, id)}>
+    <div role="tablist" aria-label={label} className="no-scrollbar flex gap-7 overflow-x-auto border-b border-line" onKeyDown={(e) => onArrow(e, items, value, onChange, id)}>
       {items.map((t) => {
         const active = t.key === value;
         return (
@@ -29,20 +29,22 @@ export function Tabs<K extends string>({ items, value, onChange, label }: { item
             aria-selected={active}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.key)}
-            className={cn("relative -mb-px flex h-11 items-center gap-2 text-sm font-semibold", active ? "text-ink" : "text-ink/60 hover:text-ink")}
+            className={cn(
+              "relative flex h-11 shrink-0 items-center gap-2 whitespace-nowrap px-1 text-sm",
+              active ? "font-extrabold text-ink shadow-[inset_0_-3px_0_var(--green)]" : "font-semibold text-muted hover:text-ink"
+            )}
           >
             {t.label}
             {t.count !== undefined && (
               <span
                 className={cn(
-                  "tabular flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold",
-                  active ? "bg-brand-yellow text-on-yellow" : "bg-ink/[0.06] text-ink/60"
+                  "tabular flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-2xs font-extrabold",
+                  active ? "bg-ink text-white" : "bg-surface text-muted"
                 )}
               >
                 {t.count}
               </span>
             )}
-            <span aria-hidden className={cn("absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-brand-yellow transition-opacity", active ? "opacity-100" : "opacity-0")} />
           </button>
         );
       })}
@@ -50,10 +52,10 @@ export function Tabs<K extends string>({ items, value, onChange, label }: { item
   );
 }
 
-/** Compact segmented control (e.g. period picker). Active segment is yellow. */
+/** Segmented control (v2): surface track, active segment white with a soft shadow. */
 export function Segmented<K extends string>({ items, value, onChange, label }: { items: { key: K; label: string }[]; value: K; onChange: (k: K) => void; label: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-button border border-border bg-card p-1">
+    <div role="radiogroup" aria-label={label} className="inline-flex gap-1 rounded-box bg-surface p-1">
       {items.map((p) => {
         const active = p.key === value;
         return (
@@ -63,7 +65,10 @@ export function Segmented<K extends string>({ items, value, onChange, label }: {
             role="radio"
             aria-checked={active}
             onClick={() => onChange(p.key)}
-            className={cn("h-8 rounded-[6px] px-3 text-sm font-semibold", active ? "bg-brand-yellow text-on-yellow" : "text-ink/60 hover:text-ink")}
+            className={cn(
+              "h-9 rounded-[10px] px-3.5 text-13",
+              active ? "bg-white font-extrabold text-ink shadow-[0_1px_3px_rgba(11,21,36,0.12)]" : "font-bold text-muted hover:text-ink"
+            )}
           >
             {p.label}
           </button>

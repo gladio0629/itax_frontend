@@ -89,3 +89,20 @@ No WebSocket in admin: `/ws` accepts passenger/driver tokens only.
 - `Stats`: totals and blocked/new counts for drivers and passengers, total wallet balance, registrations series, income by route and city.
 - Section badges (`getSectionBadges`).
 - Cursor lists: the adapter follows `cursor` for at most 5 pages × 100 rows. Larger sets are cut off; a paged table would need UI work.
+
+## Redesign v2
+
+Admin redesign v2 (design-v2/admin, 2026-11-22). Endpoints the new screens expect. The http adapter already calls them, but they stay hidden (`capabilities.*: false`) until the backend ships them. Errors are `{ error: { key, params } }` as everywhere.
+
+### Header search (group 1)
+
+- `GET /admin/v1/search?q=<text>` (min 2 chars), auth: any staff.
+  - Response: `{ items: { kind: "order"|"driver"|"passenger"|"staff", id: string, title: string, subtitle: string }[] }`, at most ~12 items.
+  - The server returns only kinds the caller's sections allow (operator: none or own scope; marketolog: none). `subtitle` is display text; any phone in it is already masked.
+  - Matches: order id, driver/passenger name, plate, phone (last digits), staff name/email.
+  - Errors: `validation.too_short` (q < 2), `auth.forbidden`.
+  - Capability flag in the adapter: `globalSearch`.
+
+### Already listed above, needed by v2 everywhere
+
+- Masked phones in every list (`phone_masked`) plus the audited reveal endpoint (see "Shapes the frontend needs"). v2 shows masked numbers on every page; today the http mapper masks the full number it receives, which means full numbers still travel to the browser.

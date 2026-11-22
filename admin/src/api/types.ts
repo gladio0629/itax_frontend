@@ -155,6 +155,18 @@ export type AdapterCapabilities = {
   auditSearch: boolean;
   /** Audit log: the backend's dotted action names and an entity-type filter. */
   auditApiFilters: boolean;
+  /** Header search over orders, drivers, passengers and staff (v2). */
+  globalSearch: boolean;
+};
+
+/** One header-search hit. The server returns only what the current admin
+ * may see; `subtitle` is display text (phones in it are already masked). */
+export type GlobalSearchKind = "order" | "driver" | "passenger" | "staff";
+export type GlobalSearchHit = {
+  kind: GlobalSearchKind;
+  id: string;
+  title: string;
+  subtitle: string;
 };
 
 export type QueueListItem = Omit<QueueItem, "phoneFull">;
