@@ -14,5 +14,7 @@ if (import.meta.env.DEV && !DEMO_MODE && apiConfig.viaDevProxy) console.warn(DEV
  * .env.local — never in code or in a tracked .env file). */
 export const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN ?? "").trim();
 
-/** Public website (terms, privacy). "" = show the names without links. */
-export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "").trim().replace(/\/+$/, "");
+/** Public website (terms, privacy), opened in the system browser. The default
+ * is the one host check:no-network allows here; VITE_SITE_URL overrides it
+ * and an empty value shows the names without links. */
+export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://xasanow.uz").trim().replace(/\/+$/, "");
