@@ -13,17 +13,23 @@ const HistoryScreen = lazy(() => import("@/features/history/HistoryScreen"));
 const TripDetailScreen = lazy(() => import("@/features/history/TripDetailScreen"));
 const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen"));
 const TopupScreen = lazy(() => import("@/features/wallet/TopupScreen"));
+const WalletDebtScreen = lazy(() => import("@/features/wallet/WalletDebtScreen"));
 const CardsScreen = lazy(() => import("@/features/wallet/CardsScreen"));
 const CardLinkScreen = lazy(() => import("@/features/wallet/CardLinkScreen"));
 const ProfileScreen = lazy(() => import("@/features/profile/ProfileScreen"));
 const PersonalScreen = lazy(() => import("@/features/profile/PersonalScreen"));
-const BonusScreen = lazy(() => import("@/features/profile/BonusScreen"));
+const LevelScreen = lazy(() => import("@/features/profile/LevelScreen"));
+const SettingsScreen = lazy(() => import("@/features/profile/SettingsScreen"));
+const NotificationsScreen = lazy(() => import("@/features/profile/NotificationsScreen"));
 const RoutesScreen = lazy(() => import("@/features/profile/RoutesScreen"));
 const CapabilitiesScreen = lazy(() => import("@/features/profile/CapabilitiesScreen"));
 const NotificationPrefsScreen = lazy(() => import("@/features/profile/NotificationPrefsScreen"));
 const HelpScreen = lazy(() => import("@/features/profile/HelpScreen"));
 const AboutScreen = lazy(() => import("@/features/profile/AboutScreen"));
 const TripChatScreen = lazy(() => import("@/features/chat/TripChatScreen"));
+const RequestScreen = lazy(() => import("@/features/request/RequestScreen"));
+const TripScreen = lazy(() => import("@/features/trip/TripScreen"));
+const FinishedScreen = lazy(() => import("@/features/trip/FinishedScreen"));
 // Test panel: sample-data mode only. DEMO_MODE is a build-time constant, so
 // in the http build this branch (and the chunk it imports) is dropped.
 const TestPanelScreen = DEMO_MODE ? lazy(() => import("@/features/testPanel/TestPanelScreen")) : null;
@@ -47,17 +53,25 @@ export function AppRoutes() {
       <Route element={<AppShell />}>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/trip/chat/:bookingId" element={when(c.tripChat, <TripChatScreen />, "chat.title", true)} />
+        <Route path="/request/:id" element={<RequestScreen />} />
+        <Route path="/trip/:id" element={<TripScreen />} />
+        <Route path="/trip/:id/done" element={<FinishedScreen />} />
         <Route path="/history" element={when(c.history, <HistoryScreen />, "orders.title")} />
         <Route path="/history/:tripId" element={when(c.history, <TripDetailScreen />, "detail.title", "/history")} />
         {/* Old "Buyurtmalar" links. */}
         <Route path="/orders/*" element={<Navigate to="/history" replace />} />
         <Route path="/wallet" element={<WalletScreen />} />
         <Route path="/wallet/topup" element={<TopupScreen />} />
+        <Route path="/wallet/debt" element={<WalletDebtScreen />} />
         <Route path="/wallet/cards" element={<CardsScreen />} />
         <Route path="/wallet/cards/link" element={<CardLinkScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/profile/personal" element={<PersonalScreen />} />
-        <Route path="/profile/bonus" element={when(c.bonus, <BonusScreen />, "bonus.title", "/profile")} />
+        <Route path="/profile/level" element={when(c.bonus, <LevelScreen />, "level.title", "/profile")} />
+        {/* Old link (Hamyon's commission tile and earlier builds). */}
+        <Route path="/profile/bonus" element={<Navigate to="/profile/level" replace />} />
+        <Route path="/profile/settings" element={<SettingsScreen />} />
+        <Route path="/notifications" element={<NotificationsScreen />} />
         <Route path="/profile/capabilities" element={when(c.driverCapabilities, <CapabilitiesScreen />, "profile.capabilities", "/profile")} />
         <Route path="/profile/routes" element={when(c.routes, <RoutesScreen />, "routes.title", "/profile")} />
         <Route path="/profile/notifications" element={<NotificationPrefsScreen />} />

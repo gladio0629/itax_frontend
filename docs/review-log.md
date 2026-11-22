@@ -3,6 +3,19 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 4 merge: driver into `redesign-v2`
+
+Owner decision after round 4: the client restores both delivery features, swapping pickup and drop-off and reordering the drop-offs.
+
+Merged `redesign-driver` at `750065f`, `--no-ff`, with no conflicts. Two commits came after the review (`8101dba`, `750065f`):
+- the Home route line no longer blocks the offers (`FeedPage.directions` may be `null`), which fixes the round 4 "later" item;
+- one city pair served both ways shows as "A ⇄ B".
+
+Both were reviewed before the merge.
+- Handoff: `docs/handoff-driver.md` has nothing open.
+- `docs/backend-gaps.md` index: the driver line now lists the work flow, wallet and profile sections.
+- After the merge, on `redesign-v2`: `npm ci` (driver), typecheck, `VITE_DEMO_MODE=false` build and `check:no-network` for all three apps, `cap sync` for the driver.
+
 ## 2026-11-22, round 4 (client and driver after the owner answers; admin later)
 
 Checks: clean detached checkouts, `tsc -b --noEmit`, `VITE_DEMO_MODE=false npm run build`, `check:no-network`, grep of `dist`, `npx cap sync`. All pass for both. `dist` has no test panel or "demo" text. The only site URL in `dist` is the bare `https://xasanow.uz`. Neither app tracks `.env` any more. Both keep `SITE_URL` with its default in `src/config.ts`.

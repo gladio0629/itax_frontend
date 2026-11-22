@@ -1,4 +1,4 @@
-import type { AddressDetails, OrderOption } from "@/api/types";
+import type { AddressDetails } from "@/api/types";
 import type { TranslationKey } from "@/lib/i18n/provider";
 
 type T = (key: TranslationKey, params?: Record<string, string | number>) => string;
@@ -12,8 +12,4 @@ export function detailsText(d: AddressDetails, t: T): string {
   ]
     .filter(Boolean)
     .join(" · ");
-}
-
-export function optionLabel(o: OrderOption, t: T): string {
-  return o.kind === "child_seat" ? t("option.child_seat", { age: t(`childAge.${o.ageGroup}`) }) : t(`option.${o.kind}`);
 }

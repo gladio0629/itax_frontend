@@ -1,6 +1,6 @@
 // Main (phone) and Otp (SMS code) screens of the redesign.
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import { DEMO_MODE } from "@/config";
 import { TEST_PANEL_PATH } from "@/features/testPanel/paths";
@@ -19,13 +19,28 @@ import { LegalSentence, useLegalLinks } from "./parts";
 type OtpRequest = { requestId: string; testCode?: string; resendInSec: number; codeLength?: number };
 
 /** Phone entry, then the code. `onVerified`: the session is signed in. */
+/** The code screen is its own history entry (?otp=1): the phone's back button returns to the phone number. */
 export function SignIn({ onVerified }: { onVerified: () => void }) {
   const [digits, setDigits] = useState("");
   const [otp, setOtp] = useState<OtpRequest | null>(null);
-  return otp ? (
-    <OtpScreen digits={digits} otp={otp} onResent={setOtp} onChangePhone={() => setOtp(null)} onVerified={onVerified} />
+  const location = useLocation();
+  const navigate = useNavigate();
+  const inOtp = new URLSearchParams(location.search).get("otp") === "1";
+  useEffect(() => {
+    // Reloaded on the code screen: the request is gone, start from the number.
+    if (inOtp && !otp) navigate("/register", { replace: true });
+  }, [inOtp, otp, navigate]);
+  return otp && inOtp ? (
+    <OtpScreen digits={digits} otp={otp} onResent={setOtp} onChangePhone={() => navigate(-1)} onVerified={onVerified} />
   ) : (
-    <PhoneScreen digits={digits} setDigits={setDigits} onSent={setOtp} />
+    <PhoneScreen
+      digits={digits}
+      setDigits={setDigits}
+      onSent={(o) => {
+        setOtp(o);
+        navigate("/register?otp=1");
+      }}
+    />
   );
 }
 
@@ -36,7 +51,7 @@ const TOP_PAD = "max(calc(var(--safe-top) + 12px), 56px)";
 /** Uzbekistan flag chip in front of +998 (decorative). */
 function UzFlag() {
   return (
-    <span className="flex h-4 w-6 flex-col overflow-hidden rounded-[3px] shadow-[0_0_0_1px_#D4DBE4]" aria-hidden="true">
+    <span className="flex h-4 w-6 flex-col overflow-hidden rounded-[3px] shadow-[0_0_0_1px_var(--color-control-off)]" aria-hidden="true">
       <span className="h-[5px] bg-[#1EB0D8]" />
       <span className="h-px bg-[#CE1126]" />
       <span className="h-1 bg-white" />
@@ -53,17 +68,17 @@ function HeroSketch({ you }: { you: string }) {
       {/* Short screens: an empty Ink area instead of a squeezed sketch. */}
       <div className="absolute bottom-0 left-0 aspect-[350/200] [@media(max-height:700px)]:hidden h-full max-h-[200px] max-w-full">
         <svg viewBox="0 0 350 200" preserveAspectRatio="xMinYMax meet" className="absolute inset-0 block h-full w-full">
-          <circle cx="60" cy="150" r="32" fill="none" stroke="#17273B" strokeWidth="2" />
-          <circle cx="60" cy="150" r="56" fill="none" stroke="#132032" strokeWidth="2" />
-          <path d="M60 150 C 120 20, 240 10, 296 70" fill="none" stroke="#2EDB85" strokeWidth="3" strokeLinecap="round" strokeDasharray="1 10" />
-          <circle cx="60" cy="150" r="15" fill="#2EDB85" fillOpacity="0.25" />
-          <circle cx="60" cy="150" r="7" fill="#2EDB85" />
+          <circle cx="60" cy="150" r="32" fill="none" stroke="rgb(var(--color-night-2-rgb))" strokeWidth="2" />
+          <circle cx="60" cy="150" r="56" fill="none" stroke="rgb(var(--color-night-2-rgb))" strokeWidth="2" />
+          <path d="M60 150 C 120 20, 240 10, 296 70" fill="none" stroke="rgb(var(--color-brand-rgb))" strokeWidth="3" strokeLinecap="round" strokeDasharray="1 10" />
+          <circle cx="60" cy="150" r="15" fill="rgb(var(--color-brand-rgb))" fillOpacity="0.25" />
+          <circle cx="60" cy="150" r="7" fill="rgb(var(--color-brand-rgb))" />
           <g transform="rotate(-8 178 36)">
-            <rect x="160" y="26" width="38" height="20" rx="8" fill="#FFFFFF" />
-            <rect x="167" y="30" width="13" height="12" rx="3" fill="#0B1524" />
+            <rect x="160" y="26" width="38" height="20" rx="8" fill="white" />
+            <rect x="167" y="30" width="13" height="12" rx="3" fill="rgb(var(--color-night-rgb))" />
           </g>
-          <circle cx="296" cy="70" r="13" fill="#FFFFFF" />
-          <circle cx="296" cy="70" r="5" fill="#0B1524" />
+          <circle cx="296" cy="70" r="13" fill="white" />
+          <circle cx="296" cy="70" r="5" fill="rgb(var(--color-night-rgb))" />
         </svg>
         <span className="absolute bottom-[10%] left-[25%] flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full bg-night-2 px-3 text-13 font-bold text-white">
           <Navigation className="h-3.5 w-3.5 text-brand" />

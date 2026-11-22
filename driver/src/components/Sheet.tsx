@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useT } from "@/lib/i18n/provider";
 import { X } from "@/lib/icons";
+import { pushBackHandler } from "@/lib/backButton";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -28,6 +29,9 @@ export function Sheet({
   const dragY = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // The phone's back button closes the sheet first.
+  useEffect(() => (open ? pushBackHandler(() => onCloseRef.current()) : undefined), [open]);
 
   useEffect(() => {
     if (!open) return;

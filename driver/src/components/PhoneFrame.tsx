@@ -17,8 +17,8 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
     return <div className="relative mx-auto h-[100dvh] w-full max-w-[480px] overflow-hidden bg-bg">{children}</div>;
   }
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#050A12] py-8">
-      <div className="relative h-[844px] w-[390px] overflow-hidden rounded-[44px] bg-bg shadow-2 ring-[6px] ring-[#24364D]">
+    <div className="flex min-h-screen items-center justify-center bg-night py-8">
+      <div className="relative h-[844px] w-[390px] overflow-hidden rounded-[44px] bg-bg shadow-2 ring-[6px] ring-night-line">
         {children}
       </div>
     </div>

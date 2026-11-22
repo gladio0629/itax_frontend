@@ -20,7 +20,7 @@ and the UI hides it or shows "Tez orada". Nothing is faked.
 | `getRoutes` / `addRoute` / `setRouteBothWays` / `removeRoute` / `completeRoutesSetup` | `driverRoutesGet`, `driverRoutesPut`, `citiesList` | **On.** Every change is GET → modify → full-set PUT, and the screen shows the PUT response (each PUT issues new ids). A new pair starts `both_ways: true`. 422 `routes.N.b_city_id: same_as_a` → "pick two different cities", `routes.N: duplicate` → "route exists", `routes: arrayMaxSize` (more than 10) → "too many routes". The server accepts 0 routes, but the app keeps the last one (`ROUTES_MIN_ONE`, as in sample data): an active driver without routes is sent to the first-run routes step. |
 | `getProfile` | `driverGetMe` | No `rating_count`, `city`, `member_since` or documents status. Those rows are hidden. |
 | `getHomeSummary` | `walletBalance` + `notificationsList` + `tripsList` | Unread count is counted on the first notifications page. `tripActive` (GPS reporting) = `GET /trips` has an item. **Needed:** `unread_count` on `NotificationPage`, plus `new_offers_count` and today's earnings/trips. |
-| `getFeed` | `tripOffersList` + `citiesList` | Shown now: pickup time (`scheduled_at`, or the `scheduled_from`–`scheduled_to` window; none = now, no time row), `payment_method` (cash / card; `card`, `payme`, `click` show as card, `wallet` has no label), `comment`, `created_at` ("N min ago"), `seat_ids` (seat names tag), and city names from `from_city_id` / `to_city_id` (address line from the point). Still missing: pickup distance (only `pickup_eta_s`), stops / options / luggage, commission %. Filters (direction/date/type) stay hidden: the endpoint has no query params. Seat summary is hidden. |
+| `getFeed` | `tripOffersList` + `citiesList` | Shown now: pickup time (`scheduled_at`, or the `scheduled_from`–`scheduled_to` window; none = now, no time row), `payment_method` (cash / card; `card`, `payme`, `click` show as card, `wallet` has no label), `comment`, `created_at` ("N min ago"), `seat_ids` (seat names tag), and city names from `from_city_id` / `to_city_id` (address line from the point). Still missing: pickup distance (only `pickup_eta_s`), stops / options / luggage, commission %. Filters (direction/date/type) stay hidden: the endpoint has no query params. "Mening yo'nalishim" shows the driver's routes (`driverRoutesGet`, cached 60 s). Seat summary is hidden. |
 | `markFeedSeen` | **NONE** | No-op. |
 | `getRejectReasons` / `rejectRequest` | `tripOfferReject` | **On.** Reasons `too_far` / `bad_price` / `busy` / `other` (UI keys `reject.reason.far` / `price` / `busy` / `other`); the reason is optional. The sample-data-only reasons (time, seats) are not offered. |
 | `acceptRequest` | `tripOfferAccept` | 409 `ORDER_ALREADY_TAKEN` shows the "taken" card; 402 `WALLET_LIMIT_REACHED` shows a toast. |
@@ -99,10 +99,94 @@ The four existing step bodies are unchanged (the contract rejects unknown fields
 | PUT | `/api/v1/drivers/me/service-types` | `{ service_types: ("passengers" \| "delivery")[] }` (≥ 1) | 204 | 422 → UI `SERVICE_TYPE_REQUIRED` |
 | GET | `/api/v1/drivers/registration/review` | — | `{ sections: { key: "personal" \| "license" \| "car" \| "selfie", status: "approved" \| "checking" \| "queued" \| "rejected" }[], eta_minutes?: int }` | 404 → the screen shows the four sections without a status and no time estimate |
 | GET | `/api/v1/drivers/registration/options` | — | `{ car_brands: { brand, models[] }[], colors: { key, hex }[], years: int[], seats: int[], car_classes: CarClass[], service_types: string[], license_categories: string[] }` | (already requested above; static lists until then: brands, 7 colours incl. red / beige, licence categories A, B, BE, C, D) |
-| GET | `/api/v1/legal` (no auth) | — | `{ terms_url: string, privacy_url: string }` | 404 → the names show as plain text, no links (Main and the selfie step). See `docs/handoff-driver.md` |
 
 Notes:
 - A rejected section (`status: "rejected"`) should come with the step to reopen; today the app only gets the overall
   `rejected` driver state and restarts at step 1 with a notice.
 - "Bosh sahifaga" on the review screen stays disabled until the driver state is `active` (a driver under review is sent
   back to registration by the app).
+
+### Work flow: Home, Request, OrderDetail, ToPickup, Waiting, OnTrip, Finished
+
+All fields below are optional on the client: without them the screen hides that part (test panel → "Minimal server
+data" shows what the real backend gives today). Nothing is computed on the phone: no prices, waiting charges, ETAs.
+
+**Offer (`GET /api/v1/trips/offers` items, and a new `GET /api/v1/trips/offers/{id}`)** — today the app finds one offer
+by reading the list.
+- `expires_at` (ISO): end of the answer window → the Request countdown; at zero the screen closes and the list is re-read.
+- `requester`: `{ first_name, trips_count?, rating? }` shown before acceptance ("Dilnoza · 43 safar · reyting 4.9").
+  Today the contract withholds identity until acceptance; please confirm this is allowed.
+- `car_seats` (int): seats in the driver's car, for the seat picture.
+- `price_lines`: `[{ key: "trip" | "loaders" | "waiting" | "commission" | …, amount (tiyin, signed), pct? }]`; the app
+  labels known keys and shows "Sizga qoladi" from the offer's net.
+- Cargo: `freight.insured` (bool), plus the freight fields already listed above.
+
+**Trip (`GET /api/v1/trips` items, and a new `GET /api/v1/trips/{id}`)** — today one trip is found by reading the list.
+- `passenger`: `{ name, rating, call_number }`. `call_number` must be dialable (e.g. a masked-call proxy); without it
+  there is no call button (the app never dials a masked number). The http adapter already reads this object from the
+  trip item (`httpMapper.ts` `tripPassenger`), so the passenger row and the call button appear as soon as the server
+  sends it. Until then a trip shows no passenger row and no call button. Same `call_number` on freight `sender` /
+  `receiver` after acceptance.
+- `eta`: `{ minutes, distance_km? }` — to the pickup (assigned) or to the next stop (in progress).
+- `waiting` (after `arrive`): `{ arrived_at, free_minutes, price_per_minute, charge?, passenger_notified? }`. The app
+  only runs the clock; the charge is the server's.
+- `progress` (in progress): `{ started_at, next_stop: Place, arrive_at, remaining_km, ratio (0..1) }`.
+- `active_trip_id` on the list: which booking the driver handles next (pickup order when several passengers share the
+  car). Without it the app takes the first item in the server's order.
+
+| Method | Path | Request | Response | Errors (key) |
+|---|---|---|---|---|
+| GET | `/api/v1/trips/{id}/summary` | — | `{ gross, commission_pct, commission, base_commission_pct?, commission_waived?, net, payment, cash_to_collect?, passenger_name?, destination?, passenger_rating? }` (tiyin) | 404 `TRIP_NOT_FOUND`. Until then Finished shows the trip price only (and the net if the trip carries it), and no cash reminder: the app shows cash to collect only from `cash_to_collect` |
+| POST | `/api/v1/trips/{id}/passenger-rating` | `{ stars: 1..5 }` | 204 | 409 `ALREADY_RATED`, 422 `stars` |
+| POST | `/api/v1/trips/{id}/sos` | `{ lat?, lng? }` | 202 | 404 `TRIP_NOT_FOUND`. The app hides "IZGO'ga signal" until this exists; the 112 call button is always there |
+
+**Home**: `today_work_min` and `week: [{ date, amount }]` (last 7 days, tiyin) for the earnings block and its mini
+chart; today they are absent and the chart is hidden.
+
+**Clocks:** the countdown (`expires_at`), the waiting clock (`arrived_at`) and "Safarda · N daq" (`started_at`)
+compare server times with the phone's clock. A phone clock that is off shifts them. Please also send the server's
+current time (e.g. a `Date` header the app can read, or `server_time` in these responses) or remaining seconds
+(`expires_in_s`, `free_left_s`).
+
+**Not built (no data source):** turn-by-turn instructions on OnTrip ("800 m, M39 bo'ylab"). The top card opens the
+phone's navigator instead (geo: / Apple Maps link, no web request).
+
+### Wallet: Wallet, WalletDebt, TopUp
+
+- **Top-up options** (reviewer note: `http.ts` used to hard-code presets and min/max). The app now calls
+  `GET /api/v1/wallet/topup/options` → `{ presets: Money[], min?: Money, max?: Money, providers?: PayProvider[] }`
+  (tiyin). On 404 there are no presets and no limits on screen: the driver types the amount and `POST /wallet/topup`
+  validates it (422 → the server's error key). Providers fall back to the contract's `PayProvider` values.
+- **`WalletBalance`** (`GET /api/v1/wallet/balance`), optional additions:
+  - `headroom` (Money): what can still be spent before the limit ("134 500 zaxira"). The app does not subtract.
+  - `min_topup_to_unblock` and `recommended_topup` (Money): the WalletDebt screen's "Qaytish uchun kamida" and
+    "Tavsiya"; the suggested amount pre-fills TopUp.
+  - `week`: `{ earnings: Money, change_pct?: int }` for "Bu hafta … +12% o'tgan haftadan".
+  - `commission`: `{ pct, level: "bronze" | "silver" | "gold" }` for the commission tile.
+- **Pay with a saved card**: `TopupRequest` has no card. Proposed `{ amount, provider, card_id? }`; until then saved
+  cards are not offered on TopUp in http mode (`GET /api/v1/wallet/cards` above is still needed for the list).
+- The TopUp screen shows the current balance only, not "balance → balance + amount": a provider fee or rounding would
+  make a client-side sum wrong. If the server can quote it, add `POST /api/v1/wallet/topup/quote` →
+  `{ credited: Money, balance_after: Money }`.
+
+### Profile: History, Profile, Level, Capabilities, Notifications, Settings
+
+- **Imkoniyatlarim** (decision 2026-11-22: wishes removed). The contract's `DriverCapabilities` (child seat, pets,
+  big luggage) is no longer used by the app. Needed:
+  `GET` / `PUT /api/v1/drivers/me/cargo-capabilities` → `{ body_sizes: ("S"|"M"|"L"|"XL"|"XXL"|"3XL")[],
+  available_body_sizes?: string[], loader_help: boolean }`; 422 on an unknown size. Matching should use these for
+  cargo offers. Until it exists the screen shows "Tez orada" in http mode (`capabilities.driverCapabilities = false`).
+- **Delete account** (Google Play requirement): `DELETE /api/v1/drivers/me` → 204, then the session ends;
+  409 `TRIP_ACTIVE` while a trip is open, 409 `WALLET_DEBT` while the wallet is in debt (the app shows the server's
+  reason in the dialog). Until then Sozlamalar → "Akkauntni o'chirish" opens
+  `${VITE_SITE_URL}/delete-account` in the system browser.
+- **Profile** (`GET /api/v1/drivers/me`): `acceptance_pct` (0–100), `member_since` (year), `rating_count`, and the
+  documents' review status (already listed above). Missing ones are hidden.
+- **Level** ("Darajalar", the old bonus screen): `GET /api/v1/drivers/me/level` →
+  `{ levels: [{ key, trips_required, commission_pct }], current, next?, week_trips, trips_to_next, commission_pct,
+  rules: [{ key: "trips" | "rating" | "cancels", progress, target, done, ratio }], resets_in_days }`. Hidden until then
+  (`capabilities.bonus = false`).
+- **History**: filters `range`, `kind` (`passengers` / `delivery`), `city`, `min_earnings` on the history list, plus a
+  `summary` of the filtered period: `{ from, to, total (tiyin), trips, days?: [{ date, amount }] }` for the Tarix top
+  (total, trips, a bar per day for a week). Without it the top shows only the title.
+- **Settings**: night mode, language, request sound and navigator are stored on the phone (not account data).
