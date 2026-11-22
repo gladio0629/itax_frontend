@@ -9,6 +9,8 @@ Owner decisions this round: keep "Shikoyatlar" in admin; admin shows phone numbe
 Same checks as round 1, plus `check:no-network` in http mode and a client build with `VITE_SITE_URL=https://xasanow.uz`.
 Screens: client `Main` matches `design-v2/client/png/Main.png`; the legal names show without links because the build has no `VITE_SITE_URL`, which is expected.
 
+**Merged into `redesign-v2`** (no fast-forward): client `30c2352` (`426d1b1`), driver `673057d` (`3b39fc4`), admin `63575a8` (`c2316de`). Later commits on the branches (client `cdf1bfa`, driver `e20a808`) were not reviewed and are not merged. Merged tree: `npm ci`, typecheck, `VITE_DEMO_MODE=false` build, `check:no-network` pass for all three apps; `cap sync` (client, driver) leaves `git status` clean.
+
 ### Shared changes applied by the reviewer (`ecb8449`)
 - `shared/scripts/check-no-network.mjs`: the build scan accepts `https://xasanow.uz` only as a plain link, either the bare origin or followed by `/terms` or `/privacy`. Tested: `api.xasanow.uz`, `http://`, `wss://`, ports, look-alike hosts and `/delete-account` are rejected. The source scan is unchanged, and the origin never enters `connect-src`. The path rule only covers full URLs. When the app appends the path at runtime, reviewers check that it appends only `/terms` or `/privacy`. Today that is true for client `PhoneScreen.tsx:169-170`.
 - `DEPLOY.md`, `docs/native.md`: `VITE_SITE_URL=https://xasanow.uz`.
