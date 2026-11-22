@@ -3,6 +3,85 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 3 (client groups 3–4, driver groups 3–5, admin groups 2–3)
+
+Heads: client `332481e`, driver `d43dafa`, admin `12b9ae3`. All three merged `redesign-v2` (round 2) first.
+Checks: clean detached checkouts, `npm run typecheck`, `VITE_DEMO_MODE=false npm run build`, `check:no-network`, grep of `dist`, `npx cap sync` (client, driver; driver from its own `npm ci` because of the new `@capacitor/app`). All pass. `dist` has no test panel text and no mock marker. The `••••` hits are card numbers (last 4 digits), not phones. Driver native files for `@capacitor/app` are committed (`cap sync` leaves the tree clean).
+Screens (demo build, headless Chrome): admin Dashboard and Drivers match `design-v2/admin/png/Dashboard.png` and `Drivers.png`. Phones are shown in full (the design PNG still masks them; the 2026-11-22 decision wins). Driver Wallet and Capabilities match `Wallet.png` and `Capabilities.png`: only S–3XL and loader help, no wishes. Client Home was not compared: the demo login waits for a review step in the test panel.
+Also committed this round: `docs/izgo-asosiy-hujjat.md` v1.8 from the owner (`9d9371d`).
+
+Owner questions (apply to more than one app)
+- `client/.env` and `driver/.env` are now tracked. They hold only `VITE_SITE_URL=https://xasanow.uz` (public, no secret). The rules say no `.env` files. Either accept them, or move the value to `.env.production` and `.env.development` (both already tracked).
+- Admin has no i18n: all strings are hard-coded Uzbek, as before the redesign (main doc §1 marks admin languages `[OCHIQ]`). Uzbek only, or uz/ru/en?
+
+### redesign-client `30c2352..332481e` (4 commits): RED
+Must fix
+- `client/src/features/address/MapPick.tsx:87,171,198`: when `reverseGeocode` fails, the previous address stays in the title and "Bu joy" stays enabled, so the passenger confirms a place that is not under the pin. On error, clear `address` (or disable the button).
+- Rule 2, silent removals. Restore them, or the owner signs off:
+  - the pickup ETA bubble (`capabilities.pickupEta`, `getPickupEta`; no caller left, `client/src/features/home/HomeView.tsx:9-15`);
+  - the ETA and the Tafsilotlar summary on saved places (`HomeView.tsx:117-143`);
+  - the app version line in the side menu (`drawer.version` was deleted in uz/ru/en).
+
+Later
+- `HomeView.tsx:35,201-205`: in http mode a new user has no pickup and saved points carry `cityId: ""`, so the city pill and the Qayerdan field are hidden.
+- `AddressFlow.tsx:49,83`: details typed on MapPick stay on the point after the pin moves.
+- `MenuDrawer.tsx:39,86`: if `getBonusSummary` fails, the balance shows "…" forever.
+- `HomeScreen.tsx:321`: a recent route ignores its `fromCityId`. `HomeView.tsx:270` splits the server's `label` text to get the city.
+- `HomeScreen.tsx:89`: `getRecentRoutes` has no capability flag, so a network error also hides the section.
+- Unused import `detailsSummary` (`HomeScreen.tsx:18`).
+- Raw `text-white` and `bg-white` instead of tokens (`AddressSearch.tsx`, `MapPick.tsx`, `HomeView.tsx`).
+
+OK: no prices, ETAs or sample numbers outside `mock.ts`. 54 new keys in uz/ru/en. No "demo" text. Saved-place `kind` and recent routes are documented in `docs/backend-gaps/client.md`. Changes stay in `client/` and the client docs.
+
+### redesign-driver `673057d..d43dafa` (8 commits): RED
+Must fix
+- `driver/src/features/trip/FinishedScreen.tsx:39`: `cash = s?.cashToCollect ?? (payment === "cash" ? gross : undefined)`. That is a business assumption, wrong with promos or discounts. Show cash only when the server sends `cashToCollect`.
+- `driver/src/features/home/HomeScreen.tsx:381` (`AcceptedTrips`): if `getAccepted` fails, nothing is shown. The old tab had an `ErrorState` with retry, so an accepted trip can vanish without a word.
+- `driver/src/features/profile/SettingsScreen.tsx:161`: opens `${SITE_URL}/delete-account`. Owner decision: the apps link only to `/terms` and `/privacy`. Owner call: Google Play needs a deletion page, and the site has one (journal 2026-11-20). If the owner allows it, the decision and `check-no-network.mjs` (comment and `LEGAL_LINK_PATH`) get `/delete-account`. If not, drop the link until `DELETE /api/v1/drivers/me` exists.
+- Rule 2, silent removals. Restore them, or the owner signs off:
+  - Wallet: the "balance after" line per entry (the server sends it, `httpMapper.ts:460`), the today card (earnings, trips, average), the card list and the debt amount;
+  - Home: the map and the seat positions before accepting;
+  - Finished: the rating the driver received.
+- Calls: http mode has no call button, because `callNumber` is never set by `httpMapper` (`trip/parts.tsx:105`). The old masked-call toast is gone. Documented in backend gaps (`call_number`), but the screen needs a fallback, or the owner accepts it.
+
+Later
+- `RequestScreen.tsx:38-43`: a poll during accept can show a false "request gone" toast. TripScreen already guards this.
+- `RequestScreen.tsx:196,297`: the headline says "after commission" using `earnings.net`, but http sets net = price when the server sends no commission (`httpMapper.ts:221`).
+- `HomeScreen.tsx:229`: in http mode `directions` is always `[]`, so "Yo'nalish tanlanmagan" always shows.
+- `SettingsScreen.tsx:79-83`: the request-sound switch shows in http mode, where `requestAlerts` is off.
+- `TripScreen.tsx:32-33`: http `getBooking` calls `getAccepted`, plus the 8 s poll, so GET /trips runs twice every 4–8 s.
+- `RequestScreen.tsx:184` hex `#24364D`. Unused `caps.childSeat`, `option.*`, `childAge.*` keys.
+- `docs/handoff-driver.md` §1 says DONE, but its second paragraph still says the check fails. Shorten it.
+
+OK
+- Round 2 fixes done: legal links come from `VITE_SITE_URL` (`registration/parts.tsx:387`, `SettingsScreen.tsx:94-95`); `getLegalLinks` and `/api/v1/legal` are removed; `getTopupOptions` (`http.ts:774`) asks the server and shows no presets or limits without one; the colour nits are fixed.
+- Wishes, wheelchair and text-only options are removed (owner decision). Imkoniyatlarim keeps S–3XL and loader help only, hidden in http mode.
+- Timers run from server times. No price, commission or waiting maths in components. i18n uz/ru/en 943 keys each, no gaps. Navigation links (`geo:`, `maps:` and others) are only opened, never fetched. The Android back button is handled through sheets and the router.
+
+### redesign-admin `63575a8..12b9ae3` (4 commits): RED (YELLOW if the owner accepts the stats removal)
+Must fix
+- Rule 2: `admin/src/features/dashboard/StatsScreen.tsx` is deleted and `getStats` has no caller left. The new Dashboard drops these, and nothing records it:
+  - KPIs: income, average order, total wallet balance, completed/cancelled/expired orders, total passengers, total/blocked/online drivers;
+  - charts: income over time, registrations, orders by status, income by route.
+  
+  Bring them back (for example for the marketolog role), or the owner signs off.
+- `admin/src/features/drivers/DriverHistory.tsx:132`: `{data.rows.length} ta safar` counts in the browser. Use the server's `data.counts`.
+
+Later
+- Group 4, unchanged by this diff: the two-person approval flow is still there (`approveAdjustment` `adapterTypes.ts:163`, `approveTariffProposal` `:172`, `tariff_second_approve` / `wallet_adjust_second_approve`, `pending_change` in `httpMapper.ts:454,471`, text in `WalletScreen.tsx:252`, `TariffsScreen.tsx:245`).
+- Login code length: `http.ts:296,315` falls back to 4, `LoginScreen.tsx:38-39,57-58` to 6. Take it from the server; until then, use one fallback.
+- `httpMapper.ts:648` fills missing days with 0 (contradicts the dashboard comment).
+- `DashboardScreen.tsx:78`, `DriverHistory.tsx:50`: a failed refetch keeps old data with no notice. Use `StaleNotice` as `OrdersScreen` does.
+- `OrderDetailPanel.tsx:235` cuts the passenger ID to 8 characters. In http mode it is the only passenger reference; show it in full or make it copyable.
+- The drivers list lost the "Onlayn" and "Safarlar" columns (trips are now on the profile). Owner OK?
+- `AuthAside.tsx:23-53` hex in the SVG. `http.ts:313` indentation.
+
+OK
+- Phones are shown in full everywhere (`formatPhone`). No masking or reveal is left. `maskedDestination` and the stale comment are fixed.
+- S–3XL only, and `vehicle_type` is never shown. Chip counters come from the server (`ListCounts`, behind flags). "Qarz chegarasi" now uses the server's `atDebtLimit` (before, the browser computed it).
+- New adapter methods are behind capability flags. No approvals route. "Shikoyatlar" stays. The login flow is right: email + code then phone + SMS, operator phone + SMS only.
+- Earlier colour nits are fixed (`green-hover`, `row-hover` tokens). Group 3 endpoints are in `docs/backend-gaps/admin.md`.
+
 ## 2026-11-22, round 2 (client group 2, driver group 2, admin phone decision)
 
 Owner decisions this round: keep "Shikoyatlar" in admin; admin shows phone numbers in full for every role (no masking, no reveal); legal links may point to `https://xasanow.uz` (terms and privacy only).
