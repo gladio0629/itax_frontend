@@ -54,7 +54,7 @@ export default function WalletScreen() {
             {w.today && (
             <section aria-labelledby="today-h" className="rounded-card bg-surface p-5 shadow-1">
               <p id="today-h" className="text-sm text-muted">{t("wallet.today")}</p>
-              <p className="tabular mt-1 text-4xl font-bold text-gold">
+              <p className="tabular mt-1 text-4xl font-bold text-brand-ink">
                 {formatAmount(todayEarnings)}
                 <span className="ml-1.5 text-base font-medium text-muted">{t("common.som")}</span>
               </p>
@@ -80,7 +80,7 @@ export default function WalletScreen() {
               style={{ background: "linear-gradient(140deg, #24448f 0%, #15275a 55%, #0d1a40 100%)" }}
             >
               <p className="relative text-sm text-[#C3CCE4]">{t("wallet.balance")}</p>
-              <p className={cn("tabular relative mt-1 text-4xl font-bold", w.balance < 0 ? "text-[#FFB39C]" : "text-[#F6BF0E]")}>
+              <p className={cn("tabular relative mt-1 text-4xl font-bold", w.balance < 0 ? "text-[#F97066]" : "text-brand")}>
                 {formatAmount(balance)}
                 <span className="ml-1.5 text-base font-medium text-[#C3CCE4]">{t("common.som")}</span>
               </p>
@@ -88,7 +88,7 @@ export default function WalletScreen() {
               {w.debt.debtAmount > 0 && (
                 <div className="relative mt-4">
                   <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="tabular font-bold text-[#FFB39C]">{t("wallet.debt", { amount: `${formatAmount(-w.debt.debtAmount)} ${t("common.som")}` })}</span>
+                    <span className="tabular font-bold text-[#F97066]">{t("wallet.debt", { amount: `${formatAmount(-w.debt.debtAmount)} ${t("common.som")}` })}</span>
                     <span className="tabular text-[#C3CCE4]">{t("wallet.debtLimit", { amount: formatAmount(w.debt.limit) })}</span>
                   </div>
                   <ProgressBar value={w.debt.usedRatio} tone={w.debt.level === "ok" ? "warning" : "danger"} label={t("wallet.debtProgress")} className="bg-white/15" />
@@ -117,7 +117,7 @@ export default function WalletScreen() {
                     t("wallet.commission", { pct: w.commission.pct })
                   )}
                 </p>
-                <p className="text-sm text-gold">{w.commission.bonusActive ? t("wallet.commissionActive", { pct: w.commission.bonusPct }) : t("wallet.commissionBonus")}</p>
+                <p className="text-sm text-brand-ink">{w.commission.bonusActive ? t("wallet.commissionActive", { pct: w.commission.bonusPct }) : t("wallet.commissionBonus")}</p>
               </div>
               <ChevronRight className="h-5 w-5 shrink-0 text-muted" />
             </Link>

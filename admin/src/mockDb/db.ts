@@ -344,7 +344,6 @@ export type AuditAction =
   | "passenger_unblock"
   | "passenger_archive"
   | "passenger_restore"
-  | "phone_reveal"
   | "order_create"
   | "order_edit"
   | "order_cancel"
@@ -476,16 +475,16 @@ export function setSession(session: Session | null) {
 }
 
 // ---------------------------------------------------------------------
-// Operator windows ("Navbat" / "Tarix"). Masking and unmasking happen only
-// here — screens only ever see what the adapter decides to hand them.
+// Operator windows ("Navbat" / "Tarix"). Phone numbers are full for every
+// role (decision 2026-11-22); screens only see what the adapter hands them.
 // ---------------------------------------------------------------------
 
 export type QueueReason = "login_issue" | "info_needed" | "complaint";
 export type QueueStatus = "waiting" | "in_progress" | "done" | "rejected";
 export type QueueItem = {
   id: string;
-  phoneMasked: string;
-  phoneFull: string;
+  /** Full number (decision 2026-11-22: no masking in admin). */
+  phone: string;
   reason: QueueReason;
   waitingSinceAt: number;
   status: QueueStatus;
@@ -502,7 +501,7 @@ export type HistoryEntry = {
   queueItemId: string;
   operatorId: string;
   operatorName: string;
-  phoneMasked: string;
+  phone: string;
   reason: QueueReason;
   result: HistoryResult;
   note: string;
@@ -512,11 +511,12 @@ export type HistoryEntry = {
   edited: boolean;
 };
 
+/** Sample number only: the "003" block keeps it obviously fake. The
+ * discarded draw keeps the seeded sequence (and the sample data) stable. */
 function randomPhone(rng: ReturnType<typeof makeRng>): string {
-  return `+998 9${rng.int(0, 9)} ${rng.int(100, 999)} ${rng.int(10, 99)} ${rng.int(10, 99)}`;
-}
-function maskLast2(full: string): string {
-  return full.replace(/(\d{3}) (\d{2}) (\d{2})$/, "*** ** $3");
+  const op = rng.int(0, 9);
+  rng.int(100, 999);
+  return `+998 9${op} 003 ${rng.int(10, 99)} ${rng.int(10, 99)}`;
 }
 
 function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } {
@@ -533,8 +533,7 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
     const full = randomPhone(rng);
     return {
       id: `q_${i + 1}`,
-      phoneMasked: maskLast2(full),
-      phoneFull: full,
+      phone: full,
       reason: rng.pick(reasons),
       waitingSinceAt: now - rng.int(1, 45) * 60_000,
       status: "waiting" as const,
@@ -548,8 +547,7 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
     const startedAt = now - rng.int(1, 8) * 60_000;
     return {
       id: `q_active_${i + 1}`,
-      phoneMasked: maskLast2(full),
-      phoneFull: full,
+      phone: full,
       reason: rng.pick(reasons),
       waitingSinceAt: startedAt - rng.int(2, 10) * 60_000,
       status: "in_progress" as const,
@@ -573,7 +571,7 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
       queueItemId: `qh_${i + 1}`,
       operatorId: op.id,
       operatorName: op.name,
-      phoneMasked: maskLast2(full),
+      phone: full,
       reason: rng.pick(reasons),
       result,
       note: result === "rejected" ? "Mijoz javob bermadi" : "Muammo hal qilindi, mijozga tushuntirildi.",
@@ -590,7 +588,7 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
 const QUEUE_KEY = "operator_queue";
 const HISTORY_KEY = "operator_history";
 const OPERATOR_SCHEMA_KEY = "operator_windows_version";
-const OPERATOR_SCHEMA_VERSION = 2;
+const OPERATOR_SCHEMA_VERSION = 3;
 
 export function getQueue(): QueueItem[] {
   const version = readJSON<number>(OPERATOR_SCHEMA_KEY, 0);

@@ -3,15 +3,17 @@ import { Card } from "@/components/Card";
 import { Avatar } from "@/components/Avatar";
 import { Badge } from "@/components/Badge";
 import { Skeleton } from "@/components/Skeleton";
-import { ROLE_LABEL } from "@/components/Topbar";
+import { ROLE_LABEL } from "@/lib/roles";
 import { usePermissions } from "@/hooks/usePermissions";
 import { DEMO_MODE } from "@/config";
+import { PageHeader } from "@/layouts/PageHeader";
 
 export function AccountScreen() {
   const { me } = usePermissions();
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <PageHeader title="Profil" subtitle="Hisobingiz va kirish sozlamalari" />
       <Card className="space-y-4">
         <div className="flex items-center gap-2 text-ink">
           <UserRound className="h-4 w-4 text-accent" aria-hidden />

@@ -12,6 +12,9 @@ import type {
   AcceptedPage,
   CityRef,
   DocSlot,
+  LegalLinks,
+  RegistrationSectionKey,
+  RegistrationSectionStatus,
   DriverRoute,
   HomeSummary,
   LedgerEntry,
@@ -33,12 +36,12 @@ import {
   reasonFromKey,
   REG_CAR_CLASSES,
   REG_CAR_COLORS,
-  REG_CAR_MODELS,
+  REG_CAR_BRANDS,
+  REG_LICENSE_CATEGORIES,
   REG_CITIES,
   REG_SEAT_COUNTS,
   REJECT_REASON_KEY,
   safeRedirect,
-  splitCarModel,
   splitName,
   toApiCapabilities,
   toApiPhone,
@@ -266,7 +269,10 @@ function stageFromStep(state: Api.RegistrationState): SessionStage {
   if (state.state === "pending_review") return "review";
   if (state.state === "active") return "active";
   if (state.state === "blocked") return "blocked";
-  return state.current_step <= 1 ? "personal" : state.current_step === 2 ? "car" : "documents";
+  // The server's steps are personal → car → documents → terms; the screens go
+  // personal → license → car → selfie (the licence photos and details are
+  // sent with the later steps, see saveLicense).
+  return state.current_step <= 1 ? "personal" : state.current_step === 2 ? "car" : "selfie";
 }
 
 async function currentSession(): Promise<Session> {
@@ -301,7 +307,43 @@ async function registrationStep(step: 1 | 2 | 3 | 4, body: unknown): Promise<Ses
   }
 }
 
-const DOC_KIND: Record<DocSlot, Api.DocumentKind> = { license: "license_front", registration: "tech_passport_front", selfie: "selfie" };
+const DOC_KIND: Record<DocSlot, Exclude<Api.DocumentKind, "avatar">> = {
+  license_front: "license_front",
+  license_back: "license_back",
+  tech_passport_front: "tech_passport_front",
+  tech_passport_back: "tech_passport_back",
+  car_photo: "car_photo",
+  selfie: "selfie",
+};
+/** Uploaded document ids kept until registration step 3 sends them all
+ * (licence → car → selfie screens; the server takes documents in one step).
+ * Memory only: a reload restarts registration at step 1, as before. */
+const pendingDocs = new Map<DocSlot, string>();
+
+/**
+ * Calls an endpoint the backend doesn't have yet (docs/backend-gaps/driver.md,
+ * "Redesign v2"). Only "route missing" (404 / 405 / 501) is swallowed and
+ * gives `fallback`; validation errors, 5xx and network errors still throw.
+ */
+async function optionalEndpoint<T>(call: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await call();
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 405 || err.status === 501)) return fallback;
+    throw mapFieldError(err);
+  }
+}
+const OPT = {
+  legal: "/api/v1/legal",
+  referral: "/api/v1/drivers/registration/referral",
+  license: "/api/v1/drivers/registration/license",
+  serviceTypes: "/api/v1/drivers/me/service-types",
+  review: "/api/v1/drivers/registration/review",
+} as const;
+type ApiRegistrationReview = {
+  sections: { key: RegistrationSectionKey; status: RegistrationSectionStatus }[];
+  eta_minutes?: number;
+};
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // UploadUrlRequest.size_bytes maximum
 
 // -------------------------------------------------------------- summaries
@@ -378,15 +420,23 @@ export const httpAdapter: ApiAdapter = {
       (list) => list.map((c) => ({ id: c.name, name: c.name })),
       () => REG_CITIES
     ),
-    carModels: REG_CAR_MODELS,
+    // No options endpoint yet (backend-gaps): static choices, the server validates them.
+    carBrands: REG_CAR_BRANDS,
     carColors: REG_CAR_COLORS,
     years: Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - i),
-    platePattern: "01 A 123 BC",
-    askBirthDate: true,
-    carClasses: REG_CAR_CLASSES,
     seatCounts: REG_SEAT_COUNTS,
+    carClasses: REG_CAR_CLASSES,
+    serviceTypes: ["passengers", "delivery"],
+    licenseCategories: REG_LICENSE_CATEGORIES,
+    platePattern: "01 A 123 BC",
     realDocuments: true,
   }),
+
+  getLegalLinks: () =>
+    optionalEndpoint<LegalLinks>(
+      () => http.get<{ terms_url?: string; privacy_url?: string }>(OPT.legal).then((r) => ({ termsUrl: r.terms_url, privacyUrl: r.privacy_url })),
+      {}
+    ).catch((): LegalLinks => ({})),
 
   async requestOtp(phone) {
     const apiPhone = toApiPhone(phone);
@@ -415,23 +465,51 @@ export const httpAdapter: ApiAdapter = {
     return settled("otp_verify", "approved");
   },
 
-  async savePersonal({ name, cityId, birthDate }) {
+  async savePersonal({ firstName, lastName, birthDate, cityId, referralCode }) {
     // Option ids are the city names (RegistrationStep1.city is a string).
     const city = cityId.trim();
     if (!city) throw new ApiError("CITY_REQUIRED");
-    return registrationStep(1, { ...splitName(name), birth_date: birthDate || undefined, city });
+    if (!firstName.trim() || !lastName.trim()) throw new ApiError("NAME_INVALID");
+    const next = await registrationStep(1, { first_name: firstName.trim(), last_name: lastName.trim(), birth_date: birthDate, city });
+    const code = referralCode?.trim();
+    if (code) await optionalEndpoint(() => http.post(OPT.referral, { code }), undefined);
+    if (next.stage === "review" || next.stage === "active" || next.stage === "blocked") return next;
+    registrationStage = "license";
+    return { stage: "license" };
   },
 
-  async saveCar({ model, colorKey, plate, year, carClass, seats }) {
+  async saveLicense({ number, issuedAt, expiresAt, categories, frontRef, backRef }) {
+    if (!frontRef || !backRef) throw new ApiError("DOCS_REQUIRED");
+    await optionalEndpoint(
+      () => http.post(OPT.license, { number: number.trim(), issued_at: issuedAt, expires_at: expiresAt, categories }),
+      undefined
+    );
+    pendingDocs.set("license_front", frontRef);
+    pendingDocs.set("license_back", backRef);
+    registrationStage = "car";
+    return { stage: "car" };
+  },
+
+  async saveCar({ brand, model, plate, year, seats, colorKey, carClass, serviceTypes, techPassportFrontRef, techPassportBackRef, carPhotoRef }) {
+    if (!techPassportFrontRef || !techPassportBackRef || !carPhotoRef) throw new ApiError("DOCS_REQUIRED");
+    // Car fields only: the contract rejects unknown keys.
     const car: Partial<Api.Car> = {
-      ...splitCarModel(model),
+      brand,
+      model,
       year,
       color: colorKey || undefined,
       plate_number: toApiPlate(plate) || undefined,
       car_class: carClass,
       seats,
     };
-    return registrationStep(2, { car });
+    const next = await registrationStep(2, { car });
+    await optionalEndpoint(() => http.put(OPT.serviceTypes, { service_types: serviceTypes }), undefined);
+    pendingDocs.set("tech_passport_front", techPassportFrontRef);
+    pendingDocs.set("tech_passport_back", techPassportBackRef);
+    pendingDocs.set("car_photo", carPhotoRef);
+    if (next.stage === "review" || next.stage === "active" || next.stage === "blocked") return next;
+    registrationStage = "selfie";
+    return { stage: "selfie" };
   },
 
   async uploadDocument(slot, file) {
@@ -447,21 +525,26 @@ export const httpAdapter: ApiAdapter = {
     return { ref: target.document_id, name: file.name };
   },
 
-  async submitDocuments({ licenseFile, registrationFile, selfieFile, acceptTerms }) {
+  async submitRegistration({ selfieRef, acceptTerms }) {
     if (!acceptTerms) throw new ApiError("TERMS_REQUIRED");
-    const documents = (
-      [
-        ["license", licenseFile],
-        ["registration", registrationFile],
-        ["selfie", selfieFile],
-      ] as const
-    )
-      .filter(([, id]) => !!id)
-      .map(([slot, id]) => ({ kind: DOC_KIND[slot], document_id: id as string }));
+    if (!selfieRef) throw new ApiError("SELFIE_REQUIRED");
+    pendingDocs.set("selfie", selfieRef);
+    const documents = [...pendingDocs].map(([slot, id]) => ({ kind: DOC_KIND[slot], document_id: id }));
     await registrationStep(3, { documents });
     await registrationStep(4, { accept_terms: true });
+    pendingDocs.clear();
     return { ...settled("driver_registration", "pending"), id: REGISTRATION_REVIEW_ID };
   },
+
+  getRegistrationReview: () =>
+    optionalEndpoint(
+      () =>
+        http.get<ApiRegistrationReview>(OPT.review).then((r) => ({
+          sections: r.sections,
+          etaMinutes: typeof r.eta_minutes === "number" ? r.eta_minutes : undefined,
+        })),
+      null
+    ),
 
   async logout() {
     await session.logout();

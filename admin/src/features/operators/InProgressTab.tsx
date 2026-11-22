@@ -72,7 +72,7 @@ export function InProgressTab() {
                 <div>
                   <p className="text-sm font-semibold text-ink">{q.assignedOperatorName ?? "—"}</p>
                   <p className="text-xs text-ink/50 tabular">
-                    {q.phoneMasked} · {REASON_LABEL[q.reason]}
+                    {q.phone ?? q.subjectLabel} · {REASON_LABEL[q.reason]}
                   </p>
                 </div>
               </div>

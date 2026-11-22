@@ -29,7 +29,8 @@ export type DriverStatus = "auto_review" | "active" | "blocked";
 export type Driver = {
   id: string;
   name: string;
-  phoneMasked: string;
+  /** Full number, "+998 90 123 45 67" (decision 2026-11-22: no masking in admin). */
+  phone: string;
   cityId: string;
   carModel: string;
   carColor: string;
@@ -53,7 +54,8 @@ export type PassengerStatus = "active" | "blocked";
 export type Passenger = {
   id: string;
   name: string;
-  phoneMasked: string;
+  /** Full number, "+998 90 123 45 67". */
+  phone: string;
   rating: number;
   totalTrips: number;
   avatarSeed: string;
@@ -270,7 +272,7 @@ const COMPLAINT_TEMPLATES: Record<ComplaintType, string[]> = {
 // Bump whenever the shape of persisted seed data changes, so a browser
 // holding an old-shape localStorage snapshot gets a fresh reseed instead of
 // crashing on missing/renamed fields.
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type SeedData = {
   schemaVersion: number;
@@ -299,7 +301,8 @@ export function generateSeed(): SeedData {
     return {
       id: `drv_${String(i + 1).padStart(2, "0")}`,
       name,
-      phoneMasked: `+998 9${rng.int(0, 9)} *** ** ${String(rng.int(10, 99))}`,
+      // Sample numbers only: the "001" block keeps them obviously fake.
+      phone: `+998 9${rng.int(0, 9)} 001 ${String(i + 1).padStart(2, "0")} ${String(rng.int(10, 99))}`,
       cityId: city.id,
       carModel: car.model,
       carColor: car.color,
@@ -325,7 +328,7 @@ export function generateSeed(): SeedData {
     return {
       id: `pax_${String(i + 1).padStart(2, "0")}`,
       name,
-      phoneMasked: `+998 9${rng.int(0, 9)} *** ** ${String(rng.int(10, 99))}`,
+      phone: `+998 9${rng.int(0, 9)} 002 ${String(i + 1).padStart(2, "0")} ${String(rng.int(10, 99))}`,
       rating: rng.float(4.3, 5.0, 1),
       totalTrips: rng.int(1, 140),
       avatarSeed: `p${i}`,

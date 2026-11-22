@@ -2,7 +2,8 @@ import type {
   AcceptedPage, BonusInfo, CancelReason, CapabilitiesInput, ChatSend, DriverCapabilities,
   DriverProfile, FeedPage, FeedQuery, HelpRequest, HelpTopic, HistoryFilter, HistoryPage, HomeSummary, LedgerPage, LedgerQuery,
   NotificationItem, NotificationPrefs, PayProvider, RegistrationOptions, RequestAlert, ReviewRequest, RoutesPage, Session,
-  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, CarClass, DocSlot,
+  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, DocSlot,
+  CarInput, LegalLinks, LicenseInput, PersonalInput, RegistrationReview, SelfieInput,
 } from "./types";
 
 /**
@@ -70,12 +71,21 @@ export interface ApiAdapter {
   /** `codeLength`: digits in the code just sent, when the server says (overrides otpLength). */
   requestOtp(phone: string): Promise<{ requestId: string; testCode?: string; resendInSec: number; codeLength?: number }>;
   verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;
-  savePersonal(input: { name: string; cityId: string; birthDate?: string }): Promise<Session>;
-  saveCar(input: { model: string; colorKey: string; plate: string; year: number; carClass?: CarClass; seats?: number }): Promise<Session>;
+  /** Driver terms / privacy pages (no sign-in needed). Empty when the server has none. */
+  getLegalLinks(): Promise<LegalLinks>;
+  /** Registration step 1 → stage "license". */
+  savePersonal(input: PersonalInput): Promise<Session>;
+  /** Step 2 → stage "car". */
+  saveLicense(input: LicenseInput): Promise<Session>;
+  /** Step 3 → stage "selfie". */
+  saveCar(input: CarInput): Promise<Session>;
   /** Uploads one document photo; `file` is null for the sample-data adapter's simulated picker.
-   * Returns the reference to pass to submitDocuments and a name to show. */
+   * Returns the reference to pass to the step and a name to show. */
   uploadDocument(slot: DocSlot, file: File | null): Promise<{ ref: string; name: string }>;
-  submitDocuments(input: { licenseFile: string; registrationFile: string; selfieFile?: string; acceptTerms?: boolean }): Promise<ReviewRequest>;
+  /** Step 4: selfie + terms → automatic check (stage "review"). */
+  submitRegistration(input: SelfieInput): Promise<ReviewRequest>;
+  /** Per-section progress while under review; null when the server doesn't report it. */
+  getRegistrationReview(): Promise<RegistrationReview | null>;
   logout(): Promise<Session>;
   /** GPS fix while the feed is open or a trip is active (the caller throttles to ≥10 s). */
   reportLocation(lat: number, lng: number): Promise<void>;

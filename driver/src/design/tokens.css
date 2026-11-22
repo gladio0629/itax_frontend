@@ -1,83 +1,82 @@
-/* IZGO Driver design tokens. Dark (navy night) is the home theme; light is
-   adapted from it. Brand: navy #264A9F, yellow #F6BF0E. */
+/* IZGO Driver design tokens, redesign v2 ("Tungi yo'l"): a dark Ink top
+   (title, the key number) over a large rounded white sheet. Values come from
+   docs/izgo-dizayn-v2.md.
+
+   Two layers:
+   - Fixed: Ink top, Ink 2 / dark border, brand green and the Ink that sits
+     on it, the floating tab bar. These never change with the theme.
+   - Sheet: everything on the rounded sheet (page, fields, borders, text,
+     green-as-text). Light by default; night mode makes the sheet dark using
+     the doc's on-dark values (Ink 2, dark border, #9FB0C3). */
 :root,
-[data-theme="dark"] {
-  --color-bg-rgb: 10 19 48;
-  --color-surface-rgb: 18 30 69;
-  --color-raised-rgb: 26 40 86;
-  --color-bg: rgb(var(--color-bg-rgb));
-  --color-surface: rgb(var(--color-surface-rgb));
-  --color-raised: rgb(var(--color-raised-rgb));
-  --color-text-rgb: 238 242 250;
-  --color-muted-rgb: 163 174 203;
-  --color-muted: rgb(var(--color-muted-rgb));
-  --color-line: rgba(238, 242, 250, 0.08);
-  --color-accent-rgb: 143 176 255;
+[data-theme="light"] {
+  /* Fixed layer */
+  --color-night-rgb: 11 21 36; /* Ink #0B1524 */
+  --color-night-2-rgb: 20 34 53; /* Ink 2 #142235 */
+  --color-night-line: #24364d;
+  --color-night-muted: #9fb0c3;
+  --color-brand-rgb: 46 219 133; /* #2EDB85 */
+  --color-on-brand-rgb: 11 21 36;
+  --color-sos: #c8281c;
 
-  /* Yellow fill + the navy that always sits on it. */
-  --color-yellow-rgb: 246 191 14;
-  --color-yellow: rgb(var(--color-yellow-rgb));
-  --color-on-yellow-rgb: 22 38 77;
-  --color-on-yellow: rgb(var(--color-on-yellow-rgb));
-  /* Yellow used AS text/icon (earnings, active tab). Same yellow on navy; deepened in light. */
-  --color-gold: #f6bf0e;
-  /* Keyboard focus ring: yellow on navy, navy on light. */
-  --color-focus: #f6bf0e;
+  /* Sheet layer */
+  --color-bg-rgb: 255 255 255; /* the sheet / page */
+  --color-surface-rgb: 255 255 255; /* card on the sheet (with a border) */
+  --color-raised-rgb: 243 245 248; /* field / soft card #F3F5F8 */
+  --color-text-rgb: 11 21 36; /* #0B1524 */
+  --color-muted-rgb: 90 103 121; /* #5A6779 */
+  --color-line-rgb: 226 231 238; /* #E2E7EE */
+  --color-brand-ink-rgb: 12 122 67; /* green as text #0C7A43 */
+  --color-brand-soft-rgb: 227 248 236; /* #E3F8EC */
+  --color-danger-rgb: 180 35 24; /* #B42318 */
+  --color-danger-soft: #fdecea;
+  --color-warning-rgb: 181 71 8; /* #B54708 */
+  --color-warning-icon: #f79009;
+  --color-warning-soft: #fff1e6;
+  /* Focused field: 2px text-colour border + 4px green-soft halo. */
+  --color-focus: #0b1524;
 
-  --color-success-rgb: 74 222 154;
-  --color-danger-rgb: 255 122 122;
-  --color-warning-rgb: 255 177 92;
-  /* Solid fills that carry white text (badges, banners, destructive buttons). */
-  --color-danger-fill: #d3343a;
-  --color-warning-fill: #ffb15c;
-  --color-on-warning: #1a1203;
+  /* Maps stay light in both themes. */
+  --map-ground: #e9edf2;
+  --map-block: #dde3ea;
+  --map-road: #ffffff;
+  --map-major: #f7f9fb;
+  --map-route: #0b1524;
+  --map-route-casing: #ffffff;
+  --map-pin-dark: #0b1524;
+  --map-pin-light: #ffffff;
+  --map-pin-accent: #2edb85;
+  --map-pin-user: #0b1524;
 
-  /* Map */
-  --map-ground: #0d1838;
-  --map-block: #15234f;
-  --map-road: #1f3166;
-  --map-major: #2a3f7d;
-  /* Route line on the interactive map: brand yellow on the dark map. */
-  --map-route: #f6bf0e;
-  --map-route-casing: #0a1330;
-
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px -2px rgba(0, 0, 0, 0.35);
-  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.35), 0 12px 32px -6px rgba(0, 0, 0, 0.55);
+  --shadow-1: 0 1px 2px rgba(11, 21, 36, 0.06), 0 4px 12px -2px rgba(11, 21, 36, 0.08);
+  --shadow-2: 0 2px 6px rgba(11, 21, 36, 0.08), 0 12px 32px -6px rgba(11, 21, 36, 0.18);
+  --shadow-float: 0 14px 30px rgba(11, 21, 36, 0.28);
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Floating tab bar: 64 tall, 24 above the bottom edge. */
   --tabbar-h: 64px;
-  color-scheme: dark;
+  --tabbar-gap: 24px;
+  color-scheme: light;
 }
 
-[data-theme="light"] {
-  --color-bg-rgb: 242 244 249;
-  --color-surface-rgb: 255 255 255;
-  --color-raised-rgb: 234 238 246;
-  --color-text-rgb: 14 22 48;
-  --color-muted-rgb: 85 96 122;
-  --color-line: rgba(14, 22, 48, 0.1);
-  --color-accent-rgb: 38 74 159;
+[data-theme="dark"] {
+  --color-bg-rgb: 20 34 53; /* Ink 2 */
+  --color-surface-rgb: 20 34 53;
+  --color-raised-rgb: 11 21 36; /* inset field: Ink */
+  --color-text-rgb: 255 255 255;
+  --color-muted-rgb: 159 176 195; /* #9FB0C3 */
+  --color-line-rgb: 36 54 77; /* #24364D */
+  --color-brand-ink-rgb: 46 219 133; /* green reads on dark */
+  --color-brand-soft-rgb: 22 58 52;
+  --color-danger-rgb: 249 112 102;
+  --color-danger-soft: #3a1a1a;
+  --color-warning-rgb: 247 144 9; /* #F79009 */
+  --color-warning-soft: #3a2410;
+  --color-focus: #ffffff;
 
-  --color-gold: #8a6500;
-  --color-focus: #264a9f;
-
-  --color-success-rgb: 11 104 62;
-  --color-danger-rgb: 198 40 40;
-  --color-warning-rgb: 154 70 8;
-  --color-danger-fill: #c62828;
-  --color-warning-fill: #a14a07;
-  --color-on-warning: #ffffff;
-
-  --map-ground: #e6ebf5;
-  --map-block: #d7deec;
-  --map-road: #ffffff;
-  --map-major: #fbfcff;
-  --map-route: #264a9f;
-  --map-route-casing: #ffffff;
-
-  --shadow-1: 0 1px 2px rgba(14, 22, 48, 0.06), 0 4px 12px -2px rgba(14, 22, 48, 0.08);
-  --shadow-2: 0 2px 6px rgba(14, 22, 48, 0.08), 0 12px 32px -6px rgba(14, 22, 48, 0.18);
-  color-scheme: light;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.35), 0 12px 32px -6px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
 }

@@ -175,7 +175,7 @@ export default function HomeScreen() {
             <>
               <span className="flex shrink-0 gap-0.5" aria-hidden="true">
                 {Array.from({ length: seats.total }, (_, i) => (
-                  <Armchair key={i} className={cn("h-5 w-5", i < seats.total - seats.free ? "text-muted/50" : "text-gold")} />
+                  <Armchair key={i} className={cn("h-5 w-5", i < seats.total - seats.free ? "text-muted/50" : "text-brand-ink")} />
                 ))}
               </span>
               <div className="min-w-0 flex-1">
@@ -281,7 +281,7 @@ export default function HomeScreen() {
 
 function CountBadge({ n, muted }: { n: number; muted?: boolean }) {
   return (
-    <span className={cn("tabular flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold", muted ? "bg-raised text-ink" : "bg-yellow text-on-yellow")}>
+    <span className={cn("tabular flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold", muted ? "bg-raised text-ink" : "bg-brand text-on-brand")}>
       {n}
     </span>
   );

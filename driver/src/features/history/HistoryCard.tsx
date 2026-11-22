@@ -33,7 +33,7 @@ export function HistoryCard({ item }: { item: HistoryItem }) {
           {item.passengerName && <span className="truncate">{item.passengerName}</span>}
           {item.ratingReceived != null && (
             <span className="tabular inline-flex shrink-0 items-center gap-1 text-ink">
-              <Star className="h-4 w-4 fill-yellow text-yellow" />
+              <Star className="h-4 w-4 fill-brand text-brand" />
               {item.ratingReceived.toFixed(1)}
             </span>
           )}
@@ -41,7 +41,7 @@ export function HistoryCard({ item }: { item: HistoryItem }) {
         {cancelled ? (
           <span className="inline-flex h-7 shrink-0 items-center rounded-button bg-danger/15 px-2.5 text-xs font-medium text-danger">{t("orders.cancelledBadge")}</span>
         ) : (
-          <p className="tabular shrink-0 text-xl font-bold text-gold">
+          <p className="tabular shrink-0 text-xl font-bold text-brand-ink">
             +{formatAmount(item.earnings)}
             <span className="ml-1 text-xs font-medium text-muted">{t("common.som")}</span>
           </p>

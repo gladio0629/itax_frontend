@@ -33,7 +33,7 @@ export function TripSummaryCard({ summary, onDismiss }: { summary: TripSummary; 
       </div>
 
       <p className="mt-4 text-sm text-muted">{t("summary.earned")}</p>
-      <Money value={net} className="text-4xl font-bold text-gold" />
+      <Money value={net} className="text-4xl font-bold text-brand-ink" />
 
       <dl className="mt-4 space-y-2 text-sm">
         <div className="flex justify-between">
@@ -48,7 +48,7 @@ export function TripSummaryCard({ summary, onDismiss }: { summary: TripSummary; 
           </dd>
         </div>
         {summary.commissionWaived && (
-          <div className="flex items-center gap-2 text-gold">
+          <div className="flex items-center gap-2 text-brand-ink">
             <Gift className="h-4 w-4" />
             <span>{t("summary.bonusApplied")}</span>
           </div>
@@ -62,7 +62,7 @@ export function TripSummaryCard({ summary, onDismiss }: { summary: TripSummary; 
 
       <span className="sr-only">{t("summary.dismiss")}</span>
       <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1 bg-ink/10">
-        <span className="absolute inset-0 origin-left animate-[deplete_3s_linear_both] bg-yellow" />
+        <span className="absolute inset-0 origin-left animate-[deplete_3s_linear_both] bg-brand" />
       </span>
     </button>
   );

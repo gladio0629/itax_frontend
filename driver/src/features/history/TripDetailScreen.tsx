@@ -91,7 +91,7 @@ export default function TripDetailScreen() {
                     <div className="flex items-center justify-between border-t border-line pt-3">
                       <dt className="font-bold text-ink">{t("detail.net")}</dt>
                       <dd>
-                        <Money value={d.breakdown.net} className="text-2xl font-bold text-gold" />
+                        <Money value={d.breakdown.net} className="text-2xl font-bold text-brand-ink" />
                       </dd>
                     </div>
                   </dl>
@@ -109,7 +109,7 @@ export default function TripDetailScreen() {
                     return (
                       <li key={i} className="relative flex items-center gap-3">
                         {i < d.timeline.length - 1 && <span aria-hidden="true" className="absolute left-[13px] top-7 h-4 w-0.5 bg-line" />}
-                        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", cancelled ? "bg-danger/15 text-danger" : "bg-yellow text-on-yellow")}>
+                        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", cancelled ? "bg-danger/15 text-danger" : "bg-brand text-on-brand")}>
                           {cancelled ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                         </span>
                         <span className="flex-1 text-base text-ink">{t(`detail.event.${e.stage}`)}</span>
@@ -150,7 +150,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: "gol
   return (
     <div className="flex items-center justify-between gap-3">
       <dt className="text-muted">{label}</dt>
-      <dd className={cn("tabular", tone === "gold" ? "text-gold" : "text-ink")}>{value}</dd>
+      <dd className={cn("tabular", tone === "gold" ? "text-brand-ink" : "text-ink")}>{value}</dd>
     </div>
   );
 }

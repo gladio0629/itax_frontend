@@ -41,7 +41,7 @@ export function BookingCard({ booking: b, confirming, onAction, onCancel }: Prop
             <Link
               to={`/trip/chat/${b.id}`}
               aria-label={t("trip.writeTo", { name: p.name })}
-              className="press flex h-12 shrink-0 items-center gap-2 rounded-full bg-accent/15 px-4 text-base font-bold text-accent"
+              className="press flex h-12 shrink-0 items-center gap-2 rounded-full bg-brand-ink/15 px-4 text-base font-bold text-brand-ink"
             >
               <MessageCircle className="h-5 w-5" />
               {t("trip.write")}
@@ -74,7 +74,7 @@ export function BookingCard({ booking: b, confirming, onAction, onCancel }: Prop
       </div>
 
       <div className="mt-4 flex items-start gap-3 rounded-card bg-raised p-3">
-        <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow text-on-yellow">
+        <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand">
           <Navigation className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -141,7 +141,7 @@ export function BookingCard({ booking: b, confirming, onAction, onCancel }: Prop
           <span />
         )}
         <span className="text-right">
-          <span className="tabular block text-lg font-bold text-gold">
+          <span className="tabular block text-lg font-bold text-brand-ink">
             {formatAmount(b.price)} <span className="text-xs font-medium text-muted">{t("common.som")}</span>
           </span>
           {/* Hidden until the server gives the commission (real backend: on completion). */}
@@ -181,9 +181,9 @@ function StepButton({ action, confirming, onClick }: { action: Booking["nextActi
       onClick={onClick}
       disabled={confirming}
       aria-busy={confirming || undefined}
-      className={cn("press relative mt-4 flex h-14 w-full items-center justify-center overflow-hidden rounded-button bg-yellow text-base font-bold text-on-yellow shadow-1 disabled:cursor-wait")}
+      className={cn("press relative mt-4 flex h-14 w-full items-center justify-center overflow-hidden rounded-button bg-brand text-base font-bold text-on-brand shadow-1 disabled:cursor-wait")}
     >
-      {confirming && <span aria-hidden="true" className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-on-yellow/20 to-transparent" />}
+      {confirming && <span aria-hidden="true" className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-on-brand/20 to-transparent" />}
       <span key={action} className="relative animate-fade-up">
         {confirming ? t("trip.confirming") : t(`trip.action.${action}`)}
       </span>

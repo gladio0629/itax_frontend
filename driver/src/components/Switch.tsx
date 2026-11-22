@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-/** 48×48 hit area around a 44×26 track. Checked = navy thumb on yellow. */
+/** 50×30 track inside a 48px hit area. On = green track; the thumb is white either way. */
 export function Switch({
   checked,
   onChange,
@@ -23,16 +23,13 @@ export function Switch({
       aria-describedby={describedBy}
       disabled={disabled}
       onClick={onChange}
-      className="-my-3 -mr-2 flex h-12 w-14 shrink-0 items-center justify-center rounded-button disabled:opacity-40"
+      className="-my-2 -mr-1 flex h-12 w-14 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
     >
-      <span className="relative h-[26px] w-11 overflow-hidden rounded-full bg-ink/15">
-        <span
-          className={cn("absolute inset-0 rounded-full bg-yellow transition-opacity", checked ? "opacity-100" : "opacity-0")}
-        />
+      <span className={cn("relative h-[30px] w-[50px] rounded-full transition-colors", checked ? "bg-brand" : "bg-[#D4DBE4] dark:bg-night-line")}>
         <span
           className={cn(
-            "absolute left-[3px] top-[3px] h-5 w-5 rounded-full shadow-1 transition-transform",
-            checked ? "translate-x-[18px] bg-on-yellow" : "translate-x-0 bg-white"
+            "absolute left-[3px] top-[3px] h-6 w-6 rounded-full bg-white shadow-[0_1px_3px_rgba(11,21,36,0.25)] transition-transform",
+            checked ? "translate-x-5" : "translate-x-0"
           )}
         />
       </span>

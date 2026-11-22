@@ -46,6 +46,7 @@ import type {
   SectionBadges,
   OperatorCounts,
   AdapterCapabilities,
+  GlobalSearchHit,
 } from "./types";
 
 /**
@@ -78,6 +79,9 @@ export interface ApiAdapter {
   getStats(period: StatsPeriod): Promise<MarketingStats>;
 
   getCities(): Promise<City[]>;
+
+  /** Header search ("ID, telefon, ism"); `capabilities.globalSearch`. */
+  globalSearch(query: string): Promise<GlobalSearchHit[]>;
 
   /** Sidebar notification counts, computed entirely server-side. */
   getSectionBadges(): Promise<SectionBadges>;
@@ -155,8 +159,6 @@ export interface ApiAdapter {
 
   // --- audit ---
   getAuditLog(query: AuditQuery): Promise<AuditEntry[]>;
-
-  revealPhone(entityType: "driver" | "passenger", entityId: string): Promise<{ phone: string }>;
 
   // --- operator windows: one "operators" section, two capabilities ---
   // Navbat (all waiting tasks) is the same data for the operator working it

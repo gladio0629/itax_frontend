@@ -78,7 +78,7 @@ function HistoryPanel() {
       <div className="flex gap-2">
         <form
           role="search"
-          className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-button bg-raised px-3 focus-within:ring-2 focus-within:ring-inset focus-within:ring-yellow"
+          className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-button bg-raised px-3 focus-within:ring-2 focus-within:ring-inset focus-within:ring-brand"
           onSubmit={(e) => {
             e.preventDefault();
             setFilter((f) => ({ ...f, city: cityInput }));
@@ -124,7 +124,7 @@ function HistoryPanel() {
         >
           <SlidersHorizontal className="h-5 w-5" />
           {activeFilters > 0 && (
-            <span className="tabular absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-yellow text-xs font-bold text-on-yellow">{activeFilters}</span>
+            <span className="tabular absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-xs font-bold text-on-brand">{activeFilters}</span>
           )}
         </button>
       </div>

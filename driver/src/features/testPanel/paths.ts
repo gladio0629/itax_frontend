@@ -3,3 +3,5 @@
 export const TEST_PANEL_PATH = "/sinov";
 /** Inside the app shell (from Profil). */
 export const TEST_PANEL_PROFILE_PATH = "/profile/sinov";
+/** Component gallery for the redesign (sample-data mode only). */
+export const TEST_PANEL_UI_PATH = "/sinov/ui";
