@@ -1,11 +1,11 @@
 // /trip/:id/done — after "Safarni tugatish": what the driver keeps, the cash
-// to collect, the commission (all from the server's trip summary) and the
-// passenger rating. Without a summary endpoint it shows the booking's own
-// price and, when the server gave it, the net.
+// to collect, the commission and the passenger rating. Only figures the
+// server gives after completion: the trip summary, else the finished trip
+// from History. Nothing from the booking as it was before the finish.
 import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client";
-import type { Booking, TripSummary } from "@/api/types";
+import type { TripSummary } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
 import { toast } from "@/lib/toast";
@@ -21,8 +21,8 @@ export default function FinishedScreen() {
   const { t } = useT();
   const navigate = useNavigate();
   const location = useLocation();
-  const booking = (location.state as { booking?: Booking } | null)?.booking;
-  const summary = useQuery<TripSummary | null>(() => (api.capabilities.tripSummary ? api.getTripSummary(id).catch(() => null) : Promise.resolve(null)), [id]);
+  const mateIds = (location.state as { mates?: string[] } | null)?.mates ?? [];
+  const summary = useQuery<TripSummary | null>(() => loadSummary(id), [id]);
   const accepted = useQuery(() => api.getAccepted(), []);
   const [stars, setStars] = useState<number | null>(null);
   const [rated, setRated] = useState(false);
@@ -30,14 +30,16 @@ export default function FinishedScreen() {
 
   const s = summary.data ?? null;
   const loading = summary.loading && !summary.data;
-  const gross = s?.gross ?? booking?.price;
-  const net = s?.net ?? booking?.earnings?.net;
-  const payment = s?.payment ?? booking?.payment;
-  const name = s?.passengerName ?? booking?.passenger?.name.split(" ")[0];
-  const city = s?.destination ?? booking?.dropoff.city.name;
-  // Cash the passenger pays: the server's figure, else the booking's price for a cash trip.
-  const cash = s?.cashToCollect ?? (payment === "cash" ? booking?.price : undefined);
-  const nextId = accepted.data?.activeBookingId ?? accepted.data?.days[0]?.trips[0]?.bookings[0]?.id;
+  const gross = s?.gross;
+  const net = s?.net;
+  const payment = s?.payment;
+  const name = s?.passengerName;
+  const city = s?.destination;
+  // Cash the passenger pays: the server's figure, else the final fare of a cash trip.
+  const cash = s?.cashToCollect ?? (payment === "cash" ? gross : undefined);
+  // Next: another passenger of this same car trip, still open on the server.
+  const open = new Set(accepted.data?.days.flatMap((d) => d.trips.flatMap((tr) => tr.bookings.map((b) => b.id))) ?? []);
+  const nextId = mateIds.find((m) => open.has(m));
   const alreadyRated = s?.passengerRating != null;
 
   async function rate(n: number) {
@@ -92,6 +94,7 @@ export default function FinishedScreen() {
           </div>
         )}
 
+        {!loading && !s && <p className="text-sm text-muted">{t("done.noFigures")}</p>}
         {!loading && gross != null && (
           <dl className="flex flex-col">
             <div className="flex min-h-[48px] items-center justify-between border-b border-line">
@@ -100,7 +103,7 @@ export default function FinishedScreen() {
             </div>
             {s && (
               <div className="flex min-h-[48px] items-center justify-between border-b border-line">
-                <dt className="text-sm font-semibold text-muted">{t("price.commission", { pct: s.commissionPct })}</dt>
+                <dt className="text-sm font-semibold text-muted">{s.commissionPct >= 0 ? t("price.commission", { pct: s.commissionPct }) : t("price.commissionNoPct")}</dt>
                 <dd className={cn("tabular text-15 font-bold", s.commissionWaived ? "text-muted line-through" : "text-danger")}>
                   {formatAmount(-(s.commissionWaived ? s.baseCommission : s.commission), { signed: true })}
                 </dd>
@@ -147,4 +150,32 @@ export default function FinishedScreen() {
       </div>
     </Screen>
   );
+}
+
+/**
+ * The finished trip's figures: the summary endpoint, else the trip from
+ * History (both after completion). null when neither has it.
+ */
+async function loadSummary(id: string): Promise<TripSummary | null> {
+  if (api.capabilities.tripSummary) {
+    const s = await api.getTripSummary(id).catch(() => null);
+    if (s) return s;
+  }
+  if (!api.capabilities.history) return null;
+  const d = await api.getTripDetail(id).catch(() => null);
+  if (!d || d.status !== "completed") return null;
+  return {
+    tripId: d.id,
+    gross: d.breakdown.base,
+    commissionPct: d.breakdown.commissionPct ?? -1,
+    commission: d.breakdown.commission,
+    baseCommissionPct: d.breakdown.commissionPct ?? -1,
+    baseCommission: d.breakdown.commission,
+    commissionWaived: false,
+    net: d.breakdown.net,
+    ratingReceived: d.ratingReceived,
+    payment: d.payment,
+    passengerName: d.passengerName ? d.passengerName.split(" ")[0] : undefined,
+    destination: d.to.name,
+  };
 }

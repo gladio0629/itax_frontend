@@ -141,5 +141,10 @@ by reading the list.
 **Home**: `today_work_min` and `week: [{ date, amount }]` (last 7 days, tiyin) for the earnings block and its mini
 chart; today they are absent and the chart is hidden.
 
+**Clocks:** the countdown (`expires_at`), the waiting clock (`arrived_at`) and "Safarda · N daq" (`started_at`)
+compare server times with the phone's clock. A phone clock that is off shifts them. Please also send the server's
+current time (e.g. a `Date` header the app can read, or `server_time` in these responses) or remaining seconds
+(`expires_in_s`, `free_left_s`).
+
 **Not built (no data source):** turn-by-turn instructions on OnTrip ("800 m, M39 bo'ylab"). The top card opens the
 phone's navigator instead (geo: / Apple Maps link, no web request).

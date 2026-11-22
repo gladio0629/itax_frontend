@@ -11,7 +11,8 @@ import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { waitReview } from "@/lib/waitReview";
 import { formatAmount, formatDuration, formatTime } from "@/lib/format";
-import { Check, ChevronLeft, Navigation, Navigation2, Phone, Siren } from "@/lib/icons";
+import { Armchair, CalendarDays, Check, ChevronLeft, Navigation, Navigation2, Phone, Siren, User } from "@/lib/icons";
+import { dayText, timeText } from "@/features/home/whenText";
 import { Button } from "@/components/Button";
 import { Sheet } from "@/components/Sheet";
 import { ErrorState } from "@/components/ErrorState";
@@ -45,6 +46,14 @@ export default function TripScreen() {
   }, [code, navigate, t]);
 
   const b = q.data;
+  // Everyone in this car on this trip (same day and direction), in the server's order.
+  const mates =
+    (b &&
+      accepted.data?.days
+        .flatMap((d) => d.trips)
+        .find((tr) => tr.bookings.some((x) => x.id === b.id))
+        ?.bookings.filter((x) => x.id !== b.id)) ||
+    [];
 
   async function step() {
     if (!b) return;
@@ -54,7 +63,8 @@ export default function TripScreen() {
     try {
       const done = await waitReview(await api.advanceBooking(b.id));
       if (isFinish && done.status === "approved") {
-        navigate(`/trip/${b.id}/done`, { replace: true, state: { booking: b } });
+        // "Keyingi yo'lovchi" on Finished only offers this car trip's other passengers.
+        navigate(`/trip/${b.id}/done`, { replace: true, state: { mates: mates.map((m) => m.id) } });
         return;
       }
       finishing.current = false;
@@ -98,12 +108,6 @@ export default function TripScreen() {
     return <RouteFallback />;
   }
 
-  // Everyone in this car on this trip (same day and direction), in the server's order.
-  const mates =
-    accepted.data?.days
-      .flatMap((d) => d.trips)
-      .find((tr) => tr.bookings.some((x) => x.id === b.id))
-      ?.bookings.filter((x) => x.id !== b.id) ?? [];
   const canCancel = api.capabilities.cancelBooking && b.canCancel !== false && b.stage !== "in_progress";
   const stepButton = b.nextAction && (
     <Button size="lg" fullWidth loading={busy} onClick={step}>
@@ -132,7 +136,7 @@ export default function TripScreen() {
  * Full-screen light map, a floating top bar (back + dark pill) and a white
  * bottom sheet. The map keeps its camera above the sheet.
  */
-function TripLayout({ b, pill, chip, children }: { b: Booking; pill: ReactNode; chip?: ReactNode; children: ReactNode }) {
+function TripLayout({ b, pill, chip, footer, children }: { b: Booking; pill: ReactNode; chip?: ReactNode; footer: ReactNode; children: ReactNode }) {
   const { t } = useT();
   const navigate = useNavigate();
   const sheet = useRef<HTMLDivElement>(null);
@@ -163,7 +167,11 @@ function TripLayout({ b, pill, chip, children }: { b: Booking; pill: ReactNode; 
       </div>
       <div ref={sheet} className="absolute inset-x-0 bottom-0 flex max-h-[70%] flex-col rounded-t-sheet bg-bg shadow-[0_-10px_40px_rgba(11,21,36,0.12)]">
         <span className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-line" aria-hidden="true" />
-        <div className="no-scrollbar flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-[calc(var(--safe-bottom)+20px)] pt-4 [&>*]:shrink-0">{children}</div>
+        <div className="no-scrollbar flex min-h-0 flex-col gap-4 overflow-y-auto px-5 pb-3 pt-4 [&>*]:shrink-0">{children}</div>
+        {/* The step button stays visible however long the sheet gets. */}
+        <div className="flex shrink-0 flex-col px-5 pt-1" style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}>
+          {footer}
+        </div>
       </div>
     </div>
   );
@@ -195,6 +203,40 @@ function peopleLine(b: Booking, t: ReturnType<typeof useT>["t"]) {
     b.payment ? (b.payment === "cash" ? t("pay.cash").toLowerCase() : t("pay.card").toLowerCase()) : null,
     `${formatAmount(b.price)}`,
   ]);
+}
+
+/** What the passenger booked, after acceptance: time, seats (by name when the server lists them), luggage, class, someone else. */
+function TripInfo({ b }: { b: Booking }) {
+  const { t } = useT();
+  const seats = b.seatIds?.length ? b.seatIds.map((x) => t(`seat.${x}`)).join(", ") : null;
+  const tags = [
+    b.when && (
+      <Tag key="when">
+        <CalendarDays className="h-3.5 w-3.5" />
+        {dayText(b.when, t)}, {timeText(b.when, t)}
+      </Tag>
+    ),
+    b.kind === "passengers" && (b.wholeCar || seats) && (
+      <Tag key="seats">
+        <Armchair className="h-3.5 w-3.5" />
+        {b.wholeCar ? t("feed.wholeCar") : seats}
+      </Tag>
+    ),
+    b.luggageCount > 0 && <Tag key="lug">{t("order.luggage", { n: b.luggageCount })}</Tag>,
+    b.carClass && <Tag key="cls">{t(`carClass.${b.carClass}`)}</Tag>,
+    b.forOther && (
+      <Tag key="other">
+        <User className="h-3.5 w-3.5" />
+        {t("order.forOtherName", { name: b.forOther.name })}
+      </Tag>
+    ),
+  ].filter(Boolean);
+  return (
+    <>
+      {tags.length > 0 && <div className="flex flex-wrap gap-1.5">{tags}</div>}
+      {b.comment && <CommentNote text={b.comment} />}
+    </>
+  );
 }
 
 /** Cargo after acceptance: body, loaders, billing, the contacts (call when the server gives a number) and every drop-off. */
@@ -248,11 +290,26 @@ function CargoDetails({ b, showDrops }: { b: Booking; showDrops: boolean }) {
 
 // ------------------------------------------------------------ ToPickup
 
+function StepFooter({ step, onCancel }: { step: ReactNode; onCancel?: () => void }) {
+  const { t } = useT();
+  return (
+    <>
+      {step}
+      {onCancel && (
+        <button type="button" onClick={onCancel} className="press mt-1 flex h-11 items-center justify-center text-sm font-bold text-muted">
+          {t("trip.cancel")}
+        </button>
+      )}
+    </>
+  );
+}
+
 function ToPickup({ b, mates, step, onCancel }: { b: Booking; mates: Booking[]; step: ReactNode; onCancel?: () => void }) {
   const { t } = useT();
   return (
     <TripLayout
       b={b}
+      footer={<StepFooter step={step} onCancel={onCancel} />}
       pill={
         <>
           <PillIcon>
@@ -271,6 +328,7 @@ function ToPickup({ b, mates, step, onCancel }: { b: Booking; mates: Booking[]; 
     >
       <Mates mates={mates} />
       {b.passenger && <PassengerRow passenger={b.passenger} bookingId={b.id} subtitle={peopleLine(b, t)} />}
+      <TripInfo b={b} />
       <div className="flex flex-col gap-1 rounded-field bg-raised p-4">
         <span className="label-caps text-muted">{t("trip.pickupAddress")}</span>
         <span className="text-base font-extrabold text-ink">
@@ -279,17 +337,10 @@ function ToPickup({ b, mates, step, onCancel }: { b: Booking; mates: Booking[]; 
         <PlaceDetails place={b.pickup} />
       </div>
       <CargoDetails b={b} showDrops />
-      {b.comment && <CommentNote text={b.comment} />}
       <a href={navigatorHref(b.pickup)} className="press flex h-12 items-center justify-center gap-2 rounded-full bg-raised text-sm font-bold text-ink">
         <Navigation className="h-4 w-4" />
         {t("trip.openNavigator")}
       </a>
-      {step}
-      {onCancel && (
-        <button type="button" onClick={onCancel} className="press -mt-1 flex h-11 items-center justify-center text-sm font-bold text-muted">
-          {t("trip.cancel")}
-        </button>
-      )}
     </TripLayout>
   );
 }
@@ -306,6 +357,7 @@ function Waiting({ b, mates, step, onCancel }: { b: Booking; mates: Booking[]; s
   return (
     <TripLayout
       b={b}
+      footer={<StepFooter step={step} onCancel={onCancel} />}
       pill={
         <>
           <PillIcon>
@@ -336,12 +388,7 @@ function Waiting({ b, mates, step, onCancel }: { b: Booking; mates: Booking[]; s
       )}
       {!w && <span className="text-17 font-extrabold text-ink">{t("trip.waitingTitle")}</span>}
       {b.passenger && <PassengerRow passenger={b.passenger} bookingId={b.id} subtitle={w?.passengerNotified ? t("trip.notified") : peopleLine(b, t)} />}
-      {step}
-      {onCancel && (
-        <button type="button" onClick={onCancel} className="press -mt-1 flex h-11 items-center justify-center text-sm font-bold text-muted">
-          {t("trip.cancel")}
-        </button>
-      )}
+      <TripInfo b={b} />
     </TripLayout>
   );
 }
@@ -358,6 +405,19 @@ function OnTrip({ b, mates, step, onSos }: { b: Booking; mates: Booking[]; step:
   return (
     <TripLayout
       b={b}
+      footer={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onSos}
+            aria-label={t("trip.sosLabel")}
+            className="press flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-full bg-sos text-sm font-extrabold text-white"
+          >
+            {t("trip.sos")}
+          </button>
+          <div className="min-w-0 flex-1">{step}</div>
+        </div>
+      }
       pill={
         <a href={navigatorHref(next)} className="flex min-w-0 flex-1 items-center gap-3">
           <PillIcon>
@@ -412,24 +472,14 @@ function OnTrip({ b, mates, step, onSos }: { b: Booking; mates: Booking[]; step:
         </div>
       </div>
       {b.passenger && <PassengerRow passenger={b.passenger} bookingId={b.id} subtitle={peopleLine(b, t)} />}
-      <CargoDetails b={b} showDrops={false} />
-      {b.stops.length > 0 && !b.freight && (
+      <TripInfo b={b} />
+      <CargoDetails b={b} showDrops />
+      {!b.freight && (
         <RouteTimeline
           compact
           points={[...b.stops.map((st) => ({ kind: "stop" as const, label: t("request.stop"), place: st, details: true })), { kind: "dropoff" as const, label: t("request.dropoff"), place: b.dropoff, details: true }]}
         />
       )}
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onSos}
-          aria-label={t("trip.sosLabel")}
-          className="press flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-full bg-sos text-sm font-extrabold text-white"
-        >
-          {t("trip.sos")}
-        </button>
-        <div className="min-w-0 flex-1">{step}</div>
-      </div>
     </TripLayout>
   );
 }

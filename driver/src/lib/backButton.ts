@@ -1,7 +1,7 @@
 // The phone's back button (Android). @capacitor/app reports it; the app
 // closes the top sheet first, then goes back in history (registration steps,
 // sub-pages), and leaves the app from Asosiy or when there is no history.
-import { Capacitor } from "@capacitor/core";
+import { appPlugin } from "./native";
 
 const handlers: Array<() => void> = [];
 
@@ -16,8 +16,8 @@ export function pushBackHandler(fn: () => void): () => void {
 
 /** Call once at start-up. No-op in the browser (it has its own back button). */
 export async function installBackButton() {
-  if (!Capacitor.isNativePlatform()) return;
-  const { App } = await import("@capacitor/app");
+  const App = appPlugin();
+  if (!App) return;
   await App.addListener("backButton", ({ canGoBack }) => {
     const top = handlers[handlers.length - 1];
     if (top) return top();

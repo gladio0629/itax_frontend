@@ -1,7 +1,7 @@
 // Pieces shared by the request and trip screens (design v2).
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Capacitor } from "@capacitor/core";
+import { platform } from "@/lib/native";
 import { api } from "@/api/client";
 import type { OfferPlace, PassengerInfo, Place, PriceLine, TripPlace } from "@/api/types";
 import { isKey, useT } from "@/lib/i18n/provider";
@@ -204,7 +204,7 @@ export function Ring({ ratio, size, stroke = 7, tone = "brand", track, children 
  */
 export function navigatorHref(place: Place): string {
   const q = place.lat != null && place.lng != null ? `${place.lat},${place.lng}` : encodeURIComponent(`${place.address}, ${place.city.name}`);
-  return Capacitor.getPlatform() === "ios" ? `maps:?daddr=${q}` : `geo:0,0?q=${q}`;
+  return platform() === "ios" ? `maps:?daddr=${q}` : `geo:0,0?q=${q}`;
 }
 
 /** "a · b · c" from the parts that exist. */

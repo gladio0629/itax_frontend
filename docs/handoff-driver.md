@@ -12,11 +12,3 @@ Main and the selfie step link to `${VITE_SITE_URL}/terms` and `${VITE_SITE_URL}/
 `npm run check:no-network` in `driver/` fails on a build until the reviewer allows the public site host as a
 link-only host (for example an `INERT_HOSTS`-style entry for `xasanow.uz`, or reading `VITE_SITE_URL`'s host). The
 same exception covers the client.
-
-## 2. `capacitorjs.com` in the bundle (license comment) — add to `INERT_HOSTS`
-
-`@capacitor/app` (Android back button, decided by the owner) and `@capacitor/core` are now imported in the driver's
-JS. The bundle keeps their banner `/*! Capacitor: https://capacitorjs.com/ - MIT License */`, which
-`check:no-network` reports as `reaches "https://capacitorjs.com"`. It is a comment, never requested. Please add
-`capacitorjs.com` to `INERT_HOSTS` in `shared/scripts/check-no-network.mjs` (the client will hit the same once it uses
-a Capacitor plugin).

@@ -314,7 +314,8 @@ export type TripSummary = {
   commissionWaived: boolean;
   net: number;
   ratingReceived: number | null;
-  payment: PaymentType;
+  /** Absent when the server doesn't label the payment (e.g. wallet). */
+  payment?: PaymentType;
   /** Cash the driver collects from the passenger (server). */
   cashToCollect?: number;
   passengerName?: string;

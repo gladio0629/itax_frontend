@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { RequestAlert } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
@@ -21,6 +21,7 @@ const SHOW_MS = 7000;
 export function RequestBanner() {
   const { t } = useT();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const bump = useFeedSignal((s) => s.bump);
   const [alert, setAlert] = useState<RequestAlert | null>(null);
   // Toasts share the top slot: the banner sits below any that are showing.
@@ -66,8 +67,16 @@ export function RequestBanner() {
     navigate(`/request/${a.requestId}`);
   }
 
+  // On a request screen the driver is already deciding: no banner over its buttons.
+  if (pathname.startsWith("/request/")) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-5 z-[55]" style={{ top: `calc(var(--safe-top) + ${8 + toasts * 68}px)`, transition: "top 200ms" }} role="status" aria-live="polite">
+    // Under the 44–52 px header row (back / bell stay tappable), toasts above it.
+    <div
+      className="pointer-events-none absolute inset-x-5 z-[55]"
+      style={{ top: `calc(max(calc(var(--safe-top) + 12px), 56px) + ${60 + toasts * 64}px)`, transition: "top 200ms" }}
+      role="status"
+      aria-live="polite"
+    >
       {alert && (
         <div key={alert.id} className="on-night pointer-events-auto flex animate-fade-up items-stretch overflow-hidden rounded-card bg-night text-white shadow-float">
           <button type="button" onClick={() => open(alert)} className="press focus-inset flex min-w-0 flex-1 items-center gap-3.5 py-3.5 pl-4 text-left">
