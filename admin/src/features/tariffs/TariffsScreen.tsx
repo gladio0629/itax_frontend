@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Info, Pencil, SlidersHorizontal } from "lucide-react";
 import { api } from "@/api/client";
@@ -9,6 +9,7 @@ import { FilterSelect } from "@/components/FilterSelect";
 import { FormDrawer } from "@/components/FormDrawer";
 import { ChangeConfirmModal, type ChangeRow } from "@/components/ChangeConfirmModal";
 import { EmptyState } from "@/components/EmptyState";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
@@ -60,6 +61,23 @@ type Drafts = {
 };
 const draftsOf = (s: TariffSettings): Drafts => structuredClone({ fuel: s.fuel, classes: s.classes, bodies: s.bodies, extras: s.extras, levels: s.levels });
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/** Only what the admin edits. Server-derived fields (examples, labels,
+ * updatedAt) change after any save and must not count as edits. */
+function editable(s: Drafts, section: Section): unknown {
+  switch (section) {
+    case "fuel":
+      return s.fuel.map((f) => [f.kind, f.pricePerLitre]);
+    case "classes":
+      return s.classes.map((c) => [c.key, c.fuel, c.markupKind, c.markupValue]);
+    case "bodies":
+      return s.bodies.map((b) => [b.size, b.fuel, b.markupKind, b.markupValue]);
+    case "extras":
+      return s.extras.map((e) => [e.key, e.value]);
+    case "levels":
+      return s.levels.map((l) => [l.level, l.commissionPct, l.minTripsWeek, l.minRating, l.maxCancelsWeek]);
+  }
+}
+const SECTIONS: Section[] = ["fuel", "classes", "bodies", "extras", "levels"];
 
 /**
  * Tariflar (design Tariffs, doc 2.5 tariff model 2026-11-22). The admin only
@@ -79,12 +97,17 @@ export function TariffsScreen() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const sendingRef = useRef(false);
+  // City switch with unsaved edits asks first (the edits are dropped).
+  const [cityAsk, setCityAsk] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!caps.tariffSettings) return;
     let live = true;
     setLoading(true);
     setError(null);
+    // Never show the previous city's values as if they were this city's.
+    setSaved((cur) => (cur && cur.cityId !== (cityId || null) ? null : cur));
     api
       .getTariffSettings(cityId || null)
       .then((s) => {
@@ -100,7 +123,13 @@ export function TariffsScreen() {
   }, [cityId]);
   useEffect(() => load(), [load]);
   useEffect(() => {
-    if (caps.tariffSettings && caps.tariffCities) api.getTariffCities().then(setCities).catch(() => setCities([]));
+    if (!caps.tariffSettings || !caps.tariffCities) return;
+    // One retry: without the list the "Shahar" filter is simply not shown.
+    api
+      .getTariffCities()
+      .catch(() => api.getTariffCities())
+      .then(setCities)
+      .catch(() => setCities([]));
   }, []);
 
   const header = (
@@ -113,7 +142,11 @@ export function TariffsScreen() {
             label="Shahar"
             aria-label="Shahar"
             value={cityId}
-            onChange={setCityId}
+            onChange={(next) => {
+              const unsaved = saved && draft && SECTIONS.some((sec) => !same(editable(draft, sec), editable(draftsOf(saved), sec)));
+              if (unsaved) setCityAsk(next);
+              else setCityId(next);
+            }}
             options={[{ value: "", label: "Hamma viloyatlar" }, ...cities.map((c) => ({ value: c.id, label: c.name }))]}
           />
         ) : undefined
@@ -154,7 +187,7 @@ export function TariffsScreen() {
     );
   }
 
-  const dirty = (s: Section) => !same(draft[s], saved[s]);
+  const dirty = (s: Section) => !same(editable(draft, s), editable(draftsOf(saved), s));
   const reset = (s: Section) => setDraft((d) => (d ? { ...d, [s]: structuredClone(saved[s]) } : d));
   const set = <S extends Section>(s: S, value: Drafts[S]) => setDraft((d) => (d ? { ...d, [s]: value } : d));
 
@@ -224,14 +257,26 @@ export function TariffsScreen() {
   }
 
   async function confirmSave() {
-    if (!pending || saving) return;
+    if (!pending || sendingRef.current) return;
+    sendingRef.current = true;
     setSaving(true);
     setSaveError(null);
     try {
       const next = await api.updateTariffSettings(cityId || null, pending.patch);
       // Keep other sections' unsaved edits; take the saved section from the server.
+      // The saved section and every untouched section take the server's
+      // fresh values; other sections keep their unsaved edits.
+      const fresh = draftsOf(next);
+      setDraft((d) => {
+        if (!d) return fresh;
+        const out = { ...d };
+        for (const sec of SECTIONS) {
+          const untouched = same(editable(d, sec), editable(draftsOf(saved!), sec));
+          if (sec === pending.section || untouched) (out as Record<Section, unknown>)[sec] = fresh[sec];
+        }
+        return out;
+      });
       setSaved(next);
-      setDraft((d) => (d ? { ...d, [pending.section]: structuredClone(next[pending.section]) } : draftsOf(next)));
       setToast(`${SECTION_TITLE[pending.section]}: saqlandi`);
       setPending(null);
       setEditor(null);
@@ -239,6 +284,7 @@ export function TariffsScreen() {
       // Keep the modal and the draft.
       setSaveError(errorText(e));
     } finally {
+      sendingRef.current = false;
       setSaving(false);
     }
   }
@@ -344,7 +390,7 @@ export function TariffsScreen() {
                         />
                       </td>
                       <td className="text-right">
-                        <ExampleValue value={c.examplePrice} stale={pricingStale} />
+                        <ExampleValue value={o.examplePrice} stale={pricingStale} />
                       </td>
                     </tr>
                   );
@@ -442,8 +488,9 @@ export function TariffsScreen() {
             <fieldset key={b.size} className="flex flex-col gap-2 border-b border-line pb-3">
               <legend className="mb-2 inline-flex h-[26px] items-center rounded-lg bg-ink px-2.5 text-xs font-bold text-white">Kuzov {b.size}</legend>
               <div className="flex flex-wrap items-center gap-2">
-                <MiniToggle label={`Kuzov ${b.size} yoqilg'isi`} value={b.fuel} options={FUEL_OPTIONS} onChange={(fuel) => upd({ fuel })} changed={b.fuel !== o.fuel} />
+                <MiniToggle size="md" label={`Kuzov ${b.size} yoqilg'isi`} value={b.fuel} options={FUEL_OPTIONS} onChange={(fuel) => upd({ fuel })} changed={b.fuel !== o.fuel} />
                 <MiniToggle
+                  size="md"
                   label={`Kuzov ${b.size} ustama turi`}
                   value={b.markupKind}
                   options={MARKUP_OPTIONS}
@@ -563,6 +610,17 @@ export function TariffsScreen() {
         onCancel={cancelSave}
       />
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+      <ConfirmDialog
+        open={cityAsk !== null}
+        title="Saqlanmagan o'zgarishlar bor"
+        description="Boshqa shaharga o'tsangiz, saqlanmagan o'zgarishlar bekor qilinadi."
+        confirmLabel="O'tish"
+        onConfirm={() => {
+          if (cityAsk !== null) setCityId(cityAsk);
+          setCityAsk(null);
+        }}
+        onCancel={() => setCityAsk(null)}
+      />
     </>
   );
 }

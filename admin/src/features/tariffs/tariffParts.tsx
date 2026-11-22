@@ -47,12 +47,15 @@ export function MiniToggle<K extends string>({
   options,
   onChange,
   changed,
+  size = "row",
 }: {
   label: string;
   value: K;
   options: { key: K; label: string }[];
   onChange: (k: K) => void;
   changed?: boolean;
+  /** 36px buttons inside table rows, 44px elsewhere. */
+  size?: "row" | "md";
 }) {
   return (
     <div role="group" aria-label={label} className={cn("inline-flex gap-0.5 rounded-nav p-[3px]", changed ? "bg-green-soft" : "bg-surface")}>
@@ -65,7 +68,8 @@ export function MiniToggle<K extends string>({
             aria-pressed={on}
             onClick={() => onChange(o.key)}
             className={cn(
-              "h-[30px] whitespace-nowrap rounded-[9px] px-3 text-13",
+              "whitespace-nowrap rounded-[9px] px-3 text-13",
+              size === "row" ? "h-9" : "h-11",
               on ? "bg-white font-extrabold text-ink shadow-[0_1px_3px_rgba(11,21,36,0.14)]" : "font-semibold text-muted hover:text-ink"
             )}
           >

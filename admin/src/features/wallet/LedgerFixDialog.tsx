@@ -23,7 +23,7 @@ const REASON_MAX = 500;
  * the one request; "Bekor qilish" discards everything. The old entry is
  * never changed; the new balance is the server's, not computed here.
  */
-export function LedgerFixDialog({ onDone }: { onDone: (message: string) => void }) {
+export function LedgerFixDialog({ onDone }: { onDone: (result: { applied: boolean }) => void }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const minReason = Math.max(5, caps.adjustmentReasonMinLength);
@@ -101,11 +101,7 @@ export function LedgerFixDialog({ onDone }: { onDone: (message: string) => void 
         amount: signed,
         reason: reason.trim(),
       });
-      onDone(
-        res.applied
-          ? "Tuzatish yozuvi qo'shildi"
-          : "Server tuzatishni qabul qildi, lekin hali kuchga kiritmadi (tasdiq kutilmoqda). Backend tasdiq bosqichini olib tashlashi kerak."
-      );
+      onDone({ applied: res.applied });
       close();
     } catch (e) {
       // Keep the modal and the draft; the admin can retry or cancel.

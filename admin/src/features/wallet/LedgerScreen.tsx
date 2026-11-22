@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
-import { Lock, Plus, Scale, Search, Wallet, X } from "lucide-react";
+import { Lock, Plus, Scale, Search, TriangleAlert, Wallet, X } from "lucide-react";
 import { api } from "@/api/client";
 import { PageHeader } from "@/layouts/PageHeader";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -48,6 +48,9 @@ export function LedgerScreen() {
   const [summary, setSummary] = useState<LedgerSummary | null>(null);
   const [tick, setTick] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  // The server took the correction but did not apply it: a warning that
+  // stays until dismissed, never a success toast.
+  const [notApplied, setNotApplied] = useState(false);
 
   useEffect(() => {
     if (!caps.ledgerSummary) return;
@@ -187,6 +190,19 @@ export function LedgerScreen() {
         </div>
       )}
 
+      {notApplied && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-box bg-warn-soft px-4 py-3 text-13 font-semibold text-warn">
+          <TriangleAlert className="h-[18px] w-[18px] shrink-0" aria-hidden />
+          <span className="flex-1">
+            Tuzatish yozuvi serverga yuborildi, lekin <b>kuchga kirmadi</b>: server hali uni tasdiq uchun ushlab turibdi. Balans o'zgarmadi. Backend tasdiq
+            bosqichini olib tashlaguncha tuzatishlar panel orqali kuchga kirmaydi.
+          </span>
+          <button type="button" onClick={() => setNotApplied(false)} className="h-11 rounded-full bg-white px-3.5 text-13 font-bold text-ink hover:bg-surface">
+            Tushunarli
+          </button>
+        </div>
+      )}
+
       <InfoNote icon={<Lock className="h-[18px] w-[18px]" aria-hidden />}>
         Daftar <b className="text-ink">o'zgarmaydi</b>: yozuvni tahrirlab yoki o'chirib bo'lmaydi. Xato bo'lsa, sababi bilan tuzatish yozuvi qo'shiladi: kim
         qo'shgani audit jurnalida ko'rinadi.
@@ -247,8 +263,9 @@ export function LedgerScreen() {
           path="fix"
           element={
             <LedgerFixDialog
-              onDone={(message) => {
-                setToast(message);
+              onDone={({ applied }) => {
+                if (applied) setToast("Tuzatish yozuvi qo'shildi");
+                else setNotApplied(true);
                 reload();
                 setTick((n) => n + 1);
               }}
