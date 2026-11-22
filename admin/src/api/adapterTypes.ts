@@ -47,6 +47,14 @@ import type {
   OperatorCounts,
   AdapterCapabilities,
   GlobalSearchHit,
+  Dashboard,
+  DashboardPeriod,
+  ListCounts,
+  OrderDetail,
+  DriverProfile,
+  DriverTrips,
+  DriverTripsQuery,
+  OrderStatus,
 } from "./types";
 
 /**
@@ -77,6 +85,9 @@ export interface ApiAdapter {
 
   // --- stats ---
   getStats(period: StatsPeriod): Promise<MarketingStats>;
+  /** "Umumiy statistika" (v2). Blocks the server leaves null are hidden;
+   * recent orders / attention come only when the admin may see them. */
+  getDashboard(period: DashboardPeriod): Promise<Dashboard>;
 
   getCities(): Promise<City[]>;
 
@@ -96,6 +107,13 @@ export interface ApiAdapter {
 
   // --- drivers ---
   getDrivers(query: DriverQuery): Promise<Driver[]>;
+  /** Chip counts for the same filters minus status; `capabilities.driverCounts`. */
+  getDriverCounts(query: Omit<DriverQuery, "status">): Promise<ListCounts<DriverStatus | "archived">>;
+  /** Route filter options; `capabilities.driverRouteFilter`. */
+  getDriverRoutes(): Promise<string[]>;
+  getDriver(id: string): Promise<DriverProfile>;
+  /** Driver history; `capabilities.driverTrips`. */
+  getDriverTrips(driverId: string, query: DriverTripsQuery): Promise<DriverTrips>;
   updateDriverProfile(id: string, patch: { name?: string; carModel?: string; carColor?: string; plate?: string }): Promise<Driver>;
   /** `reason` is required by the server when blocking. */
   setDriverStatus(id: string, status: "active" | "blocked", reason?: string): Promise<Driver>;
@@ -104,14 +122,23 @@ export interface ApiAdapter {
 
   // --- passengers ---
   getPassengers(query: PassengerQuery): Promise<Passenger[]>;
+  /** `capabilities.passengerCounts`. */
+  getPassengerCounts(query: Omit<PassengerQuery, "status">): Promise<ListCounts<PassengerStatus | "archived">>;
   createPassenger(input: { name: string; phone: string; cityId: string }): Promise<Passenger>;
   updatePassenger(id: string, patch: { name?: string; cityId?: string }): Promise<Passenger>;
-  setPassengerStatus(id: string, status: PassengerStatus, reason?: string): Promise<Passenger>;
+  /** Admins set active or blocked only ("warned" is display-only, from the server). */
+  setPassengerStatus(id: string, status: "active" | "blocked", reason?: string): Promise<Passenger>;
   archivePassenger(id: string): Promise<Passenger>;
   restorePassenger(id: string): Promise<Passenger>;
 
   // --- orders ---
   getOrders(query: OrderQuery): Promise<OrderWithNames[]>;
+  /** `capabilities.orderCounts`. */
+  getOrderCounts(query: Omit<OrderQuery, "status">): Promise<ListCounts<OrderStatus>>;
+  getOrder(id: string): Promise<OrderDetail>;
+  /** Puts a call task for this order into the operator queue;
+   * `capabilities.orderToOperator`. */
+  sendOrderToOperator(id: string, note: string): Promise<void>;
   createOrderForPassenger(input: {
     passengerId: string;
     fromCityId: string;

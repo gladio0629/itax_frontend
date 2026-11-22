@@ -1,5 +1,5 @@
 /* IZGO Admin design tokens, redesign v2 (docs/izgo-dizayn-v2.md, design-v2/admin/*.dc.html).
-   Ink + green. The old blue #264A9F and yellow #F6BF0E are not used any more. */
+   Ink + green. The old brand blue and yellow are not used any more. */
 :root {
   /* --- v2 palette --- */
   --ink: #0b1524;
@@ -16,6 +16,14 @@
   --green-hover: #27c877; /* primary button hover */
   --error-soft-hover: #fbdcd8; /* danger button hover */
   --row-hover: #f8f9fb; /* table row hover */
+  --line-strong: #d4dbe4; /* route / timeline connector */
+  /* Charts (Dashboard): today's bar uses green + Ink, other days these. */
+  --chart-passenger: #9eebc3;
+  --chart-delivery: #7d8a9c;
+  /* Driver level dots */
+  --level-bronze: #c98a55;
+  --level-silver: #c3cbd5;
+  --level-gold: #f5c542;
   --surface: #f3f5f8; /* page bg, fields, table head */
   --line: #e2e7ee; /* dividers */
   --muted: #5a6779; /* labels, hints */

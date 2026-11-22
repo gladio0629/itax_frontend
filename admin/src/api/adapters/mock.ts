@@ -64,6 +64,19 @@ import type {
   ArchivableStatusFilter,
   AdapterCapabilities,
   GlobalSearchHit,
+  Dashboard,
+  AttentionItem,
+  ListCounts,
+  ListPeriod,
+  DashboardPeriod,
+  OrderDetail,
+  OrderTimelineStep,
+  OrderPriceLine,
+  DriverProfile,
+  DriverTrips,
+  DriverTripRow,
+  DriverLevel,
+  Section,
 } from "../types";
 
 const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
@@ -188,11 +201,172 @@ function decorateOrder(o: Order): OrderWithNames {
   return {
     ...o,
     passengerName: passengers.find((p) => p.id === o.passengerId)?.name ?? "—",
+    passengerPhone: passengers.find((p) => p.id === o.passengerId)?.phone ?? null,
     driverName: o.driverId ? drivers.find((d) => d.id === o.driverId)?.name ?? "—" : null,
     fromCityName: cities.find((c) => c.id === o.fromCityId)?.name ?? o.fromCityId,
     toCityName: cities.find((c) => c.id === o.toCityId)?.name ?? o.toCityId,
     canCancel: !["completed", "cancelled", "no_driver"].includes(o.status),
   };
+}
+
+// ---------------------------------------------------------------------
+// v2 group 3 helpers. The mock is the "server": it decides periods,
+// counts, levels, timelines and price lines.
+// ---------------------------------------------------------------------
+const DAY_MS = 86_400_000;
+/** The mock's "today": the day the sample data was generated. */
+function mockToday(): number {
+  const d = new Date(db.generatedAt());
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+function periodBounds(p: ListPeriod | DashboardPeriod | undefined): [number, number] | null {
+  if (!p || p === "all") return null;
+  const t = mockToday();
+  if (p === "today") return [t, Infinity];
+  if (p === "yesterday") return [t - DAY_MS, t];
+  if (p === "7d") return [t - 6 * DAY_MS, Infinity];
+  return [t - 29 * DAY_MS, Infinity];
+}
+const inBounds = (ts: number, b: [number, number] | null) => !b || (ts >= b[0] && ts < b[1]);
+
+function requireSection(actor: AdminUser, section: Section) {
+  if (!ROLE_SECTIONS[actor.role].includes(section)) throw new ApiError("FORBIDDEN", "Bu bo'lim uchun ruxsatingiz yo'q.");
+}
+
+function countBy<T, K extends string>(rows: T[], key: (r: T) => K | null): ListCounts<K> {
+  const out: ListCounts<K> = { all: rows.length } as ListCounts<K>;
+  for (const r of rows) {
+    const k = key(r);
+    if (k) out[k] = (out[k] ?? 0) + 1;
+  }
+  return out;
+}
+
+function ordersMatching(query: Omit<OrderQuery, "status">): Order[] {
+  const bounds = periodBounds(query.period);
+  const passengers = db.passengers();
+  const drivers = db.drivers();
+  return db
+    .orders()
+    .filter((o) => (!query.kind || query.kind === "all" || o.kind === query.kind) && inBounds(o.createdAt, bounds))
+    .filter((o) => !query.passengerId || o.passengerId === query.passengerId)
+    .filter((o) => {
+      if (!query.search) return true;
+      const p = passengers.find((x) => x.id === o.passengerId);
+      const d = o.driverId ? drivers.find((x) => x.id === o.driverId) : undefined;
+      return matchesSearch(`${o.id} ${p?.name ?? ""} ${p?.phone ?? ""} ${d?.name ?? ""} ${o.fromCityId} ${o.toCityId}`, query.search);
+    })
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function driversMatching(query: Omit<DriverQuery, "status">) {
+  return db
+    .drivers()
+    .filter((d) => !query.search || matchesSearch(`${d.name} ${d.plate} ${d.carModel} ${d.phone}`, query.search))
+    .filter((d) => !query.route || query.route === "all" || d.route === query.route)
+    .filter((d) => !query.level || query.level === "all" || d.level === query.level);
+}
+
+function passengersMatching(query: Omit<PassengerQuery, "status">) {
+  const bounds = periodBounds(query.joined);
+  return db
+    .passengers()
+    .filter((p) => !query.search || matchesSearch(`${p.name} ${p.phone}`, query.search))
+    .filter((p) => inBounds(p.joinedAt, bounds));
+}
+
+const LEVEL_LABEL: Record<DriverLevel, string> = { bronze: "Bronza", silver: "Kumush", gold: "Oltin" };
+const shortName = (name: string) => {
+  const [first, last] = name.split(/\s+/);
+  return last ? `${first} ${last[0]}.` : first;
+};
+
+function tripSubject(o: Order): string {
+  const p = db.getPassenger(o.passengerId);
+  const who = p ? shortName(p.name) : "—";
+  if (o.kind === "delivery") return `${who} · Kuzov ${o.bodySize ?? "—"}`;
+  return o.mode === "car" ? `${who} · butun mashina` : `${who} · ${o.seatIds.length} kishi`;
+}
+
+function tripRow(o: Order): DriverTripRow {
+  const cities = db.cities();
+  return {
+    orderId: o.id,
+    kind: o.kind,
+    at: o.createdAt,
+    fromName: cities.find((c) => c.id === o.fromCityId)?.name ?? o.fromCityId,
+    toName: cities.find((c) => c.id === o.toCityId)?.name ?? o.toCityId,
+    subject: tripSubject(o),
+    price: o.price,
+    paymentMethod: o.paymentMethod,
+    commission: o.commission,
+    payout: o.driverPayout,
+    status: o.status,
+    cancelledBy: o.cancelledBy,
+  };
+}
+
+const monthKey = (ts: number) => {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+function orderSteps(o: Order, driverName: string | null): OrderTimelineStep[] {
+  const t0 = o.createdAt;
+  const steps: OrderTimelineStep[] = [
+    { title: "Buyurtma yaratildi", detail: o.createdByAdminId ? "Admin panelidan" : "Yo'lovchi ilovasidan", at: t0, state: "done" },
+  ];
+  const tripMs = (o.durationMin ?? 120) * 60_000;
+  if (o.status === "searching") {
+    steps.push({ title: "Haydovchi qidirilmoqda", detail: null, at: null, state: "current" });
+    steps.push({ title: "Haydovchi qabul qiladi", detail: null, at: null, state: "pending" });
+    return steps;
+  }
+  if (o.status === "no_driver") {
+    steps.push({ title: "Haydovchi topilmadi", detail: "Hech kim qabul qilmadi", at: t0 + 5 * 60_000, state: "done" });
+    return steps;
+  }
+  if (o.driverId) steps.push({ title: "Haydovchi qabul qildi", detail: driverName, at: t0 + 60_000, state: "done" });
+  if (o.status === "cancelled") {
+    const by = o.cancelledBy === "driver" ? "Haydovchi" : o.cancelledBy === "admin" ? "Admin" : "Yo'lovchi";
+    steps.push({ title: "Bekor qilindi", detail: `${by} bekor qildi`, at: t0 + 12 * 60_000, state: "done" });
+    return steps;
+  }
+  const picked = t0 + 40 * 60_000;
+  const end = picked + tripMs;
+  if (o.status === "accepted") {
+    steps.push({ title: "Haydovchi yo'lda", detail: "Olish nuqtasiga kelmoqda", at: null, state: "current" });
+    steps.push({ title: "Yo'lovchi olinadi", detail: null, at: picked, estimated: true, state: "pending" });
+    steps.push({ title: "Tugaydi", detail: null, at: end, estimated: true, state: "pending" });
+    return steps;
+  }
+  steps.push({ title: o.kind === "delivery" ? "Yuk olindi" : "Yo'lovchi olindi", detail: "Kutish 3 daqiqa, bepul", at: picked, state: "done" });
+  if (o.status === "in_progress") {
+    steps.push({ title: "Safarda", detail: null, at: null, state: "current" });
+    steps.push({ title: "Tugadi", detail: "Komissiya avtomatik yechiladi", at: end, estimated: true, state: "pending" });
+  } else {
+    steps.push({ title: "Tugadi", detail: "Komissiya yechildi", at: end, state: "done" });
+  }
+  return steps;
+}
+
+function orderPriceLines(o: Order, driver: Driver | undefined): OrderPriceLine[] {
+  const lines: OrderPriceLine[] = [];
+  const main =
+    o.kind === "delivery" ? `Dostavka, kuzov ${o.bodySize ?? "—"}` : o.mode === "car" ? "Butun mashina" : `Safar, ${o.seatIds.length} o'rin`;
+  lines.push({ label: main, amount: o.price, kind: "line" });
+  if (o.commission !== null && driver) {
+    const lvl = driver.level ? `${LEVEL_LABEL[driver.level]}, ` : "";
+    lines.push({ label: `Komissiya (${lvl}${driver.commissionPct ?? 0}%)`, amount: o.commission, kind: "commission" });
+  }
+  if (o.driverPayout !== null) lines.push({ label: "Haydovchiga", amount: o.driverPayout, kind: "payout" });
+  return lines;
+}
+
+function pctDelta(cur: number, prev: number): number | null {
+  if (!prev) return null;
+  return Math.round(((cur - prev) / prev) * 100);
 }
 
 function toQueueListItem(q: QueueItem): QueueListItem {
@@ -240,6 +414,16 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
   auditSearch: true,
   auditApiFilters: false,
   globalSearch: true,
+  orderCounts: true,
+  orderKindFilter: true,
+  orderDateFilter: true,
+  orderToOperator: true,
+  driverCounts: true,
+  driverRouteFilter: true,
+  driverLevelFilter: true,
+  driverTrips: true,
+  passengerCounts: true,
+  passengerJoinedFilter: true,
 };
 
 export const mockAdapter: ApiAdapter = {
@@ -432,6 +616,85 @@ export const mockAdapter: ApiAdapter = {
         targetId: user.id,
         detail: "Sinov: rol sifatida kirish",
       });
+    }),
+
+  getDashboard: (period) =>
+    withLatency<Dashboard>(() => {
+      const actor = currentAdmin();
+      requireSection(actor, "stats");
+      const sections = ROLE_SECTIONS[actor.role];
+      const t = mockToday();
+      const span = period === "today" ? 1 : period === "7d" ? 7 : 30;
+      const cur: [number, number] = [t - (span - 1) * DAY_MS, Infinity];
+      const prev: [number, number] = [cur[0] - span * DAY_MS, cur[0]];
+      const orders = db.orders();
+      const drivers = db.drivers();
+      const inR = (ts: number, r: [number, number]) => ts >= r[0] && ts < r[1];
+      const ordersIn = (r: [number, number]) => orders.filter((o) => inR(o.createdAt, r));
+      const activeIn = (r: [number, number]) => new Set(ordersIn(r).map((o) => o.driverId).filter(Boolean)).size;
+      const newPaxIn = (r: [number, number]) => db.passengers().filter((p) => inR(p.joinedAt, r)).length;
+      const commissionIn = (r: [number, number]) => ordersIn(r).reduce((s, o) => s + (o.commission ?? 0), 0);
+      const days7 = Array.from({ length: 7 }, (_, i): [number, number] => [t - (6 - i) * DAY_MS, t - (5 - i) * DAY_MS]);
+      days7[6] = [t, Infinity];
+      const kpi = (f: (r: [number, number]) => number) => ({
+        value: f(cur),
+        deltaPct: pctDelta(f(cur), f(prev)),
+        spark: days7.map(f),
+      });
+      const routeCount = new Map<string, { from: string; to: string; count: number }>();
+      const cities = db.cities();
+      for (const o of ordersIn(cur)) {
+        const from = cities.find((c) => c.id === o.fromCityId)?.name ?? o.fromCityId;
+        const to = cities.find((c) => c.id === o.toCityId)?.name ?? o.toCityId;
+        const key = `${from}|${to}`;
+        const r = routeCount.get(key) ?? { from, to, count: 0 };
+        r.count += 1;
+        routeCount.set(key, r);
+      }
+      const attention: AttentionItem[] = [];
+      if (sections.includes("operators")) {
+        const waiting = readQueue().filter((q) => q.status === "waiting");
+        if (waiting.length) {
+          const oldest = Math.min(...waiting.map((q) => q.waitingSinceAt));
+          attention.push({
+            id: "queue",
+            tone: "warning",
+            title: `Operator navbatida ${waiting.length} ta`,
+            detail: `Eng eskisi ${Math.max(1, Math.round((Date.now() - oldest) / 60_000))} daqiqa oldin`,
+            section: "operators",
+          });
+        }
+      }
+      const overLimit = drivers.filter((d) => !d.archived && d.atDebtLimit).length;
+      if (overLimit && (sections.includes("wallet") || sections.includes("drivers"))) {
+        attention.push({
+          id: "debt",
+          tone: "danger",
+          title: `${overLimit} haydovchi qarz chegarasida`,
+          detail: "Yangi so'rovlar ular uchun to'xtatilgan",
+          section: sections.includes("wallet") ? "wallet" : "drivers",
+        });
+      }
+      if (sections.includes("complaints")) {
+        const open = db.complaints().filter((c) => c.status === "open").length;
+        if (open) attention.push({ id: "complaints", tone: "info", title: `${open} ta ochiq shikoyat`, detail: "Ko'rib chiqilmagan", section: "complaints" });
+      }
+      return {
+        period,
+        orders: kpi((r) => ordersIn(r).length),
+        activeDrivers: kpi(activeIn),
+        newPassengers: kpi(newPaxIn),
+        commission: kpi(commissionIn),
+        ordersByDay: Array.from({ length: 14 }, (_, i) => {
+          const start = t - (13 - i) * DAY_MS;
+          const day = ordersIn([start, i === 13 ? Infinity : start + DAY_MS]);
+          const passenger = day.filter((o) => o.kind === "passenger").length;
+          return { date: start, total: day.length, passenger, delivery: day.length - passenger };
+        }),
+        topRoutes: [...routeCount.values()].sort((a, b) => b.count - a.count).slice(0, 5),
+        recentOrders: sections.includes("orders") ? orders.slice().sort((a, b) => b.createdAt - a.createdAt).slice(0, 4).map(decorateOrder) : null,
+        attention,
+      };
     }),
 
   getStats: (period) =>
@@ -700,10 +963,66 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   getDrivers: (query: DriverQuery) =>
-    withLatency<Driver[]>(() => {
-      let rows = filterByArchivableStatus(db.drivers(), query.status);
-      if (query.search) rows = rows.filter((d) => matchesSearch(`${d.name} ${d.plate} ${d.carModel}`, query.search));
-      return rows;
+    withLatency<Driver[]>(() => filterByArchivableStatus(driversMatching(query), query.status)),
+
+  getDriverCounts: (query) =>
+    withLatency(() => {
+      const rows = driversMatching(query);
+      const c = countBy(rows, (d) => (d.archived ? "archived" : d.status)) as ListCounts<Driver["status"] | "archived">;
+      // "all" = every non-archived driver, like the list's "all" filter.
+      return { ...c, all: rows.filter((d) => !d.archived).length };
+    }),
+
+  getDriverRoutes: () =>
+    withLatency(() => [...new Set(db.drivers().map((d) => d.route).filter((r): r is string => !!r))].sort()),
+
+  getDriver: (id) =>
+    withLatency<DriverProfile>(() => {
+      currentAdmin();
+      const d = db.getDriver(id);
+      if (!d) throw new ApiError("DRIVER_NOT_FOUND", "Haydovchi topilmadi.");
+      const recent = db
+        .orders()
+        .filter((o) => o.driverId === id)
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 3)
+        .map(tripRow);
+      return { ...d, recentTrips: recent };
+    }),
+
+  getDriverTrips: (driverId, query) =>
+    withLatency<DriverTrips>(() => {
+      currentAdmin();
+      const all = db.orders().filter((o) => o.driverId === driverId);
+      const months = [...new Set(all.map((o) => monthKey(o.createdAt)))].sort().reverse();
+      const month = query.month && months.includes(query.month) ? query.month : (months[0] ?? monthKey(mockToday()));
+      const inMonth = all.filter((o) => monthKey(o.createdAt) === month).sort((a, b) => b.createdAt - a.createdAt);
+      const kind = query.kind ?? "all";
+      const rows = inMonth.filter((o) => (kind === "all" ? true : kind === "cancelled" ? o.status === "cancelled" : o.kind === kind));
+      const done = inMonth.filter((o) => o.commission !== null);
+      const priceSum = done.reduce((s, o) => s + o.price, 0);
+      const commission = done.reduce((s, o) => s + (o.commission ?? 0), 0);
+      const cancelled = inMonth.filter((o) => o.status === "cancelled").length;
+      return {
+        month,
+        months,
+        summary: {
+          trips: inMonth.length,
+          tripsTotal: all.length,
+          income: done.reduce((s, o) => s + (o.driverPayout ?? 0), 0),
+          commission,
+          commissionAvgPct: priceSum ? Math.round((commission / priceSum) * 1000) / 10 : null,
+          cancelled,
+          cancelledPct: inMonth.length ? Math.round((cancelled / inMonth.length) * 100) : null,
+        },
+        counts: {
+          all: inMonth.length,
+          passenger: inMonth.filter((o) => o.kind === "passenger").length,
+          delivery: inMonth.filter((o) => o.kind === "delivery").length,
+          cancelled,
+        },
+        rows: rows.map(tripRow),
+      };
     }),
 
   updateDriverProfile: (id, patch) =>
@@ -761,10 +1080,13 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   getPassengers: (query: PassengerQuery) =>
-    withLatency<Passenger[]>(() => {
-      let rows = filterByArchivableStatus(db.passengers(), query.status);
-      if (query.search) rows = rows.filter((p) => matchesSearch(p.name, query.search));
-      return rows;
+    withLatency<Passenger[]>(() => filterByArchivableStatus(passengersMatching(query), query.status)),
+
+  getPassengerCounts: (query) =>
+    withLatency(() => {
+      const rows = passengersMatching(query);
+      const c = countBy(rows, (p) => (p.archived ? "archived" : p.status)) as ListCounts<Passenger["status"] | "archived">;
+      return { ...c, all: rows.filter((p) => !p.archived).length };
     }),
 
   createPassenger: (input) =>
@@ -782,6 +1104,8 @@ export const mockAdapter: ApiAdapter = {
         status: "active",
         archived: false,
         joinedAt: Date.now(),
+        lastTripAt: null,
+        lastPayment: null,
       };
       db.addPassenger(passenger);
       addAuditEntry({
@@ -844,11 +1168,57 @@ export const mockAdapter: ApiAdapter = {
 
   getOrders: (query: OrderQuery) =>
     withLatency<OrderWithNames[]>(() => {
-      let rows = db.orders();
+      let rows = ordersMatching(query);
       if (query.status && query.status !== "all") rows = rows.filter((o) => o.status === query.status);
-      const decorated = rows.map(decorateOrder);
-      if (!query.search) return decorated;
-      return decorated.filter((o) => matchesSearch(`${o.id} ${o.passengerName} ${o.driverName ?? ""} ${o.fromCityName} ${o.toCityName}`, query.search));
+      return rows.map(decorateOrder);
+    }),
+
+  getOrderCounts: (query) => withLatency(() => countBy(ordersMatching(query), (o) => o.status)),
+
+  getOrder: (id) =>
+    withLatency<OrderDetail>(() => {
+      const actor = currentAdmin();
+      requireSection(actor, "orders");
+      const o = db.getOrder(id);
+      if (!o) throw new ApiError("ORDER_NOT_FOUND", "Buyurtma topilmadi.");
+      const decorated = decorateOrder(o);
+      const driver = o.driverId ? db.getDriver(o.driverId) : undefined;
+      const passenger = db.getPassenger(o.passengerId);
+      return {
+        ...decorated,
+        passengerRating: passenger?.rating ?? null,
+        driverRating: driver?.rating ?? null,
+        driverCar: driver ? `${driver.carModel} · ${driver.plate}` : null,
+        carClassLabel: o.kind === "passenger" ? "Standart" : null,
+        steps: orderSteps(o, decorated.driverName),
+        priceLines: orderPriceLines(o, driver),
+        canEdit: o.status === "searching" || o.status === "accepted",
+      };
+    }),
+
+  sendOrderToOperator: (id, note) =>
+    withLatency<void>(() => {
+      const actor = currentAdmin();
+      requireSection(actor, "orders");
+      const o = db.getOrder(id);
+      if (!o) throw new ApiError("ORDER_NOT_FOUND", "Buyurtma topilmadi.");
+      const passenger = db.getPassenger(o.passengerId);
+      const item: QueueItem = {
+        id: `q_${Date.now().toString(36)}`,
+        phone: passenger?.phone ?? "—",
+        reason: "info_needed",
+        waitingSinceAt: Date.now(),
+        status: "waiting",
+      };
+      saveQueue([...readQueue(), item]);
+      addAuditEntry({
+        actorId: actor.id,
+        actorName: actor.name,
+        action: "order_to_operator",
+        targetType: "order",
+        targetId: id,
+        detail: note.trim() ? `Operatorga yuborildi: ${note.trim()}` : "Operatorga yuborildi",
+      });
     }),
 
   createOrderForPassenger: (input) =>
@@ -874,6 +1244,15 @@ export const mockAdapter: ApiAdapter = {
         createdAt: Date.now(),
         timeWindow: input.timeWindow,
         createdByAdminId: actor.id,
+        kind: "passenger",
+        bodySize: null,
+        luggageCount: 0,
+        pickupAddress: db.cities().find((c) => c.id === input.fromCityId)?.name ?? null,
+        dropoffAddress: db.cities().find((c) => c.id === input.toCityId)?.name ?? null,
+        durationMin: Math.round((distanceKm / 75) * 60),
+        commission: null,
+        driverPayout: null,
+        cancelledBy: null,
       };
       db.addOrder(order);
       addAuditEntry({
@@ -903,7 +1282,7 @@ export const mockAdapter: ApiAdapter = {
   cancelOrder: (id, reason) =>
     withLatency<OrderWithNames>(() => {
       const actor = currentAdmin();
-      db.updateOrder(id, { status: "cancelled", cancelReason: reason });
+      db.updateOrder(id, { status: "cancelled", cancelReason: reason, cancelledBy: "admin", commission: null, driverPayout: null });
       addAuditEntry({ actorId: actor.id, actorName: actor.name, action: "order_cancel", targetType: "order", targetId: id, detail: `Bekor qilindi: ${reason}` });
       const o = db.getOrder(id);
       if (!o) throw new ApiError("NOT_FOUND", "Buyurtma topilmadi");

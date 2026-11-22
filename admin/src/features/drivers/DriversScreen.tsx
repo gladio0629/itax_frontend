@@ -1,344 +1,163 @@
-import { useState } from "react";
-import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
-import { Ban, Car, CheckCircle2, Pencil, RotateCcw, Trash2 } from "lucide-react";
-import { DataTable, type Column } from "@/components/DataTable";
-import { Badge, type BadgeTone } from "@/components/Badge";
-import { Avatar } from "@/components/Avatar";
-import { Button } from "@/components/Button";
-import { Input } from "@/components/Input";
-import { Drawer } from "@/components/Drawer";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { ExportButton } from "@/components/ExportButton";
-import { ErrorState } from "@/components/ErrorState";
-import { Skeleton } from "@/components/Skeleton";
-import { Toast } from "@/components/Toast";
-import { ListToolbar } from "@/components/ListToolbar";
-import { FilterSelect } from "@/components/FilterSelect";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Ban, CheckCircle2, ExternalLink, Pencil, RotateCcw, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { api } from "@/api/client";
+import { PageHeader } from "@/layouts/PageHeader";
+import { SearchInput } from "@/components/Input";
+import { FilterChips } from "@/components/FilterChips";
+import { FilterSelect } from "@/components/FilterSelect";
+import { ExportButton } from "@/components/ExportButton";
+import { ErrorState, StaleNotice } from "@/components/ErrorState";
+import { Skeleton } from "@/components/Skeleton";
+import { RowMenu } from "@/components/RowMenu";
+import { InfoNote, LEVEL_LABEL } from "@/components/Cells";
 import { useAdapterList } from "@/hooks/useAdapterList";
-import { formatDate, formatSom } from "@/lib/format";
-import { cn } from "@/lib/cn";
-import type { ArchivableStatusFilter, Driver, DriverQuery, DriverStatus } from "@/api/types";
+import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
+import { DRIVER_STATUS, driverBadge, driverChipStatuses } from "./driverLabels";
+import { DriversTable } from "./DriversTable";
+import { useDriverActions } from "./useDriverActions";
+import type { ArchivableStatusFilter, DriverLevel, DriverQuery, DriverStatus, ListCounts } from "@/api/types";
 
 const caps = api.capabilities;
 
-const STATUS_TONE: Record<DriverStatus, BadgeTone> = {
-  active: "success",
-  auto_review: "pending",
-  blocked: "danger",
-  rejected: "danger",
-};
-const STATUS_LABEL: Record<DriverStatus, string> = {
-  active: "Faol",
-  // The real API's draft / pending_review: the driver isn't approved yet.
-  auto_review: caps.driverReviewFilter ? "Avtomatik tekshiruvda" : "Tekshiruvda",
-  blocked: "Bloklangan",
-  rejected: "Rad etilgan",
-};
-const STATUS_OPTIONS: { value: ArchivableStatusFilter<DriverStatus>; label: string }[] = [
-  { value: "all", label: "Barchasi" },
-  { value: "active", label: STATUS_LABEL.active },
-  // The contract filters by account state only (active/blocked/archived).
-  ...(caps.driverReviewFilter ? [{ value: "auto_review" as const, label: STATUS_LABEL.auto_review }] : []),
-  { value: "blocked", label: STATUS_LABEL.blocked },
-  { value: "archived", label: "Arxivlangan" },
-];
-
-type Confirm = { type: "block" | "unblock" | "archive" | "restore"; driver: Driver };
-
-const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
-
+/** Drivers list (design Drivers). No manual approval: documents are checked
+ * automatically (doc 2.3); admins block/unblock, edit, archive/restore. */
 export function DriversScreen() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   useSearchFromUrl(setSearch);
   const [status, setStatus] = useState<ArchivableStatusFilter<DriverStatus>>("all");
-  const query: DriverQuery = { search, status };
-  const { items: drivers, error, reload } = useAdapterList(api.getDrivers, query);
+  const [route, setRoute] = useState<string>("all");
+  const [level, setLevel] = useState<DriverLevel | "all">("all");
+  const filters = { search, route, level } satisfies Omit<DriverQuery, "status">;
+  const { items: drivers, error, reload } = useAdapterList(api.getDrivers, { ...filters, status } as DriverQuery);
+  const [counts, setCounts] = useState<ListCounts<DriverStatus | "archived"> | null>(null);
+  const [routes, setRoutes] = useState<string[]>([]);
+  const [tick, setTick] = useState(0);
 
-  const [selected, setSelected] = useState<Driver | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ name: "", carModel: "", carColor: "", plate: "" });
-  const [saving, setSaving] = useState(false);
-  const [confirm, setConfirm] = useState<Confirm | null>(null);
-  const [acting, setActing] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (caps.driverRouteFilter) api.getDriverRoutes().then(setRoutes).catch(() => {});
+  }, []);
+  const countsKey = JSON.stringify(filters);
+  useEffect(() => {
+    if (!caps.driverCounts) return;
+    let live = true;
+    const t = setTimeout(() => api.getDriverCounts(filters).then((c) => live && setCounts(c)).catch(() => live && setCounts(null)), 300);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countsKey, tick]);
 
-  function openDetail(d: Driver) {
-    setSelected(d);
-    setEditing(false);
-    setActionError(null);
-  }
-  function startEdit(d: Driver) {
-    setForm({ name: d.name, carModel: d.carModel, carColor: d.carColor, plate: d.plate });
-    setActionError(null);
-    setEditing(true);
-  }
-  function openConfirm(c: Confirm) {
-    setActionError(null);
-    setConfirm(c);
-  }
+  const actions = useDriverActions(() => {
+    reload();
+    setTick((n) => n + 1);
+  });
 
-
-  async function handleSave() {
-    if (!selected) return;
-    setSaving(true);
-    setActionError(null);
-    try {
-      // Car fields go only to a backend that can change them.
-      const patch = caps.driverCarEdit ? form : { name: form.name };
-      const updated = await api.updateDriverProfile(selected.id, patch);
-      setSelected(updated);
-      setEditing(false);
-      setToast("Profil saqlandi");
-      reload();
-    } catch (e) {
-      setActionError(errorText(e));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleConfirm(reason?: string) {
-    if (!confirm) return;
-    setActing(true);
-    setActionError(null);
-    try {
-      const { type, driver } = confirm;
-      let updated: Driver;
-      if (type === "block") updated = await api.setDriverStatus(driver.id, "blocked", reason);
-      else if (type === "unblock") updated = await api.setDriverStatus(driver.id, "active");
-      else if (type === "archive") updated = await api.archiveDriver(driver.id);
-      else updated = await api.restoreDriver(driver.id);
-      setSelected((prev) => (prev?.id === updated.id ? updated : prev));
-      setToast(type === "block" ? "Bloklandi" : type === "unblock" ? "Blokdan chiqarildi" : type === "archive" ? "Arxivlandi" : "Tiklandi");
-      setConfirm(null);
-      reload();
-    } catch (e) {
-      setActionError(errorText(e));
-    } finally {
-      setActing(false);
-    }
-  }
-
-  const columns: Column<Driver>[] = [
-    {
-      key: "name",
-      header: "Haydovchi",
-      sortValue: (d) => d.name,
-      width: "220px",
-      render: (d) => (
-        <div className="flex min-w-0 items-center gap-2">
-          <Avatar seed={d.avatarSeed} name={d.name} />
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-ink">{d.name}</p>
-            <p className="truncate text-xs text-ink/50">{d.phone}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "car",
-      header: "Avtomobil",
-      render: (d) => (
-        <span className="block max-w-[180px] truncate" title={`${d.carModel} · ${d.plate}`}>
-          {d.carModel} · {d.plate}
-        </span>
-      ),
-    },
-    { key: "rating", header: "Reyting", align: "right", sortValue: (d) => d.rating, render: (d) => <span className="tabular">{d.rating.toFixed(1)}</span> },
-    { key: "trips", header: "Safarlar", align: "right", sortValue: (d) => d.totalTrips, render: (d) => <span className="tabular">{d.totalTrips}</span> },
-    {
-      key: "wallet",
-      header: "Hamyon",
-      align: "right",
-      sortValue: (d) => d.walletBalance,
-      render: (d) => <span className={cn("tabular", caps.driverDebtLimit && d.walletBalance < d.debtLimit && "text-danger")}>{formatSom(d.walletBalance)}</span>,
-    },
-    ...(caps.driverOnline
-      ? [
-          {
-            key: "online",
-            header: "Onlayn",
-            render: (d: Driver) => <Badge tone={d.online ? "accent" : "neutral"}>{d.online ? "Onlayn" : "Oflayn"}</Badge>,
-          } as Column<Driver>,
-        ]
-      : []),
-    {
-      key: "status",
-      header: "Holat",
-      render: (d) => <Badge tone={d.archived ? "neutral" : STATUS_TONE[d.status]}>{d.archived ? "Arxivlangan" : STATUS_LABEL[d.status]}</Badge>,
-    },
+  const chips = [
+    { key: "all" as const, label: "Hammasi", count: counts?.all },
+    ...driverChipStatuses().map((s) => ({
+      key: s,
+      label: s === "archived" ? "Arxiv" : DRIVER_STATUS[s].label,
+      count: counts ? (counts[s] ?? 0) : undefined,
+    })),
   ];
 
-  if (error) return <ErrorState onRetry={reload} />;
-  if (!drivers) {
-    return (
-      <div className="space-y-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  const hasActiveFilters = status !== "all";
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <ListToolbar
-          search={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Ism, davlat raqami yoki model…"
-          resultCount={drivers.length}
-          hasActiveFilters={hasActiveFilters}
-          onClear={() => setStatus("all")}
-        >
-          <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />
-        </ListToolbar>
-        <ExportButton
-          section="drivers"
-          rows={drivers}
-          filenamePrefix="haydovchilar"
-          buildRow={(d) => ({ Ism: d.name, Avtomobil: `${d.carModel} ${d.plate}`, Reyting: d.rating, Safarlar: d.totalTrips, Holat: d.status })}
+    <>
+      <PageHeader
+        subtitle="Ro'yxatdan o'tgan hamma haydovchilar"
+        title="Haydovchilar"
+        actions={
+          <ExportButton
+            section="drivers"
+            rows={drivers ?? []}
+            filenamePrefix="haydovchilar"
+            buildRow={(d) => ({
+              Ism: d.name,
+              Telefon: d.phone,
+              Mashina: d.carModel,
+              Raqam: d.plate,
+              "Yo'nalish": d.route ?? "",
+              Reyting: d.rating,
+              Daraja: d.level ? LEVEL_LABEL[d.level] : "",
+              Balans: d.walletBalance,
+              Holat: driverBadge(d).label,
+            })}
+          />
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        <SearchInput
+          className="w-[300px] max-w-full"
+          label="Ism, telefon yoki davlat raqami"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          icon={<Search className="h-4 w-4" aria-hidden />}
         />
+        <FilterChips label="Holat bo'yicha" items={chips} value={status} onChange={setStatus} />
+        <span className="flex-1" />
+        {caps.driverRouteFilter && routes.length > 0 && (
+          <FilterSelect
+            label="Yo'nalish"
+            aria-label="Yo'nalish"
+            value={route}
+            onChange={setRoute}
+            options={[{ value: "all", label: "Hammasi" }, ...routes.map((r) => ({ value: r, label: r }))]}
+          />
+        )}
+        {caps.driverLevelFilter && (
+          <FilterSelect
+            label="Daraja"
+            aria-label="Daraja"
+            value={level}
+            onChange={setLevel}
+            options={[
+              { value: "all", label: "Hammasi" },
+              ...(Object.keys(LEVEL_LABEL) as DriverLevel[]).map((l) => ({ value: l, label: LEVEL_LABEL[l] })),
+            ]}
+          />
+        )}
       </div>
 
-      <DataTable
-        key={`${search}-${status}`}
-        columns={columns}
-        rows={drivers}
-        rowKey={(d) => d.id}
-        emptyIcon={<Car className="h-6 w-6" />}
-        emptyTitle="Haydovchi topilmadi"
-        emptyDescription="Qidiruv yoki filtrlarga mos haydovchi yo'q."
-        onRowClick={openDetail}
-      />
+      <InfoNote icon={<ShieldCheck className="h-[18px] w-[18px]" aria-hidden />}>
+        Hujjatlar davlat tizimi orqali <b className="text-ink">avtomatik</b> tekshiriladi. Qo'lda tasdiqlash yo'q: siz faqat bloklash yoki blokdan
+        chiqarishingiz mumkin.
+      </InfoNote>
 
-      <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ""}>
-        {selected && !editing && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar seed={selected.avatarSeed} name={selected.name} size={48} />
-                <div>
-                  <p className="font-semibold text-ink">{selected.name}</p>
-                  <p className="text-xs text-ink/50">
-                    {selected.carModel} · {selected.plate}
-                  </p>
-                </div>
-              </div>
-              {!selected.archived && (
-                <button type="button" aria-label="Tahrirlash" onClick={() => startEdit(selected)} className="rounded-full p-2 text-ink/50 hover:bg-ink/5 hover:text-ink">
-                  <Pencil className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <div className="rounded-card bg-ink/5 p-4">
-              <p className="mb-1 text-xs font-semibold text-ink/50">Telefon raqami</p>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-ink tabular">{selected.phone}</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs text-ink/50">Reyting</p>
-                <p className="font-semibold text-ink">{selected.rating.toFixed(1)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-ink/50">Jami safarlar</p>
-                <p className="font-semibold text-ink">{selected.totalTrips}</p>
-              </div>
-              <div>
-                <p className="text-xs text-ink/50">Hamyon balansi</p>
-                <p className={cn("font-semibold", caps.driverDebtLimit && selected.walletBalance < selected.debtLimit ? "text-danger" : "text-ink")}>
-                  {formatSom(selected.walletBalance)}
-                </p>
-              </div>
-              {caps.driverDebtLimit && (
-                <div>
-                  <p className="text-xs text-ink/50">Qarz limiti</p>
-                  <p className="font-semibold text-ink">{formatSom(selected.debtLimit)}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-xs text-ink/50">Qo'shilgan sana</p>
-                <p className="font-semibold text-ink">{formatDate(selected.joinedAt)}</p>
-              </div>
-            </div>
-            <Badge tone={selected.archived ? "neutral" : STATUS_TONE[selected.status]}>
-              {selected.archived ? "Arxivlangan" : STATUS_LABEL[selected.status]}
-            </Badge>
-            {actionError && !confirm && <p className="text-xs font-semibold text-danger">{actionError}</p>}
-
-            <div className="flex gap-2 border-t border-border pt-4">
-              {selected.archived ? (
-                <Button variant="secondary" size="sm" onClick={() => openConfirm({ type: "restore", driver: selected })}>
-                  <RotateCcw className="h-4 w-4" /> Tiklash
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => openConfirm({ type: selected.status === "blocked" ? "unblock" : "block", driver: selected })}
-                  >
-                    {selected.status === "blocked" ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
-                    {selected.status === "blocked" ? "Blokdan chiqarish" : "Bloklash"}
-                  </Button>
-                  <Button variant="danger" size="sm" onClick={() => openConfirm({ type: "archive", driver: selected })}>
-                    <Trash2 className="h-4 w-4" /> Arxivlash
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-        {selected && editing && (
-          <div className="space-y-4">
-            <Input
-              label={caps.driverCarEdit ? "Ism" : "Ism va familiya"}
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+      {error && drivers && <StaleNotice onRetry={reload} />}
+      {error && !drivers ? (
+        <ErrorState onRetry={reload} />
+      ) : !drivers ? (
+        <div className="flex flex-col gap-2 rounded-card bg-white p-4 shadow-card" aria-busy>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : (
+        <DriversTable
+          rows={drivers}
+          showBalance
+          total={status === "all" ? counts?.all : counts?.[status]}
+          onOpen={(d) => navigate(`/drivers/${d.id}`)}
+          actions={(d) => (
+            <RowMenu
+              label={`${d.name}: amallar`}
+              items={[
+                { label: "Profilni ochish", icon: <ExternalLink />, onSelect: () => navigate(`/drivers/${d.id}`) },
+                { label: "Tahrirlash", icon: <Pencil />, onSelect: () => actions.edit(d), hidden: d.archived },
+                { label: "Bloklash", icon: <Ban />, tone: "danger", onSelect: () => actions.ask("block", d), hidden: d.archived || d.status === "blocked" },
+                { label: "Blokdan chiqarish", icon: <CheckCircle2 />, onSelect: () => actions.ask("unblock", d), hidden: d.archived || d.status !== "blocked" },
+                { label: "Arxivlash", icon: <Trash2 />, tone: "danger", onSelect: () => actions.ask("archive", d), hidden: d.archived },
+                { label: "Tiklash", icon: <RotateCcw />, onSelect: () => actions.ask("restore", d), hidden: !d.archived },
+              ]}
             />
-            {caps.driverCarEdit ? (
-              <>
-                <Input label="Avtomobil modeli" value={form.carModel} onChange={(e) => setForm((f) => ({ ...f, carModel: e.target.value }))} />
-                <Input label="Rangi" value={form.carColor} onChange={(e) => setForm((f) => ({ ...f, carColor: e.target.value }))} />
-                <Input label="Davlat raqami" value={form.plate} onChange={(e) => setForm((f) => ({ ...f, plate: e.target.value }))} />
-              </>
-            ) : (
-              <p className="text-xs text-ink/50">Avtomobil ma'lumotlari haydovchi ilovasida qayta tekshiruv orqali o'zgartiriladi.</p>
-            )}
-            {actionError && <p className="text-xs font-semibold text-danger">{actionError}</p>}
-            <div className="flex gap-2">
-              <Button variant="ghost" fullWidth onClick={() => setEditing(false)}>
-                Bekor qilish
-              </Button>
-              <Button fullWidth loading={saving} onClick={handleSave}>
-                Saqlash
-              </Button>
-            </div>
-          </div>
-        )}
-      </Drawer>
-
-      <ConfirmDialog
-        open={confirm !== null}
-        title={
-          confirm?.type === "block" ? "Haydovchini bloklash" : confirm?.type === "unblock" ? "Blokdan chiqarish" : confirm?.type === "archive" ? "Arxivlash" : "Tiklash"
-        }
-        description={`${confirm?.driver.name ?? ""} uchun amalni tasdiqlaysizmi?`}
-        tone={confirm?.type === "block" || confirm?.type === "archive" ? "danger" : "accent"}
-        reasonLabel={confirm?.type === "block" ? "Bloklash sababi (shart)…" : undefined}
-        error={actionError}
-        loading={acting}
-        onConfirm={handleConfirm}
-        onCancel={() => setConfirm(null)}
-      />
-
-      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
-    </div>
+          )}
+        />
+      )}
+      {actions.elements}
+    </>
   );
 }

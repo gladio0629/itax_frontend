@@ -24,3 +24,16 @@ export function ErrorState({ message = "Ulanish uzildi. Internetni tekshirib, qa
     </div>
   );
 }
+
+/** A refresh failed but older rows are still on screen: say so instead of
+ * silently showing stale data. */
+export function StaleNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div role="alert" className="flex flex-wrap items-center gap-3 rounded-box bg-warn-soft px-4 py-2.5 text-13 font-semibold text-warn">
+      <span className="flex-1">Ro'yxatni yangilab bo'lmadi. Ko'rinayotgan ma'lumot eskirgan bo'lishi mumkin.</span>
+      <button type="button" onClick={onRetry} className="h-11 rounded-full bg-white px-3.5 text-13 font-bold text-ink hover:bg-surface">
+        Qayta urinish
+      </button>
+    </div>
+  );
+}

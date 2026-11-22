@@ -21,6 +21,10 @@ import type {
   Me,
   OrderFieldsPatch,
   OrderWithNames,
+  OrderDetail,
+  Dashboard,
+  DashboardPeriod,
+  ListPeriod,
   Passenger,
   QueueReason,
   QueueStatus,
@@ -172,6 +176,19 @@ export function driverFromApi(d: Api.AdminDriver): Driver {
     archived: d.state === "archived",
     avatarSeed: d.id,
     joinedAt: toMs(d.created_at),
+    // v2 fields the contract doesn't carry yet (docs/backend-gaps/admin.md):
+    route: null,
+    level: null,
+    atDebtLimit: null,
+    commissionPct: null,
+    carYear: d.car?.year ?? null,
+    seats: d.car?.seats ?? null,
+    acceptRate30d: null,
+    cancelsThisWeek: null,
+    cancelLimitWeek: null,
+    cargoBodies: null,
+    loaderHelp: null,
+    documents: null,
   };
 }
 
@@ -187,6 +204,8 @@ export function passengerFromApi(p: Api.AdminPassenger): Passenger {
     status: p.state === "blocked" ? "blocked" : "active",
     archived: p.state === "archived",
     joinedAt: toMs(p.created_at),
+    lastTripAt: null,
+    lastPayment: null,
   };
 }
 
@@ -212,6 +231,17 @@ export function orderFromApi(o: Api.AdminOrder): OrderWithNames {
     scheduledRange: o.scheduled_from && o.scheduled_to ? { from: toMs(o.scheduled_from), to: toMs(o.scheduled_to) } : undefined,
     note: o.comment ?? undefined,
     cancelReason: o.cancel_reason ?? undefined,
+    kind: o.type === "delivery" ? "delivery" : "passenger",
+    // The order's vehicle_type is a car name (spark, labo…), never shown;
+    // the S–3XL size label is not on the order yet (gap).
+    bodySize: null,
+    luggageCount: null,
+    pickupAddress: o.from.address?.trim() || null,
+    dropoffAddress: o.to.address?.trim() || null,
+    durationMin: o.duration_s ? Math.round(o.duration_s / 60) : null,
+    commission: null,
+    driverPayout: null,
+    cancelledBy: null,
     // Only passenger_id, no name (capabilities.orderPassenger = false).
     passengerName: "—",
     driverName: o.driver?.first_name ?? null,
@@ -220,6 +250,38 @@ export function orderFromApi(o: Api.AdminOrder): OrderWithNames {
     // Order.can_cancel is the passenger's verdict; there is none for admins,
     // so the action is offered and the server's 403 decides.
     canCancel: true,
+  };
+}
+
+const CAR_CLASS_LABEL: Record<Api.CarClass, string> = { economy: "Standart", comfort: "Komfort", business: "Biznes", minivan: "Miniven" };
+/** PriceLine.key (a client i18n key) → admin label. Unknown keys show as "Boshqa". */
+const PRICE_LINE_LABEL: Record<string, string> = {
+  "quote.seatFare": "O'rindiq narxi",
+  "quote.carFare": "Butun mashina",
+  "quote.class.komfort": "Komfort klass",
+  "quote.class.biznes": "Biznes klass",
+  "quote.class.miniven": "Miniven klass",
+  "quote.cargoBase": "Dostavka, asosiy narx",
+  "quote.cargoDistance": "Dostavka, masofa",
+};
+
+/** GET /admin/v1/orders/{id}. Timeline, commission and the driver's share
+ * are not in the contract yet: null (hidden). */
+export function orderDetailFromApi(o: Api.AdminOrder): OrderDetail {
+  const base = orderFromApi(o);
+  const car = o.driver?.car;
+  return {
+    ...base,
+    canCancel: o.can_cancel ?? true,
+    passengerRating: null,
+    driverRating: o.driver?.rating ?? null,
+    driverCar: car ? [`${car.brand} ${car.model}`.trim(), car.plate_number].filter(Boolean).join(" · ") : null,
+    carClassLabel: o.car_class ? CAR_CLASS_LABEL[o.car_class] : null,
+    steps: null,
+    priceLines: o.price_lines?.length
+      ? o.price_lines.map((l) => ({ label: PRICE_LINE_LABEL[l.key] ?? "Boshqa", amount: toSom(l.amount), kind: "line" as const }))
+      : null,
+    canEdit: o.editable ?? false,
   };
 }
 
@@ -531,5 +593,74 @@ export function statsFromApi(s: Api.Stats, period: StatsPeriod, range: Api.Stats
     registrations: null,
     incomeByRoute: null,
     incomeByCity: null,
+  };
+}
+
+// ------------------------------------------------------- v2 dashboard
+/** Relative list period → contract dates (local days, inclusive). */
+export function listPeriodRange(period: ListPeriod | undefined, now = new Date()): Api.StatsQuery {
+  if (!period || period === "all") return {};
+  const day = (offset: number) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - offset);
+    return isoDate(d);
+  };
+  switch (period) {
+    case "today":
+      return { from_date: day(0), to_date: day(0) };
+    case "yesterday":
+      return { from_date: day(1), to_date: day(1) };
+    case "7d":
+      return { from_date: day(6), to_date: day(0) };
+    case "30d":
+      return { from_date: day(29), to_date: day(0) };
+  }
+}
+
+export const dashboardRange = (period: DashboardPeriod): Api.StatsQuery => listPeriodRange(period);
+/** The dashboard chart: the last 14 days including today. */
+export function last14Days(now = new Date()): Api.StatsQuery {
+  const from = new Date(now);
+  from.setDate(from.getDate() - 13);
+  return { from_date: isoDate(from), to_date: isoDate(now) };
+}
+
+/** Dashboard from the existing stats endpoint. Deltas, sparklines, the
+ * passenger/delivery split and most attention items are not in the
+ * contract yet: null (hidden). */
+export function dashboardFromApi(
+  period: DashboardPeriod,
+  kpi: Api.Stats,
+  chart: Api.Stats,
+  chartRange: Api.StatsQuery,
+  recentOrders: OrderWithNames[] | null,
+  sections: Section[]
+): Dashboard {
+  const k = (value: number) => ({ value, deltaPct: null, spark: null });
+  let ordersByDay: Dashboard["ordersByDay"] = null;
+  if (chart.daily && chartRange.from_date && chartRange.to_date) {
+    const byDate = new Map(chart.daily.map((d) => [d.date, d.orders]));
+    ordersByDay = datesBetween(chartRange.from_date, chartRange.to_date).map((date) => {
+      const [y, m, dd] = date.split("-").map(Number);
+      return { date: new Date(y, m - 1, dd).getTime(), total: byDate.get(date) ?? 0, passenger: null, delivery: null };
+    });
+  }
+  const overLimit = kpi.drivers_over_limit;
+  const debtSection: Section | null = sections.includes("wallet") ? "wallet" : sections.includes("drivers") ? "drivers" : null;
+  return {
+    period,
+    orders: k(kpi.orders_total),
+    activeDrivers: k(kpi.active_drivers),
+    newPassengers: k(kpi.new_passengers),
+    commission: k(toSom(kpi.commission)),
+    ordersByDay,
+    topRoutes: kpi.top_routes ? kpi.top_routes.map((r) => ({ from: r.from_name, to: r.to_name, count: r.orders })) : null,
+    recentOrders,
+    attention:
+      overLimit === undefined || !debtSection
+        ? null
+        : overLimit > 0
+          ? [{ id: "debt", tone: "danger", title: `${overLimit} haydovchi qarz chegarasida`, detail: "Yangi so'rovlar ular uchun to'xtatilgan", section: debtSection }]
+          : [],
   };
 }

@@ -347,6 +347,7 @@ export type AuditAction =
   | "order_create"
   | "order_edit"
   | "order_cancel"
+  | "order_to_operator"
   | "wallet_adjust_propose"
   | "wallet_adjust_approve"
   | "wallet_adjust_reject"

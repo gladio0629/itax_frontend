@@ -15,7 +15,9 @@ import * as map from "../httpMapper";
 import type {
   AdapterCapabilities,
   Complaint,
+  DriverTrips,
   GlobalSearchHit,
+  OrderWithNames,
   LoginStartResult,
   LoginStepResult,
   Me,
@@ -70,11 +72,25 @@ const CAPABILITIES: AdapterCapabilities = {
   auditApiFilters: true,
   // GET /admin/v1/search is not in the contract yet (docs/backend-gaps/admin.md).
   globalSearch: false,
+  // v2 group 3. Expected endpoints are in docs/backend-gaps/admin.md.
+  orderCounts: false,
+  orderKindFilter: false,
+  orderDateFilter: true, // from_date / to_date on the orders list
+  orderToOperator: false,
+  driverCounts: false,
+  driverRouteFilter: false,
+  driverLevelFilter: false,
+  driverTrips: false,
+  passengerCounts: false,
+  passengerJoinedFilter: false,
 };
 
 const CANCEL_REASONS: readonly OrderCancelReasonCode[] = ["admin_decision", "passenger_request", "driver_request", "duplicate", "fraud", "other"];
 const LOGOUT_TIMEOUT_MS = 5_000;
 const ADMIN_SEARCH_PATH = "/admin/v1/search";
+// Expected (not in openapi.yml yet), see docs/backend-gaps/admin.md:
+const orderOperatorTaskPath = (id: string) => `${API_PATHS.adminOrder(id)}/operator-task`;
+const driverTripsPath = (id: string) => `${API_PATHS.adminDriver(id)}/trips`;
 
 function fail(code: string, params: ErrorParams = {}): never {
   throw new ApiError(code, adminErrorMessage(code, params), { params });
@@ -172,7 +188,7 @@ session.onEnd(clearCaches);
 
 // ------------------------------------------------------------- caches
 // Last rows the server sent, so actions that need the full object (tariff
-// PUT, phone reveal, archive results) don't refetch. Never persisted.
+// PUT, archive results) don't refetch. Never persisted.
 const rawDrivers = new Map<string, Api.AdminDriver>();
 const rawPassengers = new Map<string, Api.AdminPassenger>();
 const rawStaff = new Map<string, Api.Staff>();
@@ -341,6 +357,25 @@ export const httpAdapter: ApiAdapter = {
   loginAsRole: notSupported,
 
   // --- stats ------------------------------------------------------------
+  async getDashboard(period) {
+    const range = map.dashboardRange(period);
+    const chartRange = map.last14Days();
+    const [kpi, chart, me] = await Promise.all([
+      http.get<Api.Stats>(API_PATHS.adminStats, range),
+      http.get<Api.Stats>(API_PATHS.adminStats, chartRange),
+      currentMe(),
+    ]);
+    let recent: OrderWithNames[] | null = null;
+    if (me.sections.includes("orders")) {
+      // Newest first; a failure here only hides the block.
+      recent = await http
+        .get<Api.OrderPage>(API_PATHS.adminOrders, { limit: 4 })
+        .then((p) => p.data.map((o) => map.orderFromApi(o)))
+        .catch(() => null);
+    }
+    return map.dashboardFromApi(period, kpi, chart, chartRange, recent, me.sections);
+  },
+
   async getStats(period) {
     const range = map.statsRange(period);
     const stats = await http.get<Api.Stats>(API_PATHS.adminStats, range);
@@ -407,6 +442,20 @@ export const httpAdapter: ApiAdapter = {
     const rows = remember(rawDrivers, await fetchAll<Api.AdminDriver>(API_PATHS.adminDrivers, { q: query.search?.trim(), state }));
     return rows.map(map.driverFromApi);
   },
+  getDriverCounts: notSupported,
+  getDriverRoutes: notSupported,
+  async getDriver(id) {
+    const d = await http.get<Api.AdminDriver>(API_PATHS.adminDriver(id));
+    rawDrivers.set(d.id, d);
+    return { ...map.driverFromApi(d), recentTrips: null };
+  },
+  async getDriverTrips(driverId, query) {
+    // Shape documented in backend-gaps; already the UI's shape.
+    return http.get<DriverTrips>(driverTripsPath(driverId), {
+      month: query.month || undefined,
+      kind: query.kind && query.kind !== "all" ? query.kind : undefined,
+    });
+  },
   async updateDriverProfile(id, patch) {
     // Car fields can't be changed through the API (capabilities.driverCarEdit).
     const d = await http.put<Api.AdminDriver>(API_PATHS.adminDriver(id), personName(patch.name) satisfies Api.AdminPersonUpdate);
@@ -442,6 +491,7 @@ export const httpAdapter: ApiAdapter = {
     const rows = remember(rawPassengers, await fetchAll<Api.AdminPassenger>(API_PATHS.adminPassengers, { q: query.search?.trim(), state }));
     return rows.map(map.passengerFromApi);
   },
+  getPassengerCounts: notSupported,
   async createPassenger(input) {
     const body: Api.AdminPersonCreate = { phone: requirePhone(input.phone), ...(personName(input.name) as { first_name: string; last_name: string }) };
     const p = await http.post<Api.AdminPassenger>(API_PATHS.adminPassengers, body);
@@ -477,8 +527,16 @@ export const httpAdapter: ApiAdapter = {
   // --- orders -----------------------------------------------------------
   async getOrders(query) {
     const status = query.status && query.status !== "all" && CAPABILITIES.orderStatuses.includes(query.status) ? query.status : undefined;
-    const rows = await fetchAll<Api.AdminOrder>(API_PATHS.adminOrders, { status, passenger_id: query.passengerId || undefined });
+    const range = map.listPeriodRange(query.period);
+    const rows = await fetchAll<Api.AdminOrder>(API_PATHS.adminOrders, { status, passenger_id: query.passengerId || undefined, ...range });
     return rows.map(map.orderFromApi);
+  },
+  getOrderCounts: notSupported,
+  async getOrder(id) {
+    return map.orderDetailFromApi(await http.get<Api.AdminOrder>(API_PATHS.adminOrder(id)));
+  },
+  async sendOrderToOperator(id, note) {
+    await http.post(orderOperatorTaskPath(id), { note: note.trim() || undefined });
   },
   // No endpoint creates an order for a passenger (capabilities.orderCreate).
   createOrderForPassenger: notSupported,

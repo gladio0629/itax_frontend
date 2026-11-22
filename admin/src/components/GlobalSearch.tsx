@@ -13,16 +13,15 @@ const KIND: Record<GlobalSearchKind, { label: string; icon: typeof Car }> = {
   staff: { label: "Xodim", icon: UsersRound },
 };
 
-/** Where a hit opens. Detail routes arrive with groups 3 and 5; until then
- * the list page with its search prefilled (order id, or the person's name,
- * which is what those lists search by). */
+/** Where a hit opens: detail routes for orders and drivers; the list with
+ * its search prefilled for passengers and staff (searched by name). */
 export function searchHitPath(hit: GlobalSearchHit): string {
-  const q = `?q=${encodeURIComponent(hit.kind === "order" ? hit.id : hit.title)}`;
+  const q = `?q=${encodeURIComponent(hit.title)}`;
   switch (hit.kind) {
     case "order":
-      return `/orders${q}`;
+      return `/orders/${encodeURIComponent(hit.id)}`;
     case "driver":
-      return `/drivers${q}`;
+      return `/drivers/${encodeURIComponent(hit.id)}`;
     case "passenger":
       return `/passengers${q}`;
     case "staff":

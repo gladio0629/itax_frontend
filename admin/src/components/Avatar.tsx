@@ -27,7 +27,7 @@ export function Avatar({
     <span
       role="img"
       aria-label={name}
-      style={{ width: size, height: size, fontSize: size >= 40 ? 14 : 12 }}
+      style={{ width: size, height: size, fontSize: size >= 64 ? 25 : size >= 40 ? 14 : 12 }}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-full font-extrabold text-ink",
         tone === "green" ? "bg-green" : "bg-surface",

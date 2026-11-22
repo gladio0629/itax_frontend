@@ -9,8 +9,9 @@ import { RequireSection } from "@/components/RequireSection";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/Skeleton";
 
-const StatsScreen = lazy(() => import("@/features/dashboard/StatsScreen").then((m) => ({ default: m.StatsScreen })));
+const DashboardScreen = lazy(() => import("@/features/dashboard/DashboardScreen").then((m) => ({ default: m.DashboardScreen })));
 const DriversScreen = lazy(() => import("@/features/drivers/DriversScreen").then((m) => ({ default: m.DriversScreen })));
+const DriverPage = lazy(() => import("@/features/drivers/DriverPage").then((m) => ({ default: m.DriverPage })));
 const PassengersScreen = lazy(() => import("@/features/passengers/PassengersScreen").then((m) => ({ default: m.PassengersScreen })));
 const OrdersScreen = lazy(() => import("@/features/orders/OrdersScreen").then((m) => ({ default: m.OrdersScreen })));
 const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen").then((m) => ({ default: m.WalletScreen })));
@@ -64,7 +65,7 @@ export function AppRoutes() {
           element={
             <RequireSection section="stats">
               <Lazy>
-                <StatsScreen />
+                <DashboardScreen />
               </Lazy>
             </RequireSection>
           }
@@ -80,6 +81,16 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/drivers/:driverId/*"
+          element={
+            <RequireSection section="drivers">
+              <Lazy>
+                <DriverPage />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
           path="/passengers"
           element={
             <RequireSection section="passengers">
@@ -90,7 +101,7 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/orders"
+          path="/orders/*"
           element={
             <RequireSection section="orders">
               <Lazy>

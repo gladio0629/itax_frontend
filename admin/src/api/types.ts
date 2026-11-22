@@ -15,6 +15,10 @@ import type {
   ComplaintStatus,
   ComplaintNote,
   Tariff as SeedTariff,
+  OrderKind,
+  CargoBodySize,
+  DriverLevel,
+  DriverDocument,
 } from "@/seed/generate";
 import type {
   AdminUser,
@@ -159,6 +163,19 @@ export type AdapterCapabilities = {
   auditApiFilters: boolean;
   /** Header search over orders, drivers, passengers and staff (v2). */
   globalSearch: boolean;
+  /** v2 group 3 */
+  orderCounts: boolean;
+  orderKindFilter: boolean;
+  orderDateFilter: boolean;
+  /** "Operatorga yuborish" on an order. */
+  orderToOperator: boolean;
+  driverCounts: boolean;
+  driverRouteFilter: boolean;
+  driverLevelFilter: boolean;
+  /** Driver history (trips per driver). */
+  driverTrips: boolean;
+  passengerCounts: boolean;
+  passengerJoinedFilter: boolean;
 };
 
 /** One header-search hit. The server returns only what the current admin
@@ -195,7 +212,11 @@ export type {
   HistoryResult,
 };
 
+export type { OrderKind, CargoBodySize, DriverLevel, DriverDocument };
+
 export type OrderWithNames = Order & {
+  /** Passenger phone in full, when the server sends it. */
+  passengerPhone?: string | null;
   passengerName: string;
   driverName: string | null;
   fromCityName: string;
@@ -317,9 +338,139 @@ export type LoginStepResult =
 export type ArchivableStatusFilter<S extends string> = S | "archived" | "all";
 
 export type StaffQuery = { search?: string; role?: AdminRole | "all"; status?: ArchivableStatusFilter<StaffStatus> };
-export type DriverQuery = { search?: string; status?: ArchivableStatusFilter<DriverStatus> };
-export type PassengerQuery = { search?: string; status?: ArchivableStatusFilter<PassengerStatus> };
-export type OrderQuery = { search?: string; status?: OrderStatus | "all"; passengerId?: string };
+export type DriverQuery = {
+  search?: string;
+  status?: ArchivableStatusFilter<DriverStatus>;
+  /** capabilities.driverRouteFilter / driverLevelFilter */
+  route?: string | "all";
+  level?: DriverLevel | "all";
+};
+export type PassengerQuery = {
+  search?: string;
+  status?: ArchivableStatusFilter<PassengerStatus>;
+  /** Registered in this period (the server resolves the dates);
+   * capabilities.passengerJoinedFilter. */
+  joined?: ListPeriod;
+};
+export type OrderQuery = {
+  search?: string;
+  status?: OrderStatus | "all";
+  passengerId?: string;
+  /** capabilities.orderKindFilter */
+  kind?: OrderKind | "all";
+  /** Created in this period (the server resolves the dates);
+   * capabilities.orderDateFilter. */
+  period?: ListPeriod;
+};
+
+/** Relative period filters; the server turns them into dates. */
+export type ListPeriod = "all" | "today" | "yesterday" | "7d" | "30d";
+
+/** Chip counters, decided by the server (`null` = not reported). The
+ * screen never counts rows itself: lists may be cut off. */
+export type ListCounts<K extends string> = Partial<Record<K | "all", number>>;
+
+// ---------------------------------------------------------------------
+// Redesign v2 (group 3): dashboard, order detail, driver profile/history.
+// Every number, label and verdict below comes from the server.
+// ---------------------------------------------------------------------
+
+export type DashboardPeriod = "today" | "7d" | "30d";
+
+/** A KPI: value, change vs the previous period in % (server), sparkline. */
+export type Kpi = { value: number; deltaPct: number | null; spark: number[] | null };
+
+export type AttentionItem = {
+  id: string;
+  tone: "info" | "warning" | "danger";
+  title: string;
+  detail: string;
+  /** Where the card leads; shown only when the admin has that section. */
+  section: Section;
+};
+
+export type Dashboard = {
+  period: DashboardPeriod;
+  orders: Kpi | null;
+  activeDrivers: Kpi | null;
+  newPassengers: Kpi | null;
+  /** In so'm. */
+  commission: Kpi | null;
+  /** Last 14 days. `passenger`/`delivery` are null when the server only
+   * reports the total. */
+  ordersByDay: { date: number; total: number; passenger: number | null; delivery: number | null }[] | null;
+  topRoutes: { from: string; to: string; count: number }[] | null;
+  /** null = not reported or not allowed for this admin. */
+  recentOrders: OrderWithNames[] | null;
+  attention: AttentionItem[] | null;
+};
+
+export type OrderTimelineStep = {
+  title: string;
+  detail: string | null;
+  /** epoch ms; `estimated` marks a server forecast ("~19:40"). */
+  at: number | null;
+  estimated?: boolean;
+  state: "done" | "current" | "pending";
+};
+
+export type OrderPriceLine = {
+  label: string;
+  amount: number;
+  /** "payout" is the driver's share (shown green), "total" a sum line. */
+  kind: "line" | "commission" | "payout" | "total";
+};
+
+export type OrderDetail = OrderWithNames & {
+  passengerRating: number | null;
+  driverRating: number | null;
+  /** "Chevrolet Cobalt · 01 A 123 BC" */
+  driverCar: string | null;
+  carClassLabel: string | null;
+  /** Status history (server); null = not reported. */
+  steps: OrderTimelineStep[] | null;
+  priceLines: OrderPriceLine[] | null;
+  /** Server verdict: the order can still be edited. */
+  canEdit: boolean;
+};
+
+export type DriverTripRow = {
+  orderId: string;
+  kind: OrderKind;
+  at: number;
+  fromName: string;
+  toName: string;
+  /** "Dilnoza R. · 2 kishi" / "Nodira S. · Kuzov M" (server display text). */
+  subject: string;
+  price: number;
+  paymentMethod: PaymentMethod;
+  commission: number | null;
+  payout: number | null;
+  status: OrderStatus;
+  cancelledBy: "passenger" | "driver" | "admin" | null;
+};
+
+export type DriverProfile = Driver & {
+  recentTrips: DriverTripRow[] | null;
+};
+
+export type DriverTripsQuery = { kind?: OrderKind | "cancelled" | "all"; month?: string /* YYYY-MM */ };
+export type DriverTrips = {
+  month: string;
+  summary: {
+    trips: number;
+    tripsTotal: number;
+    income: number;
+    commission: number;
+    commissionAvgPct: number | null;
+    cancelled: number;
+    cancelledPct: number | null;
+  } | null;
+  counts: ListCounts<OrderKind | "cancelled"> | null;
+  rows: DriverTripRow[];
+  /** Months the filter offers (YYYY-MM), newest first. */
+  months: string[];
+};
 export type WalletQuery = { search?: string; type?: WalletEntryType | "all" };
 export type TariffQuery = { search?: string; status?: "active" | "archived" | "all" };
 

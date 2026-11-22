@@ -101,3 +101,29 @@ Admin redesign v2 (design-v2/admin, 2026-11-22). Endpoints the new screens expec
   - Matches: order id, driver/passenger name, plate, phone, staff name/email.
   - Errors: `validation.too_short` (q < 2), `auth.forbidden`.
   - Capability flag in the adapter: `globalSearch`.
+
+### Group 3: dashboard, orders, drivers, passengers
+
+Field and endpoint names below are the frontend's proposal; error keys follow the existing `{ error: { key, params } }` style and are not a documented server rule. Everything the server leaves out is hidden in the UI (`null`), never computed in the browser.
+
+**Dashboard** (`getDashboard`; today composed from `GET /admin/v1/stats`, so it already works in http mode with KPIs, a 14-day total chart, top routes, recent orders and the debt-limit card):
+- `Stats` per period also needs the previous period's values (or `delta_pct`) for `orders_total`, `active_drivers`, `new_passengers`, `commission`, and a 7-point series for each (sparklines).
+- `Stats.daily[]`: split `orders` into `orders_passenger` and `orders_delivery` (stacked bars).
+- Attention items, either as fields (`operator_queue_waiting`, `operator_queue_oldest_at`, `complaints_open`, `fuel_price_updated_at`) or as a list `attention: { id, tone: "info"|"warning"|"danger", title, detail, section }[]` filtered by the caller's sections.
+- Alternative to all of the above: `GET /admin/v1/dashboard?period=today|7d|30d` returning the UI's `Dashboard` shape (`admin/src/api/types.ts`).
+
+**Orders**
+- `GET /admin/v1/orders`: add `type=passenger|delivery` (capability `orderKindFilter`) and `q` (id, passenger name/phone, driver name).
+- `GET /admin/v1/orders/counts?type=&from_date=&to_date=&q=&passenger_id=` → `{ all, searching, accepted, arrived, in_progress, completed, cancelled, expired }` (chip counters; `orderCounts`). The list is cut at 500 rows, so the UI never counts rows itself.
+- `AdminOrder` additions: `passenger: { name, phone, rating }`; `size_label: "S"…"3XL"` for delivery (the order's `vehicle_type` is a car name and is never shown); `luggage_count`; `cancelled_by: "passenger"|"driver"|"admin"`; `commission` and `driver_payout` (Money) with a label such as "Komissiya (Kumush, 5%)" or `{ level, pct }`; `timeline: { title, detail, at, estimated, state: "done"|"current"|"pending" }[]`.
+- `POST /admin/v1/orders/{id}/operator-task` `{ note?: string ≤500 }` → `201 QueueItem` ("Operatorga yuborish"; capability `orderToOperator`). Errors: `ORDER_NOT_FOUND`, `FORBIDDEN`. Note: doc 2.4 still lists "how tasks enter the operator queue" as an open question; this endpoint rests on that answer.
+
+**Drivers**
+- `GET /admin/v1/drivers`: add `route` and `level` filters; `GET /admin/v1/drivers/routes` → `string[]` (filter options); `GET /admin/v1/drivers/counts?q=&route=&level=` → `{ all, active, auto_review, blocked, archived }`.
+- `AdminDriver` additions: `route` (display text), `level: "bronze"|"silver"|"gold"`, `commission_pct`, `at_debt_limit` (server verdict for the "Qarz chegarasi" badge), `debt_limit`, `accept_rate_30d`, `cancels_this_week`, `cancel_limit_week`, `cargo_bodies: ("S"…"3XL")[]`, `loader_help`, `documents: { title, detail, status: "verified"|"checking"|"rejected" }[]`.
+- `GET /admin/v1/drivers/{id}/trips?month=YYYY-MM&kind=passenger|delivery|cancelled` → `{ month, months: string[], summary: { trips, trips_total, income, commission, commission_avg_pct, cancelled, cancelled_pct }, counts: { all, passenger, delivery, cancelled }, rows: { order_id, kind, at, from_name, to_name, subject, price, payment_method, commission, payout, status, cancelled_by }[] }` (driver history tab; capability `driverTrips`). Money in tiyin like the rest of the contract.
+
+**Passengers**
+- `GET /admin/v1/passengers`: add `from_date` for "Ro'yxatdan o'tgan" (`passengerJoinedFilter`); `GET /admin/v1/passengers/counts?q=&from_date=` → `{ all, active, blocked, archived, warned? }`.
+- `AdminPassenger` additions: `last_trip_at`, `last_payment: { method, card_last4? }`.
+- "Ogohlantirilgan" (`warned`) is in the design but not in the docs. The UI shows it only if the server sends it and offers no action that sets it. Owner decision needed.

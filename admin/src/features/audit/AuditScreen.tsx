@@ -31,6 +31,7 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   order_create: "Buyurtma yaratildi",
   order_edit: "Buyurtma tahrirlandi",
   order_cancel: "Buyurtma bekor qilindi",
+  order_to_operator: "Buyurtma operatorga yuborildi",
   wallet_adjust_propose: "Hamyon tuzatishi taklif qilindi",
   wallet_adjust_approve: "Hamyon tuzatishi tasdiqlandi",
   wallet_adjust_reject: "Hamyon tuzatishi rad etildi",
