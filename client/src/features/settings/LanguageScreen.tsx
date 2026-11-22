@@ -38,7 +38,7 @@ export function LanguageScreen() {
         <GlobeArt />
         <IconButton icon="back" label={t("common.back")} onClick={back} className="relative" />
         <div className="relative flex flex-col gap-2.5">
-          <h1 className="text-[32px] font-extrabold leading-10 text-white">{t("language.title")}</h1>
+          <h1 className="text-[32px] font-extrabold leading-10 text-iz-head-text">{t("language.title")}</h1>
           <p className="text-[15px] leading-[23px] text-iz-head-muted">{t("language.desc")}</p>
         </div>
       </div>

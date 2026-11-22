@@ -32,6 +32,14 @@ import {
   useKeyboard,
   type IconName,
 } from "@/ui";
+import { SeatPicker } from "@/features/trip/SeatPicker";
+import type { Driver, OrderWithDetails, Seat } from "@/api/types";
+import { DriverCardDark, DriverRow, PhaseBar } from "@/features/live/LiveParts";
+
+/** The real backend's driver today: only the id (no name, car or plate). */
+const BARE_DRIVER = { id: "d1", name: "", phoneMasked: "", cityId: "", carModel: "", carColor: "", carColorHex: "", plate: "", rating: 0, totalTrips: 0, online: true, walletBalance: 0, documentsStatus: "approved", avatarSeed: "", joinedAt: 0 } as Driver;
+const FULL_DRIVER = { ...BARE_DRIVER, name: "Jasur Toshmatov", carModel: "Cobalt", carColor: "oq", plate: "01 A 123 BC", rating: 4.9 } as Driver;
+const SAMPLE_ORDER = { id: "o1", price: 120000, paymentMethod: "cash" } as OrderWithDetails;
 
 const ICONS: IconName[] = [
   "back", "check", "arrowRight", "star", "chevronRight", "pin", "phone", "user", "close", "car", "search", "globe",
@@ -39,6 +47,13 @@ const ICONS: IconName[] = [
   "refresh", "calendar", "edit", "arrowDown", "arrowUp", "menu", "home", "briefcase", "clock", "building", "sliders",
   "cash", "tag", "megaphone", "luggage", "keypad", "doc", "shield", "chat", "alert", "moon", "info", "logout",
   "homeFilled", "seats", "chevronDown", "card", "box", "map", "starSharp",
+];
+
+const SAMPLE_SEATS: Seat[] = [
+  { id: "front", position: "front", taken: false, price: 0 },
+  { id: "back-left", position: "back-left", taken: true, price: 0 },
+  { id: "back-mid", position: "back-mid", taken: false, price: 0 },
+  { id: "back-right", position: "back-right", taken: false, price: 0 },
 ];
 
 type View = "kit" | "empty" | "error" | "loading" | "offline";
@@ -56,6 +71,7 @@ export default function UiGallery() {
   const [sheet, setSheet] = useState(false);
   const [name, setName] = useState("Aziz");
   const [note, setNote] = useState("");
+  const [seatIds, setSeatIds] = useState<string[]>(["back-right"]);
 
   const toggle = (id: string) => setChips((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
 
@@ -140,6 +156,14 @@ export default function UiGallery() {
               <Badge tone="danger">danger</Badge>
             </div>
 
+            <SectionLabel>Seat picker (back-left taken)</SectionLabel>
+            <SeatPicker seats={SAMPLE_SEATS} mode="seat" seatIds={seatIds} onChange={(_m, ids) => setSeatIds(ids)} />
+
+            <SectionLabel>Live order (full driver / id only)</SectionLabel>
+            <PhaseBar current={1} />
+            <DriverCardDark driver={FULL_DRIVER} order={SAMPLE_ORDER} onCall={() => undefined} onMessage={() => undefined} />
+            <DriverCardDark driver={BARE_DRIVER} order={SAMPLE_ORDER} onCall={() => undefined} onMessage={() => undefined} />
+            <DriverRow driver={BARE_DRIVER} tone="light" sub={BARE_DRIVER.plate} onCall={() => undefined} onMessage={() => undefined} />
             <SectionLabel>Rows</SectionLabel>
             <div className="flex flex-col">
               <ListRow icon="bell" title="Bildirishnomalar" onClick={() => undefined} />

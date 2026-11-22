@@ -16,6 +16,7 @@ const SCENARIO_LABELS: Record<keyof TestScenarios, { label: string; hint: string
   walletLimit: { label: "Hamyon limiti", hint: "Balans -50 000 so'mga yetdi deb hisoblanadi" },
   fastForward: { label: "Vaqtni tezlashtirish", hint: "Kutish vaqtlari qisqartiriladi" },
   bonusBelowMin: { label: "Bonus minimal darajadan past", hint: "Bonusni yechib bo'lmaydi deb hisoblanadi" },
+  newPassenger: { label: "Yangi yo'lovchi", hint: "Saqlangan manzil va oxirgi yo'nalishlar yo'q" },
 };
 
 const PLATFORM_OPTIONS: { id: PlatformOverride; label: string }[] = [

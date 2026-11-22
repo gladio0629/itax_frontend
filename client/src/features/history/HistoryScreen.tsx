@@ -1,279 +1,326 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { History as HistoryIcon, Star } from "@/lib/icons";
 import { api } from "@/api/client";
-import type { OrderStatus, OrderWithDetails } from "@/api/types";
-import { Badge } from "@/components/Badge";
-import { EmptyState } from "@/components/EmptyState";
-import { ErrorState } from "@/components/ErrorState";
-import { SkeletonList } from "@/components/Skeleton";
-import { PageTitle } from "@/components/PageTitle";
-import { formatRelativeDay, formatSom } from "@/lib/format";
+import type { OrderStatus, OrderWithDetails, ServiceType } from "@/api/types";
+import { formatNumber, monthNames, SOM_LABEL } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
-import { useIsIOS } from "@/lib/platform";
-import { Segmented } from "@/components/ios/Segmented";
+import { HeaderBar, Icon, Screen, SectionLabel, StateEmpty, StateError, StateLoading, TextButton, useShellChrome } from "@/ui";
+import { DriverAvatar, payLabel, shortName } from "@/features/live/LiveParts";
 
-const STATUS_TONE: Record<string, { tone: "accent" | "danger" | "neutral" | "warning"; labelKey: TranslationKey }> = {
-  completed: { tone: "accent", labelKey: "history.status.completed" },
-  cancelled: { tone: "danger", labelKey: "history.status.cancelled" },
-  no_driver: { tone: "warning", labelKey: "history.status.noDriver" },
-  in_progress: { tone: "warning", labelKey: "history.status.inProgress" },
-  accepted: { tone: "warning", labelKey: "history.status.accepted" },
-  searching: { tone: "neutral", labelKey: "history.status.searching" },
+type Service = "all" | ServiceType;
+const SERVICES: Service[] = ["all", "passenger", "delivery"];
+const SERVICE_KEY: Record<Service, TranslationKey> = { all: "history.service.all", passenger: "history.service.passenger", delivery: "history.service.delivery" };
+
+type Status = "all" | "completed" | "cancelled";
+const STATUSES: Status[] = ["all", "completed", "cancelled"];
+const STATUS_KEY: Record<Status, TranslationKey> = { all: "history.filter.all", completed: "history.filter.completed", cancelled: "history.filter.cancelled" };
+
+const LIVE: OrderStatus[] = ["searching", "accepted", "in_progress"];
+const BADGE: Partial<Record<OrderStatus, { key: TranslationKey; tone: "danger" | "green" | "muted" }>> = {
+  cancelled: { key: "history.status.cancelled", tone: "danger" },
+  no_driver: { key: "history.status.noDriver", tone: "muted" },
+  searching: { key: "history.status.live", tone: "green" },
+  accepted: { key: "history.status.live", tone: "green" },
+  in_progress: { key: "history.status.live", tone: "green" },
 };
 
-const ALL_FILTERS = ["all", "completed", "cancelled"] as const;
-type Filter = (typeof ALL_FILTERS)[number];
-// The status tabs need a server-side filter; without one there's a single list.
-const FILTERS: readonly Filter[] = api.capabilities.historyStatusFilter ? ALL_FILTERS : ["all"];
-const SHOW_TABS = FILTERS.length > 1;
-const FILTER_KEY: Record<Filter, TranslationKey> = {
-  all: "history.filter.all",
-  completed: "history.filter.completed",
-  cancelled: "history.filter.cancelled",
-};
+const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
-type LoadState = "loading" | "error" | "ready";
-type TabData = { orders: OrderWithDetails[]; cursor: number | null; state: LoadState };
-const EMPTY_TAB: TabData = { orders: [], cursor: 0, state: "loading" };
-
-function OrderRow({ o, intlTag }: { o: OrderWithDetails; intlTag: string }) {
-  const { t } = useT();
-  const status = STATUS_TONE[o.status] ?? STATUS_TONE.searching;
+/** The searched text, marked in a name (design KbHistory). */
+function Highlight({ text, q }: { text: string; q: string }) {
+  const i = q ? text.toLocaleLowerCase().indexOf(q.toLocaleLowerCase()) : -1;
+  if (i < 0) return <>{text}</>;
   return (
-    <Link to={`/history/${o.id}`} className="flex w-full flex-col gap-2 rounded-xl bg-card p-4 text-left shadow-softer hover:bg-ink/[0.02] ios:transition-colors ios:duration-100 ios:active:bg-[var(--ios-row-pressed)]">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">
-          {o.fromCity.name} &rarr; {o.toCity.name}
-        </p>
-        <Badge tone={status.tone}>{t(status.labelKey)}</Badge>
-      </div>
-      <div className="flex items-center justify-between text-xs text-ink/60">
-        <span>{formatRelativeDay(o.createdAt, intlTag)}</span>
-        <span className="flex items-center gap-2">
-          {o.rating && (
-            <span className="flex items-center gap-0.5 font-normal text-ink">
-              <Star className="h-3 w-3 fill-brand-yellow text-brand-yellow" /> {o.rating}
-            </span>
-          )}
-          <span className="font-semibold tabular text-ink/80">{formatSom(o.price, intlTag)}</span>
+    <>
+      {text.slice(0, i)}
+      <mark className="rounded bg-iz-green-soft font-extrabold text-iz-ink">{text.slice(i, i + q.length)}</mark>
+      {text.slice(i + q.length)}
+    </>
+  );
+}
+
+function DateTile({ ts, light }: { ts: number; light?: boolean }) {
+  const { intlTag } = useT();
+  const d = new Date(ts);
+  return (
+    <span aria-hidden className={cn("flex h-[62px] w-[54px] shrink-0 flex-col items-center justify-center rounded-2xl", light ? "bg-iz-sheet" : "bg-iz-head")}>
+      <span className={cn("text-[20px] font-extrabold leading-6", light ? "text-iz-ink" : "text-iz-head-text")}>{d.getDate()}</span>
+      <span className={cn("text-[10px] font-extrabold uppercase tracking-[0.8px]", light ? "text-iz-muted" : "text-iz-green")}>{monthNames(intlTag)[d.getMonth()].slice(0, 3)}</span>
+    </span>
+  );
+}
+
+function OrderCard({ o, q }: { o: OrderWithDetails; q: string }) {
+  const { t, intlTag } = useT();
+  const badge = BADGE[o.status];
+  const dimmed = o.status === "cancelled" || o.status === "no_driver";
+  const delivery = o.extras?.serviceType === "delivery";
+  const service = delivery ? (o.cargoSize ? t("history.deliverySize", { size: o.cargoSize }) : t("history.service.delivery")) : "";
+  const sub = dimmed ? [o.fromCity.name, service || t("history.service.passenger")].join(" · ") : [`${o.fromCity.name}, ${hhmm(o.startedAt ?? o.createdAt)}`, service].filter(Boolean).join(" · ");
+  const to = `/${LIVE.includes(o.status) ? "order/track" : "history"}/${o.id}`;
+  const top = (
+    <span className="flex items-center gap-3.5">
+      <DateTile ts={o.createdAt} light={dimmed} />
+      <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+        <span className="truncate text-[12px] font-semibold text-iz-muted">{sub}</span>
+        <span className="truncate text-[17px] font-extrabold text-iz-ink">
+          <Highlight text={o.toCity.name} q={q} />
         </span>
-      </div>
+      </span>
+      {badge && dimmed ? (
+        <span
+          className={cn(
+            "flex h-7 shrink-0 items-center whitespace-nowrap rounded-[14px] px-2.5 text-[12px] font-extrabold",
+            badge.tone === "danger" ? "bg-iz-danger-soft text-iz-danger" : "bg-iz-sheet text-iz-muted"
+          )}
+        >
+          {t(badge.key)}
+        </span>
+      ) : (
+        <span className="flex shrink-0 flex-col items-end gap-[3px]">
+          <span className="whitespace-nowrap text-[16px] font-extrabold tabular-nums text-iz-ink">{formatNumber(o.price, intlTag)}</span>
+          <span className="text-[12px] font-semibold text-iz-muted">{`${SOM_LABEL} · ${payLabel(o, t).toLocaleLowerCase()}`}</span>
+        </span>
+      )}
+    </span>
+  );
+  if (dimmed) {
+    return (
+      <Link to={to} className="flex shrink-0 flex-col rounded-iz-card bg-iz-field p-3.5 active:opacity-80">
+        {top}
+      </Link>
+    );
+  }
+  return (
+    <Link to={to} className="flex shrink-0 flex-col gap-3 rounded-iz-card border border-iz-border p-3.5 active:bg-iz-field">
+      {top}
+      {!q && (o.driver || badge) && (
+        <>
+          <span aria-hidden className="h-0 border-t-2 border-dashed border-iz-border" />
+          <span className="flex items-center gap-2.5">
+            {o.driver && <DriverAvatar name={o.driver.name || t("driver.unnamed")} size={32} tone="light" />}
+            <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-iz-ink">{o.driver ? (o.driver.name ? shortName(o.driver.name) : t("driver.unnamed")) : ""}</span>
+            {badge ? (
+              <span className="flex h-[30px] items-center rounded-[15px] bg-iz-green-soft px-2.5 text-[13px] font-extrabold text-iz-green-text">{t(badge.key)}</span>
+            ) : (
+              o.rating != null &&
+              o.rating > 0 && (
+                <span className="flex h-[30px] items-center gap-[5px] rounded-[15px] bg-iz-field px-2.5 text-[13px] font-extrabold text-iz-ink" aria-label={t("rate.star", { n: o.rating })}>
+                  <Icon name="star" size={14} filled />
+                  {o.rating}
+                </span>
+              )
+            )}
+          </span>
+        </>
+      )}
     </Link>
   );
 }
 
-function TabPane({
-  data,
-  onRetry,
-  onLoadMore,
-}: {
-  data: TabData;
-  onRetry: () => void;
-  onLoadMore: () => void;
-}) {
-  const { t } = useT();
+type List = { orders: OrderWithDetails[]; cursor: number | null; total?: number; state: "loading" | "error" | "ready" };
+
+/**
+ * Tarix (design v2: History / KbHistory): search by city or driver, the
+ * Yo'lovchi / Dostavka filter and the status filter (current app) — all
+ * applied by the server; cards grouped by month. A live order opens its
+ * tracking screen.
+ */
+export function HistoryScreen() {
+  const { t, intlTag } = useT();
   const navigate = useNavigate();
-  return (
-    <div className="scroll-pb h-full w-full shrink-0 overflow-y-auto overscroll-contain px-4 pt-4">
-      {data.state === "loading" && data.orders.length === 0 && <SkeletonList count={5} />}
-      {data.state === "error" && <ErrorState onRetry={onRetry} />}
-      {data.state === "ready" && data.orders.length === 0 && (
-        <EmptyState
-          icon={<HistoryIcon className="h-7 w-7" />}
-          title={t("history.emptyTitle")}
-          description={t("history.emptyDesc")}
-          actionLabel={t("history.emptyAction")}
-          onAction={() => navigate("/home")}
+  const shell = useShellChrome();
+  const [params, setParams] = useSearchParams();
+  const service: Service = (SERVICES as string[]).includes(params.get("service") ?? "") ? (params.get("service") as Service) : "all";
+  const status: Status = (STATUSES as string[]).includes(params.get("status") ?? "") ? (params.get("status") as Status) : "all";
+  const [q, setQ] = useState(params.get("q") ?? "");
+  const [query, setQuery] = useState(q.trim());
+  const [focused, setFocused] = useState(false);
+  const [list, setList] = useState<List>({ orders: [], cursor: 0, state: "loading" });
+  const inputRef = useRef<HTMLInputElement>(null);
+  const request = useRef(0);
+  const searchOn = api.capabilities.historySearch;
+  const statusOn = api.capabilities.historyStatusFilter;
+
+  const setParam = (key: string, value: string | null) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true }
+    );
+
+  // The search goes to the server after a short pause in typing.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setQuery(q.trim());
+      setParam("q", q.trim() || null);
+    }, 300);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+
+  function load(reset: boolean) {
+    const id = ++request.current;
+    setList((l) => ({ ...l, state: "loading", ...(reset ? { orders: [], cursor: 0 } : {}) }));
+    api
+      .getOrderHistory({
+        status: status === "all" ? undefined : status,
+        service: searchOn && service !== "all" ? service : undefined,
+        q: searchOn && query ? query : undefined,
+        cursor: reset ? 0 : list.cursor ?? 0,
+      })
+      .then((page) => {
+        if (id !== request.current) return;
+        setList((l) => ({ orders: reset ? page.orders : [...l.orders, ...page.orders], cursor: page.nextCursor, total: page.total, state: "ready" }));
+      })
+      .catch(() => id === request.current && setList((l) => ({ ...l, state: "error" })));
+  }
+  useEffect(() => {
+    load(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [service, status, query]);
+
+  const searching = focused || q !== "";
+  const filtered = service !== "all" || status !== "all" || !!query;
+
+  // Month headings ("NOYABR 2026") over the cards.
+  const groups: { label: string; orders: OrderWithDetails[] }[] = [];
+  for (const o of list.orders) {
+    const d = new Date(o.createdAt);
+    const label = `${monthNames(intlTag)[d.getMonth()]} ${d.getFullYear()}`;
+    const last = groups[groups.length - 1];
+    if (last?.label === label) last.orders.push(o);
+    else groups.push({ label, orders: [o] });
+  }
+
+  const search = searchOn && (
+    <div className="flex items-center gap-2.5">
+      <label
+        className={cn(
+          "flex h-[52px] min-w-0 flex-1 items-center gap-2.5 rounded-full px-4 transition-colors",
+          searching ? "bg-iz-sheet text-iz-ink shadow-[0_0_0_4px_rgb(var(--iz-green-rgb)/0.25)]" : "border border-iz-head-border text-iz-head-muted"
+        )}
+      >
+        <Icon name="search" size={18} className="shrink-0" />
+        <input
+          ref={inputRef}
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          aria-label={t("history.searchLabel")}
+          placeholder={t("history.searchPlaceholder")}
+          enterKeyHint="search"
+          className={cn(
+            "iz-input h-10 min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] outline-none placeholder:font-semibold",
+            searching ? "font-bold text-iz-ink placeholder:text-iz-muted" : "font-semibold text-iz-head-text placeholder:text-iz-head-muted"
+          )}
         />
-      )}
-      {data.orders.length > 0 && (
-        <div className="space-y-2">
-          {/* useT() inside OrderRow needs intlTag — passed explicitly since
-              this pane doesn't otherwise depend on locale */}
-          {data.orders.map((o) => (
-            <OrderRowConnected key={o.id} order={o} />
-          ))}
-        </div>
-      )}
-      {data.cursor !== null && data.orders.length > 0 && (
-        <button onClick={onLoadMore} className="mt-3 min-h-[44px] w-full rounded-xl border border-border py-3 text-xs font-semibold text-ink/70 hover:bg-ink/5">
-          {t("history.loadMore")}
+      </label>
+      {searching && (
+        <button
+          type="button"
+          // Keeps the input from blurring first, so one tap clears and closes.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            setQ("");
+            inputRef.current?.blur();
+          }}
+          className="flex h-11 shrink-0 items-center px-1 text-[14px] font-bold text-iz-green"
+        >
+          {t("history.searchCancel")}
         </button>
       )}
     </div>
   );
-}
 
-function OrderRowConnected({ order }: { order: OrderWithDetails }) {
-  const { intlTag } = useT();
-  return <OrderRow o={order} intlTag={intlTag} />;
-}
+  const serviceSwitch = searchOn && (
+    <div role="radiogroup" aria-label={t("history.serviceLabel")} className="grid h-[52px] grid-cols-3 gap-1 rounded-full bg-iz-head-card p-1">
+      {SERVICES.map((s) => (
+        <button
+          key={s}
+          type="button"
+          role="radio"
+          aria-checked={service === s}
+          onClick={() => setParam("service", s === "all" ? null : s)}
+          className={cn("min-w-0 truncate rounded-full px-1 text-[14px]", service === s ? "bg-iz-green font-extrabold text-iz-on-green" : "font-semibold text-iz-head-soft")}
+        >
+          {t(SERVICE_KEY[s])}
+        </button>
+      ))}
+    </div>
+  );
 
-export function HistoryScreen() {
-  const { t } = useT();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = FILTERS.includes(searchParams.get("tab") as Filter) ? (searchParams.get("tab") as Filter) : "all";
-  const [activeIndex, setActiveIndex] = useState(FILTERS.indexOf(initialTab));
-  const [tabs, setTabs] = useState<Record<Filter, TabData>>({
-    all: { ...EMPTY_TAB },
-    completed: { ...EMPTY_TAB },
-    cancelled: { ...EMPTY_TAB },
-  });
-  const loaded = useRef(new Set<Filter>());
-  const trackRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; y: number; axis: "x" | "y" | null } | null>(null);
-  const [dragDX, setDragDX] = useState(0);
-  const ios = useIsIOS();
-
-  function loadTab(filter: Filter, reset: boolean) {
-    setTabs((prev) => ({ ...prev, [filter]: { ...prev[filter], state: "loading" } }));
-    const status: OrderStatus | undefined = filter === "all" ? undefined : (filter as OrderStatus);
-    const cursor = reset ? 0 : tabs[filter].cursor ?? 0;
-    api
-      .getOrderHistory({ status, cursor })
-      .then((page) => {
-        setTabs((prev) => ({
-          ...prev,
-          [filter]: {
-            orders: reset ? page.orders : [...prev[filter].orders, ...page.orders],
-            cursor: page.nextCursor,
-            state: "ready",
-          },
-        }));
-      })
-      .catch(() => setTabs((prev) => ({ ...prev, [filter]: { ...prev[filter], state: "error" } })));
-  }
-
-  useEffect(() => {
-    const f = FILTERS[activeIndex];
-    if (!loaded.current.has(f)) {
-      loaded.current.add(f);
-      loadTab(f, true);
-    }
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set("tab", f);
-      return next;
-    }, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex]);
-
-  function onPointerDown(e: React.PointerEvent) {
-    drag.current = { x: e.clientX, y: e.clientY, axis: null };
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    if (!drag.current) return;
-    const dx = e.clientX - drag.current.x;
-    const dy = e.clientY - drag.current.y;
-    if (!drag.current.axis && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
-      drag.current.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-    }
-    if (drag.current.axis === "x") setDragDX(dx);
-  }
-  function onPointerUp() {
-    if (!drag.current) return;
-    const threshold = 60;
-    if (drag.current.axis === "x") {
-      if (dragDX < -threshold && activeIndex < FILTERS.length - 1) setActiveIndex(activeIndex + 1);
-      else if (dragDX > threshold && activeIndex > 0) setActiveIndex(activeIndex - 1);
-    }
-    drag.current = null;
-    setDragDX(0);
-  }
+  let body: ReactNode;
+  if (list.state === "error" && list.orders.length === 0) body = <StateError onRetry={() => load(true)} />;
+  else if (list.state === "loading" && list.orders.length === 0) body = <StateLoading rows={4} />;
+  else if (list.orders.length === 0)
+    body = filtered ? (
+      <StateEmpty title={t("history.noResults")} description={t("history.noResultsDesc")} />
+    ) : (
+      <StateEmpty title={t("history.emptyTitle")} description={t("history.emptyDesc")} actionLabel={t("history.emptyAction")} onAction={() => navigate("/home")} />
+    );
+  else
+    body = (
+      <>
+        {query && list.total != null && <SectionLabel>{t("history.results", { n: list.total })}</SectionLabel>}
+        {groups.map((g) => (
+          <section key={g.label} className="flex flex-col gap-3" aria-label={g.label}>
+            {!query && <SectionLabel as="h2">{g.label}</SectionLabel>}
+            {g.orders.map((o) => (
+              <OrderCard key={o.id} o={o} q={query} />
+            ))}
+          </section>
+        ))}
+        {list.state === "error" && <StateError onRetry={() => load(false)} />}
+        {list.cursor != null && list.state !== "error" && (
+          <TextButton tone="ink" loading={list.state === "loading"} onClick={() => load(false)}>
+            {t("history.loadMore")}
+          </TextButton>
+        )}
+      </>
+    );
 
   return (
-    <div className="flex h-full flex-col bg-bg">
-      <PageTitle
-        scrollKey={activeIndex}
-        accessory={
-          ios && SHOW_TABS ? (
-            <Segmented
-              ariaLabel={t("history.tabsLabel")}
-              value={FILTERS[activeIndex]}
-              onChange={(f) => setActiveIndex(FILTERS.indexOf(f))}
-              tabs={{ id: (f) => `history-tab-${f}`, controls: (f) => `history-panel-${f}` }}
-              options={FILTERS.map((f) => ({ id: f, label: t(FILTER_KEY[f]) }))}
-            />
-          ) : undefined
-        }
-      >
-        {/* iOS: the short screen name, as in the drawer — it fits as a Large
-            Title on every iPhone and reads as "‹ Tarix" on the detail page. */}
-        {ios ? t("drawer.tarix") : t("history.title")}
-      </PageTitle>
-
-      {!ios && SHOW_TABS && (
-      <div
-        role="tablist"
-        aria-label={t("history.tabsLabel")}
-        className="flex border-b border-border px-4"
-        onKeyDown={(e) => {
-          const delta = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-          if (e.key === "Home" || e.key === "End" || delta) {
-            e.preventDefault();
-            const next = e.key === "Home" ? 0 : e.key === "End" ? FILTERS.length - 1 : (activeIndex + delta + FILTERS.length) % FILTERS.length;
-            setActiveIndex(next);
-            (e.currentTarget.children[next] as HTMLElement | undefined)?.focus();
-          }
-        }}
-      >
-        {FILTERS.map((f, i) => (
-          <button
-            key={f}
-            id={`history-tab-${f}`}
-            role="tab"
-            aria-selected={activeIndex === i}
-            aria-controls={`history-panel-${f}`}
-            tabIndex={activeIndex === i ? 0 : -1}
-            onClick={() => setActiveIndex(i)}
-            className={cn(
-              "relative min-h-[44px] flex-1 py-3 text-center text-sm font-semibold transition-colors",
-              activeIndex === i ? "text-ink" : "text-ink/60"
-            )}
-          >
-            {t(FILTER_KEY[f])}
-            {activeIndex === i && <span aria-hidden="true" className="absolute inset-x-3 -bottom-px h-[3px] rounded-full bg-brand-yellow" />}
-          </button>
-        ))}
-      </div>
-      )}
-
-      <div
-        className="relative flex-1 overflow-hidden"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        style={{ touchAction: "pan-y" }}
-      >
-        <div
-          ref={trackRef}
-          className="flex h-full"
-          style={{
-            width: `${FILTERS.length * 100}%`,
-            transform: `translateX(calc(${-activeIndex * (100 / FILTERS.length)}% + ${dragDX}px))`,
-            transition: drag.current ? "none" : "transform 280ms cubic-bezier(0.2,0.8,0.2,1)",
-          }}
-        >
-          {FILTERS.map((f, i) => (
-            <div
-              key={f}
-              id={`history-panel-${f}`}
-              role={SHOW_TABS ? "tabpanel" : undefined}
-              aria-labelledby={SHOW_TABS ? `history-tab-${f}` : undefined}
-              // Off-screen panes stay out of the tab order (React 18 types lack `inert`).
-              {...((i !== activeIndex ? { inert: "" } : {}) as Record<string, string>)}
-              style={{ width: `${100 / FILTERS.length}%` }}
-              className="h-full shrink-0"
+    <Screen
+      header={
+        <>
+          <div className={cn(searching && "hidden")}>
+            <HeaderBar title={t("drawer.tarix")} onBack={shell?.action} backLabel={shell?.leading === "menu" ? t("drawer.open") : undefined} />
+          </div>
+          {search}
+        </>
+      }
+      top={!searching && serviceSwitch ? serviceSwitch : undefined}
+      bodyClassName="gap-3 pt-6"
+    >
+      {statusOn && !searching && (
+        <div role="radiogroup" aria-label={t("history.tabsLabel")} className="flex shrink-0 gap-2 overflow-x-auto no-scrollbar">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="radio"
+              aria-checked={status === s}
+              onClick={() => setParam("status", s === "all" ? null : s)}
+              className={cn(
+                "h-11 shrink-0 rounded-full px-4 text-[13px]",
+                status === s ? "bg-iz-selected font-bold text-iz-on-selected" : "border border-iz-chip-border font-semibold text-iz-ink"
+              )}
             >
-              <TabPane data={tabs[f]} onRetry={() => loadTab(f, true)} onLoadMore={() => loadTab(f, false)} />
-            </div>
+              {t(STATUS_KEY[s])}
+            </button>
           ))}
         </div>
-      </div>
-    </div>
+      )}
+      {body}
+    </Screen>
   );
 }

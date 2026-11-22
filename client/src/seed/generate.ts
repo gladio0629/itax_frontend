@@ -82,6 +82,8 @@ export type Order = {
   timeline?: {
     searchResolvesAt: number;
     acceptedAt?: number;
+    /** The driver reaches the pickup ("arrived"); the trip starts later. */
+    arrivesAt?: number;
     tripStartsAt?: number;
     tripEndsAt?: number;
     outcome: "accepted" | "no_driver";
@@ -239,6 +241,8 @@ export type SeedData = {
   drivers: Driver[];
   passengers: Passenger[];
   orders: Order[];
+  /** Bumped when sample data is added; stored databases pick up what they miss. */
+  seedVersion?: number;
   walletEntries: WalletEntry[];
   complaints: Complaint[];
   generatedAt: number;
@@ -259,7 +263,9 @@ export function generateSeed(): SeedData {
     return {
       id: `drv_${String(i + 1).padStart(2, "0")}`,
       name,
-      phoneMasked: `+998 9${rng.int(0, 9)} *** ** ${String(rng.int(10, 99))}`,
+      // Fake on purpose, as sampleDriverPhone: "+998 90 000 00 02" and up.
+      // (The two draws stay, so the rest of the seed doesn't change.)
+      phoneMasked: (rng.int(0, 9), rng.int(10, 99), `+998 90 *** ** ${String(i + 2).padStart(2, "0")}`),
       cityId: city.id,
       carModel: car.model,
       carColor: car.color,
@@ -364,6 +370,38 @@ export function generateSeed(): SeedData {
     };
   });
 
+  // The demo passenger (passengers[2], the app's "me") gets a fuller history
+  // over three months, from its own random stream so the rest stays the same.
+  const meRng = makeRng(SEED + 7);
+  const me = passengers[2];
+  const MY_STATUSES: OrderStatus[] = ["completed", "completed", "completed", "completed", "cancelled", "completed", "no_driver", "completed"];
+  const CANCEL_KEYS = ["cancel.reason.plansChanged", "cancel.reason.waitedTooLong", "cancel.reason.priceReconsidered"];
+  for (let i = 0; i < 14; i++) {
+    const from = meRng.bool(0.6) ? CITIES[0] : meRng.pick(CITIES);
+    let to = meRng.pick(CITIES);
+    while (to.id === from.id) to = meRng.pick(CITIES);
+    const distanceKm = roadDistanceKm(from.id, to.id);
+    const mode: OrderMode = meRng.bool(0.4) ? "car" : "seat";
+    const seatIds = mode === "seat" ? meRng.shuffle(["front", "back-left", "back-mid", "back-right"]).slice(0, meRng.int(1, 2)) : [];
+    const status = MY_STATUSES[i % MY_STATUSES.length];
+    orders.push({
+      id: `ord_m${String(i + 1).padStart(2, "0")}`,
+      passengerId: me.id,
+      driverId: status === "no_driver" ? null : meRng.pick(drivers.slice(0, 10)).id,
+      fromCityId: from.id,
+      toCityId: to.id,
+      distanceKm,
+      mode,
+      seatIds,
+      price: computePrice(distanceKm, mode, seatIds),
+      paymentMethod: meRng.bool(0.6) ? "cash" : "card",
+      status,
+      createdAt: NOW - (i * 6 + meRng.int(0, 4)) * 86_400_000 - meRng.int(6, 20) * 3_600_000,
+      rating: status === "completed" ? (i === 0 ? undefined : meRng.int(4, 5)) : undefined,
+      cancelReason: status === "cancelled" ? meRng.pick(CANCEL_KEYS) : undefined,
+    });
+  }
+
   return {
     cities: CITIES,
     tariffs,
@@ -373,5 +411,9 @@ export function generateSeed(): SeedData {
     walletEntries,
     complaints,
     generatedAt: NOW,
+    seedVersion: SEED_VERSION,
   };
 }
+
+/** 2: the demo passenger's fuller history (design v2 Tarix). */
+export const SEED_VERSION = 2;

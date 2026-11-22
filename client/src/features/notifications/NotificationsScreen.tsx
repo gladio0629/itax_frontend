@@ -1,24 +1,22 @@
 import { useEffect, useState } from "react";
-import { Bell, Wallet, Tag, Info } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { NotificationItem } from "@/api/types";
-import { EmptyState } from "@/components/EmptyState";
-import { ScreenHeader } from "@/components/ScreenHeader";
-import { ErrorState } from "@/components/ErrorState";
-import { SkeletonList } from "@/components/Skeleton";
 import { formatRelativeDay } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import { uz, type TranslationKey } from "@/lib/i18n/uz";
+import { cn } from "@/lib/cn";
+import { Icon, Screen, StateEmpty, StateError, StateLoading, type IconName } from "@/ui";
 
-const KIND_ICON: Record<NotificationItem["kind"], typeof Bell> = {
-  order: Bell,
-  wallet: Wallet,
-  promo: Tag,
-  system: Info,
+const KIND_ICON: Record<NotificationItem["kind"], IconName> = {
+  order: "car",
+  wallet: "card",
+  promo: "tag",
+  system: "info",
 };
 
 type LoadState = "loading" | "error" | "ready";
 
+/** The notifications inbox (current app, design v2 style); a tap marks one read. */
 export function NotificationsScreen() {
   const { t, intlTag } = useT();
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -51,43 +49,32 @@ export function NotificationsScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-bg">
-      <ScreenHeader title={t("home.notifications")} />
-      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
-        {state === "loading" && <SkeletonList count={4} />}
-        {state === "error" && <ErrorState onRetry={load} />}
-        {state === "ready" && items.length === 0 && (
-          <EmptyState
-            icon={<Bell className="h-7 w-7" />}
-            title={t("inbox.emptyTitle")}
-            description={t("inbox.emptyDesc")}
-          />
-        )}
-        {state === "ready" && items.length > 0 && (
-          <div className="space-y-2">
-            {items.map((n) => {
-              const Icon = KIND_ICON[n.kind];
-              return (
-                <button
-                  key={n.id}
-                  onClick={() => markRead(n.id)}
-                  className="flex w-full items-start gap-3 rounded-2xl bg-card p-4 text-left shadow-softer"
-                >
-                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent">
-                    <Icon className="h-4 w-4" />
-                    {!n.read && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-card" role="img" aria-label={t("inbox.unread")} />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink">{titleOf(n)}</p>
-                    {bodyOf(n) && <p className="mt-0.5 text-xs text-ink/60">{bodyOf(n)}</p>}
-                    <p className="mt-1 text-xs text-ink/60">{formatRelativeDay(n.createdAt, intlTag)}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
+    <Screen title={t("home.notifications")} bodyClassName="gap-0 pt-4">
+      {state === "loading" && <StateLoading rows={4} />}
+      {state === "error" && <StateError onRetry={load} />}
+      {state === "ready" && items.length === 0 && <StateEmpty title={t("inbox.emptyTitle")} description={t("inbox.emptyDesc")} />}
+      {state === "ready" &&
+        items.map((n, i) => (
+          <button
+            key={n.id}
+            type="button"
+            onClick={() => markRead(n.id)}
+            className={cn("flex w-full shrink-0 items-start gap-3.5 py-3.5 text-left active:opacity-70", i < items.length - 1 && "border-b border-iz-border")}
+          >
+            <span aria-hidden className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-iz-tile bg-iz-field text-iz-ink">
+              <Icon name={KIND_ICON[n.kind]} />
+              {!n.read && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-iz-sheet bg-iz-danger" />}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className={cn("text-[15px] text-iz-ink", n.read ? "font-bold" : "font-extrabold")}>
+                {titleOf(n)}
+                {!n.read && <span className="sr-only"> · {t("inbox.unread")}</span>}
+              </span>
+              {bodyOf(n) && <span className="text-[13px] leading-[19px] text-iz-muted">{bodyOf(n)}</span>}
+              <span className="text-[12px] text-iz-muted">{formatRelativeDay(n.createdAt, intlTag)}</span>
+            </span>
+          </button>
+        ))}
+    </Screen>
   );
 }

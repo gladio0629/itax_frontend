@@ -1,4 +1,5 @@
-import { useRef, type ReactNode } from "react";
+import { useContext, useEffect, useRef, type ReactNode } from "react";
+import { ShellNavContext } from "@/lib/shellNav";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n/provider";
 import { useLiftFloatingControl } from "@/stores/floatingControlStore";
@@ -103,14 +104,20 @@ export function Screen({
   header,
 }: ScreenProps) {
   useStatusBar("light");
+  const shell = useShellChrome();
+  const { t } = useT();
+  // Inside the app shell the header's leading button is the shell's: the
+  // menu on top-level screens (design: arrow back to the Menu), back elsewhere.
+  const back = onBack ?? shell?.action;
+  const label = backLabel ?? (onBack ? undefined : shell?.leading === "menu" ? t("drawer.open") : undefined);
   return (
     <div className="flex h-full min-h-0 flex-col bg-iz-head">
       <div
         className="flex shrink-0 flex-col gap-5 px-5 pb-6 pt-[calc(var(--safe-top)+12px)] transition-[padding] kb:gap-3 kb:pb-3"
       >
-        {header ?? <HeaderBar title={title} onBack={onBack} backLabel={backLabel} right={headerRight} />}
-        {topKeep}
+        {header ?? <HeaderBar title={title} onBack={back} backLabel={label} right={headerRight} />}
         {top && <div className="flex flex-col gap-5 kb:hidden">{top}</div>}
+        {topKeep}
       </div>
       <Sheet overlap={sheetOverlap} footer={footer} bodyClassName={bodyClassName}>
         {children}
@@ -154,4 +161,21 @@ function SheetFooter({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
+}
+
+/**
+ * For screens that draw their own top controls inside AppShell: hides the
+ * shell's floating menu/back button while mounted, and returns what the
+ * leading button should do. Null outside the shell (login screens).
+ */
+export function useShellChrome() {
+  const nav = useContext(ShellNavContext);
+  const claim = nav?.claimChrome;
+  useEffect(() => (claim ? claim() : undefined), [claim]);
+  if (!nav) return null;
+  return {
+    leading: nav.leading,
+    openDrawer: nav.openDrawer,
+    action: nav.leading === "menu" ? nav.openDrawer : nav.goBack,
+  };
 }

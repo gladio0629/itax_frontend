@@ -30,6 +30,10 @@ export type Address = {
 };
 
 export type ServiceType = "passenger" | "delivery";
+/** How the passenger pays for a new order (design v2 Payment). The shared
+ * seed's PaymentMethod (cash | card) stays as the stored order's field;
+ * Payme and Click are paid in their apps. */
+export type PayMethod = PaymentMethod | "payme" | "click";
 /** Delivery is priced by the vehicle the client picks — no weight or volume. */
 export type DeliveryVehicle = "spark" | "damas" | "labo" | "isuzu" | "isuzu2" | "fura";
 export const DELIVERY_VEHICLES: DeliveryVehicle[] = ["spark", "damas", "labo", "isuzu", "isuzu2", "fura"];
@@ -58,6 +62,8 @@ export type CargoInput = {
   hours?: number;
   /** "Men ham birga ketaman". */
   rideAlong?: boolean;
+  /** "Sug'urta" (design v2 CargoTerms); terms and price come from the server. */
+  insurance?: boolean;
 };
 
 export type CargoInfoTopic = "delivery" | "loaders" | "body" | "insurance";
@@ -72,6 +78,8 @@ export type CargoRules = {
   /** Extra drop-offs ("Yana manzil qo'shish") per tab. */
   maxExtraDropoffs: Record<CargoTab, number>;
   infoTopics: { id: CargoInfoTopic; labelKey: string }[];
+  /** Whether cargo insurance can be added to the order. */
+  insurance: { available: boolean };
 };
 export type CargoInfo = { titleKey: string; paragraphKeys: string[] };
 export type RideAlong = { available: boolean; reasonKey?: string };
@@ -156,26 +164,6 @@ export type RouteStop = {
   details?: AddressDetails;
 };
 
-export type OrderOptionId = "child_seat" | "pet" | "big_luggage" | "find_car" | "wheelchair" | "text_only";
-
-/** An add-on ("Istaklar") the passenger can switch on. Price and
- * availability are the adapter's; the UI only shows them. */
-export type OrderOption = {
-  id: OrderOptionId;
-  titleKey: string;
-  descKey: string;
-  /** 0 = free. */
-  price: number;
-  available: boolean;
-  /** Why it's unavailable (translation key), when it is. */
-  reasonKey?: string;
-  /** A required sub-choice, e.g. the child seat's age group. */
-  variants?: { id: string; labelKey: string }[];
-  /** Applied when the option is switched on (from its switch or a hint). */
-  defaultVariant?: string;
-};
-export type OptionVariants = Partial<Record<OrderOptionId, string>>;
-
 export type CarClassId = "standart" | "komfort" | "biznes" | "miniven";
 /** One "Klass" card. `price` is the adapter's total for the current order
  * with this class. */
@@ -215,18 +203,9 @@ export type TipOptions = {
   sent?: { amount: number; reviewId: string; status: "pending" | "approved" | "rejected" };
 };
 
-export type EmergencyContact = { id: string; name: string; phone: string };
-export type EmergencyContacts = { contacts: EmergencyContact[]; max: number };
 
 /** A mock "follow my trip" link plus the share text (as a translation key). */
 export type TripShare = { url: string; textKey: string; params: Record<string, string | number> };
-
-/** A suggestion derived from the driver comment ("bola", "чемодан", …).
- * Suggestions only — nothing is applied until the passenger taps. */
-export type CommentHint = {
-  optionId: OrderOptionId;
-  messageKey: string;
-};
 
 /** Limits for the order-details inputs. The adapter owns them and
  * re-validates on quote/create/update; the UI only reads them for
@@ -250,8 +229,6 @@ export type QuoteInput = {
   mode: OrderMode;
   seatIds: string[];
   cargo?: CargoInput;
-  optionIds?: OrderOptionId[];
-  optionVariants?: OptionVariants;
   carClass?: CarClassId;
   /** Only a code applyPromoCode() accepted. */
   promoCode?: string;
@@ -278,7 +255,7 @@ export type CreateOrderInput = {
   mode: OrderMode;
   seatIds: string[];
   cargo?: CargoInput;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PayMethod;
   timing: OrderTiming;
   promoCode?: string;
   fromDetails?: AddressDetails;
@@ -286,8 +263,6 @@ export type CreateOrderInput = {
   stops?: RouteStop[];
   /** "Haydovchiga izoh". */
   comment?: string;
-  optionIds?: OrderOptionId[];
-  optionVariants?: OptionVariants;
   carClass?: CarClassId;
   /** Bags, within getLuggageRules(). */
   luggage?: number;
@@ -301,6 +276,8 @@ export type CreateOrderInput = {
  * can't change — see seed/generate.ts) but that Tafsilotlar needs to show
  * and edit: the addresses actually picked and the requested timing. */
 export type OrderExtras = {
+  /** Payme / Click when chosen (the order's own field keeps cash | card). */
+  payMethod?: PayMethod;
   fromAddressId: string;
   toAddressId: string;
   timing: OrderTiming;
@@ -310,8 +287,6 @@ export type OrderExtras = {
   toDetails?: AddressDetails;
   stops?: RouteStop[];
   comment?: string;
-  optionIds?: OrderOptionId[];
-  optionVariants?: OptionVariants;
   carClass?: CarClassId;
   luggage?: number;
   rider?: Rider;
@@ -326,13 +301,12 @@ export type UpdateOrderInput = Partial<{
   mode: OrderMode;
   seatIds: string[];
   cargo: CargoInput;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PayMethod;
   timing: OrderTiming;
   fromDetails: AddressDetails;
   toDetails: AddressDetails;
   stops: RouteStop[];
   comment: string;
-  optionIds: OrderOptionId[];
 }>;
 
 /** One search result: the point, its area (shown as a subtitle), distance
@@ -346,8 +320,15 @@ export type AddressSearchResult = {
   entrance?: string;
 };
 
+/** What a saved place is for (design v2 "Uy / Ish / Boshqa"). */
+export type SavedPlaceKind = "home" | "work" | "other";
+
 export type SavedAddressInfo = {
   address: Address;
+  /** The passenger's name for it ("Uy", "Ish", …); unset: use address.label. */
+  name?: string;
+  /** Unset when the source doesn't keep a kind (current backend). */
+  kind?: SavedPlaceKind;
   /** Area line under the name (region). */
   area?: string;
   /** Tafsilotlar remembered for this saved address. */
@@ -374,11 +355,32 @@ export type OrderWithDetails = Order & {
   driverArrived?: boolean;
   /** The server's price breakdown (sums to `price`), when it sends one. */
   priceLines?: QuoteLine[];
+  /** Payme / Click: the provider page to pay on, when the server gives one. */
+  paymentUrl?: string;
+  /** What the passenger chose with their rating (reason keys) and wrote. */
+  ratingReasons?: string[];
+  ratingComment?: string;
+  /** When the trip started and ended (ms), once known. */
+  startedAt?: number;
+  finishedAt?: number;
+  /** Delivery: the body size label the server shows ("M", "XL"). */
+  cargoSize?: string;
+  /** A number the passenger can call for this trip (the driver's, or a relay). */
+  driverPhone?: string;
+  /** Minutes until the driver reaches the pickup (accepted, not arrived yet). */
+  driverEtaMinutes?: number;
+  /** After the driver arrived (`startedAt`, ms): free waiting ends at
+   * `freeUntil`, then each minute costs `pricePerMinute` so'm. */
+  waiting?: { startedAt: number; freeUntil: number; pricePerMinute: number };
+  /** During the trip: kilometres driven and left, and the expected arrival (ms). */
+  tripProgress?: { doneKm: number; leftKm: number; arrivalAt: number };
 };
 
 export type OrderHistoryPage = {
   orders: OrderWithDetails[];
   nextCursor: number | null;
+  /** How many orders match (all pages), when the server counts them. */
+  total?: number;
 };
 
 export type NotificationItem = {
@@ -448,9 +450,11 @@ export type ClientCapabilities = {
   /** Server-side status filter on the order history. */
   historyStatusFilter: boolean;
   tips: boolean;
-  /** Trip share link, emergency contacts, support phone. */
+  /** Trip share link and support phone (SOS). */
   safety: boolean;
   popularRoutes: boolean;
+  /** "Oxirgi yo'nalishlar" on Home (the passenger's own last routes). */
+  recentRoutes: boolean;
   promo: boolean;
   bonuses: boolean;
   help: boolean;
@@ -464,7 +468,7 @@ export type ClientCapabilities = {
   notificationTopics: boolean;
   /** Intermediate stops (Taksi) and extra drop-offs (Kargo). */
   stops: boolean;
-  /** "Istaklar" add-ons, comment hints and the luggage stepper. */
+  /** The luggage stepper ("Bagaj soni"). Wishes were removed (2026-11-22). */
   orderOptions: boolean;
   /** "Kim ketadi?" — ordering for someone else. */
   rider: boolean;
@@ -479,6 +483,11 @@ export type ClientCapabilities = {
   pickupEta: boolean;
   /** Tafsilotlar may change the pickup of a live order (else only the drop-off). */
   editPickup: boolean;
+  /** Order history: search (city, driver) and the Yo'lovchi / Dostavka filter. */
+  historySearch: boolean;
+  /** A comment with any rating, next to the reasons. Off: only with 5 stars,
+   * sent in place of a reason (the contract keeps one reason). */
+  ratingNote: boolean;
 };
 
 /** A live order change pushed by the server (WebSocket) — screens refetch. */
@@ -519,7 +528,8 @@ export type AccountSummary = {
   active: boolean;
 };
 
-export type HelpTopic = "order" | "payment" | "app" | "other";
+/** Owner, 2026-11-22: Safar, To'lov, Haydovchi, Akkaunt, Boshqa. */
+export type HelpTopic = "trip" | "payment" | "driver" | "account" | "other";
 
 export type HelpRequest = {
   id: string;
@@ -540,7 +550,7 @@ export type BonusSummary = {
 };
 
 export type BonusAction = "goto_order" | "invite" | "rate_trip";
-export type BonusSourceIcon = "order" | "invite" | "rate";
+export type BonusSourceIcon = "order" | "invite" | "rate" | "goal";
 
 export type BonusSource = {
   id: string;
@@ -549,6 +559,10 @@ export type BonusSource = {
   descriptionKey: string;
   amountThisMonth: number;
   action: BonusAction;
+  /** What one completion pays ("+15 000"); unset when it varies (a share of the price). */
+  reward?: number;
+  /** A task with a target ("Shu oyda 5 ta safar": 3 / 5). */
+  progress?: { done: number; total: number };
 };
 
 export type BonusHistoryEntry = {

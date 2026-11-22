@@ -1,28 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Menu, ArrowLeft, Home, Gift, Clock, Settings } from "@/lib/icons";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Menu, ArrowLeft } from "@/lib/icons";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { Profile } from "@/api/types";
-import { Avatar } from "@/components/Avatar";
-import { Drawer } from "@/components/Drawer";
+import { MenuDrawer } from "@/features/menu/MenuDrawer";
 import { useT } from "@/lib/i18n/provider";
 import { armPop, clearPendingTransition, setTransitionKind, supportsViewTransitions } from "@/lib/navigation";
 import { HeaderToneContext, type HeaderTone } from "@/lib/headerTone";
 import { useModalOpen } from "@/lib/useModalOpen";
 import { isStandalone, useIsIOS } from "@/lib/platform";
 import { ShellNavContext, type ShellNav } from "@/lib/shellNav";
-import { IconTile, ListRow, ListSection } from "@/components/ios/List";
 import { cn } from "@/lib/cn";
-
-const APP_VERSION = "1.1.0";
-
-const NAV_ITEMS = [
-  { to: "/home", labelKey: "drawer.asosiy" as const, icon: Home },
-  // Bonuses only where the adapter supports them (no endpoint in the API yet).
-  ...(api.capabilities.bonuses ? [{ to: "/bonus", labelKey: "drawer.bonuslar" as const, icon: Gift }] : []),
-  { to: "/history", labelKey: "drawer.tarix" as const, icon: Clock },
-  { to: "/settings", labelKey: "drawer.sozlamalar" as const, icon: Settings },
-];
 
 const TOP_LEVEL_PATHS = new Set(["/home", "/bonus", "/history", "/settings"]);
 
@@ -55,6 +43,7 @@ export function AppShell() {
   const modalOpen = useModalOpen();
   // iOS screens with a navigation bar carry their own menu/back control.
   const [barCount, setBarCount] = useState(0);
+  const [chromeCount, setChromeCount] = useState(0);
   const shellRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
 
@@ -102,6 +91,11 @@ export function AppShell() {
     return () => setBarCount((n) => n - 1);
   }, []);
 
+  const claimChrome = useCallback(() => {
+    setChromeCount((n) => n + 1);
+    return () => setChromeCount((n) => n - 1);
+  }, []);
+
   const idx = historyIndex();
   const shellNav = useMemo<ShellNav>(
     () => ({
@@ -110,10 +104,11 @@ export function AppShell() {
       goBack: () => goBack(true),
       backTitle: idx > 0 ? barTitles.get(idx - 1) ?? null : null,
       registerBar,
+      claimChrome,
     }),
     // location.key: recompute the back title on every navigation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isTopLevel, goBack, registerBar, idx, location.key]
+    [isTopLevel, goBack, registerBar, claimChrome, idx, location.key]
   );
 
   // Standalone (home-screen) iOS app only: swipe from the left edge to go
@@ -204,7 +199,7 @@ export function AppShell() {
   }, [ios, isTopLevel, goBack, location.pathname]);
 
   // The floating control is replaced by the iOS bar wherever a bar is shown.
-  const showFloating = !(ios && barCount > 0);
+  const showFloating = !(ios && barCount > 0) && chromeCount === 0;
   // iOS with view transitions: the slide is the page transition; no extra fade.
   const pageAnimation = ios && supportsViewTransitions() ? "" : "animate-fade-in";
 
@@ -254,76 +249,7 @@ export function AppShell() {
           </button>
         ))}
 
-      <Drawer open={open} onClose={() => setOpen(false)} ariaLabel={t("drawer.open")}>
-        {ios ? (
-          <>
-            <div className="px-5 pb-6 pt-6">
-              <Avatar seed={profile?.avatarSeed ?? "izgo"} name={profile?.name ?? ""} size={64} />
-              <p className="ios-title2 mt-3 truncate text-ink">{profile?.name ?? "—"}</p>
-              <p className="ios-subheadline truncate text-[color:var(--ios-label-secondary)]">{profile?.phoneMasked ?? ""}</p>
-            </div>
-            <ListSection>
-              {NAV_ITEMS.map(({ to, labelKey, icon }) => {
-                const active = location.pathname === to;
-                return (
-                  <ListRow
-                    key={to}
-                    to={to}
-                    current={active}
-                    onClick={() => {
-                      if (!active) setTransitionKind("fade");
-                      setOpen(false);
-                    }}
-                    leading={<IconTile icon={icon} tone={active ? "accent" : "gray"} />}
-                    title={t(labelKey)}
-                    chevron={false}
-                  />
-                );
-              })}
-            </ListSection>
-            <p className="ios-footnote mt-auto px-5 pb-4 pt-6 text-[color:var(--ios-label-secondary)]">
-              {t("drawer.version", { version: APP_VERSION })}
-            </p>
-          </>
-        ) : (
-          <>
-        <div className="flex items-center gap-3 border-b border-border px-4 pb-4 pt-5">
-          <Avatar seed={profile?.avatarSeed ?? "izgo"} name={profile?.name ?? ""} size={48} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-ink">{profile?.name ?? "—"}</p>
-            <p className="truncate text-xs text-ink/60">{profile?.phoneMasked ?? ""}</p>
-          </div>
-        </div>
-
-        <nav className="flex flex-col gap-2 px-4 py-3">
-          {NAV_ITEMS.map(({ to, labelKey, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  "flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-3 text-sm font-normal transition-colors",
-                  isActive ? "bg-accent-10 text-accent" : "text-ink/80 hover:bg-ink/5"
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className="h-5 w-5" strokeWidth={isActive ? 2.4 : 2} />
-                  {t(labelKey)}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-
-        <p className="mt-auto px-5 pb-4 pt-6 text-xs text-ink/60">
-          {t("drawer.version", { version: APP_VERSION })}
-        </p>
-          </>
-        )}
-      </Drawer>
+      <MenuDrawer open={open} onClose={() => setOpen(false)} profile={profile} />
 
       <div ref={pageRef} key={location.pathname} className={cn("vt-root h-full w-full", pageAnimation)}>
         <Outlet />

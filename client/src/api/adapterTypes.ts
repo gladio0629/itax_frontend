@@ -11,17 +11,12 @@ import type { DeliveryVehicleSpec,
   Warehouse,
   CarClass,
   CarClassId,
-  EmergencyContact,
-  EmergencyContacts,
   LuggageRules,
   PromoResult,
   Rider,
   TipOptions,
   TripShare,
-  CommentHint,
   OrderDetailsRules,
-  OrderOption,
-  OrderOptionId,
   ServiceType,
   SchedulingRules,
   AccountSummary,
@@ -37,6 +32,7 @@ import type { DeliveryVehicleSpec,
   NotificationPrefs,
   OrderHistoryPage,
   OrderStatus,
+  OrderTiming,
   OrderWithDetails,
   OtpRequestResult,
   Profile,
@@ -45,6 +41,7 @@ import type { DeliveryVehicleSpec,
   ReviewRequest,
   RouteSuggestion,
   SavedAddressInfo,
+  SavedPlaceKind,
   SavedCard,
   Seat,
   UpdateOrderInput,
@@ -85,7 +82,9 @@ export interface ApiAdapter {
    * fallback fills what an old order doesn't record (sample data only). */
   repeatOrder(
     orderId: string,
-    fallback: Pick<CreateOrderInput, "serviceType" | "mode" | "seatIds" | "cargo" | "paymentMethod" | "timing">
+    fallback: Pick<CreateOrderInput, "serviceType" | "mode" | "seatIds" | "cargo" | "paymentMethod" | "timing">,
+    /** "Qayta qidirish" with a new pickup time (design: NoDriver). */
+    changes?: { timing?: OrderTiming }
   ): Promise<OrderWithDetails>;
 
   /** A route point this adapter handed out (search, saved, reverse, an
@@ -110,7 +109,7 @@ export interface ApiAdapter {
   /** `fromAddressId` ("" = no pickup yet) only adds distances where known. */
   getSavedAddresses(fromAddressId: string): Promise<SavedAddressInfo[]>;
   /** Keep a picked point as a saved address (name defaults to its label). */
-  saveAddress(input: { addressId: string; name?: string; details?: AddressDetails }): Promise<SavedAddressInfo>;
+  saveAddress(input: { addressId: string; name?: string; kind?: SavedPlaceKind; details?: AddressDetails }): Promise<SavedAddressInfo>;
   /** Forget a saved address (an id getSavedAddresses returned). */
   removeSavedAddress(addressId: string): Promise<void>;
   reverseGeocode(x: number, y: number, excludeCityId?: string, onlyCityId?: string): Promise<Address>;
@@ -121,14 +120,6 @@ export interface ApiAdapter {
   getSchedulingRules(): Promise<SchedulingRules>;
 
   getOrderDetailsRules(): Promise<OrderDetailsRules>;
-  /** Add-ons available for a service type (none for Dostavka). */
-  getOrderOptions(input: { serviceType: ServiceType; carClass?: CarClassId }): Promise<OrderOption[]>;
-  getCommentHints(input: {
-    text: string;
-    serviceType: ServiceType;
-    carClass?: CarClassId;
-    selectedOptionIds: OrderOptionId[];
-  }): Promise<CommentHint[]>;
   /** Class cards for the current order; each price is that class's total. */
   getCarClasses(input: QuoteInput): Promise<CarClass[]>;
   getLuggageRules(route: { fromAddressId: string; toAddressId: string }): Promise<LuggageRules>;
@@ -139,9 +130,6 @@ export interface ApiAdapter {
   sendTip(orderId: string, amount: number): Promise<ReviewRequest>;
 
   getTripShareLink(orderId: string): Promise<TripShare>;
-  getEmergencyContacts(): Promise<EmergencyContacts>;
-  addEmergencyContact(contact: { name: string; phone: string }): Promise<EmergencyContact>;
-  removeEmergencyContact(id: string): Promise<void>;
   getSupportContact(): Promise<{ phone: string }>;
 
   getCargoRules(): Promise<CargoRules>;
@@ -173,7 +161,10 @@ export interface ApiAdapter {
   updateOrder(orderId: string, patch: UpdateOrderInput): Promise<OrderWithDetails>;
   cancelOrder(orderId: string, reason: string): Promise<OrderWithDetails>;
   rateOrder(orderId: string, rating: number, reasons?: string[], note?: string): Promise<OrderWithDetails>;
-  getOrderHistory(params?: { status?: OrderStatus; cursor?: number }): Promise<OrderHistoryPage>;
+  /** `service` and `q` (city or driver name) where `historySearch` is on. */
+  getOrderHistory(params?: { status?: OrderStatus; service?: ServiceType; q?: string; cursor?: number }): Promise<OrderHistoryPage>;
+  /** The passenger's live order (searching, driver on the way, on the trip), if any: Home's "Faol buyurtma". */
+  getActiveOrder(): Promise<OrderWithDetails | null>;
 
   getSavedCards(): Promise<SavedCard[]>;
   /** `provider` is required by the real backend (walletCardLink); the

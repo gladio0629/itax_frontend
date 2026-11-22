@@ -3,6 +3,18 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 7 merge: client `1148788` into `redesign-v2`
+
+Owner decisions:
+- The About "Veb-sayt" row may link to the bare `https://xasanow.uz` home page. `check-no-network.mjs` already accepts it. `DEPLOY.md` and `docs/native.md` now mention it.
+- From now on the reviewer decides small things (links to our own site, wording, small UI details) and notes them here. Only big features, business rules and money go to the owner. Testing is local only for now.
+
+Merged `redesign-client` at `1148788` as YELLOW, on the owner's request, `--no-ff`, with no conflicts.
+- `docs/handoff-client.md` has nothing open.
+- `docs/backend-gaps.md` index: the client line lists the redesign v2 groups.
+- After the merge, all three apps pass typecheck, the `VITE_DEMO_MODE=false` build and `check:no-network`. `cap sync` passes for the client.
+- Open for the client terminal (round 7 must fix): tipping from Tarix on trips older than 7 days, and the stale bonus balance after closing the withdraw sheet early.
+
 ## 2026-11-22, round 7: client `2aa8f8e..1148788` (rounds 4–5 fixes, groups 7–9, three small answers): YELLOW, not merged
 
 Checks:
@@ -34,8 +46,8 @@ Must fix
 - Rule 2, `features/history/HistoryDetailScreen.tsx:172`: tipping from Tarix works only while the rating is editable (7 days). The old detail had the tip card on every completed trip with a driver. A trip older than 7 days with `tips.allowed` can no longer get a tip. Show the link when `canRate || tips.allowed`.
 - `features/bonus/BonusScreen.tsx:150` (`closeWithdraw` clears `reviewId`): closing the sheet while the withdrawal is under review drops `onWithdrawApproved`. The mock has already written the withdrawal, but the balance and history stay old and "Yechib olish" stays on, so the user can withdraw again from the old balance. The old screen kept `reviewId`.
 
-Owner call
-- `features/settings/AboutScreen.tsx:47`: the "Veb-sayt" row links to the bare `https://xasanow.uz`, as the design shows. The decision lists only `/terms`, `/privacy` and `/delete-account`, though `check-no-network.mjs` accepts the bare origin. Allow it, or drop the link and keep the host as text.
+Owner call (closed: the home link is allowed, see the merge entry above)
+- `features/settings/AboutScreen.tsx:47`: the "Veb-sayt" row links to the bare `https://xasanow.uz`.
 
 Later
 - `PhoneChangeSheet.tsx:39-42` (only when the mock returns a test code): the 600 ms auto-fill timer is never cleared, and it calls `verify`. If the sheet closes within that time, the phone still changes. If the user types the code in that time, it is confirmed twice.

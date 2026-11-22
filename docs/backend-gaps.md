@@ -14,7 +14,14 @@ request/response shapes proposed for each missing feature.
 
 Redesign v2 (2026-11-22): each per-app file has a section `## Redesign v2` with the endpoints the new screens
 expect. One entry per endpoint across the three files; the reviewer keeps them free of duplicates.
-- Client: none yet.
+- Client:
+  - Home: recent routes, saved place `kind`, "Faol buyurtma";
+  - address details on route points;
+  - passenger order (Trip, Extras, Time, Payment);
+  - delivery (Yuk, Kontakt, Shartlar: rules, ride-along, insurance, payment link);
+  - live order and rating;
+  - history and bonus;
+  - settings, account, help.
 - Driver: registration (referral, licence, service types, review progress, registration options; `/api/v1/legal` is
   dropped, site links use `SITE_URL`); work flow (offer and trip fields, `GET /trips/offers/{id}`, `GET /trips/{id}`,
   trip `passenger` with `call_number`, trip summary, passenger rating, SOS, home earnings); wallet (top-up options,

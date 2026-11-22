@@ -1,25 +1,28 @@
 import { useEffect, useState } from "react";
-import { Car, Megaphone, Gift } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { NotificationPrefs } from "@/api/types";
-import { ScreenHeader } from "@/components/ScreenHeader";
-import { Card } from "@/components/Card";
-import { SkeletonList } from "@/components/Skeleton";
-import { ErrorState } from "@/components/ErrorState";
-import { Toast } from "@/components/Toast";
 import { useT } from "@/lib/i18n/provider";
-import { Switch } from "@/components/Switch";
-import { useIsIOS } from "@/lib/platform";
-import { IconTile, ListRow, ListSection } from "@/components/ios/List";
+import type { TranslationKey } from "@/lib/i18n/uz";
+import { Icon, ListRow, Screen, SectionLabel, StateError, StateLoading, Switch, type IconName } from "@/ui";
 
+const TOPICS: { key: "orderStatus" | "news" | "bonus"; icon: IconName; title: TranslationKey; desc: TranslationKey }[] = [
+  { key: "orderStatus", icon: "car", title: "notifPrefs.orderStatus", desc: "notifPrefs.orderStatusDesc" },
+  { key: "news", icon: "megaphone", title: "notifPrefs.news", desc: "notifPrefs.newsDesc" },
+  { key: "bonus", icon: "gift", title: "notifPrefs.bonus", desc: "notifPrefs.bonusDesc" },
+];
+
+/**
+ * Bildirishnomalar (design v2: Notifications): the master switch on the dark
+ * card, then each kind. A change is saved at once; a failed save is undone
+ * and said so.
+ */
 export function NotificationsSettingsScreen() {
   const { t } = useT();
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  const ios = useIsIOS();
   // Separate order-status / bonus switches only where the adapter has them.
-  const topics = api.capabilities.notificationTopics;
+  const topics = TOPICS.filter((x) => api.capabilities.notificationTopics || x.key === "news");
 
   function load() {
     setLoadError(false);
@@ -32,6 +35,7 @@ export function NotificationsSettingsScreen() {
     const prev = prefs;
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
+    setSaveError(false);
     try {
       setPrefs(await api.setNotificationPrefs({ [key]: next[key] }));
     } catch {
@@ -41,98 +45,43 @@ export function NotificationsSettingsScreen() {
   }
 
   if (!prefs) {
-    return (
-      <div className="flex h-full flex-col bg-bg">
-        <ScreenHeader title={t("notifPrefs.title")} />
-        {loadError ? <ErrorState onRetry={load} /> : <div className="px-4 pt-4"><SkeletonList count={2} /></div>}
-      </div>
-    );
+    return <Screen title={t("notifPrefs.title")}>{loadError ? <StateError onRetry={load} /> : <StateLoading rows={3} />}</Screen>;
   }
 
   return (
-    <div className="relative flex h-full flex-col bg-bg">
-      <ScreenHeader title={t("notifPrefs.title")} />
-      {ios ? (
-        <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain pt-2">
-          <ListSection footer={t("notifPrefs.masterDesc")}>
-            <ListRow
-              title={t("notifPrefs.master")}
-              accessory={<Switch checked={prefs.master} onChange={() => patch("master")} label={t("notifPrefs.master")} />}
-            />
-          </ListSection>
-          <ListSection>
-            {([
-              ["orderStatus", Car, "notifPrefs.orderStatus", "notifPrefs.orderStatusDesc"],
-              ["news", Megaphone, "notifPrefs.news", "notifPrefs.newsDesc"],
-              ["bonus", Gift, "notifPrefs.bonus", "notifPrefs.bonusDesc"],
-            ] as const).filter(([key]) => topics || key === "news").map(([key, Icon, title, desc]) => (
-              <ListRow
-                key={key}
-                leading={<IconTile icon={Icon} tone={key === "bonus" ? "yellow" : "accent"} />}
-                title={t(title)}
-                subtitle={t(desc)}
-                accessory={
-                  <Switch
-                    checked={prefs.master && prefs[key]}
-                    disabled={!prefs.master}
-                    onChange={() => patch(key)}
-                    label={t(title)}
-                  />
-                }
-              />
-            ))}
-          </ListSection>
+    <Screen
+      title={t("notifPrefs.title")}
+      top={
+        <div className="flex items-center gap-3.5 rounded-iz-card bg-iz-head-card py-3.5 pl-4 pr-2.5">
+          <span aria-hidden className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-iz-green text-iz-on-green">
+            <Icon name="bell" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="text-[16px] font-extrabold text-iz-head-text">{t("notifPrefs.master")}</span>
+            <span className="text-[13px] font-semibold text-iz-head-muted">{prefs.master ? t("notifPrefs.masterOn") : t("notifPrefs.masterOff")}</span>
+          </span>
+          <Switch tone="head" checked={prefs.master} onChange={() => patch("master")} label={t("notifPrefs.master")} />
         </div>
-      ) : (
-      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
-        <Card className="mb-4 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-ink">{t("notifPrefs.master")}</p>
-              <p className="text-xs text-ink/60">{t("notifPrefs.masterDesc")}</p>
-            </div>
-            <Switch checked={prefs.master} onChange={() => patch("master")} label={t("notifPrefs.master")} />
-          </div>
-        </Card>
-
-        <Card className="divide-y divide-border" padded={false}>
-          {topics && <div className="flex items-center gap-3 p-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
-              <Car className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-normal text-ink">{t("notifPrefs.orderStatus")}</p>
-              <p className="text-xs text-ink/60">{t("notifPrefs.orderStatusDesc")}</p>
-            </div>
-            <Switch checked={prefs.master && prefs.orderStatus} disabled={!prefs.master}
-              onChange={() => patch("orderStatus")} label={t("notifPrefs.orderStatus")} />
-          </div>}
-          <div className="flex items-center gap-3 p-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
-              <Megaphone className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-normal text-ink">{t("notifPrefs.news")}</p>
-              <p className="text-xs text-ink/60">{t("notifPrefs.newsDesc")}</p>
-            </div>
-            <Switch checked={prefs.master && prefs.news} disabled={!prefs.master}
-              onChange={() => patch("news")} label={t("notifPrefs.news")} />
-          </div>
-          {topics && <div className="flex items-center gap-3 p-4">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-10 text-accent">
-              <Gift className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-normal text-ink">{t("notifPrefs.bonus")}</p>
-              <p className="text-xs text-ink/60">{t("notifPrefs.bonusDesc")}</p>
-            </div>
-            <Switch checked={prefs.master && prefs.bonus} disabled={!prefs.master}
-              onChange={() => patch("bonus")} label={t("notifPrefs.bonus")} />
-          </div>}
-        </Card>
-      </div>
+      }
+      bodyClassName="gap-0 pt-6"
+    >
+      <SectionLabel as="h2">{t("notifPrefs.kinds")}</SectionLabel>
+      {saveError && (
+        <p role="alert" className="pt-2 text-[13px] font-semibold text-iz-danger">
+          {t("notifPrefs.saveError")}
+        </p>
       )}
-      {saveError && <Toast message={t("order.submitError")} onDone={() => setSaveError(false)} />}
-    </div>
+      {topics.map((x, i) => (
+        <ListRow
+          key={x.key}
+          icon={x.icon}
+          title={t(x.title)}
+          subtitle={t(x.desc)}
+          tall
+          last={i === topics.length - 1}
+          trailing={<Switch checked={prefs.master && prefs[x.key]} disabled={!prefs.master} onChange={() => patch(x.key)} label={t(x.title)} />}
+        />
+      ))}
+    </Screen>
   );
 }

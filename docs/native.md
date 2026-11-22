@@ -19,7 +19,7 @@ VITE_DEMO_MODE=false
 VITE_MAPBOX_TOKEN=pk....
 ```
 
-Public site links (`/terms`, `/privacy`, and `/delete-account` in the driver app) open `https://xasanow.uz` in the system browser. The default is in each app's `src/config.ts` (`SITE_URL`); `VITE_SITE_URL` overrides it. `check:no-network` accepts only this origin as a plain link, never in `connect-src`, and in sources only as the bare origin in `src/config.ts`.
+Public site links (the home page in the client's About, `/terms`, `/privacy`, and `/delete-account` in the driver app) open `https://xasanow.uz` in the system browser. The default is in each app's `src/config.ts` (`SITE_URL`); `VITE_SITE_URL` overrides it. `check:no-network` accepts only this origin as a plain link, never in `connect-src`, and in sources only as the bare origin in `src/config.ts`.
 
 Release builds stop if `VITE_DEMO_MODE` is not `false` or if the test panel is found in `dist/`.
 

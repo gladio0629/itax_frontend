@@ -9,13 +9,30 @@ import { useRoute } from "@shared/map/useRoute";
 import type { MapMarker, MapRoute } from "@shared/map/MapView";
 import { orderPoint } from "./mapPoints";
 
+/** How far along the car is, for the drawn map (sample data only). */
+export type DrawnProgress = { leg: "to_pickup" | "trip"; fraction: number } | null;
+
 /**
  * An order on the map: pickup, drop-off, the road route and — while a
  * driver is assigned — the car, moving as its position arrives
  * (api.onDriverLocation: the server's push, or the sample data's simulated
- * drive). Fills its parent.
+ * drive). Fills its parent. `fallback` may take the car's progress so the
+ * drawn map can show it too.
  */
-export function TrackMap({ order, interactive = true, fallback }: { order: OrderWithDetails; interactive?: boolean; fallback: ReactNode }) {
+export function TrackMap({
+  order,
+  interactive = true,
+  fallback,
+  padding = { top: 8, bottom: 8 },
+  fullScreen,
+}: {
+  order: OrderWithDetails;
+  interactive?: boolean;
+  fallback: ReactNode | ((progress: DrawnProgress) => ReactNode);
+  padding?: { top: number; bottom: number };
+  /** The map is the whole screen: one-finger panning, no gesture hint. */
+  fullScreen?: boolean;
+}) {
   const { t } = useT();
   const from = orderPoint(order, "from");
   const to = orderPoint(order, "to");
@@ -64,13 +81,13 @@ export function TrackMap({ order, interactive = true, fallback }: { order: Order
       className="absolute inset-0"
       ariaLabel={t("map.routeLabel")}
       interactive={interactive}
-      cooperativeGestures
+      cooperativeGestures={!fullScreen}
       markers={markers}
       routes={routes}
       fit={toPickup ? [car, from] : [from, to]}
-      fitKey={`${order.id}:${toPickup ? "pickup" : "trip"}:${from ? 1 : 0}${to ? 1 : 0}`}
-      padding={{ top: 8, bottom: 8 }}
-      fallback={fallback}
+      fitKey={`${order.id}:${toPickup ? "pickup" : "trip"}:${from ? 1 : 0}${to ? 1 : 0}:${padding.bottom}`}
+      padding={padding}
+      fallback={typeof fallback === "function" ? fallback(location?.kind === "progress" ? { leg: location.leg, fraction: location.fraction } : null) : fallback}
     />
   );
 }

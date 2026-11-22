@@ -68,6 +68,8 @@ const capabilities: ClientCapabilities = {
   tips: false,
   safety: false,
   popularRoutes: true,
+  // No endpoint yet (docs/backend-gaps/client.md, Redesign v2).
+  recentRoutes: false,
   promo: false,
   bonuses: false,
   help: false,
@@ -88,6 +90,9 @@ const capabilities: ClientCapabilities = {
   pickupEta: false,
   // OrderUpdate has `to` but no `from`.
   editPickup: false,
+  // RatingInput carries one reason; a comment goes as the "custom" reason (5 stars).
+  ratingNote: false,
+  historySearch: false,
 };
 
 function unsupported(): Promise<never> {
@@ -372,6 +377,8 @@ async function searchPlaces(query: string, near: Point | undefined, onlyCityId?:
 
 function savedInfo(p: Point): SavedAddressInfo {
   // No distance / ETA for saved places in the contract.
+  // The contract keeps the name (shown as the label) but no kind yet
+  // (docs/backend-gaps/client.md, Redesign v2).
   return { address: p.address, area: p.area || undefined, details: p.details };
 }
 
@@ -456,6 +463,7 @@ export const httpAdapter: ApiAdapter = {
     return res.data.map((sp) => savedInfo(rememberSaved(sp)));
   },
   getSavedAddressDetails: async (addressId) => points.get(addressId)?.details ?? null,
+  // `kind` isn't in SavedPlaceCreate yet (unknown fields are rejected): not sent.
   saveAddress: async ({ addressId, name, details }) => {
     const p = pointOf(addressId);
     const body: Api.SavedPlaceCreate = { name: (name ?? p.address.label).trim().slice(0, 100), lat: p.lat, lng: p.lng };
@@ -480,7 +488,7 @@ export const httpAdapter: ApiAdapter = {
     return res.seats.map(toUiSeat);
   },
   getQuote: async (input: QuoteInput) => {
-    if (input.stops?.length || input.optionIds?.length || input.promoCode) return unsupported();
+    if (input.stops?.length || input.promoCode) return unsupported();
     const body = quoteBody(input);
     const q = await fetchQuote(body);
     shownQuotes.set(JSON.stringify(body), q);
@@ -530,15 +538,13 @@ export const httpAdapter: ApiAdapter = {
     riderNameMaxLength: 100,
   }),
   // The order can't carry options, so none are offered.
-  getOrderOptions: async () => [],
-  getCommentHints: async () => [],
   getLuggageRules: async () => null,
 
   // --------------------------------------------------------------- orders
   createOrder: async (input: CreateOrderInput) => {
     // Extras the order can't carry yet are never dropped silently.
     const hasDetails = [input.fromDetails, input.toDetails].some((d) => d && Object.values(d).some((v) => v?.trim()));
-    if (input.stops?.length || input.optionIds?.length || input.promoCode || input.rider?.kind === "other" || (input.luggage ?? 0) > 0 || hasDetails) {
+    if (input.stops?.length || input.promoCode || input.rider?.kind === "other" || (input.luggage ?? 0) > 0 || hasDetails) {
       return unsupported();
     }
     const q = quoteBody(input);
@@ -561,10 +567,11 @@ export const httpAdapter: ApiAdapter = {
     }
   },
   // "Search again": the server prices it at the current tariff (no quote).
-  repeatOrder: async (orderId) => {
+  repeatOrder: async (orderId, _fallback, changes) => {
     const previous = await http.get<Api.Order>(API_PATHS.order(orderId));
+    const body = orderCreateFrom(previous);
     try {
-      return await createOrderBody(orderCreateFrom(previous));
+      return await createOrderBody(changes?.timing ? { ...body, ...toApiTiming(changes.timing) } : body);
     } catch (err) {
       throw ruleError(err);
     }
@@ -625,6 +632,13 @@ export const httpAdapter: ApiAdapter = {
     return { orders: res.data.map(mapOrder), nextCursor };
   },
 
+  // No "active order" endpoint: the newest live one on the first history page.
+  getActiveOrder: async () => {
+    const res = await http.get<Api.OrderPage>(API_PATHS.orderHistory, { limit: HISTORY_LIMIT });
+    const live = res.data.map(mapOrder).find((o) => o.status === "searching" || o.status === "accepted" || o.status === "in_progress");
+    return live ?? null;
+  },
+
   // -------------------------------------------------------- notifications
   getNotifications: async () => {
     const res = await http.get<Api.NotificationPage>(API_PATHS.notifications, { limit: 50 });
@@ -677,9 +691,6 @@ export const httpAdapter: ApiAdapter = {
   getTipOptions: unsupported,
   sendTip: unsupported,
   getTripShareLink: unsupported,
-  getEmergencyContacts: unsupported,
-  addEmergencyContact: unsupported,
-  removeEmergencyContact: unsupported,
   getSupportContact: unsupported,
   getCargoRules: unsupported,
   getMarketplaceWarehouses: unsupported,
