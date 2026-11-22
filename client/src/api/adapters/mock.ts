@@ -1256,7 +1256,7 @@ export const mockAdapter: ApiAdapter = {
       const cursor = params?.cursor ?? 0;
       const orders = detailed.slice(cursor, cursor + pageSize);
       const nextCursor = cursor + pageSize < detailed.length ? cursor + pageSize : null;
-      return { orders, nextCursor };
+      return { orders, nextCursor, total: detailed.length };
     }),
 
   getSavedCards: () => withLatency(() => readJSON<SavedCard[]>("saved_cards", [])),

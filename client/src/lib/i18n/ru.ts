@@ -267,14 +267,14 @@ export const ru: Dictionary = {
 
   "settings.account": "Аккаунт",
   "settings.notifications": "Уведомления",
-  "settings.theme": "Тема оформления",
+  "settings.theme": "Тема",
   "settings.language": "Язык",
   "settings.about": "О нас",
   "settings.logout": "Выйти",
   "settings.logoutConfirmTitle": "Выйти из аккаунта?",
   "settings.logoutConfirmDesc": "Чтобы войти снова, понадобятся номер телефона и код из SMS.",
 
-  "account.edit": "Редактировать",
+  "account.edit": "Изменить",
   "account.firstName": "Имя",
   "account.lastName": "Фамилия",
   "account.changePhone": "Изменить номер телефона",

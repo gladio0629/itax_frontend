@@ -197,7 +197,8 @@ Needed for the full design:
   UI field `tripProgress`.
 - **Driver on the order** — still only `driver.id` (see "Still needed"): name, car model and colour, plate, rating.
   Without them the card shows "Haydovchi" and the price only. A dialable driver phone (or a call-masking number) is
-  also needed before the green call button can call; today it shows "Qo'ng'iroq qilish hozircha mavjud emas".
+  also needed: `"driver_phone"` on the order while `accepted` / `in_progress` (UI field `driverPhone`). The mock gives a
+  sample number and the button opens the phone's dialer; without the field it says "Qo'ng'iroq qilish hozircha mavjud emas".
 - **"Qayta qidirish" with a new time** (design NoDriver, "Olish vaqti · O'zgartirish"): the client re-creates the
   order from `GET /orders/{id}` with the shown time as `scheduled_*` (works with today's contract). A
   `POST /api/v1/orders/{id}/repeat { scheduled_* }` would avoid re-sending the whole order.

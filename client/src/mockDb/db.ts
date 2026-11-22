@@ -1,4 +1,4 @@
-import { generateSeed, type SeedData, type Order, type Passenger } from "@/seed/generate";
+import { generateSeed, SEED_VERSION, type SeedData, type Order, type Passenger } from "@/seed/generate";
 import { readJSON, writeJSON } from "./storage";
 
 export type ReviewKind =
@@ -27,6 +27,14 @@ function load(): SeedData {
   if (cache) return cache;
   const stored = readJSON<SeedData | null>("db", null);
   if (stored) {
+    // An older stored database: add the sample orders it doesn't have yet,
+    // keeping everything the person did in the app.
+    if ((stored.seedVersion ?? 1) < SEED_VERSION) {
+      const have = new Set(stored.orders.map((o) => o.id));
+      stored.orders.push(...generateSeed().orders.filter((o) => !have.has(o.id)));
+      stored.seedVersion = SEED_VERSION;
+      writeJSON("db", stored);
+    }
     cache = stored;
     return cache;
   }

@@ -379,6 +379,8 @@ export type OrderWithDetails = Order & {
 export type OrderHistoryPage = {
   orders: OrderWithDetails[];
   nextCursor: number | null;
+  /** How many orders match (all pages), when the server counts them. */
+  total?: number;
 };
 
 export type NotificationItem = {

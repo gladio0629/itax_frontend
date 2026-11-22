@@ -19,6 +19,7 @@ import { PassengerFlow } from "@/features/trip/PassengerFlow";
 import { isApiError } from "@shared/http/errors";
 import { ruleErrorKey, serverErrorKey } from "@/lib/apiError";
 import { HomeSheet, PickupPin, HomeTopBar } from "./HomeView";
+import { rememberHomeBase } from "@/lib/homeBase";
 import { Icon } from "@/ui";
 
 
@@ -128,6 +129,7 @@ export default function OrderingHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow, location.key]);
   function openTracking(path: string, state?: unknown) {
+    rememberHomeBase(baseIdx.current);
     const cur = historyIdx();
     const delta = baseIdx.current != null && cur != null ? baseIdx.current - cur : 0;
     if (delta < 0) {

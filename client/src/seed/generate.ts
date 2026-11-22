@@ -241,6 +241,8 @@ export type SeedData = {
   drivers: Driver[];
   passengers: Passenger[];
   orders: Order[];
+  /** Bumped when sample data is added; stored databases pick up what they miss. */
+  seedVersion?: number;
   walletEntries: WalletEntry[];
   complaints: Complaint[];
   generatedAt: number;
@@ -407,5 +409,9 @@ export function generateSeed(): SeedData {
     walletEntries,
     complaints,
     generatedAt: NOW,
+    seedVersion: SEED_VERSION,
   };
 }
+
+/** 2: the demo passenger's fuller history (design v2 Tarix). */
+export const SEED_VERSION = 2;

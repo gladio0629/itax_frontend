@@ -136,7 +136,7 @@ export function AccountScreen() {
           <Initials name={profile.name} size={82} />
         </div>
       }
-      bodyClassName="gap-3 pt-16 kb:pt-5"
+      bodyClassName="gap-3 !pt-16 kb:!pt-5"
       footer={
         <>
           {saveError && (

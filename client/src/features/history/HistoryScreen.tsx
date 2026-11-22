@@ -120,7 +120,7 @@ function OrderCard({ o, q }: { o: OrderWithDetails; q: string }) {
   );
 }
 
-type List = { orders: OrderWithDetails[]; cursor: number | null; state: "loading" | "error" | "ready" };
+type List = { orders: OrderWithDetails[]; cursor: number | null; total?: number; state: "loading" | "error" | "ready" };
 
 /**
  * Tarix (design v2: History / KbHistory): search by city or driver, the
@@ -177,7 +177,7 @@ export function HistoryScreen() {
       })
       .then((page) => {
         if (id !== request.current) return;
-        setList((l) => ({ orders: reset ? page.orders : [...l.orders, ...page.orders], cursor: page.nextCursor, state: "ready" }));
+        setList((l) => ({ orders: reset ? page.orders : [...l.orders, ...page.orders], cursor: page.nextCursor, total: page.total, state: "ready" }));
       })
       .catch(() => id === request.current && setList((l) => ({ ...l, state: "error" })));
   }
@@ -270,7 +270,7 @@ export function HistoryScreen() {
   else
     body = (
       <>
-        {query && <SectionLabel>{t("history.results", { n: list.cursor != null ? `${list.orders.length}+` : list.orders.length })}</SectionLabel>}
+        {query && list.total != null && <SectionLabel>{t("history.results", { n: list.total })}</SectionLabel>}
         {groups.map((g) => (
           <section key={g.label} className="flex flex-col gap-3" aria-label={g.label}>
             {!query && <SectionLabel as="h2">{g.label}</SectionLabel>}

@@ -267,7 +267,7 @@ export const en: Dictionary = {
 
   "settings.account": "Account",
   "settings.notifications": "Notifications",
-  "settings.theme": "System color",
+  "settings.theme": "Theme",
   "settings.language": "Language",
   "settings.about": "About us",
   "settings.logout": "Log out",

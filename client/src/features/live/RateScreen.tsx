@@ -8,6 +8,7 @@ import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
 import { useOrderStore } from "@/stores/orderStore";
+import { leaveToHome } from "@/lib/homeBase";
 import { Chip, Field, Icon, IconButton, PrimaryButton, Screen, SectionLabel, StateError, StateLoading, TextAreaField } from "@/ui";
 import { DriverAvatar, payLabel, shortName } from "./LiveParts";
 
@@ -83,7 +84,7 @@ export function RateScreen() {
       return;
     }
     resetDraft();
-    navigate("/home", { replace: true });
+    leaveToHome(navigate);
   }
 
   if (loadError) {

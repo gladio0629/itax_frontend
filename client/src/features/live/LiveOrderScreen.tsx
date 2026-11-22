@@ -12,6 +12,7 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 import { useQuery } from "@/lib/useQuery";
 import { useOrderStore } from "@/stores/orderStore";
 import { useFloatingControl } from "@/stores/floatingControlStore";
+import { leaveToHome } from "@/lib/homeBase";
 import { Icon, PrimaryButton, Screen, StateError, StateLoading, TextButton, useShellChrome, useStatusBar } from "@/ui";
 import { cn } from "@/lib/cn";
 import { formatDuration } from "@/features/order/duration";
@@ -224,7 +225,7 @@ export function LiveOrderScreen() {
     setCancelError(null);
     try {
       await api.cancelOrder(orderId, reason);
-      navigate("/home", { replace: true });
+      leaveToHome(navigate);
     } catch (e) {
       setCancelError(t((serverErrorKey(e) ?? "track.cancelError") as TranslationKey));
     } finally {
@@ -345,10 +346,10 @@ export function LiveOrderScreen() {
             {t("live.noDriver.retry")}
           </PrimaryButton>
         ) : (
-          <PrimaryButton onClick={() => navigate("/home", { replace: true })}>{t("finished.backHome")}</PrimaryButton>
+          <PrimaryButton onClick={() => leaveToHome(navigate)}>{t("finished.backHome")}</PrimaryButton>
         )}
         {api.capabilities.repeatOrder && (
-          <TextButton onClick={() => navigate("/home", { replace: true })}>{t("cancel.title")}</TextButton>
+          <TextButton onClick={() => leaveToHome(navigate)}>{t("cancel.title")}</TextButton>
         )}
       </>
     );
@@ -356,7 +357,7 @@ export function LiveOrderScreen() {
     panel = (
       <>
         <LiveHeading title={t("track.cancelledTitle")} sub={order.cancelReason ? t(order.cancelReason as TranslationKey) : undefined} />
-        <PrimaryButton onClick={() => navigate("/home", { replace: true })}>{t("finished.backHome")}</PrimaryButton>
+        <PrimaryButton onClick={() => leaveToHome(navigate)}>{t("finished.backHome")}</PrimaryButton>
       </>
     );
   } else if (view === "toPickup") {
