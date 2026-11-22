@@ -35,6 +35,8 @@ type FieldShellProps = {
   icon?: IconName;
   /** Right side: a unit, a clear button, a lock… */
   trailing?: ReactNode;
+  /** Fixed text before the value ("+998"). */
+  prefix?: string;
   error?: string;
   hint?: string;
   className?: string;
@@ -108,7 +110,7 @@ function FieldMessage({ id, error, hint }: { id: string; error?: string; hint?: 
  * below. Focus: white, 2px Ink border, 4px light-green ring.
  */
 export const Field = forwardRef<HTMLInputElement, FieldShellProps & Omit<InputHTMLAttributes<HTMLInputElement>, "className">>(
-  function Field({ label, icon, trailing, error, hint, className, readOnly, id, multiline: _m, ...input }, ref) {
+  function Field({ label, icon, trailing, prefix, error, hint, className, readOnly, id, multiline: _m, ...input }, ref) {
     const autoId = useId();
     const inputId = id ?? autoId;
     const msgId = `${inputId}-msg`;
@@ -116,6 +118,21 @@ export const Field = forwardRef<HTMLInputElement, FieldShellProps & Omit<InputHT
       <div className={cn("flex flex-col gap-1.5", className)}>
         <label htmlFor={inputId} className={shellClasses(false, readOnly, !!error)}>
           <FieldBody labelId={`${inputId}-label`} label={label} icon={icon} trailing={trailing ?? (readOnly ? <Icon name="lock" size={18} className="shrink-0 text-iz-muted" /> : null)}>
+            {prefix ? (
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="shrink-0 text-[16px] font-extrabold text-iz-ink">{prefix}</span>
+                <input
+                  ref={ref}
+                  id={inputId}
+                  aria-labelledby={`${inputId}-label`}
+                  readOnly={readOnly}
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error || hint ? msgId : undefined}
+                  className="iz-input h-[22px] w-full min-w-0 border-0 bg-transparent p-0 text-[16px] font-extrabold text-iz-ink outline-none placeholder:font-semibold placeholder:text-iz-muted placeholder:opacity-70"
+                  {...input}
+                />
+              </span>
+            ) : (
             <input
               ref={ref}
               id={inputId}
@@ -129,6 +146,7 @@ export const Field = forwardRef<HTMLInputElement, FieldShellProps & Omit<InputHT
               )}
               {...input}
             />
+            )}
           </FieldBody>
         </label>
         <FieldMessage id={msgId} error={error} hint={hint} />

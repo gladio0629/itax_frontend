@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { Profile } from "@/api/types";
+import { APP_VERSION } from "@/config";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { formatNumber } from "@/lib/format";
@@ -9,7 +10,7 @@ import { cn } from "@/lib/cn";
 import { Icon, Initials, Logo, useDialogA11y, type IconName } from "@/ui";
 
 /** Shown under the logo, as in the old menu. */
-const APP_VERSION = "1.1.0";
+
 
 type NavItem = { to: string; labelKey: TranslationKey; icon: IconName };
 

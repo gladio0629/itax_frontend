@@ -526,7 +526,8 @@ export type AccountSummary = {
   active: boolean;
 };
 
-export type HelpTopic = "order" | "payment" | "app" | "other";
+/** Owner, 2026-11-22: Safar, To'lov, Haydovchi, Akkaunt, Boshqa. */
+export type HelpTopic = "trip" | "payment" | "driver" | "account" | "other";
 
 export type HelpRequest = {
   id: string;

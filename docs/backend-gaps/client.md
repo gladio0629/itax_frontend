@@ -228,3 +228,17 @@ adapter; the http adapter keeps the capability off until the endpoint exists.
   `GET /api/v1/bonus/sources` → `{ data: [{ id, icon, title_key, description_key, amount_this_month, action,
   "reward": <tiyin | null>, "progress": { "done": 3, "total": 5 } | null }] }`. Bonus endpoints are still missing
   altogether (capability `bonuses`).
+
+### Settings, account, help (group 9)
+
+All of these work fully in the mock adapter (owner, 2026-11-22); http keeps the capabilities off until the endpoints
+exist.
+
+- **Help request reasons** (owner answer 7: Safar, To'lov, Haydovchi, Akkaunt, Boshqa):
+  `POST /api/v1/support/requests { "topic": "trip" | "payment" | "driver" | "account" | "other", "message": "≤500",
+  "order_id"?: Uuid }` → `{ id, status }`; `GET /api/v1/support/requests` → `{ data: [{ id, topic, status, created_at }] }`.
+  The operator calls the profile phone. A trip's "Bu safar bo'yicha yordam" opens the form with `trip` picked.
+- **Accounts on one device, phone change, account deletion, per-topic notification switches** — unchanged from
+  "Still needed" (`accounts`, `phoneChange`, `accountDeletion`, `notificationTopics`).
+- **Support contact**: the e-mail on "Biz haqimizda" is fixed in the client config (`SUPPORT_EMAIL`); a
+  `GET /api/v1/support/contact { phone, email }` would let it change without a release.

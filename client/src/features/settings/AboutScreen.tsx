@@ -1,44 +1,52 @@
-import { ChevronRight, Mail } from "@/lib/icons";
-import { ScreenHeader } from "@/components/ScreenHeader";
-import { Logo } from "@/components/Logo";
-import { Card } from "@/components/Card";
+import { APP_VERSION, SITE_URL, SUPPORT_EMAIL } from "@/config";
 import { useT } from "@/lib/i18n/provider";
+import { Icon, Logo, Screen, type IconName } from "@/ui";
 
-const APP_VERSION = "1.1.0";
+function LinkRow({ icon, title, href, value, last }: { icon: IconName; title: string; href?: string; value?: string; last?: boolean }) {
+  const body = (
+    <>
+      <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-iz-tile bg-iz-field text-iz-ink">
+        <Icon name={icon} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-[15px] font-bold text-iz-ink">{title}</span>
+      {value && <span className="shrink-0 truncate text-[14px] font-extrabold text-iz-green-text">{value}</span>}
+      {href && !value && <Icon name="chevronRight" size={18} className="shrink-0 text-iz-muted" />}
+    </>
+  );
+  const cls = `flex min-h-[68px] shrink-0 items-center gap-3.5 ${last ? "" : "border-b border-iz-border"}`;
+  // Pages on the public site open in the system browser.
+  return href ? (
+    <a href={href} target={href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" className={`${cls} active:opacity-70`}>
+      {body}
+    </a>
+  ) : (
+    <div className={cls}>{body}</div>
+  );
+}
 
+/**
+ * Biz haqimizda (design v2: About): logo and the line about IZGO, terms,
+ * privacy, the website, the support e-mail and the version.
+ */
 export function AboutScreen() {
   const { t } = useT();
+  const host = SITE_URL ? SITE_URL.replace(/^https?:\/\//, "") : "";
   return (
-    <div className="flex h-full flex-col bg-bg">
-      <ScreenHeader title={t("settings.about")} />
-      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
-        <div className="mb-5 flex flex-col items-center gap-3 py-4 text-center">
-          <Logo size={64} />
-          <p className="text-sm font-semibold text-ink" translate="no">IZGO</p>
-          <p className="max-w-[280px] text-xs text-ink/60">{t("about.description")}</p>
-          <p className="text-xs text-ink/60 tabular">{t("about.version", { version: APP_VERSION })}</p>
+    <Screen
+      title={t("settings.about")}
+      top={
+        <div className="flex flex-col gap-4 pb-2 pt-6">
+          <Logo width={150} />
+          <p className="text-[17px] font-semibold leading-[26px] text-iz-head-soft">{t("about.description")}</p>
         </div>
-
-        <Card className="mb-3 divide-y divide-border" padded={false}>
-          <button className="flex w-full items-center justify-between p-4 text-left">
-            <span className="text-sm font-normal text-ink">{t("about.terms")}</span>
-            <ChevronRight className="h-4 w-4 text-ink/40" />
-          </button>
-          <button className="flex w-full items-center justify-between p-4 text-left">
-            <span className="text-sm font-normal text-ink">{t("about.privacy")}</span>
-            <ChevronRight className="h-4 w-4 text-ink/40" />
-          </button>
-        </Card>
-
-        <Card className="p-4">
-          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-ink/60">
-            <Mail className="h-3.5 w-3.5" /> {t("about.contact")}
-          </p>
-          <p className="text-sm text-ink/80">{t("about.contactPlaceholder")}</p>
-        </Card>
-
-        <p className="mt-4 text-center text-xs text-ink/60">{t("about.placeholderNote")}</p>
-      </div>
-    </div>
+      }
+      bodyClassName="gap-0 pt-4"
+    >
+      <LinkRow icon="doc" title={t("about.terms")} href={SITE_URL ? `${SITE_URL}/terms` : undefined} />
+      <LinkRow icon="lock" title={t("about.privacy")} href={SITE_URL ? `${SITE_URL}/privacy` : undefined} />
+      {SITE_URL && <LinkRow icon="globe" title={t("about.website")} href={SITE_URL} value={host} />}
+      <LinkRow icon="support" title={t("about.contact")} href={`mailto:${SUPPORT_EMAIL}`} value={SUPPORT_EMAIL} last />
+      <span className="mt-3 text-center text-[12px] font-semibold text-iz-muted">{t("about.version", { version: APP_VERSION })}</span>
+    </Screen>
   );
 }

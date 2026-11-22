@@ -211,7 +211,7 @@ export function HistoryDetailScreen() {
 
       {api.capabilities.help && (
         <Link
-          to="/help"
+          to="/help?topic=trip"
           className="mt-auto flex h-14 shrink-0 items-center justify-center gap-2.5 rounded-full border border-iz-chip-border text-[15px] font-extrabold text-iz-ink active:bg-iz-field"
         >
           <Icon name="support" size={18} />
