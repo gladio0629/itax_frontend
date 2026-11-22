@@ -3,10 +3,6 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { DEFAULT_DEV_PROXY_TARGET, izgoBackendProbe, izgoDevProxy, izgoSecurity, mapboxEnabled } from "../shared/vite/izgo";
 
-/** The public website (terms, privacy, account deletion), opened in the
- * system browser, never requested. VITE_SITE_URL overrides it ("" = no links). */
-const DEFAULT_SITE_URL = "https://xasanow.uz";
-
 export default defineConfig(({ mode }) => {
   const src = (p: string) => fileURLToPath(new URL(p, import.meta.url));
   // .env files of this app; variables set in the shell or on the host win.
@@ -18,7 +14,6 @@ export default defineConfig(({ mode }) => {
   const mapbox = mapboxEnabled(env.VITE_MAPBOX_TOKEN);
 
   return {
-    define: { __SITE_URL_DEFAULT__: JSON.stringify(DEFAULT_SITE_URL) },
     plugins: [
       react(),
       izgoBackendProbe(proxyTarget),

@@ -1,2 +1,0 @@
-# Local env file: the site default lives in vite.config.ts; secrets go in .env.local.
-/.env

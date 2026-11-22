@@ -14,6 +14,3 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
-
-/** vite.config.ts `define`: the public website when VITE_SITE_URL is unset. */
-declare const __SITE_URL_DEFAULT__: string;

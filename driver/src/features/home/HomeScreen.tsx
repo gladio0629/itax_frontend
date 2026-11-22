@@ -138,8 +138,10 @@ export default function HomeScreen() {
   const p = profile.data;
   const items = page?.items.filter((r) => !gone.has(r.id)) ?? [];
   const dirs = page?.directions ?? [];
-  const current = dirs.find((d) => d.id === direction) ?? page?.seats?.direction ?? null;
-  const reverse = current ? dirs.find((d) => d.from.id === current.to.id && d.to.id === current.from.id) : undefined;
+  // The chosen direction, else the server's seat summary, else the driver's only direction.
+  const current = dirs.find((d) => d.id === direction) ?? page?.seats?.direction ?? (dirs.length === 1 ? dirs[0] : null);
+  // Swapping only changes the feed filter, so not without one.
+  const reverse = current && api.capabilities.feedFilters ? dirs.find((d) => d.from.id === current.to.id && d.to.id === current.from.id) : undefined;
   const dateChoice = date === "today" || date === "tomorrow" ? null : page?.dates.find((d) => d.date === date) ?? null;
   const dateLabel = date === "today" ? t("common.today") : date === "tomorrow" ? t("common.tomorrow") : dateChoice ? formatDate(dateChoice.dayStart, t) : t("feed.pickDate");
   const week = s?.week;
@@ -230,7 +232,7 @@ export default function HomeScreen() {
                     <ArrowRight className="h-4 w-4 shrink-0 text-brand-ink" />
                     <span className="truncate">{current.to.name}</span>
                   </>
-                ) : direction === "all" && dirs.length > 1 ? (
+                ) : dirs.length > 1 ? (
                   t("home.allDirections")
                 ) : (
                   t("home.noRoute")

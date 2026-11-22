@@ -11,6 +11,7 @@ import type {
   CityRef,
   DebtLevel,
   DebtState,
+  Direction,
   DriverCapabilities,
   DriverProfile,
   HistoryItem,
@@ -373,6 +374,13 @@ export function toRoutesPage(r: Api.DriverRoutes, cities: CityRef[]): RoutesPage
     cities,
   };
 }
+
+/** The directions the driver serves (Home's "Mening yo'nalishim"): A→B, plus B→A when "both ways" is on. */
+export const routesToDirections = (routes: RoutesPage["routes"]): Direction[] =>
+  routes.flatMap((r) => [
+    { id: `${r.a.id}-${r.b.id}`, from: r.a, to: r.b },
+    ...(r.bothWays ? [{ id: `${r.b.id}-${r.a.id}`, from: r.b, to: r.a }] : []),
+  ]);
 
 export const toRoutesInput = (routes: RoutesPage["routes"]): Api.DriverRoutesInput => ({
   routes: routes.map((r) => ({ a_city_id: r.a.id, b_city_id: r.b.id, both_ways: r.bothWays })),

@@ -11,6 +11,7 @@ import type { ApiAdapter, ApiCapabilities, ServerEvent } from "../adapterTypes";
 import type {
   AcceptedPage,
   CityRef,
+  Direction,
   DocSlot,
   RegistrationSectionKey,
   RegistrationSectionStatus,
@@ -54,6 +55,7 @@ import {
   toLedgerEntry,
   toNotification,
   toRoutesInput,
+  routesToDirections,
   toRoutesPage,
   toTiyin,
   stepActionOf,
@@ -129,6 +131,9 @@ let statusCache: { at: number; value: Api.DriverStatus } | null = null;
 let ledgerPages: { cursors: (string | null)[]; items: LedgerEntry[][] } = { cursors: [], items: [] };
 let historyPages: { cursors: (string | null)[]; items: Api.TripWithOrder[][] } = { cursors: [], items: [] };
 let summaryCache: { at: number; value: HomeSummary } | null = null;
+/** The driver's directions for Home (from GET /drivers/me/routes): the feed polls every 5 s, routes change only on PUT. */
+let directionsCache: { at: number; value: Direction[] } | null = null;
+const DIRECTIONS_MAX_AGE_MS = 60_000;
 /** The driver's car from the last GET /drivers/me (shown read-only in "Imkoniyatlarim"). */
 let lastCar: Api.Car | undefined;
 
@@ -141,6 +146,7 @@ function clearTabState() {
   lastNotifications = [];
   statusCache = null;
   summaryCache = null;
+  directionsCache = null;
   ledgerPages = { cursors: [], items: [] };
   historyPages = { cursors: [], items: [] };
   lastCar = undefined;
@@ -237,13 +243,29 @@ const historyMore = () => !!historyPages.cursors[historyPages.items.length - 1];
 // ------------------------------------------------------------------ routes
 async function readRoutes(): Promise<RoutesPage> {
   const [r, cities] = await Promise.all([http.get<Api.DriverRoutes>(API_PATHS.driverRoutes), cityRefs()]);
-  return toRoutesPage(r, cities);
+  return remember(toRoutesPage(r, cities));
+}
+
+function remember(page: RoutesPage): RoutesPage {
+  directionsCache = { at: Date.now(), value: routesToDirections(page.routes) };
+  return page;
+}
+
+/** Never a guessed "no route": a failed re-read keeps the last known list; with none yet, the feed read fails (retry). */
+async function feedDirections(): Promise<Direction[]> {
+  if (directionsCache && Date.now() - directionsCache.at < DIRECTIONS_MAX_AGE_MS) return directionsCache.value;
+  try {
+    return routesToDirections((await readRoutes()).routes);
+  } catch (err) {
+    if (directionsCache) return directionsCache.value;
+    throw err;
+  }
 }
 
 /** PUT replaces the whole set and issues new ids: always answer with its response. */
 async function putRoutes(routes: DriverRoute[], cities: CityRef[]): Promise<RoutesPage> {
   try {
-    return toRoutesPage(await http.put<Api.DriverRoutes>(API_PATHS.driverRoutes, toRoutesInput(routes)), cities);
+    return remember(toRoutesPage(await http.put<Api.DriverRoutes>(API_PATHS.driverRoutes, toRoutesInput(routes)), cities));
   } catch (err) {
     throw mapRoutesError(err);
   }
@@ -604,8 +626,9 @@ export const httpAdapter: ApiAdapter = {
   getHomeSummary: () => homeSummary(),
 
   async getFeed() {
-    const [page, cities] = await Promise.all([http.get<Api.OfferPage>(API_PATHS.tripOffers, { limit: 50 }), cityNames()]);
-    return { items: page.data.map((o) => offerToRequest(o, cities)), seats: null, directions: [], dates: [] };
+    // The offers carry no direction filter; the directions are the driver's routes, for the "Mening yo'nalishim" line.
+    const [page, cities, directions] = await Promise.all([http.get<Api.OfferPage>(API_PATHS.tripOffers, { limit: 50 }), cityNames(), feedDirections()]);
+    return { items: page.data.map((o) => offerToRequest(o, cities)), seats: null, directions, dates: [] };
   },
   markFeedSeen: async () => {},
   getRejectReasons: async () => Object.values(REJECT_REASON_KEY).map((key) => ({ key })),
