@@ -299,13 +299,15 @@ export function RateScreen() {
               {error}
             </p>
           )}
-          {wantsRating || wantsTip || canRate || tipOpen ? (
+          {/* Nothing new to send and nothing left to choose (an earlier rating
+              kept as is, no tip): the button leaves instead of sitting disabled. */}
+          {wantsRating || wantsTip || (canRate && !order.rating) ? (
             <PrimaryButton loading={sending} disabled={!wantsRating && !wantsTip} onClick={send}>
               {t("rate.send")}
             </PrimaryButton>
           ) : (
-            <PrimaryButton icon="home" onClick={leave}>
-              {t("finished.backHome")}
+            <PrimaryButton icon={fromHistory ? "back" : "home"} onClick={leave}>
+              {fromHistory ? t("common.back") : t("finished.backHome")}
             </PrimaryButton>
           )}
         </>

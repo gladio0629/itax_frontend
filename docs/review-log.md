@@ -3,6 +3,36 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 8: admin `342e67e` and client `df8296f`, both GREEN, merged
+
+### redesign-admin `1928d19..342e67e` (1 commit): GREEN
+- Back in the stats section:
+  - the "Qarz limitiga yetgan haydovchilar" tile (`driversOverLimit`);
+  - the "Buyurtmalar dinamikasi" chart (orders and completed per day).
+- No online metric (owner decision).
+- Mock values come from the seed's `atDebtLimit` verdict, not a browser rule. Seed v7 adds sample drivers at the debt limit.
+
+### redesign-client `1148788..df8296f` (1 commit): GREEN
+Round 7 must-fix, both done:
+- Tarix allows a tip whenever `tips.allowed` (`canTip`), at any age. The rating keeps its 7-day limit, and Rate disables the stars when the rating is locked.
+- Bonus: a withdrawal under review is watched until it settles, even after the sheet closes. The balance and history are then read again. The button shows the pending review instead of allowing a second withdrawal.
+
+Round 7 "later" items, all done:
+- phone change: auto-fill is cancelled on close, and the code is confirmed once;
+- accounts: error with retry;
+- request guards on bonus history and the notification switches;
+- mark-read failure reverts;
+- Help: error with retry, and the rejected text;
+- Tarix: the search keeps the chips;
+- live order: "Asosiy sahifaga" goes back, the timer resets, the ride-along switch shows its real value;
+- Rate can leave when there is nothing to send;
+- the nits.
+
+Checks after both merges (`--no-ff`, no conflicts):
+- All three apps pass typecheck, the `VITE_DEMO_MODE=false` build and `check:no-network`. `dist` has no test panel or "demo" text.
+- `cap sync` passes for the client.
+- Client uz/ru/en have 671 keys each.
+
 ## 2026-11-22, round 7 merge: client `1148788` into `redesign-v2`
 
 Owner decisions:

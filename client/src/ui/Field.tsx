@@ -120,7 +120,7 @@ export const Field = forwardRef<HTMLInputElement, FieldShellProps & Omit<InputHT
           <FieldBody labelId={`${inputId}-label`} label={label} icon={icon} trailing={trailing ?? (readOnly ? <Icon name="lock" size={18} className="shrink-0 text-iz-muted" /> : null)}>
             {prefix ? (
               <span className="flex min-w-0 items-center gap-1">
-                <span className="shrink-0 text-[16px] font-extrabold text-iz-ink">{prefix}</span>
+                <span className={cn("shrink-0 text-[16px] font-extrabold", readOnly ? "text-iz-muted" : "text-iz-ink")}>{prefix}</span>
                 <input
                   ref={ref}
                   id={inputId}
@@ -128,7 +128,10 @@ export const Field = forwardRef<HTMLInputElement, FieldShellProps & Omit<InputHT
                   readOnly={readOnly}
                   aria-invalid={error ? true : undefined}
                   aria-describedby={error || hint ? msgId : undefined}
-                  className="iz-input h-[22px] w-full min-w-0 border-0 bg-transparent p-0 text-[16px] font-extrabold text-iz-ink outline-none placeholder:font-semibold placeholder:text-iz-muted placeholder:opacity-70"
+                  className={cn(
+                    "iz-input h-[22px] w-full min-w-0 border-0 bg-transparent p-0 text-[16px] font-extrabold text-iz-ink outline-none placeholder:font-semibold placeholder:text-iz-muted placeholder:opacity-70",
+                    readOnly && "text-iz-muted"
+                  )}
                   {...input}
                 />
               </span>

@@ -690,7 +690,7 @@ export const en: Dictionary = {
   "bonus.thisMonthAmount": "This month: {{amount}}",
   "bonus.do": "Do it",
   "bonus.historyShort": "History",
-  "bonus.source.goal.title": "5 trips this month",
+  "bonus.source.goal.title": "{{n}} trips this month",
   "bonus.source.goal.desc": "Finish 5 trips this month and the bonus is added automatically.",
   "bonus.history.goal": "Monthly goal bonus",
 
@@ -719,4 +719,9 @@ export const en: Dictionary = {
   "driver.message": "Message the driver",
   "driver.messageUnavailable": "Messaging isn't available yet",
   "home.activeOrder": "Active order",
+  "history.tip": "Tip",
+  "bonus.withdrawPending": "Request under review",
+  "bonus.withdrawRejected": "The withdrawal was declined",
+  "bonus.copied": "Invitation text copied",
+  "help.rejected": "The request wasn't accepted. Please send it again.",
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import type { NotificationPrefs } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
@@ -30,16 +30,20 @@ export function NotificationsSettingsScreen() {
   }
   useEffect(load, []);
 
+  // Quick taps: each change is sent on its own; only the newest answer is
+  // shown, so two switches don't overwrite each other.
+  const latest = useRef(0);
   async function patch(key: keyof NotificationPrefs) {
     if (!prefs) return;
-    const prev = prefs;
-    const next = { ...prefs, [key]: !prefs[key] };
-    setPrefs(next);
+    const value = !prefs[key];
+    setPrefs((p) => (p ? { ...p, [key]: value } : p));
     setSaveError(false);
+    const id = ++latest.current;
     try {
-      setPrefs(await api.setNotificationPrefs({ [key]: next[key] }));
+      const saved = await api.setNotificationPrefs({ [key]: value });
+      if (id === latest.current) setPrefs(saved);
     } catch {
-      setPrefs(prev);
+      setPrefs((p) => (p ? { ...p, [key]: !value } : p));
       setSaveError(true);
     }
   }

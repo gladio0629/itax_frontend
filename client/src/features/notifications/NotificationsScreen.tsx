@@ -44,8 +44,10 @@ export function NotificationsScreen() {
   useEffect(load, []);
 
   async function markRead(id: string) {
+    const was = items.find((n) => n.id === id)?.read ?? true;
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    await api.markNotificationRead(id);
+    // Not saved: it shows as unread again (it is, on the server).
+    await api.markNotificationRead(id).catch(() => setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: was } : n))));
   }
 
   return (

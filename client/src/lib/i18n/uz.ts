@@ -691,7 +691,7 @@ export const uz = {
   "bonus.thisMonthAmount": "Shu oy: {{amount}}",
   "bonus.do": "Bajarish",
   "bonus.historyShort": "Tarix",
-  "bonus.source.goal.title": "Shu oyda 5 ta safar",
+  "bonus.source.goal.title": "Shu oyda {{n}} ta safar",
   "bonus.source.goal.desc": "Shu oy ichida 5 ta safarni yakunlang — bonus avtomatik qo'shiladi.",
   "bonus.history.goal": "Oylik vazifa uchun bonus",
 
@@ -720,6 +720,11 @@ export const uz = {
   "driver.message": "Haydovchiga yozish",
   "driver.messageUnavailable": "Xabar yuborish hozircha mavjud emas",
   "home.activeOrder": "Faol buyurtma",
+  "history.tip": "Choy puli",
+  "bonus.withdrawPending": "So'rov ko'rib chiqilmoqda",
+  "bonus.withdrawRejected": "Yechib olish rad etildi",
+  "bonus.copied": "Taklif matni nusxalandi",
+  "help.rejected": "Zayavka qabul qilinmadi. Qaytadan yuboring.",
 };
 
 export type Dictionary = typeof uz;

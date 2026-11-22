@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { BonusHistoryEntry, BonusSource, BonusSourceIcon } from "@/api/types";
@@ -38,7 +38,7 @@ function SourceCard({ src, onOpen, onDo }: { src: BonusSource; onOpen: () => voi
             <Icon name={SOURCE_ICON[src.icon]} />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-[15px] font-extrabold text-iz-ink">{t(src.titleKey as TranslationKey)}</span>
+            <span className="text-[15px] font-extrabold text-iz-ink">{t(src.titleKey as TranslationKey, { n: src.progress?.total ?? 0 })}</span>
             <span className="text-[13px] text-iz-muted">
               {reward
                 ? rich(t(src.progress ? "bonus.rewardOnce" : "bonus.rewardEach"), { amount: reward })
@@ -60,7 +60,7 @@ function SourceCard({ src, onOpen, onDo }: { src: BonusSource; onOpen: () => voi
           <span
             className="flex flex-1 gap-1"
             role="progressbar"
-            aria-label={t(src.titleKey as TranslationKey)}
+            aria-label={t(src.titleKey as TranslationKey, { n: src.progress?.total ?? 0 })}
             aria-valuemin={0}
             aria-valuemax={src.progress.total}
             aria-valuenow={src.progress.done}
@@ -116,16 +116,21 @@ export function BonusScreen() {
   const [cursor, setCursor] = useState<number | null>(0);
   const [historyState, setHistoryState] = useState<"loading" | "error" | "ready">("loading");
 
+  // Only the newest request counts (a quick filter switch must not show
+  // "Kirim" entries under "Chiqim").
+  const historyReq = useRef(0);
   function loadHistory(reset: boolean) {
+    const id = ++historyReq.current;
     setHistoryState("loading");
     api
       .getBonusHistory({ type: filter === "all" ? undefined : filter, cursor: reset ? 0 : cursor ?? 0 })
       .then((page) => {
+        if (id !== historyReq.current) return;
         setEntries((prev) => (reset ? page.entries : [...prev, ...page.entries]));
         setCursor(page.nextCursor);
         setHistoryState("ready");
       })
-      .catch(() => setHistoryState("error"));
+      .catch(() => id === historyReq.current && setHistoryState("error"));
   }
   useEffect(() => {
     loadHistory(true);
@@ -147,19 +152,50 @@ export function BonusScreen() {
     }
   }
 
+  /** Closing the sheet doesn't drop a withdrawal under review: it keeps
+   * going here, and a second one waits until it is settled. */
   function closeWithdraw() {
     setAmountOpen(false);
-    setReviewId(null);
-    setAmount("");
     setWithdrawError(null);
+    if (!reviewId) setAmount("");
   }
 
-  function onWithdrawApproved() {
-    closeWithdraw();
-    setCelebrateKey((k) => k + 1);
-    summary.refetch();
-    loadHistory(true);
-  }
+  // The withdrawal under review, watched until it settles (sheet open or not):
+  // then the balance and history are read again.
+  useEffect(() => {
+    if (!reviewId) return;
+    let stop = false;
+    let timer = 0;
+    const check = async () => {
+      try {
+        const r = await api.getReviewStatus(reviewId);
+        if (stop) return;
+        if (r.status === "pending") {
+          timer = window.setTimeout(check, 1000);
+          return;
+        }
+        // Let the sheet show the result for a moment.
+        timer = window.setTimeout(() => {
+          if (stop) return;
+          setReviewId(null);
+          setAmount("");
+          setAmountOpen(false);
+          if (r.status === "approved") setCelebrateKey((k) => k + 1);
+          else setToast(t("bonus.withdrawRejected"));
+          summary.refetch();
+          loadHistory(true);
+        }, 1200);
+      } catch {
+        if (!stop) timer = window.setTimeout(check, 1500);
+      }
+    };
+    check();
+    return () => {
+      stop = true;
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewId]);
 
   async function runAction(source: BonusSource) {
     setDetail(null);
@@ -171,7 +207,7 @@ export function BonusScreen() {
         if (navigator.share) await navigator.share({ text });
         else {
           await navigator.clipboard?.writeText(text);
-          setToast(t("safety.linkCopied"));
+          setToast(t("bonus.copied"));
         }
       } catch {
         /* closed or unavailable */
@@ -211,8 +247,8 @@ export function BonusScreen() {
               <div className="h-full rounded-full bg-iz-green" style={{ width: `${Math.round(s.progress * 100)}%` }} />
             </div>
           )}
-          <PrimaryButton disabled={!s?.canWithdraw} onClick={() => setAmountOpen(true)}>
-            {t("bonus.withdraw")}
+          <PrimaryButton disabled={!s?.canWithdraw && !reviewId} onClick={() => setAmountOpen(true)}>
+            {reviewId ? t("bonus.withdrawPending") : t("bonus.withdraw")}
           </PrimaryButton>
         </div>
       }
@@ -292,7 +328,7 @@ export function BonusScreen() {
         }
       >
         {reviewId ? (
-          <ReviewStatus reviewId={reviewId} onApproved={onWithdrawApproved} onRejected={() => setReviewId(null)} />
+          <ReviewStatus reviewId={reviewId} />
         ) : (
           <Field
             label={t("bonus.amountLabel")}
@@ -316,7 +352,7 @@ export function BonusScreen() {
         <BottomSheet
           open
           onClose={() => setDetail(null)}
-          title={t(detail.titleKey as TranslationKey)}
+          title={t(detail.titleKey as TranslationKey, { n: detail.progress?.total ?? 0 })}
           closeLabel={t("common.close")}
           footer={<PrimaryButton onClick={() => runAction(detail)}>{t(ACTION_KEY[detail.action])}</PrimaryButton>}
         >

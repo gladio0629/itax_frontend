@@ -9,9 +9,6 @@ import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { Icon, Initials, Logo, useDialogA11y, type IconName } from "@/ui";
 
-/** Shown under the logo, as in the old menu. */
-
-
 type NavItem = { to: string; labelKey: TranslationKey; icon: IconName };
 
 const NAV_ITEMS: NavItem[] = [

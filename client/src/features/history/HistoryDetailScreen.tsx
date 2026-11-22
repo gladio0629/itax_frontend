@@ -87,6 +87,7 @@ export function HistoryDetailScreen() {
   const driver = order.driver;
   const rated = !!order.rating;
   const canRate = order.status === "completed" && !!driver && order.ratingEditable;
+  const canTip = !!tips?.allowed && !tips.sent;
   const live = LIVE.has(order.status);
 
   const end = (side: "from" | "to") => {
@@ -169,12 +170,14 @@ export function HistoryDetailScreen() {
               </span>
             )}
           </span>
-          {canRate && (
+          {/* The rating has its own time limit; a tip is the server's call
+              (tips.allowed), on the same screen, at any age. */}
+          {(canRate || canTip) && (
             <Link
               to={`/order/finished/${order.id}?from=history`}
               className="flex h-11 shrink-0 items-center rounded-full bg-iz-selected px-4 text-[13px] font-extrabold text-iz-on-selected active:opacity-80"
             >
-              {rated ? t("live.edit") : t("history.rate")}
+              {canRate ? (rated ? t("live.edit") : t("history.rate")) : t("history.tip")}
             </Link>
           )}
         </div>
