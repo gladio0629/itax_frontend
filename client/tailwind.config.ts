@@ -25,6 +25,42 @@ export default {
         selected: "var(--color-selected)",
         hairline: "var(--color-hairline)",
         backdrop: "var(--color-backdrop)",
+        // Design v2 role tokens (design/tokens-v2.css).
+        iz: {
+          head: "var(--iz-head)",
+          "head-card": "var(--iz-head-card)",
+          "head-border": "var(--iz-head-border)",
+          "head-border-strong": "var(--iz-head-border-strong)",
+          "head-text": "var(--iz-head-text)",
+          "head-muted": "var(--iz-head-muted)",
+          "head-soft": "var(--iz-head-soft)",
+          sheet: "var(--iz-sheet)",
+          ink: "var(--iz-ink)",
+          muted: "var(--iz-muted)",
+          field: "var(--iz-field)",
+          "field-focus": "var(--iz-field-focus)",
+          skeleton: "var(--iz-skeleton)",
+          "skeleton-strong": "var(--iz-skeleton-strong)",
+          border: "var(--iz-border)",
+          "divider-in-field": "var(--iz-divider-in-field)",
+          "chip-border": "var(--iz-chip-border)",
+          selected: "var(--iz-selected)",
+          "on-selected": "var(--iz-on-selected)",
+          "selected-accent": "var(--iz-selected-accent)",
+          green: "rgb(var(--iz-green-rgb) / <alpha-value>)",
+          "on-green": "var(--iz-on-green)",
+          "green-text": "var(--iz-green-text)",
+          "green-soft": "var(--iz-green-soft)",
+          danger: "var(--iz-danger)",
+          "danger-soft": "var(--iz-danger-soft)",
+          warn: "var(--iz-warn)",
+          "warn-strong": "var(--iz-warn-strong)",
+          "warn-soft": "var(--iz-warn-soft)",
+          "warn-tile": "var(--iz-warn-tile)",
+          sos: "var(--iz-sos)",
+          "switch-off": "var(--iz-switch-off)",
+          map: "var(--iz-map)",
+        },
       },
       // Family, sizes and shadows resolve through design tokens so the iOS
       // token set (design/ios.css) can swap them without touching markup.
@@ -69,6 +105,10 @@ export default {
         bubble: "var(--radius-bubble)",
         group: "var(--radius-group)",
         chip: "var(--radius-chip)",
+        "iz-sheet": "var(--iz-r-sheet)",
+        "iz-card": "var(--iz-r-card)",
+        "iz-field": "var(--iz-r-field)",
+        "iz-tile": "var(--iz-r-tile)",
       },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
@@ -166,6 +206,8 @@ export default {
     plugin(({ addVariant }) => {
       addVariant("ios", 'html[data-platform="ios"] &');
       addVariant("standalone", 'html[data-standalone="true"] &');
+      // The system keyboard is open (ui/keyboard.ts sets the attribute).
+      addVariant("kb", 'html[data-kb="open"] &');
     }),
   ],
 } satisfies Config;

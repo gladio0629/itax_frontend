@@ -22,7 +22,7 @@ export function Toaster() {
             onClick={() => dismiss(t.id)}
             className="pointer-events-auto flex min-h-12 animate-fade-up items-center gap-3 rounded-card bg-raised px-4 py-3 text-left shadow-2"
           >
-            <Icon className={cn("h-5 w-5 shrink-0", t.tone === "danger" ? "text-danger" : t.tone === "success" ? "text-success" : "text-accent")} />
+            <Icon className={cn("h-5 w-5 shrink-0", t.tone === "danger" ? "text-danger" : t.tone === "success" ? "text-success" : "text-brand-ink")} />
             <span className="text-sm text-ink">{t.message}</span>
           </button>
         );

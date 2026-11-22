@@ -16,7 +16,8 @@ import { cn } from "@/lib/cn";
 const FAQ = ["commission", "debt", "docs"] as const;
 const TOPICS: HelpTopic[] = ["order", "payment", "app", "docs"];
 
-export default function HelpScreen() {
+/** `back`: where the header arrow goes (Profil, or the registration step). */
+export default function HelpScreen({ back = "/profile" }: { back?: string }) {
   const { t } = useT();
   const [open, setOpen] = useState<number | null>(0);
   const [topic, setTopic] = useState<HelpTopic>("order");
@@ -44,7 +45,7 @@ export default function HelpScreen() {
 
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader title={t("help.title")} back="/profile" />
+      <ScreenHeader title={t("help.title")} back={back} />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
         <SectionLabel>{t("help.faqTitle")}</SectionLabel>
         <Card className="mb-6 divide-y divide-line">
@@ -125,7 +126,7 @@ export default function HelpScreen() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={t("help.messagePlaceholder")}
-                className="block w-full resize-none rounded-button bg-raised p-4 text-base text-ink outline-none placeholder:text-muted/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-yellow focus-visible:outline-none"
+                className="block w-full resize-none rounded-button bg-raised p-4 text-base text-ink outline-none placeholder:text-muted/80 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand focus-visible:outline-none"
               />
               <p className="tabular mt-1 text-right text-xs text-muted">{message.length}/500</p>
               {profile.data && (

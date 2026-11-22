@@ -1,9 +1,22 @@
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, type InputHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-type Props = InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string; hint?: string; prefix?: ReactNode };
+type Props = InputHTMLAttributes<HTMLInputElement> & {
+  label: string;
+  error?: string;
+  hint?: string;
+  /** Fixed text before the value (e.g. "+998"). */
+  prefix?: ReactNode;
+  /** Icon or control on the right. */
+  trailing?: ReactNode;
+};
 
-export const TextField = forwardRef<HTMLInputElement, Props>(({ label, error, hint, prefix, className, id, ...rest }, ref) => {
+/**
+ * Redesign v2 field: 68 tall, soft fill, small caps label inside on top and
+ * the value under it. Focus: white fill, 2px text-colour border, 4px soft
+ * green halo. Error: red border and a message under the field.
+ */
+export const TextField = forwardRef<HTMLInputElement, Props>(({ label, error, hint, prefix, trailing, className, id, ...rest }, ref) => {
   const auto = useId();
   const inner = useRef<HTMLInputElement>(null);
   useImperativeHandle(ref, () => inner.current as HTMLInputElement);
@@ -15,27 +28,34 @@ export const TextField = forwardRef<HTMLInputElement, Props>(({ label, error, hi
   const msgId = `${inputId}-msg`;
   return (
     <div className={className}>
-      <label htmlFor={inputId} className="mb-2 block text-sm font-medium text-muted">
-        {label}
-      </label>
       <div
         className={cn(
-          "flex h-14 items-center gap-2 rounded-button bg-raised px-4 ring-inset focus-within:ring-2",
-          error ? "ring-2 ring-danger" : "focus-within:ring-yellow"
+          "flex min-h-[68px] items-center gap-3 rounded-field border-2 px-4 py-2.5 transition-[background-color,border-color,box-shadow]",
+          "focus-within:bg-surface focus-within:shadow-[0_0_0_4px_rgb(var(--color-brand-soft-rgb))]",
+          error ? "border-danger bg-raised" : "border-raised bg-raised focus-within:border-[color:var(--color-focus)]"
         )}
+        onClick={() => inner.current?.focus()}
       >
-        {prefix && <span className="tabular text-base text-muted">{prefix}</span>}
-        <input
-          ref={inner}
-          id={inputId}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error || hint ? msgId : undefined}
-          className="h-full min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted/70 focus-visible:outline-none"
-          {...rest}
-        />
+        <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+          <label htmlFor={inputId} className="label-caps text-muted">
+            {label}
+          </label>
+          <span className="flex min-w-0 items-center gap-1.5">
+            {prefix && <span className="tabular shrink-0 text-base font-bold text-ink">{prefix}</span>}
+            <input
+              ref={inner}
+              id={inputId}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error || hint ? msgId : undefined}
+              className="h-6 min-w-0 flex-1 bg-transparent text-base font-bold text-ink outline-none placeholder:font-semibold placeholder:text-muted/70 focus-visible:outline-none"
+              {...rest}
+            />
+          </span>
+        </span>
+        {trailing && <span className="flex shrink-0 items-center">{trailing}</span>}
       </div>
       {(error || hint) && (
-        <p id={msgId} role={error ? "alert" : undefined} className={cn("mt-2 text-sm", error ? "text-danger" : "text-muted")}>
+        <p id={msgId} role={error ? "alert" : undefined} className={cn("mt-2 px-1 text-13", error ? "font-semibold text-danger" : "text-muted")}>
           {error ?? hint}
         </p>
       )}

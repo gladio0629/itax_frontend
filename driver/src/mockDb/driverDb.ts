@@ -23,16 +23,23 @@ export const BONUS_LEVELS = [
 ] as const;
 
 export const CAR_COLORS = [
-  { key: "white", hex: "#F4F6F5" },
-  { key: "silver", hex: "#C9CFCD" },
-  { key: "black", hex: "#1C2420" },
-  { key: "blue", hex: "#3B6FA0" },
+  { key: "white", hex: "#FFFFFF" },
+  { key: "black", hex: "#1B1F27" },
+  { key: "silver", hex: "#B9C1CB" },
+  { key: "blue", hex: "#2F5DA8" },
+  { key: "red", hex: "#8C1D24" },
+  { key: "beige", hex: "#E9E1CF" },
   { key: "gray", hex: "#6B7280" },
 ];
-export const CAR_MODELS = [
-  "Chevrolet Cobalt", "Chevrolet Nexia 3", "Chevrolet Gentra", "Chevrolet Malibu 2",
-  "Chevrolet Onix", "Chevrolet Tracker", "Kia K5", "Hyundai Sonata",
+export const CAR_BRANDS = [
+  { brand: "Chevrolet", models: ["Cobalt", "Nexia 3", "Gentra", "Malibu 2", "Onix", "Tracker", "Damas", "Labo"] },
+  { brand: "Kia", models: ["K5", "Sportage"] },
+  { brand: "Hyundai", models: ["Sonata", "Elantra"] },
+  { brand: "BYD", models: ["Chazor", "Song Plus"] },
 ];
+export const LICENSE_CATEGORIES = ["A", "B", "BE", "C", "D"];
+/** Sample "usually within N minutes" for the automatic check. */
+export const REVIEW_ETA_MIN = 5;
 
 const STREETS: Record<string, string[]> = {
   tsh: ["Amir Temur ko'chasi, 15", "Chilonzor, 9-kvartal", "Yunusobod, 4-mavze", "Shota Rustaveli, 42", "Olmazor bekati"],
@@ -132,10 +139,17 @@ export type BookingRecord = RequestRecord & {
 
 export type RouteRecord = { id: string; a: string; b: string; bothWays: boolean };
 
-export type Draft = { name?: string; cityId?: string; car?: { model: string; colorKey: string; plate: string; year: number } };
+export type Draft = {
+  name?: string;
+  cityId?: string;
+  birthDate?: string;
+  referralCode?: string;
+  license?: { number: string; issuedAt: string; expiresAt: string; categories: string[]; frontRef: string; backRef: string };
+  car?: { model: string; colorKey: string; plate: string; year: number; seats?: number; carClass?: string; serviceTypes?: string[] };
+};
 
 export type DriverState = {
-  version: 5;
+  version: 6;
   seededAt: number;
   registered: boolean;
   session: Session;
@@ -443,7 +457,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
     notifications.length = 0;
   }
   return {
-    version: 5,
+    version: 6,
     seededAt: now,
     registered,
     session: registered ? { stage: "active", phone: "+998 90 *** ** 41" } : { stage: "signed_out" },
@@ -541,7 +555,16 @@ function shiftWhen(w: WhenRecord, shift: number): WhenRecord {
  */
 function upgrade(stored: { version: number } | null): DriverState | null {
   if (!stored) return null;
-  if (stored.version === 5) return stored as DriverState;
+  if (stored.version === 6) return stored as DriverState;
+  if (stored.version === 5) {
+    // v6: registration order personal → license → car → selfie. A half-finished
+    // v5 registration ("car" / "documents") starts again at step 1.
+    const s = stored as unknown as DriverState;
+    const stage = s.session.stage as string;
+    if (stage === "car" || stage === "documents") s.session = { ...s.session, stage: "personal" };
+    s.version = 6;
+    return s;
+  }
   if (stored.version !== 3 && stored.version !== 4) return null;
   const s = stored as unknown as DriverState & { online?: boolean; offer?: unknown; trip?: unknown; nextOfferAt?: unknown };
   if (stored.version === 3) s.capabilities = { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
@@ -549,7 +572,7 @@ function upgrade(stored: { version: number } | null): DriverState | null {
   delete s.offer;
   delete s.trip;
   delete s.nextOfferAt;
-  s.version = 5;
+  s.version = 6;
   s.routes = s.registered ? DEFAULT_ROUTES.map((r) => ({ ...r })) : [];
   s.requests = [];
   s.bookings = [];

@@ -5,10 +5,8 @@ import { api } from "@/api/client";
 type AuthState = {
   isAuthenticated: boolean;
   phone: string;
-  onboardingSeen: boolean;
   setPhone: (phone: string) => void;
   completeAuth: () => void;
-  completeOnboarding: () => void;
   /** User action: revoke the session on the server, then sign out here. */
   logout: () => void;
   /** The session already ended (expired / revoked): local state only. */
@@ -25,22 +23,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: sessionNow ?? readJSON(KEY, { isAuthenticated: false }).isAuthenticated,
   // The phone is only kept in memory (never written to storage).
   phone: "",
-  onboardingSeen: readJSON(KEY, { onboardingSeen: false }).onboardingSeen,
   setPhone: (phone) => set({ phone }),
   completeAuth: () => {
-    writeJSON(KEY, { isAuthenticated: true, onboardingSeen: true });
-    set({ isAuthenticated: true, onboardingSeen: true });
-  },
-  completeOnboarding: () => {
-    writeJSON(KEY, { isAuthenticated: get().isAuthenticated, onboardingSeen: true });
-    set({ onboardingSeen: true });
+    writeJSON(KEY, { isAuthenticated: true });
+    set({ isAuthenticated: true });
   },
   logout: () => {
     get().clearSession();
     void api.logout();
   },
   clearSession: () => {
-    writeJSON(KEY, { isAuthenticated: false, onboardingSeen: true });
+    writeJSON(KEY, { isAuthenticated: false });
     set({ isAuthenticated: false, phone: "" });
   },
 }));

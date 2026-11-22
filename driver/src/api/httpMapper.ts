@@ -66,17 +66,23 @@ export const REG_CITIES: CityRef[] = [
   "Toshkent", "Samarqand", "Buxoro", "Andijon", "Namangan", "Farg'ona", "Qarshi", "Nukus", "Xiva",
   "Jizzax", "Navoiy", "Termiz", "Guliston", "Urganch",
 ].map((name) => ({ id: name, name }));
-export const REG_CAR_MODELS = [
-  "Chevrolet Cobalt", "Chevrolet Nexia 3", "Chevrolet Gentra", "Chevrolet Malibu 2",
-  "Chevrolet Onix", "Chevrolet Tracker", "Kia K5", "Hyundai Sonata",
+export const REG_CAR_BRANDS = [
+  { brand: "Chevrolet", models: ["Cobalt", "Nexia 3", "Gentra", "Malibu 2", "Onix", "Tracker", "Damas", "Labo"] },
+  { brand: "Kia", models: ["K5", "Sportage"] },
+  { brand: "Hyundai", models: ["Sonata", "Elantra"] },
+  { brand: "BYD", models: ["Chazor", "Song Plus"] },
 ];
 export const REG_CAR_COLORS = [
-  { key: "white", hex: "#F4F6F5" },
-  { key: "silver", hex: "#C9CFCD" },
-  { key: "black", hex: "#1C2420" },
-  { key: "blue", hex: "#3B6FA0" },
+  { key: "white", hex: "#FFFFFF" },
+  { key: "black", hex: "#1B1F27" },
+  { key: "silver", hex: "#B9C1CB" },
+  { key: "blue", hex: "#2F5DA8" },
+  { key: "red", hex: "#8C1D24" },
+  { key: "beige", hex: "#E9E1CF" },
   { key: "gray", hex: "#6B7280" },
 ];
+/** Driving-licence categories under "Toifa" (no endpoint yet). */
+export const REG_LICENSE_CATEGORIES = ["A", "B", "BE", "C", "D"];
 export const REG_CAR_CLASSES: CarClass[] = ["economy", "comfort", "business", "minivan"];
 /** Car.seats: 1–8 in the contract. */
 export const REG_SEAT_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8];

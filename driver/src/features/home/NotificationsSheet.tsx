@@ -62,7 +62,7 @@ export function NotificationsSheet({ open, onClose, onRead }: { open: boolean; o
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-base font-bold text-ink">{isKey(n.titleKey) ? t(n.titleKey, n.params) : t(GENERIC_TITLE[n.kind])}</p>
-                      {!n.read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-yellow" aria-label="•" />}
+                      {!n.read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand" aria-label="•" />}
                     </div>
                     {isKey(n.bodyKey) && <p className="text-sm text-muted">{t(n.bodyKey, n.params)}</p>}
                     <p className="tabular mt-1 text-xs text-muted">{relativeTime(n.createdAt, t)}</p>
@@ -72,7 +72,7 @@ export function NotificationsSheet({ open, onClose, onRead }: { open: boolean; o
             })}
           </ul>
           {unread && (
-            <button type="button" onClick={markAll} className="press mt-3 flex h-12 w-full items-center justify-center rounded-button text-sm font-medium text-accent">
+            <button type="button" onClick={markAll} className="press mt-3 flex h-12 w-full items-center justify-center rounded-button text-sm font-medium text-brand-ink">
               {t("notif.markAll")}
             </button>
           )}

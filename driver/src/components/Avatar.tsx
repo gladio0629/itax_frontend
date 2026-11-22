@@ -3,7 +3,7 @@ function hash(seed: string) {
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return h;
 }
-// Decorative fills kept off brand-yellow / status colors; white initials ≥4.5:1.
+// Decorative fills kept off brand-brand / status colors; white initials ≥4.5:1.
 const FILLS = ["#3B5BA9", "#5B4BB7", "#0A756E", "#7A4A12", "#475569", "#8A2F5B"];
 
 function initials(name: string) {

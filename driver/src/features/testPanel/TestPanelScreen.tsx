@@ -10,7 +10,7 @@ import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { useSession } from "@/stores/sessionStore";
 import { useTestControls } from "@/stores/testControlsStore";
-import { AlertTriangle, Armchair, Car, Gift, RotateCcw, Truck, User, UserPlus, UserX, Wallet, WifiOff, Zap } from "@/lib/icons";
+import { AlertTriangle, Armchair, Car, Gift, LayoutGrid, RotateCcw, Truck, User, UserPlus, UserX, Wallet, WifiOff, Zap } from "@/lib/icons";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SectionLabel } from "@/components/Card";
 import { SettingsGroup, SettingsRow } from "@/components/SettingsRow";
@@ -18,6 +18,7 @@ import { Switch } from "@/components/Switch";
 import { Button } from "@/components/Button";
 import { Sheet } from "@/components/Sheet";
 import { testPanelText, type TestPanelKey } from "./strings";
+import { TEST_PANEL_UI_PATH } from "./paths";
 
 const PRESETS: { key: TestPreset; icon: typeof User; tile: "blue" | "yellow" | "green" | "orange" | "red" | "slate" }[] = [
   { key: "new", icon: UserPlus, tile: "blue" },
@@ -96,6 +97,10 @@ export default function TestPanelScreen() {
             description={tp("errorsHint")}
             trailing={<Switch checked={network.forceErrors} onChange={() => toggle("forceErrors")} label={tp("errors")} />}
           />
+        </SettingsGroup>
+
+        <SettingsGroup>
+          <SettingsRow icon={LayoutGrid} tile="green" label={tp("uiGallery")} description={tp("uiGalleryHint")} to={TEST_PANEL_UI_PATH} />
         </SettingsGroup>
 
         <Button variant="secondary" fullWidth className="mt-4" onClick={() => setResetOpen(true)}>

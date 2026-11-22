@@ -71,3 +71,38 @@ all `/admin/v1/*`.
 Still hidden in http mode (backend-gaps.md §0, "Still open"): trip chat, trip summary (commission % and bonus), feed
 filters and the seat summary, new-request alerts, ledger filters, bonus, help requests, phone / car change, saved
 cards, per-topic notification switches, `unread_count` / read-all (one PUT per unread item instead), history filters.
+
+## Redesign v2
+
+Driver app redesign (design v2, 2026-11-22). Money in tiyin on the wire as before. Error envelope `{ error: { key, params } }`.
+Until an endpoint exists the http adapter treats **only** 404 / 405 / 501 as "not there yet" and carries on
+(`optionalEndpoint` in `driver/src/api/adapters/http.ts`); 422, 5xx and network errors are shown to the driver.
+
+### Registration (screens: personal → licence → car → selfie → automatic check)
+
+The four existing step bodies are unchanged (the contract rejects unknown fields). This section replaces the
+`savePersonal` / `saveCar` / `submitDocuments` rows above: the adapter now has `savePersonal`, `saveLicense`, `saveCar`,
+`submitRegistration` and `getRegistrationReview`.
+
+- Order on the wire: step 1 after the personal screen; the licence screen only uploads two photos and calls the licence
+  endpoint below; step 2 after the car screen; step 3 (all documents) + step 4 (`accept_terms`) after the selfie screen.
+  Upload URLs are requested on each screen, so `license_front` / `license_back` are uploaded before step 2.
+- Step 3 now sends `license_front`, `license_back`, `tech_passport_front`, `tech_passport_back`, `car_photo`, `selfie`
+  (all kinds already in `DocumentKind`). **Please confirm step 3 accepts all six.**
+- **Lost in http mode until the endpoints exist:** the referral code, the licence number / dates / categories and the
+  service types. The screens ask for them; the adapter sends them to the endpoints below and skips them on 404.
+
+| Method | Path | Request | Response | Errors (key) |
+|---|---|---|---|---|
+| POST | `/api/v1/drivers/registration/referral` | `{ code: string }` (4–12, A–Z0–9) | 204 | 422 `referral.invalid` → UI `REFERRAL_INVALID` |
+| POST | `/api/v1/drivers/registration/license` | `{ number: string, issued_at: DateOnly, expires_at: DateOnly, categories: string[] }` | 204 | 422 on `number` / `issued_at` / `expires_at` / `categories` → UI `LICENSE_NUMBER_INVALID`, `LICENSE_DATES_REQUIRED`, `LICENSE_CATEGORY_REQUIRED` (field map still to add in `mapFieldError` once the server keys are known) |
+| PUT | `/api/v1/drivers/me/service-types` | `{ service_types: ("passengers" \| "delivery")[] }` (≥ 1) | 204 | 422 → UI `SERVICE_TYPE_REQUIRED` |
+| GET | `/api/v1/drivers/registration/review` | — | `{ sections: { key: "personal" \| "license" \| "car" \| "selfie", status: "approved" \| "checking" \| "queued" \| "rejected" }[], eta_minutes?: int }` | 404 → the screen shows the four sections without a status and no time estimate |
+| GET | `/api/v1/drivers/registration/options` | — | `{ car_brands: { brand, models[] }[], colors: { key, hex }[], years: int[], seats: int[], car_classes: CarClass[], service_types: string[], license_categories: string[] }` | (already requested above; static lists until then: brands, 7 colours incl. red / beige, licence categories A, B, BE, C, D) |
+| GET | `/api/v1/legal` (no auth) | — | `{ terms_url: string, privacy_url: string }` | 404 → the names show as plain text, no links (Main and the selfie step). See `docs/handoff-driver.md` |
+
+Notes:
+- A rejected section (`status: "rejected"`) should come with the step to reopen; today the app only gets the overall
+  `rejected` driver state and restarts at step 1 with a notice.
+- "Bosh sahifaga" on the review screen stays disabled until the driver state is `active` (a driver under review is sent
+  back to registration by the app).
