@@ -33,7 +33,7 @@ import {
   type QueueItem,
   type HistoryEntry,
 } from "@/mockDb/db";
-import { formatDayShort } from "@/lib/format";
+import { formatDayShort, formatPhone } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   MarketingStats,
@@ -63,6 +63,7 @@ import type {
   OperatorCounts,
   ArchivableStatusFilter,
   AdapterCapabilities,
+  GlobalSearchHit,
 } from "../types";
 
 const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
@@ -126,15 +127,6 @@ function maskEmail(email: string): string {
   return user.length <= 2 ? `${user[0] ?? "*"}***@${domain}` : `${user.slice(0, 2)}***@${domain}`;
 }
 
-function maskPhone(full: string): string {
-  const digits = full.replace(/\D/g, "");
-  if (digits.length < 9) return full;
-  const last2 = digits.slice(-2);
-  const cc = digits.slice(0, digits.length - 9);
-  const op = digits.slice(-9, -7);
-  return `+${cc} ${op} *** ** ${last2}`;
-}
-
 function genCode(): string {
   return String(Math.floor(100_000 + Math.random() * 900_000));
 }
@@ -154,24 +146,7 @@ type LoginAttemptState = {
 const loginAttempts = new Map<string, LoginAttemptState>();
 
 function destinationFor(user: AdminUser, step: LoginStep): string {
-  return step === "email_code" ? maskEmail(user.email) : maskPhone(user.phone);
-}
-
-function hashDigit(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % 10;
-}
-
-// Demo-only: deterministically "unmasks" a phone number from its masked
-// form + entity id, so the same record always reveals the same digits
-// without ever having stored real PII.
-function revealMaskedPhone(masked: string, seedKey: string): string {
-  let i = 0;
-  return masked.replace(/\*/g, () => {
-    i++;
-    return String(hashDigit(`${seedKey}_${i}`));
-  });
+  return step === "email_code" ? maskEmail(user.email) : formatPhone(user.phone);
 }
 
 function resolveReview(req: ReviewRequest): ReviewRequest {
@@ -230,9 +205,7 @@ function decorateOrder(o: Order): OrderWithNames {
 }
 
 function toQueueListItem(q: QueueItem): QueueListItem {
-  const { phoneFull, ...rest } = q;
-  void phoneFull;
-  return rest;
+  return { ...q };
 }
 
 const MOCK_CAPABILITIES: AdapterCapabilities = {
@@ -275,6 +248,7 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
   complaintResolution: false,
   auditSearch: true,
   auditApiFilters: false,
+  globalSearch: true,
 };
 
 export const mockAdapter: ApiAdapter = {
@@ -569,6 +543,38 @@ export const mockAdapter: ApiAdapter = {
 
   getCities: () => withLatency(() => db.cities()),
 
+  globalSearch: (query) =>
+    withLatency<GlobalSearchHit[]>(() => {
+      const actor = currentAdmin();
+      const q = query.trim();
+      if (q.length < 2) return [];
+      const sections = ROLE_SECTIONS[actor.role];
+      const hits: GlobalSearchHit[] = [];
+      if (sections.includes("orders")) {
+        for (const o of db.orders().map(decorateOrder)) {
+          if (matchesSearch(`${o.id} ${o.passengerName} ${o.driverName ?? ""}`, q))
+            hits.push({ kind: "order", id: o.id, title: `#${o.id}`, subtitle: `${o.fromCityName} → ${o.toCityName} · ${o.passengerName}` });
+        }
+      }
+      if (sections.includes("drivers")) {
+        for (const d of db.drivers()) {
+          if (matchesSearch(`${d.id} ${d.name} ${d.plate} ${d.phone}`, q))
+            hits.push({ kind: "driver", id: d.id, title: d.name, subtitle: `${d.phone} · ${d.plate}` });
+        }
+      }
+      if (sections.includes("passengers")) {
+        for (const p of db.passengers()) {
+          if (matchesSearch(`${p.id} ${p.name} ${p.phone}`, q)) hits.push({ kind: "passenger", id: p.id, title: p.name, subtitle: p.phone });
+        }
+      }
+      if (sections.includes("staff")) {
+        for (const u of readStaff()) {
+          if (!u.archived && matchesSearch(`${u.name} ${u.email}`, q)) hits.push({ kind: "staff", id: u.id, title: u.name, subtitle: u.email || u.role });
+        }
+      }
+      return hits.slice(0, 12);
+    }),
+
   getSectionBadges: () =>
     withLatency<SectionBadges>(() => {
       const actor = currentAdmin();
@@ -779,7 +785,7 @@ export const mockAdapter: ApiAdapter = {
       const passenger: Passenger = {
         id,
         name: input.name,
-        phoneMasked: maskPhone(input.phone),
+        phone: formatPhone(input.phone),
         rating: 5.0,
         totalTrips: 0,
         avatarSeed: id,
@@ -1199,28 +1205,12 @@ export const mockAdapter: ApiAdapter = {
       return rows;
     }),
 
-  revealPhone: (entityType, entityId) =>
-    withLatency(() => {
-      const actor = currentAdmin();
-      const masked = entityType === "driver" ? db.getDriver(entityId)?.phoneMasked : db.passengers().find((p) => p.id === entityId)?.phoneMasked;
-      if (!masked) throw new ApiError("NOT_FOUND", "Topilmadi");
-      const phone = revealMaskedPhone(masked, entityId);
-      addAuditEntry({
-        actorId: actor.id,
-        actorName: actor.name,
-        action: "phone_reveal",
-        targetType: entityType,
-        targetId: entityId,
-        detail: `Telefon raqami ko'rsatildi: ${phone}`,
-      });
-      return { phone };
-    }),
 
   getQueue: (query: OperatorQueueQuery) =>
     withLatency(() => {
       let rows = readQueue().filter((q) => q.status === "waiting");
       if (query.reason && query.reason !== "all") rows = rows.filter((q) => q.reason === query.reason);
-      if (query.search) rows = rows.filter((q) => matchesSearch(q.phoneMasked, query.search));
+      if (query.search) rows = rows.filter((q) => matchesSearch(q.phone, query.search));
       return rows.map(toQueueListItem);
     }),
 
@@ -1262,7 +1252,7 @@ export const mockAdapter: ApiAdapter = {
         queueItemId: item.id,
         operatorId: actor.id,
         operatorName: actor.name,
-        phoneMasked: item.phoneMasked,
+        phone: item.phone,
         reason: item.reason,
         result: "rejected",
         note: reason,
@@ -1300,7 +1290,7 @@ export const mockAdapter: ApiAdapter = {
         queueItemId: item.id,
         operatorId: actor.id,
         operatorName: actor.name,
-        phoneMasked: item.phoneMasked,
+        phone: item.phone,
         reason: item.reason,
         result,
         note,
@@ -1321,7 +1311,7 @@ export const mockAdapter: ApiAdapter = {
       const actor = currentAdmin();
       requireAction(actor, "operatorSupervise");
       let rows = readQueue().filter((q) => q.status === "in_progress");
-      if (query.search) rows = rows.filter((q) => matchesSearch(`${q.assignedOperatorName ?? ""} ${q.phoneMasked}`, query.search));
+      if (query.search) rows = rows.filter((q) => matchesSearch(`${q.assignedOperatorName ?? ""} ${q.phone}`, query.search));
       return rows.map(toQueueListItem);
     }),
 
@@ -1338,7 +1328,7 @@ export const mockAdapter: ApiAdapter = {
       if (query.result && query.result !== "all") rows = rows.filter((h) => h.result === query.result);
       if (query.dateFrom) rows = rows.filter((h) => h.resolvedAt >= dayStartMs(query.dateFrom!));
       if (query.dateTo) rows = rows.filter((h) => h.resolvedAt <= dayEndMs(query.dateTo!));
-      if (query.search) rows = rows.filter((h) => matchesSearch(`${h.phoneMasked} ${h.note} ${h.operatorName}`, query.search));
+      if (query.search) rows = rows.filter((h) => matchesSearch(`${h.phone} ${h.note} ${h.operatorName}`, query.search));
       return rows;
     }),
 
