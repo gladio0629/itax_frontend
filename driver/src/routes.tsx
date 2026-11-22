@@ -13,6 +13,7 @@ const HistoryScreen = lazy(() => import("@/features/history/HistoryScreen"));
 const TripDetailScreen = lazy(() => import("@/features/history/TripDetailScreen"));
 const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen"));
 const TopupScreen = lazy(() => import("@/features/wallet/TopupScreen"));
+const WalletDebtScreen = lazy(() => import("@/features/wallet/WalletDebtScreen"));
 const CardsScreen = lazy(() => import("@/features/wallet/CardsScreen"));
 const CardLinkScreen = lazy(() => import("@/features/wallet/CardLinkScreen"));
 const ProfileScreen = lazy(() => import("@/features/profile/ProfileScreen"));
@@ -59,6 +60,7 @@ export function AppRoutes() {
         <Route path="/orders/*" element={<Navigate to="/history" replace />} />
         <Route path="/wallet" element={<WalletScreen />} />
         <Route path="/wallet/topup" element={<TopupScreen />} />
+        <Route path="/wallet/debt" element={<WalletDebtScreen />} />
         <Route path="/wallet/cards" element={<CardsScreen />} />
         <Route path="/wallet/cards/link" element={<CardLinkScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />

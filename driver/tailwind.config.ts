@@ -41,6 +41,8 @@ export default {
         "night-bar": "var(--color-night-bar)",
         "night-brand-soft": "var(--color-night-brand-soft)",
         star: "var(--color-star)",
+        payme: "var(--color-payme)",
+        click: "var(--color-click)",
         "star-soft": "var(--color-star-soft)",
         "control-off": "var(--color-control-off)",
         dash: "var(--color-dash)",

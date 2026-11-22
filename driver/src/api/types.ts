@@ -147,6 +147,12 @@ export type DebtState = {
   debtAmount: number;
   /** 0..1 — how much of the limit is used. */
   usedRatio: number;
+  /** How much more can be spent before the limit ("134 500 zaxira"), when the server says. */
+  headroom?: number;
+  /** Blocked: the smallest top-up that lets requests in again (server). */
+  minToUnblock?: number;
+  /** The top-up the server suggests. */
+  recommendedTopup?: number;
 };
 
 export type HomeSummary = {
@@ -390,11 +396,14 @@ export type WalletSummary = {
   debt: DebtState;
   // Optional: the real backend has no today stats, commission info or card list yet.
   today?: { earnings: number; trips: number; avgPerTrip: number };
-  commission?: { pct: number; bonusPct: number; bonusActive: boolean };
+  commission?: { pct: number; bonusPct: number; bonusActive: boolean; levelKey?: "bronze" | "silver" | "gold" };
   cards?: LinkedCard[];
+  /** This week's earnings and the change against last week, in percent (server). */
+  week?: { earnings: number; changePct?: number };
 };
 
-export type TopupOptions = { presets: number[]; min: number; max: number; providers: PayProvider[] };
+/** From the server; `presets` may be empty and `min` / `max` absent (the server still validates the amount). */
+export type TopupOptions = { presets: number[]; min?: number; max?: number; providers: PayProvider[]; savedCards?: LinkedCard[] };
 
 export type BonusLevel = {
   key: "bronze" | "silver" | "gold";

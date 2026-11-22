@@ -148,3 +148,21 @@ current time (e.g. a `Date` header the app can read, or `server_time` in these r
 
 **Not built (no data source):** turn-by-turn instructions on OnTrip ("800 m, M39 bo'ylab"). The top card opens the
 phone's navigator instead (geo: / Apple Maps link, no web request).
+
+### Wallet: Wallet, WalletDebt, TopUp
+
+- **Top-up options** (reviewer note: `http.ts` used to hard-code presets and min/max). The app now calls
+  `GET /api/v1/wallet/topup/options` → `{ presets: Money[], min?: Money, max?: Money, providers?: PayProvider[] }`
+  (tiyin). On 404 there are no presets and no limits on screen: the driver types the amount and `POST /wallet/topup`
+  validates it (422 → the server's error key). Providers fall back to the contract's `PayProvider` values.
+- **`WalletBalance`** (`GET /api/v1/wallet/balance`), optional additions:
+  - `headroom` (Money): what can still be spent before the limit ("134 500 zaxira"). The app does not subtract.
+  - `min_topup_to_unblock` and `recommended_topup` (Money): the WalletDebt screen's "Qaytish uchun kamida" and
+    "Tavsiya"; the suggested amount pre-fills TopUp.
+  - `week`: `{ earnings: Money, change_pct?: int }` for "Bu hafta … +12% o'tgan haftadan".
+  - `commission`: `{ pct, level: "bronze" | "silver" | "gold" }` for the commission tile.
+- **Pay with a saved card**: `TopupRequest` has no card. Proposed `{ amount, provider, card_id? }`; until then saved
+  cards are not offered on TopUp in http mode (`GET /api/v1/wallet/cards` above is still needed for the list).
+- The TopUp screen shows the current balance only, not "balance → balance + amount": a provider fee or rounding would
+  make a client-side sum wrong. If the server can quote it, add `POST /api/v1/wallet/topup/quote` →
+  `{ credited: Money, balance_after: Money }`.

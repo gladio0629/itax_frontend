@@ -201,7 +201,7 @@ export default function HomeScreen() {
     >
       <PullList onRefresh={() => Promise.all([feed.reload(true), accepted.reload(true)])} pullLabel={t("feed.pull")} releaseLabel={t("feed.release")} className="h-full">
         <div className="flex flex-col gap-4 px-5 pb-tabbar pt-6">
-          {s && s.debt.level !== "ok" && <DebtBanner level={s.debt.level} onTopup={() => navigate("/wallet")} />}
+          {s && s.debt.level !== "ok" && <DebtBanner level={s.debt.level} onTopup={() => navigate("/wallet/debt")} />}
           <NotifyPrompt />
 
           <AcceptedTrips page={accepted.data} />

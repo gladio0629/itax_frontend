@@ -24,6 +24,7 @@ import type {
   RoutesPage,
   Session,
   SessionStage,
+  TopupOptions,
 } from "../types";
 import { session } from "../httpSession";
 import {
@@ -47,6 +48,7 @@ import {
   toApiPlate,
   toCapabilities,
   toDebtState,
+  toSom,
   toDriverProfile,
   toLedgerEntry,
   toNotification,
@@ -340,6 +342,7 @@ const OPT = {
   license: "/api/v1/drivers/registration/license",
   serviceTypes: "/api/v1/drivers/me/service-types",
   review: "/api/v1/drivers/registration/review",
+  topupOptions: "/api/v1/wallet/topup/options",
 } as const;
 type ApiRegistrationReview = {
   sections: { key: RegistrationSectionKey; status: RegistrationSectionStatus }[];
@@ -754,9 +757,24 @@ export const httpAdapter: ApiAdapter = {
 
   // Limits from the TopupRequest schema (100 000 – 1 000 000 000 tiyin);
   // providers from its enum. The presets are just quick-pick buttons.
-  getTopupOptions: async () => ({ presets: [20_000, 50_000, 100_000, 200_000], min: 1_000, max: 10_000_000, providers: ["payme", "click"] }),
+  // GET /api/v1/wallet/topup/options is not in the contract yet (backend-gaps/driver.md, "Redesign v2"):
+  // until then no presets and no limits here — the amount is typed and the server validates it.
+  getTopupOptions: () =>
+    optionalEndpoint<TopupOptions>(
+      () =>
+        http.get<{ presets: number[]; min?: number; max?: number; providers?: Api.PayProvider[] }>(OPT.topupOptions).then((r) => ({
+          presets: (r.presets ?? []).map(toSom),
+          min: r.min != null ? toSom(r.min) : undefined,
+          max: r.max != null ? toSom(r.max) : undefined,
+          providers: r.providers?.length ? r.providers : ["payme", "click"],
+        })),
+      // The contract's PayProvider values.
+      { presets: [], providers: ["payme", "click"] }
+    ),
 
-  async requestTopup(amount, provider) {
+  async requestTopup(amount, provider, cardId) {
+    // The contract's TopupRequest has no saved card yet.
+    if (cardId) return notSupported();
     const body: Api.TopupRequest = { amount: toTiyin(amount), provider };
     const res = await session.idempotency
       .run("walletTopup", body, (key) => http.post<Api.TopupSession>(API_PATHS.walletTopup, body, { idempotencyKey: key }))

@@ -142,7 +142,8 @@ export interface ApiAdapter {
   getWallet(): Promise<WalletSummary>;
   getLedger(query: LedgerQuery): Promise<LedgerPage>;
   getTopupOptions(): Promise<TopupOptions>;
-  requestTopup(amount: number, provider: PayProvider): Promise<ReviewRequest>;
+  /** `cardId`: pay with a saved card instead of the provider's page. */
+  requestTopup(amount: number, provider: PayProvider, cardId?: string): Promise<ReviewRequest>;
   linkCard(provider: PayProvider): Promise<ReviewRequest>;
 
   // Profile

@@ -84,7 +84,26 @@ function debtState(s: DriverState): DebtState {
   const debtAmount = Math.max(0, -s.balance);
   const usedRatio = Math.min(1, debtAmount / -DEBT_LIMIT);
   const level = s.balance <= DEBT_LIMIT ? "blocked" : usedRatio >= DEBT_NEAR_RATIO ? "near" : "ok";
-  return { level, balance: s.balance, limit: DEBT_LIMIT, debtAmount, usedRatio };
+  return {
+    level,
+    balance: s.balance,
+    limit: DEBT_LIMIT,
+    debtAmount,
+    usedRatio,
+    // Sample server figures: room left, and what to pay when blocked.
+    headroom: Math.max(0, s.balance - DEBT_LIMIT),
+    minToUnblock: level === "blocked" ? DEBT_LIMIT - s.balance + 1_000 : undefined,
+    recommendedTopup: level === "ok" ? undefined : 100_000,
+  };
+}
+
+/** Sample: net earnings of the last 7 days and the change against the 7 days before. */
+function weekEarnings(s: DriverState) {
+  const now = Date.now();
+  const sum = (from: number, to: number) => s.trips.filter((t) => t.status === "completed" && endedAt(t) >= from && endedAt(t) < to).reduce((a, t) => a + t.net, 0);
+  const cur = sum(now - 7 * DAY, now + 1);
+  const prev = sum(now - 14 * DAY, now - 7 * DAY);
+  return { earnings: cur, changePct: prev > 0 ? Math.round(((cur - prev) / prev) * 100) : undefined };
 }
 
 function startOfToday() {
@@ -1418,8 +1437,9 @@ export const mockAdapter: ApiAdapter = {
         balance: s.balance,
         debt: debtState(s),
         today: { earnings, trips: today.length, avgPerTrip: today.length ? Math.round(earnings / today.length) : 0 },
-        commission: { pct: BASE_COMMISSION_PCT, bonusPct: pct, bonusActive: pct < BASE_COMMISSION_PCT },
+        commission: { pct: BASE_COMMISSION_PCT, bonusPct: pct, bonusActive: pct < BASE_COMMISSION_PCT, levelKey: levelFor(weekTrips(s)).key },
         cards: [...s.cards],
+        week: weekEarnings(s),
       };
     }),
 
@@ -1433,13 +1453,15 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   getTopupOptions: () =>
-    withLatency<TopupOptions>(() => ({ presets: [10_000, 25_000, 50_000, 100_000], min: 5_000, max: 5_000_000, providers: ["payme", "click"] })),
+    withLatency<TopupOptions>(() => ({ presets: [50_000, 100_000, 200_000, 500_000], min: 5_000, max: 5_000_000, providers: ["payme", "click"], savedCards: [...state().cards] })),
 
-  requestTopup: (amount, provider) =>
+  requestTopup: (amount, provider, cardId) =>
     withLatency(() => {
       if (!Number.isFinite(amount) || amount < 5_000) throw new ApiError("AMOUNT_TOO_SMALL");
       if (amount > 5_000_000) throw new ApiError("AMOUNT_TOO_LARGE");
-      return submitForReview("wallet_topup", { amount, provider });
+      const card = cardId ? state().cards.find((c) => c.id === cardId) : undefined;
+      if (cardId && !card) throw new ApiError("CARD_NOT_FOUND");
+      return submitForReview("wallet_topup", { amount, provider: card?.provider ?? provider });
     }, { minMs: 300, maxMs: 600 }),
 
   linkCard: (provider) => withLatency(() => submitForReview("card_link", { provider }), { minMs: 300, maxMs: 600 }),
