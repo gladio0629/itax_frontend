@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Address, CarClass, CarClassId, Quote, Seat } from "@/api/types";
 import type { OrderDraft } from "@/stores/orderStore";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatSom, SOM_LABEL } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
@@ -68,7 +68,7 @@ function PointRow({
 }
 
 function ClassTile({ c, selected, onPick }: { c: CarClass; selected: boolean; onPick: () => void }) {
-  const { t } = useT();
+  const { t, intlTag } = useT();
   const art = CLASS_ART[c.id];
   const name = t(`class.${c.id}` as TranslationKey);
   const reason = c.reasonKey ? t(c.reasonKey as TranslationKey) : t("class.reason.unavailable");
@@ -77,7 +77,7 @@ function ClassTile({ c, selected, onPick }: { c: CarClass; selected: boolean; on
       type="button"
       aria-pressed={selected}
       disabled={!c.available}
-      aria-label={c.available ? t("trip.classLabel", { name, price: `${formatNumber(c.price)} so'm` }) : t("trip.classUnavailable", { name, reason })}
+      aria-label={c.available ? t("trip.classLabel", { name, price: formatSom(c.price, intlTag) }) : t("trip.classUnavailable", { name, reason })}
       onClick={onPick}
       className={cn("relative h-[112px] w-[106px] shrink-0 snap-start overflow-hidden rounded-[18px] text-left disabled:opacity-50", selected && "bg-iz-field")}
     >
@@ -107,8 +107,8 @@ function ClassTile({ c, selected, onPick }: { c: CarClass; selected: boolean; on
       <span className="absolute left-2.5 top-[84px] whitespace-nowrap text-iz-ink">
         {c.available ? (
           <>
-            <span className="text-[15px] font-extrabold tabular-nums">{formatNumber(c.price)}</span>
-            <span className="text-[11px] font-bold"> so'm</span>
+            <span className="text-[15px] font-extrabold tabular-nums">{formatNumber(c.price, intlTag)}</span>
+            <span className="text-[11px] font-bold"> {SOM_LABEL}</span>
           </>
         ) : (
           <span className="text-[11px] font-bold text-iz-muted">{reason}</span>
@@ -133,6 +133,9 @@ export function TripScreen({
   seats,
   classes,
   quote,
+  quoteReady,
+  onRetryQuote,
+  onRetryClasses,
   onPick,
   onRemoveStop,
   onAddStop,
@@ -153,6 +156,10 @@ export function TripScreen({
   seats: Load<Seat[]>;
   classes: Load<CarClass[]>;
   quote: Load<Quote>;
+  /** The quote matches what is on screen (false while re-pricing). */
+  quoteReady: boolean;
+  onRetryQuote: () => void;
+  onRetryClasses: () => void;
   onPick: (p: RoutePoint) => void;
   onRemoveStop: (uid: string) => void;
   onAddStop: () => void;
@@ -164,9 +171,9 @@ export function TripScreen({
   onContinue: () => void;
   onBack: () => void;
 }) {
-  const { t } = useT();
+  const { t, intlTag } = useT();
   const needSeats = draft.mode === "seat" && draft.seatIds.length === 0;
-  const canContinue = !!from && !!to && !needSeats && quote.status === "success";
+  const canContinue = !!from && !!to && !needSeats && quote.status === "success" && quoteReady;
 
   const detailsButton = (p: RoutePoint, place: string | undefined) =>
     onDetails && place ? (
@@ -192,14 +199,19 @@ export function TripScreen({
         <div className="flex shrink-0 flex-col gap-0.5" aria-live="polite">
           <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-iz-muted">{t("trip.price")}</span>
           <span className="whitespace-nowrap text-[20px] font-extrabold tabular-nums text-iz-ink">
-            {quote.status === "success" ? `${formatNumber(quote.data.total)} so'm` : quote.status === "error" ? "—" : "…"}
+            {quote.status === "success" ? formatSom(quote.data.total, intlTag) : quote.status === "error" ? "—" : "…"}
           </span>
         </div>
         <PrimaryButton className="flex-1" disabled={!canContinue} onClick={onContinue}>
           {t("trip.continue")}
         </PrimaryButton>
       </div>
-      {quote.status === "error" && <span role="alert" className="text-[13px] font-semibold text-iz-danger">{t("trip.priceFailed")}</span>}
+      {quote.status === "error" && (
+        <button type="button" onClick={onRetryQuote} role="alert" className="flex h-11 items-center justify-center gap-2 text-[13px] font-bold text-iz-danger">
+          <Icon name="refresh" size={16} />
+          {t("trip.priceFailed")} · {t("common.retry")}
+        </button>
+      )}
     </div>
   );
 
@@ -278,9 +290,16 @@ export function TripScreen({
       <section className="flex shrink-0 flex-col gap-2" aria-label={t("trip.classTitle")}>
         <SectionLabel as="h2">{t("trip.classTitle")}</SectionLabel>
         <div className="no-scrollbar -mx-5 flex snap-x snap-mandatory scroll-px-5 gap-1 overflow-x-auto px-5">
-          {classes.status === "success"
-            ? classes.data.map((c) => <ClassTile key={c.id} c={c} selected={draft.carClass === c.id} onPick={() => onClass(c.id)} />)
-            : Array.from({ length: 4 }, (_, i) => <span key={i} className="h-[112px] w-[106px] shrink-0 animate-pulse rounded-[18px] bg-iz-skeleton" />)}
+          {classes.status === "success" ? (
+            classes.data.map((c) => <ClassTile key={c.id} c={c} selected={draft.carClass === c.id} onPick={() => onClass(c.id)} />)
+          ) : classes.status === "error" ? (
+            <button type="button" onClick={onRetryClasses} className="flex h-11 items-center gap-2 text-[14px] font-bold text-iz-danger">
+              <Icon name="refresh" size={18} />
+              {t("state.error.title")} · {t("common.retry")}
+            </button>
+          ) : (
+            Array.from({ length: 4 }, (_, i) => <span key={i} className="h-[112px] w-[106px] shrink-0 animate-pulse rounded-[18px] bg-iz-skeleton" />)
+          )}
         </div>
       </section>
 

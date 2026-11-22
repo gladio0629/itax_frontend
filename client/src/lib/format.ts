@@ -20,6 +20,8 @@ export function formatNumber(value: number, intlTag = "uz-Latn"): string {
 
 // Currency label always comes from the adapter as the literal word "so'm"
 // (not translated) — Quote.currency is "som" everywhere, uz/ru/en alike.
+/** The currency word next to a number styled apart from it. */
+export const SOM_LABEL = "so'm";
 export function formatSom(value: number, intlTag = "uz-Latn"): string {
   const sign = value < 0 ? "-" : "";
   const abs = Math.abs(Math.round(value));

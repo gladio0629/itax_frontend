@@ -754,7 +754,7 @@ export const ru: Dictionary = {
   "extras.phone": "Телефон",
   "time.title": "Время посадки",
   "time.now": "Сейчас",
-  "time.exact": "Точное время",
+  "time.exact": "Точно",
   "time.range": "Интервал",
   "time.mode": "Тип времени",
   "time.nowBig": "Сейчас",

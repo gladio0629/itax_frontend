@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { Address, AddressDetails, CarClass, OrderDetailsRules, SchedulingRules, Seat } from "@/api/types";
 import { newStopUid, type OrderDraft } from "@/stores/orderStore";
@@ -7,7 +7,7 @@ import { useQuery } from "@/lib/useQuery";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { formatSom } from "@/lib/format";
-import { BottomSheet, PrimaryButton, TextButton } from "@/ui";
+import { BottomSheet, PrimaryButton, Screen, StateError, StateLoading, TextButton } from "@/ui";
 import { AddressFlow } from "@/features/address/AddressFlow";
 import { AddressDetailsScreen } from "@/features/address/AddressDetailsScreen";
 import type { QuoteRenewal } from "@/features/order/OrderSheet";
@@ -60,6 +60,8 @@ export function PassengerFlow({
 }) {
   const { t, intlTag } = useT();
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const step = params.get("step") === "payment" ? "payment" : "trip";
   const [overlay, setOverlay] = useState<Overlay>(null);
   const draftRef = useRef(draft);
@@ -202,10 +204,16 @@ export function PassengerFlow({
   const maxStops = !caps.stops ? 0 : rulesData ? rulesData.maxStops : null;
   const stopAddresses = draft.stops.map((st) => api.addressById(st.addressId));
   const goStep = (s: "trip" | "payment") => {
+    // Back from Payment pops the entry "Davom etish" pushed, so a second
+    // back leaves the flow instead of showing Trip twice.
+    if (s === "trip" && (location.state as { fromTrip?: boolean } | null)?.fromTrip) {
+      navigate(-1);
+      return;
+    }
     const next = new URLSearchParams(params);
     if (s === "payment") next.set("step", "payment");
     else next.delete("step");
-    setParams(next, { replace: s === "trip" });
+    setParams(next, s === "payment" ? { state: { fromTrip: true } } : { replace: true });
   };
 
   // ── Overlays ───────────────────────────────────────────────────────────
@@ -266,6 +274,15 @@ export function PassengerFlow({
         />
       );
     }
+    if (overlay.kind === "time" && scheduling.status !== "success") {
+      return (
+        <div className="absolute inset-0 z-50" role="dialog" aria-modal="true" aria-label={t("time.title")}>
+          <Screen title={t("time.title")} onBack={() => setOverlay(null)}>
+            {scheduling.status === "error" ? <StateError onRetry={scheduling.refetch} /> : <StateLoading rows={2} />}
+          </Screen>
+        </div>
+      );
+    }
     if (overlay.kind === "time" && scheduling.status === "success") {
       return (
         <TimeScreen
@@ -294,6 +311,9 @@ export function PassengerFlow({
           seats={seatsView}
           classes={classesView}
           quote={quoteView}
+          quoteReady={quote.status === "success"}
+          onRetryQuote={quote.refetch}
+          onRetryClasses={classes.refetch}
           onBack={onClose}
           onPick={(p) => setOverlay({ kind: "pick", target: p })}
           onAddStop={() => setOverlay({ kind: "pick", target: "newStop" })}
@@ -311,6 +331,8 @@ export function PassengerFlow({
       ) : (
         <PaymentScreen
           quote={quoteView}
+          quoteReady={quote.status === "success"}
+          onRetryQuote={quote.refetch}
           timing={draft.timing}
           method={draft.paymentMethod}
           promoCode={draft.promoCode}

@@ -99,8 +99,11 @@ export function TimeScreen({
   const [from, setFrom] = useState(firstFrom);
   const [to, setTo] = useState(start.timeRange?.to ?? toHHMM(Math.min(toMinutes(firstFrom) + 4 * 60, 24 * 60 - rules.stepMinutes)));
   const [bad, setBad] = useState<"exact" | "from" | "to" | null>(null);
+  /** Why the times were moved to fit the server's rules (shown once). */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const commit = (which: "exact" | "from" | "to") => {
+    setNotice(null);
     const raw = which === "exact" ? exact : which === "from" ? from : to;
     const min = parseTime(raw, rules.stepMinutes);
     if (min == null) {
@@ -127,12 +130,45 @@ export function TimeScreen({
       onDone({ timeMode: "now" });
       return;
     }
-    if (bad) return;
-    const timing: ScheduledTiming =
+    // Read the fields here too: a tap on Saqlash doesn't always blur the
+    // input first (iOS), so the typed text may not be normalised yet.
+    const parse = (raw: string) => {
+      const m = parseTime(raw, rules.stepMinutes);
+      return m == null ? null : toHHMM(Math.min(m, 24 * 60 - rules.stepMinutes));
+    };
+    const ex = parse(exact);
+    const fr = parse(from);
+    const tt = parse(to);
+    if (mode === "exact" && !ex) return setBad("exact");
+    if (mode === "range" && !fr) return setBad("from");
+    if (mode === "range" && !tt) return setBad("to");
+    setBad(null);
+    const wanted: ScheduledTiming =
       mode === "exact"
-        ? { timeMode: "scheduled", date, dateEnd: multi ? dateEnd : undefined, timeKind: "exact", time: exact }
-        : { timeMode: "scheduled", date, dateEnd: multi ? dateEnd : undefined, timeKind: "range", timeRange: { from, to } };
-    onDone(normalizeTiming(timing, rules, now).timing);
+        ? { timeMode: "scheduled", date, dateEnd: multi ? dateEnd : undefined, timeKind: "exact", time: ex! }
+        : { timeMode: "scheduled", date, dateEnd: multi ? dateEnd : undefined, timeKind: "range", timeRange: { from: fr!, to: tt! } };
+    const { timing, jumpedToTomorrow } = normalizeTiming(wanted, rules, now);
+    const moved = JSON.stringify(timing) !== JSON.stringify(wanted);
+    if (!moved) {
+      onDone(timing);
+      return;
+    }
+    // The rules moved something: show the result and why; the next Saqlash keeps it.
+    setDate(resolveDay(timing.date, now));
+    setDateEnd(timing.dateEnd);
+    if (timing.time) setExact(timing.time);
+    if (timing.timeRange) {
+      setFrom(timing.timeRange.from);
+      setTo(timing.timeRange.to);
+    }
+    const shown = timing.time ?? timing.timeRange?.from ?? "";
+    setNotice(
+      jumpedToTomorrow
+        ? t("when.jumped", { time: shown })
+        : wanted.dateEnd && timing.dateEnd !== wanted.dateEnd
+        ? t("when.rangeTooLong", { max: rules.maxRangeDays + 1 })
+        : t("when.gapFixed", { min: rules.minRangeMinutes, time: timing.timeRange?.to ?? shown })
+    );
   }
 
   const startDay = new Date(`${date}T00:00:00`);
@@ -173,7 +209,7 @@ export function TimeScreen({
         }
         bodyClassName="gap-4"
         footer={
-          <PrimaryButton onClick={save} disabled={!!bad}>
+          <PrimaryButton onClick={save}>
             {t("common.save")}
           </PrimaryButton>
         }
@@ -274,6 +310,10 @@ export function TimeScreen({
               {bad ? (
                 <p role="alert" className="text-[13px] font-semibold text-iz-danger">
                   {t("time.badTime")}
+                </p>
+              ) : notice ? (
+                <p role="status" className="text-[13px] font-semibold text-iz-warn">
+                  {notice}
                 </p>
               ) : (
                 <p className="text-[13px] leading-5 text-iz-muted kb:hidden">{mode === "exact" ? t("time.exactHint") : t("time.rangeHint")}</p>

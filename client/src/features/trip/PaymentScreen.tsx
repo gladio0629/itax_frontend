@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { OrderTiming, PayMethod, Quote, SavedCard } from "@/api/types";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, SOM_LABEL } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { serverErrorKey } from "@/lib/apiError";
@@ -71,6 +71,8 @@ function MethodTile({
  */
 export function PaymentScreen({
   quote,
+  quoteReady,
+  onRetryQuote,
   timing,
   method,
   promoCode,
@@ -83,6 +85,9 @@ export function PaymentScreen({
   onBack,
 }: {
   quote: Load<Quote>;
+  /** The quote matches the order on screen (false while re-pricing). */
+  quoteReady: boolean;
+  onRetryQuote: () => void;
   timing: OrderTiming;
   method: PayMethod;
   promoCode: string;
@@ -150,14 +155,14 @@ export function PaymentScreen({
     if (id === "card" && api.capabilities.savedCards) navigate("/cards");
   }
 
-  const total = quote.status === "success" ? formatNumber(quote.data.total) : quote.status === "error" ? "—" : "…";
+  const total = quote.status === "success" ? formatNumber(quote.data.total, intlTag) : quote.status === "error" ? "—" : "…";
   const lines: ReactNode =
     quote.status === "success" && quote.data.lines.length > 0 ? (
       <dl aria-label={t("pay.linesLabel")} className="flex flex-col gap-2.5">
         {quote.data.lines.map((l, i) => (
           <div key={i} className="flex justify-between gap-3 text-[13px]">
             <dt className="min-w-0 text-iz-head-muted">{t(l.key as TranslationKey, l.params)}</dt>
-            <dd className="shrink-0 font-bold tabular-nums text-white">{formatNumber(l.amount)}</dd>
+            <dd className="shrink-0 font-bold tabular-nums text-white">{formatNumber(l.amount, intlTag)}</dd>
           </div>
         ))}
       </dl>
@@ -173,7 +178,7 @@ export function PaymentScreen({
           <div className="flex items-baseline justify-between" aria-live="polite">
             <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-iz-head-muted">{t("pay.total")}</span>
             <span className="text-[30px] font-extrabold leading-9 tabular-nums text-white kb:text-[28px] kb:leading-[34px]">
-              {total} <span className="text-[16px] text-iz-green">so'm</span>
+              {total} <span className="text-[16px] text-iz-green">{SOM_LABEL}</span>
             </span>
           </div>
           {lines && (
@@ -192,7 +197,13 @@ export function PaymentScreen({
               {t(submitError as TranslationKey)}
             </p>
           )}
-          <PrimaryButton loading={submitting} disabled={quote.status !== "success"} onClick={onSubmit}>
+          {quote.status === "error" && (
+            <button type="button" onClick={onRetryQuote} className="flex h-11 items-center justify-center gap-2 text-[13px] font-bold text-iz-danger">
+              <Icon name="refresh" size={16} />
+              {t("trip.priceFailed")} · {t("common.retry")}
+            </button>
+          )}
+          <PrimaryButton loading={submitting} disabled={quote.status !== "success" || !quoteReady} onClick={onSubmit}>
             {t("order.submit")}
           </PrimaryButton>
         </>
@@ -244,6 +255,8 @@ export function PaymentScreen({
                 onChange={(e) => {
                   setCode(e.target.value.toUpperCase());
                   setPromoMsg(null);
+                  // A changed code is not the applied one: the price goes back.
+                  if (promoCode) onPromo("");
                 }}
                 onKeyDown={(e) => e.key === "Enter" && void applyPromo()}
                 className="iz-input h-[22px] w-full min-w-0 border-0 bg-transparent p-0 text-[16px] font-extrabold tracking-[1px] text-iz-ink outline-none placeholder:font-bold placeholder:tracking-normal placeholder:text-iz-muted placeholder:opacity-70"

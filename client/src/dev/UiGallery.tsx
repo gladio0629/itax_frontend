@@ -32,6 +32,8 @@ import {
   useKeyboard,
   type IconName,
 } from "@/ui";
+import { SeatPicker } from "@/features/trip/SeatPicker";
+import type { Seat } from "@/api/types";
 
 const ICONS: IconName[] = [
   "back", "check", "arrowRight", "star", "chevronRight", "pin", "phone", "user", "close", "car", "search", "globe",
@@ -39,6 +41,13 @@ const ICONS: IconName[] = [
   "refresh", "calendar", "edit", "arrowDown", "arrowUp", "menu", "home", "briefcase", "clock", "building", "sliders",
   "cash", "tag", "megaphone", "luggage", "keypad", "doc", "shield", "chat", "alert", "moon", "info", "logout",
   "homeFilled", "seats", "chevronDown", "card", "box", "map", "starSharp",
+];
+
+const SAMPLE_SEATS: Seat[] = [
+  { id: "front", position: "front", taken: false, price: 0 },
+  { id: "back-left", position: "back-left", taken: true, price: 0 },
+  { id: "back-mid", position: "back-mid", taken: false, price: 0 },
+  { id: "back-right", position: "back-right", taken: false, price: 0 },
 ];
 
 type View = "kit" | "empty" | "error" | "loading" | "offline";
@@ -56,6 +65,7 @@ export default function UiGallery() {
   const [sheet, setSheet] = useState(false);
   const [name, setName] = useState("Aziz");
   const [note, setNote] = useState("");
+  const [seatIds, setSeatIds] = useState<string[]>(["back-right"]);
 
   const toggle = (id: string) => setChips((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
 
@@ -139,6 +149,9 @@ export default function UiGallery() {
               <Badge tone="warn">warn</Badge>
               <Badge tone="danger">danger</Badge>
             </div>
+
+            <SectionLabel>Seat picker (back-left taken)</SectionLabel>
+            <SeatPicker seats={SAMPLE_SEATS} mode="seat" seatIds={seatIds} onChange={(_m, ids) => setSeatIds(ids)} />
 
             <SectionLabel>Rows</SectionLabel>
             <div className="flex flex-col">
