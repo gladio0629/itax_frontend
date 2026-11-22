@@ -50,9 +50,10 @@ function shade(hex: string, n: V3): string {
 }
 
 const C = {
-  body: "#F6BF0E",
-  navy: "#264A9F",
-  glassHi: "#7E9BDA",
+  // Design v2 palette (Ink + green); the old blue and yellow are gone.
+  body: "#2EDB85",
+  navy: "#0B1524",
+  glassHi: "#9FB0C3",
   chassis: "#2C3550",
   inner: "#F1E6CF",
   floor: "#D9C49C",

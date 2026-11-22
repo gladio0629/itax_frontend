@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { OrderMode, PaymentMethod } from "@/seed/generate";
-import type { AddressDetails, CargoContact, CargoInput, CarClassId, OptionVariants, OrderOptionId, OrderTiming, Rider, ServiceType } from "@/api/types";
+import type { OrderMode } from "@/seed/generate";
+import type { PayMethod, AddressDetails, CargoContact, CargoInput, CarClassId, OptionVariants, OrderOptionId, OrderTiming, Rider, ServiceType } from "@/api/types";
 
 // The pickup a new draft starts from. The ordering flow sets it when it
 // loads (from its address book), so this store doesn't pull address data
@@ -36,7 +36,7 @@ export type OrderDraft = {
   mode: OrderMode;
   seatIds: string[];
   cargo: CargoInput;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PayMethod;
   timing: OrderTiming;
   promoCode: string;
 };

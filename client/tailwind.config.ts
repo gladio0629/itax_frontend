@@ -63,6 +63,10 @@ export default {
           connector: "var(--iz-connector)",
           dash: "var(--iz-dash)",
           "map-pin": "var(--iz-map-pin)",
+          "badge-gold": "var(--iz-badge-gold)",
+          "badge-gold-fg": "var(--iz-badge-gold-fg)",
+          "badge-blue": "var(--iz-badge-blue)",
+          "badge-blue-fg": "var(--iz-badge-blue-fg)",
         },
       },
       // Family, sizes and shadows resolve through design tokens so the iOS

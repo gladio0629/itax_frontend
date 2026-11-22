@@ -15,6 +15,7 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 import { OrderSheet } from "@/features/order/OrderSheet";
 import { Toast } from "@/components/Toast";
 import { AddressFlow } from "@/features/address/AddressFlow";
+import { PassengerFlow } from "@/features/trip/PassengerFlow";
 import { detailsSummary } from "@/features/order/addressDetails";
 import { isApiError } from "@shared/http/errors";
 import { ruleErrorKey, serverErrorKey } from "@/lib/apiError";
@@ -181,8 +182,7 @@ export default function OrderingHome() {
         stops: draft.stops.map((st) => ({ addressId: st.addressId, details: st.details })),
         // The comment field is shown for Yo'lovchi only (Dostavka has its own Izoh).
         comment: draft.serviceType === "passenger" ? draft.comment : undefined,
-        optionIds: draft.optionIds,
-        optionVariants: draft.optionVariants,
+        // Wishes were removed (2026-11-22): no options are sent.
         // Class, bags and "Kim ketadi?" are Yo'lovchi-only fields.
         carClass: draft.serviceType === "passenger" ? draft.carClass : undefined,
         luggage: draft.serviceType === "passenger" ? draft.luggage : undefined,
@@ -209,6 +209,20 @@ export default function OrderingHome() {
   if (view === "route") {
     return (
       <div className="relative h-full bg-bg">
+        {draft.serviceType === "passenger" ? (
+          <PassengerFlow
+            draft={draft}
+            setField={setField}
+            addresses={{ from: fromAddress, to: toAddress }}
+            onAddressChange={(which, addr) => setField(which === "from" ? "fromAddressId" : "toAddressId", addr.id)}
+            onSubmit={submit}
+            submitting={submitting}
+            submitError={submitError}
+            quoteRenewal={renewal}
+            onQuoteRenewalCancel={() => setRenewal(null)}
+            onClose={back}
+          />
+        ) : (
         <OrderSheet
           draft={draft}
           setField={setField}
@@ -221,6 +235,7 @@ export default function OrderingHome() {
           onQuoteRenewalCancel={() => setRenewal(null)}
           onClose={back}
         />
+        )}
       </div>
     );
   }

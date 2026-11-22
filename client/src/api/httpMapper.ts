@@ -17,6 +17,7 @@ import type {
   OrderWithDetails,
   PassengerWalletEntry,
   PaymentMethod,
+  PayMethod,
   Profile,
   Quote,
   QuoteLine,
@@ -195,7 +196,7 @@ export function toUiTiming(o: Pick<Api.Order, "scheduled_at" | "scheduled_from" 
 
 /** The UI knows cash and card; wallet / Payme / Click are card-like. */
 export const toUiPayment = (p: Api.PaymentMethod): PaymentMethod => (p === "cash" ? "cash" : "card");
-export const toApiPayment = (p: PaymentMethod): Api.PaymentMethod => p;
+export const toApiPayment = (p: PayMethod): Api.PaymentMethod => p;
 
 /** A GeoPoint shown where the UI expects a city: its address text. */
 export function placeAsCity(point: Api.GeoPoint): City {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Banknote, CreditCard, Plus } from "@/lib/icons";
 import { Link } from "react-router-dom";
 import { api } from "@/api/client";
-import type { PaymentMethod, SavedCard } from "@/api/types";
+import type { PayMethod, PaymentMethod, SavedCard } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { RadioRow } from "@/components/ui/RadioRow";
 import type { LucideIcon } from "@/lib/icons";
@@ -19,7 +19,7 @@ export function PaymentMethodSection({
   value,
   onChange,
 }: {
-  value: PaymentMethod;
+  value: PayMethod;
   onChange: (method: PaymentMethod) => void;
 }) {
   const { t } = useT();

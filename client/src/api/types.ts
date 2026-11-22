@@ -30,6 +30,10 @@ export type Address = {
 };
 
 export type ServiceType = "passenger" | "delivery";
+/** How the passenger pays for a new order (design v2 Payment). The shared
+ * seed's PaymentMethod (cash | card) stays as the stored order's field;
+ * Payme and Click are paid in their apps. */
+export type PayMethod = PaymentMethod | "payme" | "click";
 /** Delivery is priced by the vehicle the client picks — no weight or volume. */
 export type DeliveryVehicle = "spark" | "damas" | "labo" | "isuzu" | "isuzu2" | "fura";
 export const DELIVERY_VEHICLES: DeliveryVehicle[] = ["spark", "damas", "labo", "isuzu", "isuzu2", "fura"];
@@ -278,7 +282,7 @@ export type CreateOrderInput = {
   mode: OrderMode;
   seatIds: string[];
   cargo?: CargoInput;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PayMethod;
   timing: OrderTiming;
   promoCode?: string;
   fromDetails?: AddressDetails;
@@ -301,6 +305,8 @@ export type CreateOrderInput = {
  * can't change — see seed/generate.ts) but that Tafsilotlar needs to show
  * and edit: the addresses actually picked and the requested timing. */
 export type OrderExtras = {
+  /** Payme / Click when chosen (the order's own field keeps cash | card). */
+  payMethod?: PayMethod;
   fromAddressId: string;
   toAddressId: string;
   timing: OrderTiming;
@@ -326,7 +332,7 @@ export type UpdateOrderInput = Partial<{
   mode: OrderMode;
   seatIds: string[];
   cargo: CargoInput;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PayMethod;
   timing: OrderTiming;
   fromDetails: AddressDetails;
   toDetails: AddressDetails;

@@ -75,6 +75,12 @@
   .scroll-pb-bar {
     padding-bottom: calc(16px + var(--fab-clearance-bar, 0px));
   }
+  /* Keyboard open (design v2 Kb* screens): a block marked kb-collapse
+     steps aside unless the focused field is inside it, so the field being
+     typed in and the main button stay visible above the keyboard. */
+  html[data-kb="open"] .kb-collapse:not(:focus-within) {
+    display: none;
+  }
   /* Textareas that grow with their text (where supported). */
   .field-sizing-content {
     field-sizing: content;

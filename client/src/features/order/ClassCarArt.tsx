@@ -1,11 +1,11 @@
 import type { CarClassId } from "@/api/types";
 
 // IZGO's own flat side-view cars for the class carousel — one silhouette per
-// class, brand colors, no third-party imagery.
+// class, design v2 colours (Ink + green), no third-party imagery.
 const PAINT: Record<CarClassId, { body: string; roof: string }> = {
-  standart: { body: "#F6BF0E", roof: "#E3AE05" },
+  standart: { body: "#2EDB85", roof: "#1FB86A" },
   komfort: { body: "#E9ECF2", roof: "#D5DAE4" },
-  biznes: { body: "#264A9F", roof: "#1D3A80" },
+  biznes: { body: "#0B1524", roof: "#142235" },
   miniven: { body: "#C9D1DE", roof: "#B4BECF" },
 };
 

@@ -50,6 +50,10 @@
   --iz-connector: #9aa7b6; /* dotted line between route points */
   --iz-dash: #b7c1ce; /* dashed "add" outlines */
   --iz-map-pin: #0b1524; /* pickup dot, menu button over the map */
+  --iz-badge-gold: #fff4d6; /* "Biznes" class badge */
+  --iz-badge-gold-fg: #f2a900;
+  --iz-badge-blue: #e3f0ff; /* "Miniven" class badge */
+  --iz-badge-blue-fg: #2f6fe0;
   --iz-map: #e9edf2;
   --iz-map-road: #ffffff;
   --iz-backdrop: rgba(11, 21, 36, 0.45);
@@ -113,6 +117,10 @@
   --iz-connector: #4a5b70;
   --iz-dash: #3a4c63;
   --iz-map-pin: #0b1524;
+  --iz-badge-gold: #3a2f10;
+  --iz-badge-gold-fg: #f2a900;
+  --iz-badge-blue: #142a4a;
+  --iz-badge-blue-fg: #6ea0ff;
   --iz-map: #0e1826;
   --iz-map-road: #1a2738;
   --iz-backdrop: rgba(0, 0, 0, 0.6);

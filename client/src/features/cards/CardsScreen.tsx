@@ -1,15 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CreditCard, Plus } from "@/lib/icons";
 import { api } from "@/api/client";
 import type { SavedCard } from "@/api/types";
-import { ScreenHeader } from "@/components/ScreenHeader";
-import { BottomBar } from "@/components/BottomBar";
-import { Button } from "@/components/Button";
-import { EmptyState } from "@/components/EmptyState";
-import { ErrorState } from "@/components/ErrorState";
-import { SkeletonList } from "@/components/Skeleton";
 import { useT } from "@/lib/i18n/provider";
+import { Icon, PrimaryButton, Screen, StateEmpty, StateError, StateLoading } from "@/ui";
 
 const BRAND_LABEL: Record<SavedCard["brand"], string> = {
   uzcard: "Uzcard",
@@ -17,6 +11,7 @@ const BRAND_LABEL: Record<SavedCard["brand"], string> = {
   visa: "Visa",
 };
 
+/** Saved cards (opened from Payment → "Karta"), design v2. */
 export function CardsScreen() {
   const { t } = useT();
   const navigate = useNavigate();
@@ -32,42 +27,37 @@ export function CardsScreen() {
   useEffect(load, []);
 
   return (
-    <div className="flex h-full flex-col bg-bg">
-      <ScreenHeader title={t("cards.title")} />
-      <div className="scroll-pb-bar flex-1 overflow-y-auto overscroll-contain px-4">
-        {error ? (
-          <ErrorState onRetry={load} />
-        ) : cards === null ? (
-          <SkeletonList count={2} />
-        ) : cards.length === 0 ? (
-          <EmptyState
-            icon={<CreditCard className="h-7 w-7" />}
-            title={t("cards.emptyTitle")}
-            description={t("cards.emptyDesc")}
-          />
-        ) : (
-          <div className="space-y-3">
-            {cards.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded-2xl bg-card p-4 shadow-softer">
-                <div className="flex h-11 w-11 items-center justify-center rounded-tile bg-accent-10 text-accent">
-                  <CreditCard className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-ink">{c.label}</p>
-                  <p className="text-xs text-ink/60 tabular">
-                    {BRAND_LABEL[c.brand]} &middot; &bull;&bull;&bull;&bull; {c.last4}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <BottomBar>
-        <Button fullWidth variant="secondary" onClick={() => navigate("/cards/link")}>
-          <Plus className="h-4 w-4" /> {t("cards.addNew")}
-        </Button>
-      </BottomBar>
-    </div>
+    <Screen
+      title={t("cards.title")}
+      footer={
+        <PrimaryButton icon="plus" onClick={() => navigate("/cards/link")}>
+          {t("cards.addNew")}
+        </PrimaryButton>
+      }
+    >
+      {error ? (
+        <StateError onRetry={load} />
+      ) : cards === null ? (
+        <StateLoading rows={2} />
+      ) : cards.length === 0 ? (
+        <StateEmpty title={t("cards.emptyTitle")} description={t("cards.emptyDesc")} />
+      ) : (
+        <ul className="flex flex-col">
+          {cards.map((c, i) => (
+            <li key={c.id} className={i < cards.length - 1 ? "flex min-h-[68px] items-center gap-3.5 border-b border-iz-border py-3" : "flex min-h-[68px] items-center gap-3.5 py-3"}>
+              <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-iz-tile bg-iz-green-soft text-iz-green-text">
+                <Icon name="card" />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="truncate text-[15px] font-extrabold text-iz-ink">{c.label}</span>
+                <span className="text-[13px] tabular-nums text-iz-muted">
+                  {BRAND_LABEL[c.brand]} · •••• {c.last4}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Screen>
   );
 }

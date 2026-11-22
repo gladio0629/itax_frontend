@@ -142,3 +142,25 @@ adapter sends the translated word as `name` and no kind.
 The redesign keeps Podyezd, Qavat, Kvartira, Domofon kodi and "Haydovchiga izoh" per route point
 (`saveAddressDetails`, `capabilities.addressDetails`). Still needed on the order as listed under
 "Still needed from the backend" above.
+
+### Passenger order: Trip, Extras, Time, Payment (group 5)
+
+The redesigned flow sends only what the server prices; the screens show the server's seat map, class prices, quote
+lines and total. Needed beyond what the contract has today:
+
+- **Multi-day pickup window** (owner, 2026-11-22: "allow choosing an end day"). The UI keeps a daily window over
+  several days, e.g. 08:00–12:00 on any day from 20 to 22 November. Today the http adapter can only send
+  `scheduled_from = 20 Nov 08:00`, `scheduled_to = 22 Nov 12:00`, which reads as one continuous 52-hour window.
+  Proposal: on `OrderCreate` / `QuoteRequest` / `OrderUpdate` add
+  `"pickup_window": { "first_day": "2026-11-20", "last_day": "2026-11-22", "from": "08:00", "to": "12:00" }`
+  (local Asia/Tashkent time; `from`/`to` omitted for an exact time `"at": "08:00"`). Error keys:
+  `TIMING_RANGE_TOO_LONG` (`params.max_days`), `TIMING_WINDOW_TOO_SHORT` (`params.min_minutes`), `TIMING_IN_PAST`.
+  `GET /api/v1/orders/scheduling-rules` (or the existing source of `SchedulingRules`) keeps `max_range_days`.
+- **Payme / Click as order payment** — already in `PaymentMethod` (`payme`, `click`); the client now sends them.
+  Needed: what the passenger sees after "Buyurtma berish" (redirect URL or deep link to the provider app, and the
+  order state while unpaid), e.g. `payment: { "status": "pending", "redirect_url": "…" }` on the created order.
+- **Stops, luggage, "Boshqa odam uchun", promo, route-point details on the order** — still as listed under
+  "Still needed from the backend" (http capabilities `stops`, `orderOptions`, `rider`, `promo`, `addressDetails` are off,
+  so those rows are hidden or rejected before sending).
+- **Saved cards list** — `GET /api/v1/wallet/cards` → `{ data: [{ id, label, brand, last4 }] }`; "Karta" in Payment
+  opens this list (capability `savedCards`).

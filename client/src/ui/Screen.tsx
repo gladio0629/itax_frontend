@@ -116,8 +116,8 @@ export function Screen({
         className="flex shrink-0 flex-col gap-5 px-5 pb-6 pt-[calc(var(--safe-top)+12px)] transition-[padding] kb:gap-3 kb:pb-3"
       >
         {header ?? <HeaderBar title={title} onBack={back} backLabel={label} right={headerRight} />}
-        {topKeep}
         {top && <div className="flex flex-col gap-5 kb:hidden">{top}</div>}
+        {topKeep}
       </div>
       <Sheet overlap={sheetOverlap} footer={footer} bodyClassName={bodyClassName}>
         {children}

@@ -7,6 +7,7 @@ import type { TranslationKey } from "@/lib/i18n/uz";
 import { rich } from "@/lib/i18n/rich";
 import { serverErrorKey } from "@/lib/apiError";
 import { maskPhone } from "@/lib/phone";
+import { waitForReview } from "@/lib/waitForReview";
 import { cn } from "@/lib/cn";
 import { useLiftFloatingControl } from "@/stores/floatingControlStore";
 import { Icon, IconButton, PrimaryButton, useStatusBar } from "@/ui";
@@ -25,20 +26,6 @@ function codeLengths(fromServer?: number) {
 
 function mmss(sec: number) {
   return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
-}
-
-/** Wait for the server's verdict on a sign-in (sample data: a few seconds). */
-async function waitForApproval(reviewId: string, signal: { cancelled: boolean }): Promise<"approved" | "rejected" | "cancelled"> {
-  for (;;) {
-    if (signal.cancelled) return "cancelled";
-    try {
-      const res = await api.getReviewStatus(reviewId);
-      if (res.status !== "pending") return res.status;
-    } catch {
-      /* transient: poll again */
-    }
-    await new Promise((r) => setTimeout(r, 600));
-  }
 }
 
 /** Login, step 2 (design: Otp / KbOtp). */
@@ -101,7 +88,7 @@ export function OtpScreen() {
     setError(null);
     try {
       const review = await api.verifyOtp(requestId, code);
-      const verdict = review.status === "pending" ? await waitForApproval(review.id, pollSignal.current) : review.status;
+      const verdict = review.status === "pending" ? await waitForReview(review.id, pollSignal.current) : review.status;
       if (verdict === "cancelled") return;
       if (verdict === "approved") {
         completeAuth();

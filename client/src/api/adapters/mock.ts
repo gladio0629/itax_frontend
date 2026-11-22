@@ -1123,7 +1123,8 @@ export const mockAdapter: ApiAdapter = {
         mode: input.mode,
         seatIds: input.seatIds,
         price,
-        paymentMethod: input.paymentMethod,
+        // The stored order keeps cash | card; Payme / Click go in the extras.
+        paymentMethod: input.paymentMethod === "cash" ? "cash" : "card",
         status: "searching",
         createdAt: now,
         timeline: {
@@ -1133,6 +1134,7 @@ export const mockAdapter: ApiAdapter = {
       };
       db.addOrder(order);
       saveOrderExtra(order.id, {
+        payMethod: input.paymentMethod,
         fromAddressId: input.fromAddressId,
         toAddressId: input.toAddressId,
         timing: input.timing,
@@ -1196,7 +1198,9 @@ export const mockAdapter: ApiAdapter = {
 
       const mode = patch.mode ?? order.mode;
       const seatIds = patch.seatIds ?? order.seatIds;
-      const paymentMethod = patch.paymentMethod ?? order.paymentMethod;
+      const payMethod = patch.paymentMethod ?? nextExtras.payMethod ?? order.paymentMethod;
+      if (patch.paymentMethod) nextExtras.payMethod = patch.paymentMethod;
+      const paymentMethod = payMethod === "cash" ? "cash" : "card";
       const serviceType = nextExtras.serviceType ?? "passenger";
       const priced = priceOrder({
         serviceType,
