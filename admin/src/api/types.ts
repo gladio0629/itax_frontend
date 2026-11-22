@@ -85,8 +85,10 @@ export type AdjustmentProposal = SeedAdjustmentProposal & { subjectLabel?: strin
 export type WalletEntryType = SeedWalletEntryType | "trip_payment" | "bonus";
 export type WalletEntry = Omit<SeedWalletEntry, "type"> & { type: WalletEntryType };
 export type QueueReason = SeedQueueReason | "driver_application" | "document_update";
-export type QueueItem = Omit<SeedQueueItem, "reason"> & { reason: QueueReason };
-export type HistoryEntry = Omit<SeedHistoryEntry, "reason"> & { reason: QueueReason };
+/** `phone` is null when the backend doesn't send one (real API queue items
+ * carry only a subject id); `subjectLabel` is shown instead. */
+export type QueueItem = Omit<SeedQueueItem, "reason" | "phone"> & { reason: QueueReason; phone: string | null; subjectLabel?: string };
+export type HistoryEntry = Omit<SeedHistoryEntry, "reason" | "phone"> & { reason: QueueReason; phone: string | null; subjectLabel?: string };
 /** Contract car classes (tariffs). */
 export type TariffCarClass = "economy" | "comfort" | "business" | "minivan";
 export type Tariff = SeedTariff & {
@@ -160,7 +162,7 @@ export type AdapterCapabilities = {
 };
 
 /** One header-search hit. The server returns only what the current admin
- * may see; `subtitle` is display text (phones in it are already masked). */
+ * may see; `subtitle` is display text. */
 export type GlobalSearchKind = "order" | "driver" | "passenger" | "staff";
 export type GlobalSearchHit = {
   kind: GlobalSearchKind;
@@ -169,9 +171,8 @@ export type GlobalSearchHit = {
   subtitle: string;
 };
 
-export type QueueListItem = Omit<QueueItem, "phoneFull">;
-/** Only returned by startTask() — the one place the mock "server" reveals a
- * full fake number, for the single task an operator has open. */
+export type QueueListItem = QueueItem;
+/** The task an operator has open (same shape as a list item). */
 export type ActiveTask = QueueItem;
 
 export type {

@@ -59,7 +59,7 @@ export function Drawer({
           <h2 id={titleId} className="truncate text-lg font-extrabold text-ink">
             {title}
           </h2>
-          <IconButton label="Yopish" size={40} onClick={onClose}>
+          <IconButton label="Yopish" onClick={onClose}>
             <X className="h-4 w-4" aria-hidden />
           </IconButton>
         </div>

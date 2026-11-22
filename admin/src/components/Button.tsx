@@ -36,7 +36,8 @@ export const buttonVariants: Record<ButtonVariant, string> = {
 export const buttonSizes: Record<Size, string> = {
   // 44px: the smallest touch target (RULES 8).
   md: "h-11 px-[18px] text-sm",
-  // Dense controls inside tables/toolbars only.
+  // 36px: only inside table rows (owner decision 2026-11-22). Everything
+  // else uses md (44px).
   sm: "h-9 px-3.5 text-13",
 };
 
@@ -62,7 +63,8 @@ Button.displayName = "Button";
 /** Icon-only round button (close, row actions). `label` becomes aria-label. */
 export const IconButton = forwardRef<
   HTMLButtonElement,
-  ButtonHTMLAttributes<HTMLButtonElement> & { label: string; size?: 36 | 40 | 44; tone?: "surface" | "white" }
+  // 36 only inside table rows; 44 everywhere else.
+  ButtonHTMLAttributes<HTMLButtonElement> & { label: string; size?: 36 | 44; tone?: "surface" | "white" }
 >(({ label, size = 44, tone = "surface", className, children, type = "button", ...rest }, ref) => (
   <button
     ref={ref}

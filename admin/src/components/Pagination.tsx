@@ -24,10 +24,10 @@ export function Pagination({
         {summary}
       </span>
       <span className="flex gap-2">
-        <Button variant="secondary" size="sm" onClick={onPrev} disabled={!hasPrev || loading}>
+        <Button variant="secondary" onClick={onPrev} disabled={!hasPrev || loading}>
           Oldingi
         </Button>
-        <Button variant="dark" size="sm" onClick={onNext} disabled={!hasNext || loading}>
+        <Button variant="dark" onClick={onNext} disabled={!hasNext || loading}>
           Keyingi
         </Button>
       </span>

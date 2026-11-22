@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
-import { Ban, CheckCircle2, Eye, Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
+import { Ban, CheckCircle2, Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Avatar } from "@/components/Avatar";
 import { Badge } from "@/components/Badge";
@@ -44,8 +44,6 @@ export function PassengersScreen() {
   }, []);
 
   const [selected, setSelected] = useState<Passenger | null>(null);
-  const [phone, setPhone] = useState<string | null>(null);
-  const [revealing, setRevealing] = useState(false);
   const [drawer, setDrawer] = useState<"create" | "edit" | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", cityId: "" });
   const [saving, setSaving] = useState(false);
@@ -64,17 +62,6 @@ export function PassengersScreen() {
     return cities.find((c) => c.id === id)?.name ?? id;
   }
 
-  async function handleReveal(id: string) {
-    setRevealing(true);
-    try {
-      const res = await api.revealPhone("passenger", id);
-      setPhone(res.phone);
-    } catch (e) {
-      setActionError(errorText(e));
-    } finally {
-      setRevealing(false);
-    }
-  }
 
   function openCreate() {
     setForm({ name: "", phone: "", cityId: cities[0]?.id ?? "" });
@@ -142,7 +129,7 @@ export function PassengersScreen() {
           <Avatar seed={p.avatarSeed} name={p.name} />
           <div className="min-w-0">
             <p className="truncate font-semibold text-ink">{p.name}</p>
-            <p className="truncate text-xs text-ink/50">{p.phoneMasked}</p>
+            <p className="truncate text-xs text-ink/50">{p.phone}</p>
           </div>
         </div>
       ),
@@ -218,7 +205,6 @@ export function PassengersScreen() {
         emptyDescription="Qidiruv yoki filtrlarga mos yo'lovchi yo'q."
         onRowClick={(p) => {
           setSelected(p);
-          setPhone(null);
         }}
       />
 
@@ -242,12 +228,7 @@ export function PassengersScreen() {
             <div className="rounded-card bg-ink/5 p-4">
               <p className="mb-1 text-xs font-semibold text-ink/50">Telefon raqami</p>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-ink tabular">{phone ?? selected.phoneMasked}</span>
-                {!phone && (
-                  <Button size="sm" variant="secondary" loading={revealing} onClick={() => handleReveal(selected.id)}>
-                    <Eye className="h-4 w-4" /> Ko'rsatish
-                  </Button>
-                )}
+                <span className="text-sm font-semibold text-ink tabular">{selected.phone}</span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">

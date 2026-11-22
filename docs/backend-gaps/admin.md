@@ -30,7 +30,7 @@ Money: the UI works in so'm, the API in tiyin. The mapper multiplies or divides 
 | `setDriverStatus(id, s, reason)` | `adminDriversUpdate {state, state_reason}` | `state_reason` is required for `blocked`. The confirm dialog asks for it. |
 | `archiveDriver` / `restoreDriver` | `adminDriversDelete` / `adminDriversUpdate {state: active}` | Restoring through `state: active` is an assumption the contract doesn't state. |
 | `getPassengers` / create / update / status / archive / restore | `adminPassengers*` | Same as drivers. Missing: city, `total_trips` (`orders_count` is used instead). |
-| `revealPhone` | NONE | List responses already contain full phones. The mapper masks them for display, and "Ko'rsatish" reveals the value already received. **Gap:** no masked list plus audited reveal endpoint (the mock audits every reveal). |
+| `revealPhone` | removed | Decision 2026-11-22: admin shows phone numbers in full for every role (no masking, no reveal button). Lists show `phone` as sent, formatted `+998 90 123 45 67`. No endpoint needed. |
 | `getOrders({status, passengerId})` | `adminOrdersList {status, passenger_id}` | `passenger_id` → `passengerId` (shown as a short id in the order drawer; there is no passenger name). `cancel_reason` codes are labelled; `scheduled_from`/`scheduled_to` are shown as a range. The `passenger_id` filter is wired in the adapter; no screen links passengers to orders yet. Missing: `q`, passenger name. Statuses: `arrived` and `expired` are added; `no_driver` has no API equivalent. |
 | `updateOrderFields(id, patch)` | `adminOrdersUpdate` (PATCH) | Edit form fields in http mode (`capabilities.orderEditFields`): comment (≤200), payment method, exact time (`scheduled_at`) or range (`scheduled_from` + `scheduled_to`). Only changed fields are sent, and nothing is sent when nothing changed. A set time can be changed but not cleared (the API has no "clear"). Seats and the HH:MM window stay demo-only. Only `searching` orders can be edited; the server answers 403 `driver_assigned` / `trip_started` / `order_closed`, and the drawer shows it. |
 | `cancelOrder(id, reason, comment?)` | `adminOrdersCancel {reason, comment?}` | Reason select: `admin_decision`, `passenger_request`, `driver_request`, `duplicate`, `fraud`, `other` (`capabilities.orderCancelReasons`), plus an optional comment (≤500). The admin API has no per-order verdict (`Order.can_cancel` is the passenger's), so `canCancel` is true and the server's 403 (`trip_started`) decides. |
@@ -76,13 +76,12 @@ No WebSocket in admin: `/ws` accepts passenger/driver tokens only.
 - `GET /admin/v1/staff?q=&state=` and `Staff.last_login_at`. Add `StaffUpdate.email`, plus a way to restore an archived member (`state: active` allowed in `StaffUpdate`).
 - `GET /admin/v1/drivers?driver_state=` and `AdminDriver.{wallet_id, debt_limit, online, city}`.
 - `AdminPassenger.city` (if the UI keeps it).
-- Masked phones in lists plus `POST /admin/v1/{drivers|passengers}/{id}/phone` → `{ phone }` (audited).
 - `GET /admin/v1/orders?q=`, a passenger name on the admin order, and an admin verdict per order (`can_edit`, `can_cancel`).
   Create order for a passenger.
 - `GET /admin/v1/wallet/ledger?kind=&q=` and `LedgerEntry.driver_id`; `driver_id` on correction list items.
 - `Tariff.pending_change.values: Partial<TariffFields>`, so the second approver can see what they approve.
 - `GET /admin/v1/tariffs?q=&active=`.
-- `QueueItem.{phone_masked, subject_name}`, plus `GET /admin/v1/operator/queue?kind=&q=`.
+- `QueueItem.{phone, subject_name}` (the operator calls this number; shown in full), plus `GET /admin/v1/operator/queue?kind=&q=`.
   `GET /admin/v1/operator/history?result=&from_date=&to_date=&operator_id=`, with an operator name on the item.
   Supervisor endpoints: in-progress list, per-status counts, operators list.
 - An export audit endpoint; complaint free-text search and category filter; the audit action/entity catalogue in the contract (today free strings).
@@ -98,11 +97,7 @@ Admin redesign v2 (design-v2/admin, 2026-11-22). Endpoints the new screens expec
 
 - `GET /admin/v1/search?q=<text>` (min 2 chars), auth: any staff.
   - Response: `{ items: { kind: "order"|"driver"|"passenger"|"staff", id: string, title: string, subtitle: string }[] }`, at most ~12 items.
-  - The server returns only kinds the caller's sections allow (operator: none or own scope; marketolog: none). `subtitle` is display text; any phone in it is already masked.
-  - Matches: order id, driver/passenger name, plate, phone (last digits), staff name/email.
+  - The server returns only kinds the caller's sections allow (operator: none or own scope; marketolog: none). `subtitle` is display text.
+  - Matches: order id, driver/passenger name, plate, phone, staff name/email.
   - Errors: `validation.too_short` (q < 2), `auth.forbidden`.
   - Capability flag in the adapter: `globalSearch`.
-
-### Already listed above, needed by v2 everywhere
-
-- Masked phones in every list (`phone_masked`) plus the audited reveal endpoint (see "Shapes the frontend needs"). v2 shows masked numbers on every page; today the http mapper masks the full number it receives, which means full numbers still travel to the browser.

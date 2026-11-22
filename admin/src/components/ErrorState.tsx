@@ -17,7 +17,7 @@ export function ErrorState({ message = "Ulanish uzildi. Internetni tekshirib, qa
         <p className="text-base font-extrabold text-ink">Ma'lumotlarni yuklab bo'lmadi</p>
         <p className="text-sm font-medium text-muted">{message}</p>
       </div>
-      <Button variant="secondary" size="sm" onClick={onRetry} loading={retrying}>
+      <Button variant="secondary" onClick={onRetry} loading={retrying}>
         <RotateCw className="h-4 w-4" />
         Qayta urinish
       </Button>

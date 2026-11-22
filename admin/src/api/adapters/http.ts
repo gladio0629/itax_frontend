@@ -277,7 +277,7 @@ export const httpAdapter: ApiAdapter = {
     return {
       requestId,
       steps: ["phone_code"],
-      maskedDestination: map.maskPhone(phone),
+      maskedDestination: map.formatPhone(phone),
       resendSeconds: RESEND_SECONDS,
       attemptsLeft: 0,
       codeMinLength: codeLength(ch) ?? 4,
@@ -297,7 +297,7 @@ export const httpAdapter: ApiAdapter = {
         done: false,
         requestId,
         step: "phone_code",
-        maskedDestination: map.maskPhone(phone),
+        maskedDestination: map.formatPhone(phone),
         resendSeconds: RESEND_SECONDS,
         attemptsLeft: 0,
         codeMinLength: codeLength(ch) ?? 4,
@@ -635,25 +635,10 @@ export const httpAdapter: ApiAdapter = {
     return rows.map((e) => map.auditFromApi(e, nameOf));
   },
 
-  async revealPhone(entityType, entityId) {
-    // Lists already carry the full number (no masked list + audited reveal
-    // endpoint in the contract — gap); show the value the server sent.
-    const cached = entityType === "driver" ? rawDrivers.get(entityId) : rawPassengers.get(entityId);
-    const row =
-      cached ??
-      (entityType === "driver"
-        ? await http.get<Api.AdminDriver>(API_PATHS.adminDriver(entityId))
-        : await http.get<Api.AdminPassenger>(API_PATHS.adminPassenger(entityId)));
-    return { phone: map.formatPhone(row.phone) };
-  },
-
   // --- operator queue ---------------------------------------------------
   async getQueue() {
     const rows = await fetchAll<Api.QueueItem>(API_PATHS.adminOperatorQueue);
-    return rows.map((q) => {
-      const { phoneFull: _full, ...item } = map.queueFromApi(q);
-      return item;
-    });
+    return rows.map((q) => map.queueFromApi(q));
   },
   async getActiveTask() {
     const me = await currentMe();
@@ -668,8 +653,7 @@ export const httpAdapter: ApiAdapter = {
   },
   async rejectQueueItem(queueId, reason) {
     const q = await http.post<Api.QueueItem>(API_PATHS.adminOperatorReject(queueId), { reason: rejectReason(reason) } satisfies Api.QueueReject);
-    const { phoneFull: _full, ...item } = map.queueFromApi(q);
-    return item;
+    return map.queueFromApi(q);
   },
   async finishTask(queueId, result, note, reason) {
     const q =

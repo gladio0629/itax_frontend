@@ -28,7 +28,6 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   passenger_unblock: "Yo'lovchi blokdan chiqarildi",
   passenger_archive: "Yo'lovchi arxivlandi",
   passenger_restore: "Yo'lovchi tiklandi",
-  phone_reveal: "Telefon ko'rsatildi",
   order_create: "Buyurtma yaratildi",
   order_edit: "Buyurtma tahrirlandi",
   order_cancel: "Buyurtma bekor qilindi",

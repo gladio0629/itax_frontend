@@ -55,7 +55,7 @@ export function ServerGate({ children }: { children: ReactNode }) {
       <p role="alert" className="max-w-sm text-base font-semibold text-ink">
         {text.message}
       </p>
-      <Button variant="secondary" size="sm" onClick={check} loading={state === "checking"}>
+      <Button variant="secondary" onClick={check} loading={state === "checking"}>
         <RotateCw className="h-4 w-4" />
         {text.retry}
       </Button>

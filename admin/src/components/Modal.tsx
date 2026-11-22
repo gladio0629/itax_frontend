@@ -127,7 +127,7 @@ export function Modal({
               </span>
             )}
           </span>
-          <IconButton label="Yopish" size={40} onClick={onClose} disabled={busy}>
+          <IconButton label="Yopish" onClick={onClose} disabled={busy}>
             <X className="h-4 w-4" aria-hidden />
           </IconButton>
         </div>

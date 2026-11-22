@@ -160,8 +160,6 @@ export interface ApiAdapter {
   // --- audit ---
   getAuditLog(query: AuditQuery): Promise<AuditEntry[]>;
 
-  revealPhone(entityType: "driver" | "passenger", entityId: string): Promise<{ phone: string }>;
-
   // --- operator windows: one "operators" section, two capabilities ---
   // Navbat (all waiting tasks) is the same data for the operator working it
   // and for a supervisor only watching it; the mutations below check the

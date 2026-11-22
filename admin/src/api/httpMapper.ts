@@ -47,17 +47,8 @@ export function normalizePhone(input: string): string | null {
   return null;
 }
 
-/** +998901234567 → "+998 90 123 45 67" (display only). */
-export function formatPhone(phone: string): string {
-  const m = /^\+998(\d{2})(\d{3})(\d{2})(\d{2})$/.exec(phone);
-  return m ? `+998 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone;
-}
-
-/** +998901234567 → "+998 90 *** ** 67". */
-export function maskPhone(phone: string): string {
-  const m = /^\+998(\d{2})\d{3}\d{2}(\d{2})$/.exec(phone);
-  return m ? `+998 ${m[1]} *** ** ${m[2]}` : "+998 ** *** ** **";
-}
+import { formatPhone } from "@/lib/format";
+export { formatPhone };
 
 /** "kamola@izgo.uz" → "k***@izgo.uz". */
 export function maskEmail(email: string): string {
@@ -173,7 +164,7 @@ export function driverFromApi(d: Api.AdminDriver): Driver {
   return {
     id: d.id,
     name: joinName(d.first_name, d.last_name),
-    phoneMasked: maskPhone(d.phone),
+    phone: formatPhone(d.phone),
     cityId: "",
     carModel: d.car ? `${d.car.brand} ${d.car.model}`.trim() : "—",
     carColor: d.car?.color ?? "",
@@ -195,7 +186,7 @@ export function passengerFromApi(p: Api.AdminPassenger): Passenger {
   return {
     id: p.id,
     name: joinName(p.first_name, p.last_name),
-    phoneMasked: maskPhone(p.phone),
+    phone: formatPhone(p.phone),
     rating: p.rating ?? 0,
     totalTrips: p.orders_count ?? 0,
     avatarSeed: p.id,
@@ -448,12 +439,11 @@ const QUEUE_STATUS: Record<Api.QueueStatus, QueueStatus> = {
 };
 
 export function queueFromApi(q: Api.QueueItem): ActiveTask {
-  // QueueItem has no phone: the row shows the subject's id instead.
-  const subject = `#${shortId(q.subject_id)}`;
+  // QueueItem has no phone yet (gap): the row shows the subject's id instead.
   return {
     id: q.id,
-    phoneMasked: subject,
-    phoneFull: subject,
+    phone: null,
+    subjectLabel: `#${shortId(q.subject_id)}`,
     reason: QUEUE_REASON[q.kind] ?? "complaint",
     waitingSinceAt: toMs(q.created_at),
     status: QUEUE_STATUS[q.status] ?? "waiting",
@@ -472,7 +462,8 @@ export function historyFromApi(q: Api.QueueItem, me: Me | null): HistoryEntry {
     queueItemId: q.id,
     operatorId: q.assigned_to ?? "",
     operatorName: me && q.assigned_to === me.id ? me.name : q.assigned_to ? `#${shortId(q.assigned_to)}` : "—",
-    phoneMasked: `#${shortId(q.subject_id)}`,
+    phone: null,
+    subjectLabel: `#${shortId(q.subject_id)}`,
     reason: QUEUE_REASON[q.kind] ?? "complaint",
     result: historyResult(q),
     note: q.comment ?? q.reject_reason ?? "",

@@ -66,7 +66,7 @@ export function Segmented<K extends string>({ items, value, onChange, label }: {
             aria-checked={active}
             onClick={() => onChange(p.key)}
             className={cn(
-              "h-9 rounded-[10px] px-3.5 text-13",
+              "h-11 rounded-[10px] px-3.5 text-13",
               active ? "bg-white font-extrabold text-ink shadow-[0_1px_3px_rgba(11,21,36,0.12)]" : "font-bold text-muted hover:text-ink"
             )}
           >

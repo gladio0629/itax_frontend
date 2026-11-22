@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
-import { Ban, Car, CheckCircle2, Eye, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Ban, Car, CheckCircle2, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge, type BadgeTone } from "@/components/Badge";
 import { Avatar } from "@/components/Avatar";
@@ -59,8 +59,6 @@ export function DriversScreen() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ name: "", carModel: "", carColor: "", plate: "" });
   const [saving, setSaving] = useState(false);
-  const [phone, setPhone] = useState<string | null>(null);
-  const [revealing, setRevealing] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -68,7 +66,6 @@ export function DriversScreen() {
 
   function openDetail(d: Driver) {
     setSelected(d);
-    setPhone(null);
     setEditing(false);
     setActionError(null);
   }
@@ -82,17 +79,6 @@ export function DriversScreen() {
     setConfirm(c);
   }
 
-  async function handleReveal(driverId: string) {
-    setRevealing(true);
-    try {
-      const res = await api.revealPhone("driver", driverId);
-      setPhone(res.phone);
-    } catch (e) {
-      setActionError(errorText(e));
-    } finally {
-      setRevealing(false);
-    }
-  }
 
   async function handleSave() {
     if (!selected) return;
@@ -146,7 +132,7 @@ export function DriversScreen() {
           <Avatar seed={d.avatarSeed} name={d.name} />
           <div className="min-w-0">
             <p className="truncate font-semibold text-ink">{d.name}</p>
-            <p className="truncate text-xs text-ink/50">{d.phoneMasked}</p>
+            <p className="truncate text-xs text-ink/50">{d.phone}</p>
           </div>
         </div>
       ),
@@ -252,12 +238,7 @@ export function DriversScreen() {
             <div className="rounded-card bg-ink/5 p-4">
               <p className="mb-1 text-xs font-semibold text-ink/50">Telefon raqami</p>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-ink tabular">{phone ?? selected.phoneMasked}</span>
-                {!phone && (
-                  <Button size="sm" variant="secondary" loading={revealing} onClick={() => handleReveal(selected.id)}>
-                    <Eye className="h-4 w-4" /> Ko'rsatish
-                  </Button>
-                )}
+                <span className="text-sm font-semibold text-ink tabular">{selected.phone}</span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
