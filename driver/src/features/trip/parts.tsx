@@ -2,6 +2,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { platform } from "@/lib/native";
+import { getDevicePrefs } from "@/lib/devicePrefs";
 import { api } from "@/api/client";
 import type { OfferPlace, PassengerInfo, Place, PriceLine, TripPlace } from "@/api/types";
 import { isKey, useT } from "@/lib/i18n/provider";
@@ -198,13 +199,19 @@ export function Ring({ ratio, size, stroke = 7, tone = "brand", track, children 
 // ------------------------------------------------------------ navigator
 
 /**
- * Opens the phone's navigator at a place: a geo: link on Android (the app
- * chooser), Apple Maps on iOS. No web request; the address is the fallback
- * when the place has no coordinates.
+ * Opens a navigator at a place, as chosen in Sozlamalar → Navigator: the
+ * phone's choice (geo: on Android, Apple Maps on iOS), Yandex Navigator or
+ * Google Maps. App links only, no web request; without coordinates the
+ * address goes to the phone's choice.
  */
 export function navigatorHref(place: Place): string {
-  const q = place.lat != null && place.lng != null ? `${place.lat},${place.lng}` : encodeURIComponent(`${place.address}, ${place.city.name}`);
-  return platform() === "ios" ? `maps:?daddr=${q}` : `geo:0,0?q=${q}`;
+  const app = getDevicePrefs().navigator;
+  const has = place.lat != null && place.lng != null;
+  const ios = platform() === "ios";
+  if (has && app === "yandex") return `yandexnavi://build_route_on_map?lat_to=${place.lat}&lon_to=${place.lng}`;
+  if (has && app === "google") return ios ? `comgooglemaps://?daddr=${place.lat},${place.lng}&directionsmode=driving` : `google.navigation:q=${place.lat},${place.lng}`;
+  const q = has ? `${place.lat},${place.lng}` : encodeURIComponent(`${place.address}, ${place.city.name}`);
+  return ios ? `maps:?daddr=${q}` : `geo:0,0?q=${q}`;
 }
 
 /** "a · b · c" from the parts that exist. */

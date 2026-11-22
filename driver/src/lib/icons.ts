@@ -114,3 +114,7 @@ export const ArrowUpDown = wrap(L.ArrowUpDown);
 export const ArrowUp = wrap(L.ArrowUp);
 export const Siren = wrap(L.Siren);
 export const Navigation2 = wrap(L.Navigation2);
+export const ExternalLink = wrap(L.ExternalLink);
+export const Volume2 = wrap(L.Volume2);
+export const Award = wrap(L.Award);
+export const Settings2 = wrap(L.Settings2);

@@ -28,6 +28,7 @@ import type {
 } from "../types";
 import { session } from "../httpSession";
 import {
+  type ApiCargoCapabilities,
   CANCEL_REASON_KEY,
   type CityNames,
   mapFieldError,
@@ -83,7 +84,8 @@ const capabilities: ApiCapabilities = {
   profileMatching: false,
   bonus: false,
   help: false,
-  driverCapabilities: true,
+  // The contract's capabilities are wishes (removed 2026-11-22); the cargo sizes endpoint isn't there yet.
+  driverCapabilities: false,
   profileChangePhone: false,
   profileChangeCar: false,
   requestAlerts: false,
@@ -93,6 +95,8 @@ const capabilities: ApiCapabilities = {
   // No endpoints yet (docs/backend-gaps/driver.md, "Redesign v2").
   ratePassenger: false,
   sos: false,
+  // No account-deletion endpoint yet: Sozlamalar links to the site's page instead.
+  deleteAccount: false,
 };
 
 // ------------------------------------------------------ settled "reviews"
@@ -343,6 +347,8 @@ const OPT = {
   serviceTypes: "/api/v1/drivers/me/service-types",
   review: "/api/v1/drivers/registration/review",
   topupOptions: "/api/v1/wallet/topup/options",
+  cargoCapabilities: "/api/v1/drivers/me/cargo-capabilities",
+  account: "/api/v1/drivers/me",
 } as const;
 type ApiRegistrationReview = {
   sections: { key: RegistrationSectionKey; status: RegistrationSectionStatus }[];
@@ -543,6 +549,12 @@ export const httpAdapter: ApiAdapter = {
         })),
       null
     ),
+
+  async deleteAccount() {
+    await http.delete(OPT.account);
+    await session.logout().catch(() => {});
+    return { stage: "signed_out" };
+  },
 
   async logout() {
     await session.logout();
@@ -830,7 +842,7 @@ export const httpAdapter: ApiAdapter = {
   getAppInfo: async () => ({ version: appVersion, build: "web" }),
   async getCapabilities() {
     const [caps, me] = await Promise.all([
-      http.get<Api.DriverCapabilities>(API_PATHS.driverCapabilities),
+      http.get<ApiCargoCapabilities>(OPT.cargoCapabilities),
       http.get<Api.DriverProfile>(API_PATHS.driverMe),
     ]);
     lastCar = me.car;
@@ -838,9 +850,9 @@ export const httpAdapter: ApiAdapter = {
   },
 
   async setCapabilities(input) {
-    let saved: Api.DriverCapabilities;
+    let saved: ApiCargoCapabilities;
     try {
-      saved = await http.put<Api.DriverCapabilities>(API_PATHS.driverCapabilities, toApiCapabilities(input));
+      saved = await http.put<ApiCargoCapabilities>(OPT.cargoCapabilities, toApiCapabilities(input));
     } catch (err) {
       throw mapFieldError(err);
     }

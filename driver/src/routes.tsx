@@ -18,7 +18,9 @@ const CardsScreen = lazy(() => import("@/features/wallet/CardsScreen"));
 const CardLinkScreen = lazy(() => import("@/features/wallet/CardLinkScreen"));
 const ProfileScreen = lazy(() => import("@/features/profile/ProfileScreen"));
 const PersonalScreen = lazy(() => import("@/features/profile/PersonalScreen"));
-const BonusScreen = lazy(() => import("@/features/profile/BonusScreen"));
+const LevelScreen = lazy(() => import("@/features/profile/LevelScreen"));
+const SettingsScreen = lazy(() => import("@/features/profile/SettingsScreen"));
+const NotificationsScreen = lazy(() => import("@/features/profile/NotificationsScreen"));
 const RoutesScreen = lazy(() => import("@/features/profile/RoutesScreen"));
 const CapabilitiesScreen = lazy(() => import("@/features/profile/CapabilitiesScreen"));
 const NotificationPrefsScreen = lazy(() => import("@/features/profile/NotificationPrefsScreen"));
@@ -65,7 +67,11 @@ export function AppRoutes() {
         <Route path="/wallet/cards/link" element={<CardLinkScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/profile/personal" element={<PersonalScreen />} />
-        <Route path="/profile/bonus" element={when(c.bonus, <BonusScreen />, "bonus.title", "/profile")} />
+        <Route path="/profile/level" element={when(c.bonus, <LevelScreen />, "level.title", "/profile")} />
+        {/* Old link (Hamyon's commission tile and earlier builds). */}
+        <Route path="/profile/bonus" element={<Navigate to="/profile/level" replace />} />
+        <Route path="/profile/settings" element={<SettingsScreen />} />
+        <Route path="/notifications" element={<NotificationsScreen />} />
         <Route path="/profile/capabilities" element={when(c.driverCapabilities, <CapabilitiesScreen />, "profile.capabilities", "/profile")} />
         <Route path="/profile/routes" element={when(c.routes, <RoutesScreen />, "routes.title", "/profile")} />
         <Route path="/profile/notifications" element={<NotificationPrefsScreen />} />

@@ -8,7 +8,7 @@ import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { formatTime } from "@/lib/format";
 import { MessageCircle, MessageSquareText, Send } from "@/lib/icons";
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { Screen } from "@/components/Screen";
 import { ErrorState } from "@/components/ErrorState";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonList } from "@/components/Skeleton";
@@ -53,8 +53,7 @@ export default function TripChatScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <ScreenHeader title={chat?.peerName ?? t("chat.title")} back />
+    <Screen title={chat?.peerName ?? t("chat.title")} back scroll={false} bodyClassName="flex flex-col pt-4">
       {q.error && chat === undefined ? (
         <div className="px-4">
           <ErrorState error={q.error} onRetry={() => q.reload()} />
@@ -69,7 +68,7 @@ export default function TripChatScreen() {
           title={t("chat.noTrip")}
           description={t("chat.noTripDesc")}
           action={
-            <Button fullWidth onClick={() => navigate("/?tab=accepted", { replace: true })}>
+            <Button fullWidth onClick={() => navigate("/", { replace: true })}>
               {t("tab.home")}
             </Button>
           }
@@ -135,7 +134,7 @@ export default function TripChatScreen() {
           </div>
         </>
       )}
-    </div>
+    </Screen>
   );
 }
 
@@ -147,8 +146,8 @@ function Bubble({ m, peer }: { m: ChatMessage; peer: string }) {
     <li className={cn("flex animate-fade-up", mine ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[80%] rounded-card px-3 py-2 text-base",
-          mine ? "rounded-br-none bg-brand text-on-brand" : "rounded-bl-none bg-surface text-ink shadow-1"
+          "max-w-[80%] rounded-field px-3.5 py-2 text-15",
+          mine ? "rounded-br-md bg-brand text-on-brand" : "rounded-bl-md bg-raised text-ink"
         )}
       >
         <span className="sr-only">{mine ? t("chat.you") : peer}: </span>

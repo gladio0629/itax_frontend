@@ -25,7 +25,6 @@ import { cn } from "@/lib/cn";
 import { RequestCard } from "./RequestCard";
 import { RejectSheet } from "./RejectSheet";
 import { NotifyPrompt } from "./NotifyPrompt";
-import { NotificationsSheet } from "./NotificationsSheet";
 import { dayText, timeText } from "./whenText";
 
 const TYPES: FeedType[] = ["all", "passengers", "delivery"];
@@ -57,7 +56,6 @@ export default function HomeScreen() {
   const summary = useQuery(() => api.getHomeSummary(), [signal], { pollMs: 10000 });
   const feed = useQuery(() => api.getFeed({ direction, date, type }), [direction, date, type, signal], { pollMs: 5000 });
   const accepted = useQuery(() => api.getAccepted(), [signal], { pollMs: 5000 });
-  const [notifOpen, setNotifOpen] = useState(false);
   const [dirOpen, setDirOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -161,7 +159,7 @@ export default function HomeScreen() {
             </Link>
             <HeaderButton
               label={s?.unreadNotifications ? t("home.notificationsUnread", { n: s.unreadNotifications }) : t("home.notifications")}
-              onClick={() => setNotifOpen(true)}
+              onClick={() => navigate("/notifications")}
             >
               <Bell className="h-5 w-5" />
               {!!s?.unreadNotifications && <span className="absolute right-[9px] top-[9px] h-[9px] w-[9px] rounded-full border-2 border-night bg-brand" />}
@@ -335,7 +333,6 @@ export default function HomeScreen() {
       </PullList>
 
       <RejectSheet open={!!rejecting} busy={rejectBusy} onClose={() => setRejecting(null)} onConfirm={reject} />
-      <NotificationsSheet open={notifOpen} onClose={() => setNotifOpen(false)} onRead={() => summary.reload(true)} />
 
       <Sheet open={dirOpen} onClose={() => setDirOpen(false)} title={t("home.pickDirection")}>
         <div className="flex flex-col pb-2" role="radiogroup" aria-label={t("home.pickDirection")}>

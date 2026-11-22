@@ -6,7 +6,7 @@ import { withLatency, ApiError } from "@/mockDb/latency";
 import { getTestNetwork } from "@/stores/testControlsStore";
 import {
   BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_BRANDS, CAR_COLORS, DEBT_LIMIT, DEBT_NEAR_RATIO, LICENSE_CATEGORIES, REVIEW_ETA_MIN,
-  CHILD_SEAT_AGES, DEFAULT_CAPABILITIES, TIP_AMOUNTS, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor,
+  BODY_SIZES, CARGO_BODIES, DEFAULT_CAPABILITIES, TIP_AMOUNTS, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor,
   levelFor, LOADER_FEE, OFFER_WINDOW_SEC, passengers, persist, WAIT_FREE_MIN, WAIT_PRICE_PER_MIN, presetState, pushNotification, replaceState, state, weekTrips,
   type BookingRecord, type DetailsRecord, type DriverState, type RequestRecord, type StopRecord, type TripRecord, type WhenRecord,
 } from "@/mockDb/driverDb";
@@ -15,10 +15,10 @@ import { offsetPoint } from "@shared/map/geo";
 import { groupDigits } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
-  DocSlot, RegistrationReview,
+  DocSlot, HistorySummary, RegistrationReview,
   AcceptBlock, AcceptedPage, BonusInfo, Booking, BookingDay, CapabilitiesInput, DebtState, TestOrderVariant, TestPreset, Direction,
   DriverCapabilities, DriverProfile, FeedPage, FeedQuery, HistoryItem, HistoryPage, HomeSummary, LedgerPage, OfferPlace,
-  OrderExtras, OrderKind, OrderOption, PassengerInfo, Place, RequestAlert, ReviewKind, ReviewRequest, RideRequest, RoutesPage,
+  OrderExtras, OrderKind, PassengerInfo, Place, RequestAlert, ReviewKind, ReviewRequest, RideRequest, RoutesPage,
   TopupOptions, TripChat, TripDetail, TripPlace, TripStage, TripStep, TripSummary, TripWhen, WalletSummary,
 } from "../types";
 
@@ -51,7 +51,7 @@ const ADDR: Record<string, string[]> = {
 const COMMENTS = [
   "Darvoza oldida kutib turing, iltimos.",
   "Yo'lda dorixonaga 5 daqiqaga to'xtaymiz.",
-  "Konditsionerni yoqib qo'ying, iltimos.",
+  "Darvoza oldida kutib turaman.",
   "Telefonim o'chib qolishi mumkin, podyezd oldida turaman.",
   "Ertalab erta chiqsak yaxshi bo'lardi.",
 ];
@@ -222,10 +222,8 @@ function extras<P extends Place>(o: RequestRecord, place: (cityId: string, addre
     carClass: o.carClass,
     stops: o.stops.map((st) => place(st.cityId, st.address, st.details)),
     comment: o.comment,
-    options: o.options.map((x) => ({ ...x })),
     luggageCount: o.luggageCount,
     forOther: o.forOtherName ? { name: accepted ? o.forOtherName : o.forOtherName.split(" ")[0] } : null,
-    contactMode: o.options.some((x) => x.kind === "text_only") ? "text" : "call",
     freight: f
       ? {
           ...f,
@@ -305,46 +303,30 @@ function routesPage(s: DriverState): RoutesPage {
 // ---------- capabilities ----------
 
 function capsOf(s: DriverState): CapabilitiesInput {
-  s.capabilities ??= { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
+  s.capabilities ??= { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
   return s.capabilities;
 }
 
 function toCapabilities(s: DriverState): DriverCapabilities {
   const c = capsOf(s);
   return {
-    childSeat: c.childSeat,
-    childSeatAges: [...c.childSeatAges],
-    ageGroups: [...CHILD_SEAT_AGES],
-    pets: c.pets,
-    bigLuggage: c.bigLuggage,
+    bodySizes: [...c.bodySizes],
+    availableBodySizes: [...BODY_SIZES],
+    loaderHelp: c.loaderHelp,
     carModel: s.profile.car.model,
     carClass: carClassFor(s.profile.car.model),
-    cargoBody: { ...cargoBodyFor(s.profile.car.model) },
   };
 }
 
-/**
- * Age groups and the child-seat switch stay consistent: turning the seat on
- * with no group picks 1–4 (the most common seat); clearing the last group
- * turns the seat off. Groups are kept in display order.
- */
-function normalizeCapabilities(prev: CapabilitiesInput, input: CapabilitiesInput): CapabilitiesInput {
-  let ages = CHILD_SEAT_AGES.filter((a) => input.childSeatAges.includes(a));
-  let childSeat = !!input.childSeat;
-  if (childSeat && !ages.length) {
-    if (prev.childSeat) childSeat = false; // the last group was just cleared
-    else ages = ["toddler"];
-  }
-  return { childSeat, childSeatAges: ages, pets: !!input.pets, bigLuggage: !!input.bigLuggage };
+/** Sizes kept in display order; unknown sizes dropped. */
+function normalizeCapabilities(input: CapabilitiesInput): CapabilitiesInput {
+  return { bodySizes: BODY_SIZES.filter((x) => input.bodySizes.includes(x)), loaderHelp: !!input.loaderHelp };
 }
 
-/** A request reaches the driver only if their car can serve it (Imkoniyatlarim). */
+/** A request reaches the driver only if their car can serve it: passengers by car class, cargo by body size (Imkoniyatlarim). */
 function capsAllow(s: DriverState, r: RequestRecord) {
-  const c = capsOf(s);
-  if (r.carClass !== carClassFor(s.profile.car.model)) return false;
-  return r.options.every((o) =>
-    o.kind === "child_seat" ? c.childSeat && c.childSeatAges.includes(o.ageGroup) : o.kind === "pet" ? c.pets : o.kind === "big_luggage" ? c.bigLuggage : true
-  );
+  if (r.freight) return capsOf(s).bodySizes.includes(r.freight.body.sizeLabel);
+  return r.carClass === carClassFor(s.profile.car.model);
 }
 
 // ---------- the request market ----------
@@ -490,18 +472,6 @@ function makeWhen(dayOffset: number, now: number): WhenRecord {
   return { dayStart, time: { kind: "any" } };
 }
 
-/** Options only from what the driver's car offers (plus the universal ones). */
-function passengerOptions(s: DriverState, full: boolean): OrderOption[] {
-  const c = capsOf(s);
-  const out: OrderOption[] = [];
-  if (c.childSeat && c.childSeatAges.length && (full || rand.bool(0.15))) out.push({ kind: "child_seat", ageGroup: full ? c.childSeatAges[0] : rand.pick(c.childSeatAges) });
-  if (c.pets && (full || rand.bool(0.1))) out.push({ kind: "pet" });
-  if (c.bigLuggage && (full || rand.bool(0.2))) out.push({ kind: "big_luggage" });
-  if (full || rand.bool(0.05)) out.push({ kind: "wheelchair" });
-  if (full || rand.bool(0.08)) out.push({ kind: "text_only" });
-  return out;
-}
-
 type MakeOpts = { variant?: TestOrderVariant; dayOffset?: number; direction?: Direction; postedAt?: number; seats?: number; neverTaken?: boolean };
 
 function makeRequest(s: DriverState, opts: MakeOpts = {}): RequestRecord | null {
@@ -552,7 +522,6 @@ function makeRequest(s: DriverState, opts: MakeOpts = {}): RequestRecord | null 
       pickupDetails: full || rand.bool(0.6) ? flatDetails(full || rand.bool(0.7)) : undefined,
       stops: (full || rand.bool(0.2)) && stopAddr.length ? [{ cityId: to, address: rand.pick(stopAddr) }] : [],
       comment: full ? "Bolam bilan chiqaman, 5 daqiqa kutib turing, iltimos." : rand.bool(0.4) ? rand.pick(COMMENTS) : null,
-      options: passengerOptions(s, full),
       luggageCount: full ? 2 : rand.int(0, 3),
       forOtherName: full || rand.bool(0.15) ? rand.pick(others).name : null,
       freight: null,
@@ -570,12 +539,12 @@ function makeRequest(s: DriverState, opts: MakeOpts = {}): RequestRecord | null 
     dropoffDetails: demo || rand.bool(0.5) ? flatDetails(false) : undefined,
     stops,
     comment: demo ? "Qutilarda idish-tovoq bor, ehtiyot bo'ling. Lift ishlamaydi." : rand.bool(0.3) ? "Qutilar og'ir emas, lekin sinadigan narsalar bor." : null,
-    options: [],
     luggageCount: 0,
     forOtherName: null,
     freight: {
       tab: demo ? "kargo" : rand.pick(["dostavka", "kargo"] as const),
-      body: cargoBodyFor(s.profile.car.model),
+      // Sample: a body the driver takes (any size when none is picked).
+      body: { ...CARGO_BODIES[rand.pick(capsOf(s).bodySizes.length ? capsOf(s).bodySizes : BODY_SIZES)] },
       loaders: demo ? 2 : rand.int(0, 2),
       billing: hourly ? { mode: "hourly", hours: demo ? 3 : rand.int(2, 4) } : { mode: "route" },
       sender: { name: sender.name, phoneMasked: passengerInfo(sender.id).phoneMasked },
@@ -820,8 +789,7 @@ function finishBooking(s: DriverState, b: BookingRecord): TripSummary {
 
 function chatOf(b: BookingRecord) {
   if (!b.chat) {
-    const textOnly = b.options.some((o) => o.kind === "text_only");
-    b.chat = textOnly ? [{ id: genId("msg"), from: "passenger", at: b.acceptedAt + 15_000, textKey: "chat.pax.hello" }] : [];
+    b.chat = [];
   }
   return b.chat;
 }
@@ -831,7 +799,7 @@ function toChat(b: BookingRecord): TripChat {
   return {
     tripId: b.id,
     peerName: passengerInfo(b.passengerId).name,
-    textOnly: b.options.some((o) => o.kind === "text_only"),
+    textOnly: false,
     // A scheduled reply stays hidden until its time comes.
     messages: chatOf(b).filter((m) => m.at <= now).map((m) => ({ ...m })),
     quickReplies: QUICK_REPLIES[b.stage],
@@ -1020,6 +988,7 @@ export const mockAdapter: ApiAdapter = {
     locationReporting: false,
     ratePassenger: true,
     sos: true,
+    deleteAccount: true,
   },
   subscribe: () => noop,
   onSessionEnd: () => noop,
@@ -1151,6 +1120,14 @@ export const mockAdapter: ApiAdapter = {
       return { ...s.session };
     }, { noFail: true }),
 
+  // Sample data: back to a fresh, unregistered driver.
+  deleteAccount: () =>
+    withLatency(() => {
+      replaceState(presetState("new"));
+      persist();
+      return { stage: "signed_out" as const };
+    }, { minMs: 500, maxMs: 800 }),
+
   getProfile: () =>
     withLatency<DriverProfile>(() => {
       const s = state();
@@ -1169,6 +1146,7 @@ export const mockAdapter: ApiAdapter = {
         car: { model: p.car.model, color: color.key, colorHex: color.hex, plate: p.car.plate, year: p.car.year },
         documents: p.documents,
         memberSinceYear: p.memberSinceYear,
+        acceptancePct: 96,
       };
     }),
 
@@ -1402,9 +1380,28 @@ export const mockAdapter: ApiAdapter = {
         .filter((t) => inRange(endedAt(t), filter.range))
         .filter((t) => t.net >= filter.minEarnings)
         .filter((t) => !q || cityName(t.fromCityId).toLocaleLowerCase().includes(q) || cityName(t.toCityId).toLocaleLowerCase().includes(q))
+        .filter((t) => !filter.kind || t.kind === filter.kind)
         .sort((a, b) => b.createdAt - a.createdAt)
         .map(toHistoryItem);
-      return { items, total: items.length, filterOptions: { minEarnings: [0, 100_000, 200_000, 300_000], ranges: ["all", "today", "week", "month"] } };
+      // Sample server summary of the listed period; a bar per day for "7 kun".
+      const done = items.filter((x) => x.status === "completed");
+      const times = items.map((x) => x.createdAt);
+      const summary: HistorySummary | undefined = items.length
+        ? {
+            from: filter.range === "week" ? dayStartAt(-6) : filter.range === "today" ? dayStartAt(0) : filter.range === "month" ? dayStartAt(-29) : Math.min(...times),
+            to: Date.now(),
+            total: done.reduce((sum, x) => sum + x.earnings, 0),
+            trips: done.length,
+            days:
+              filter.range === "week"
+                ? Array.from({ length: 7 }, (_, i) => {
+                    const start = dayStartAt(i - 6);
+                    return { date: isoDate(start), amount: done.filter((x) => x.createdAt >= start && x.createdAt < start + DAY).reduce((sum, x) => sum + x.earnings, 0) };
+                  })
+                : undefined,
+          }
+        : undefined;
+      return { items, total: items.length, summary, filterOptions: { minEarnings: [0, 100_000, 200_000, 300_000], ranges: ["all", "today", "week", "month"] } };
     }),
 
   getTripDetail: (id) =>
@@ -1541,8 +1538,7 @@ export const mockAdapter: ApiAdapter = {
   setCapabilities: (input) =>
     withLatency(() => {
       const s = state();
-      const prev = toCapabilities(s);
-      s.capabilities = normalizeCapabilities(prev, input);
+      s.capabilities = normalizeCapabilities(input);
       persist();
       return toCapabilities(s);
     }, { minMs: 120, maxMs: 260 }),

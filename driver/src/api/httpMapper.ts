@@ -209,10 +209,8 @@ function orderFields(o: Api.Offer | Api.Order, cities: CityNames) {
     seatIds: seatIdsOf(o.seat_ids),
     stops: [],
     comment: o.comment?.trim() || null,
-    options: [],
     luggageCount: 0,
     forOther: null,
-    contactMode: "call" as const,
     freight: null,
   };
 }
@@ -383,25 +381,22 @@ export function mapRoutesError(err: unknown): unknown {
 
 // ----------------------------------------------------------- capabilities
 /** The contract's child-seat age groups, in its enum order. */
-export const API_CHILD_SEAT_AGES: Api.ChildSeatAge[] = ["0-1", "1-3", "3-7", "7-12"];
+/** Expected cargo-capabilities body (docs/backend-gaps/driver.md, "Redesign v2"). */
+export type ApiCargoCapabilities = { body_sizes: string[]; available_body_sizes?: string[]; loader_help: boolean };
+const BODY_SIZE_ORDER = ["S", "M", "L", "XL", "XXL", "3XL"];
 
-export function toCapabilities(c: Api.DriverCapabilities, car: Api.Car | undefined): DriverCapabilities {
+export function toCapabilities(c: ApiCargoCapabilities, car: Api.Car | undefined): DriverCapabilities {
   return {
-    childSeat: c.child_seat,
-    childSeatAges: API_CHILD_SEAT_AGES.filter((a) => c.child_seat_ages.includes(a)),
-    ageGroups: [...API_CHILD_SEAT_AGES],
-    pets: c.pets,
-    bigLuggage: c.big_luggage,
+    bodySizes: c.body_sizes,
+    availableBodySizes: c.available_body_sizes?.length ? c.available_body_sizes : BODY_SIZE_ORDER,
+    loaderHelp: c.loader_help,
     carModel: car ? `${car.brand} ${car.model}`.trim() : undefined,
     carClass: car?.car_class,
-    cargoBody: undefined,
   };
 }
 
-/** Ages must be empty while child_seat is off (`requires_child_seat`). */
-export function toApiCapabilities(input: CapabilitiesInput): Api.DriverCapabilities {
-  const ages = API_CHILD_SEAT_AGES.filter((a) => (input.childSeatAges as string[]).includes(a));
-  return { child_seat: input.childSeat, child_seat_ages: input.childSeat ? ages : [], pets: input.pets, big_luggage: input.bigLuggage };
+export function toApiCapabilities(input: CapabilitiesInput): ApiCargoCapabilities {
+  return { body_sizes: input.bodySizes, loader_help: input.loaderHelp };
 }
 
 // ----------------------------------------------------------------- driver

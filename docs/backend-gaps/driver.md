@@ -166,3 +166,24 @@ phone's navigator instead (geo: / Apple Maps link, no web request).
 - The TopUp screen shows the current balance only, not "balance → balance + amount": a provider fee or rounding would
   make a client-side sum wrong. If the server can quote it, add `POST /api/v1/wallet/topup/quote` →
   `{ credited: Money, balance_after: Money }`.
+
+### Profile: History, Profile, Level, Capabilities, Notifications, Settings
+
+- **Imkoniyatlarim** (decision 2026-11-22: wishes removed). The contract's `DriverCapabilities` (child seat, pets,
+  big luggage) is no longer used by the app. Needed:
+  `GET` / `PUT /api/v1/drivers/me/cargo-capabilities` → `{ body_sizes: ("S"|"M"|"L"|"XL"|"XXL"|"3XL")[],
+  available_body_sizes?: string[], loader_help: boolean }`; 422 on an unknown size. Matching should use these for
+  cargo offers. Until it exists the screen shows "Tez orada" in http mode (`capabilities.driverCapabilities = false`).
+- **Delete account** (Google Play requirement): `DELETE /api/v1/drivers/me` → 204, then the session ends;
+  409 `TRIP_ACTIVE` while a trip is open. Until then Sozlamalar → "Akkauntni o'chirish" opens
+  `${VITE_SITE_URL}/delete-account` in the system browser.
+- **Profile** (`GET /api/v1/drivers/me`): `acceptance_pct` (0–100), `member_since` (year), `rating_count`, and the
+  documents' review status (already listed above). Missing ones are hidden.
+- **Level** ("Darajalar", the old bonus screen): `GET /api/v1/drivers/me/level` →
+  `{ levels: [{ key, trips_required, commission_pct }], current, next?, week_trips, trips_to_next, commission_pct,
+  rules: [{ key: "trips" | "rating" | "cancels", progress, target, done, ratio }], resets_in_days }`. Hidden until then
+  (`capabilities.bonus = false`).
+- **History**: filters `range`, `kind` (`passengers` / `delivery`), `city`, `min_earnings` on the history list, plus a
+  `summary` of the filtered period: `{ from, to, total (tiyin), trips, days?: [{ date, amount }] }` for the Tarix top
+  (total, trips, a bar per day for a week). Without it the top shows only the title.
+- **Settings**: night mode, language, request sound and navigator are stored on the phone (not account data).

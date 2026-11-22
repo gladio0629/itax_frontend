@@ -6,7 +6,7 @@ import { useQuery } from "@/lib/useQuery";
 import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { Bell, CreditCard, Gift, ListChecks, Megaphone } from "@/lib/icons";
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { Screen } from "@/components/Screen";
 import { SettingsGroup, SettingsRow } from "@/components/SettingsRow";
 import { Switch } from "@/components/Switch";
 import { ErrorState } from "@/components/ErrorState";
@@ -37,51 +37,48 @@ export default function NotificationPrefsScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <ScreenHeader title={t("prefs.title")} back="/profile" />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2">
-        {q.error && !prefs ? (
-          <ErrorState error={q.error} onRetry={() => q.reload()} />
-        ) : !prefs ? (
-          <SkeletonList rows={3} label={t("common.loading")} />
-        ) : (
-          <>
+    <Screen title={t("prefs.title")} back={"/profile/settings"}>
+      {q.error && !prefs ? (
+        <ErrorState error={q.error} onRetry={() => q.reload()} />
+      ) : !prefs ? (
+        <SkeletonList rows={3} label={t("common.loading")} />
+      ) : (
+        <>
+          <SettingsGroup>
+            <SettingsRow
+              icon={Bell}
+              tile="red"
+              label={t("prefs.master")}
+              description={t("prefs.masterHint")}
+              trailing={<Switch checked={prefs.master} onChange={() => update({ ...prefs, master: !prefs.master })} label={t("prefs.master")} describedBy={hintId} />}
+            />
+          </SettingsGroup>
+          <span id={hintId} className="sr-only">
+            {t("prefs.masterHint")}
+          </span>
+          <div className={prefs.master ? "" : "opacity-50"} aria-disabled={!prefs.master || undefined}>
             <SettingsGroup>
-              <SettingsRow
-                icon={Bell}
-                tile="red"
-                label={t("prefs.master")}
-                description={t("prefs.masterHint")}
-                trailing={<Switch checked={prefs.master} onChange={() => update({ ...prefs, master: !prefs.master })} label={t("prefs.master")} describedBy={hintId} />}
-              />
+              {/* The real backend stores only push (master) and promo (news). */}
+              {ITEMS.filter((it) => api.capabilities.notificationCategories || it.key === "news").map((it) => (
+                <SettingsRow
+                  key={it.key}
+                  icon={it.icon}
+                  tile={it.tile}
+                  label={t(`prefs.${it.key}`)}
+                  trailing={
+                    <Switch
+                      checked={prefs.master && prefs[it.key]}
+                      disabled={!prefs.master}
+                      onChange={() => update({ ...prefs, [it.key]: !prefs[it.key] })}
+                      label={t(`prefs.${it.key}`)}
+                    />
+                  }
+                />
+              ))}
             </SettingsGroup>
-            <span id={hintId} className="sr-only">
-              {t("prefs.masterHint")}
-            </span>
-            <div className={prefs.master ? "" : "opacity-50"} aria-disabled={!prefs.master || undefined}>
-              <SettingsGroup>
-                {/* The real backend stores only push (master) and promo (news). */}
-                {ITEMS.filter((it) => api.capabilities.notificationCategories || it.key === "news").map((it) => (
-                  <SettingsRow
-                    key={it.key}
-                    icon={it.icon}
-                    tile={it.tile}
-                    label={t(`prefs.${it.key}`)}
-                    trailing={
-                      <Switch
-                        checked={prefs.master && prefs[it.key]}
-                        disabled={!prefs.master}
-                        onChange={() => update({ ...prefs, [it.key]: !prefs[it.key] })}
-                        label={t(`prefs.${it.key}`)}
-                      />
-                    }
-                  />
-                ))}
-              </SettingsGroup>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+          </div>
+        </>
+      )}
+    </Screen>
   );
 }

@@ -12,9 +12,6 @@ export type Cargo = { labelKey: string; weightKg: number };
 
 /** Class the order was placed in (matches the driver's car class). */
 export type CarClass = "economy" | "comfort" | "business" | "minivan";
-/** Child-seat age groups. Sample data: infant 0–1, toddler 1–4, booster 4–12.
- * The real backend (DriverCapabilities.child_seat_ages): "0-1" | "1-3" | "3-7" | "7-12". */
-export type ChildSeatAge = "infant" | "toddler" | "booster" | "0-1" | "1-3" | "3-7" | "7-12";
 /** Seat positions in a passenger car (Offer/Order.seat_ids). */
 export type SeatPosition = "front" | "back-left" | "back-mid" | "back-right";
 
@@ -25,16 +22,8 @@ export type OfferPlace = Place & { details?: AddressDetails & { intercomOnAccept
 /** After acceptance the adapter adds the intercom code. */
 export type TripPlace = Place & { details?: AddressDetails & { intercom?: string } };
 
-export type OrderOption =
-  | { kind: "child_seat"; ageGroup: ChildSeatAge }
-  | { kind: "pet" }
-  | { kind: "big_luggage" }
-  | { kind: "wheelchair" }
-  | { kind: "text_only" };
-export type OrderOptionKind = OrderOption["kind"];
-
-/** How the driver reaches the passenger: text-only orders switch the call button to chat. */
-export type ContactMode = "call" | "text";
+// Wishes / options (child seat, pet, AC, wheelchair, text only) were removed
+// everywhere (decision 2026-11-22). Luggage count and the comment stay.
 
 /** Which client tab the delivery order came from. */
 export type DeliveryTab = "dostavka" | "kargo";
@@ -64,11 +53,9 @@ export type OrderExtras<P extends Place> = {
   /** Intermediate stops, in driving order (pickup and final dropoff excluded). */
   stops: P[];
   comment: string | null;
-  options: OrderOption[];
   luggageCount: number;
   /** Set when the client ordered the ride for someone else. */
   forOther: { name: string } | null;
-  contactMode: ContactMode;
   /** Set on cargo orders only. */
   freight: Freight | null;
   /** Which seats the passenger booked, when the server says (real backend). */
@@ -118,24 +105,25 @@ export type DriverProfile = {
   car?: Car;
   documents: DriverDocument[];
   memberSinceYear?: number;
+  /** Share of offered requests the driver accepted, 0–100 (server). */
+  acceptancePct?: number;
 };
 
-/** "Imkoniyatlarim": what the driver offers. Car class and cargo body are read-only (from the car). */
+/**
+ * "Imkoniyatlarim" (decision 2026-11-22): only the cargo body sizes the car
+ * takes (S–3XL, several allowed) and whether the driver helps load. The size
+ * list comes from the server.
+ */
 export type DriverCapabilities = {
-  childSeat: boolean;
-  /** Age groups the seat(s) fit; empty only while childSeat is off. */
-  childSeatAges: ChildSeatAge[];
-  /** Every age group the driver can pick from, in display order. */
-  ageGroups: ChildSeatAge[];
-  pets: boolean;
-  bigLuggage: boolean;
+  bodySizes: string[];
+  /** Every size the driver can pick from, in display order (S … 3XL). */
+  availableBodySizes: string[];
+  loaderHelp: boolean;
   /** From the driver's car; absent when the server has none. */
   carModel?: string;
   carClass?: CarClass;
-  /** Absent when the backend doesn't describe the car's cargo body. */
-  cargoBody?: CargoBody;
 };
-export type CapabilitiesInput = Pick<DriverCapabilities, "childSeat" | "childSeatAges" | "pets" | "bigLuggage">;
+export type CapabilitiesInput = Pick<DriverCapabilities, "bodySizes" | "loaderHelp">;
 
 export type DebtLevel = "ok" | "near" | "blocked";
 export type DebtState = {
@@ -333,7 +321,8 @@ export type TripSummary = {
 
 export type HistoryRange = "all" | "today" | "week" | "month";
 /** `page`: 1-based "load more" page (cursor pages behind it in http mode). */
-export type HistoryFilter = { range: HistoryRange; minEarnings: number; city: string; page?: number };
+/** `kind`: passengers / delivery only (absent: both). */
+export type HistoryFilter = { range: HistoryRange; minEarnings: number; city: string; kind?: OrderKind; page?: number };
 export type HistoryItem = {
   id: string;
   createdAt: number;
@@ -348,8 +337,11 @@ export type HistoryItem = {
   status: "completed" | "cancelled";
   kind: OrderKind;
 };
+/** The period the list covers, as the server sums it (Tarix top: total, trips, bars per day). */
+export type HistorySummary = { from: number; to: number; total: number; trips: number; days?: { date: string; amount: number }[] };
 export type HistoryPage = {
   items: HistoryItem[];
+  summary?: HistorySummary;
   /** Absent when the server doesn't count (cursor pages). */
   total?: number;
   filterOptions: { minEarnings: number[]; ranges: HistoryRange[] };

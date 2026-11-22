@@ -5,6 +5,8 @@ import type { RequestAlert } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { formatAmount } from "@/lib/format";
 import { notifyInBackground } from "@/lib/systemNotify";
+import { getDevicePrefs } from "@/lib/devicePrefs";
+import { playChime } from "@/lib/sound";
 import { useFeedSignal } from "@/stores/feedSignal";
 import { useToast } from "@/lib/toast";
 import { BellRing, X } from "@/lib/icons";
@@ -43,6 +45,8 @@ export function RequestBanner() {
         clearTimeout(hideTimer.current);
         hideTimer.current = setTimeout(() => setAlert(null), SHOW_MS);
         notifyInBackground(t("banner.request.title"), lineFor(a), a.id, () => open(a));
+        // Sozlamalar → So'rov ovozi (this phone only).
+        if (getDevicePrefs().requestSound && document.visibilityState === "visible") playChime();
       }
       timer = setTimeout(tick, POLL_MS);
     };

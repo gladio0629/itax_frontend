@@ -133,7 +133,7 @@ export default function WalletScreen() {
 function CommissionCard({ linked, children }: { linked: boolean; children: React.ReactNode }) {
   const cls = "flex flex-col gap-1 rounded-field bg-raised p-4";
   return linked ? (
-    <Link to="/profile/bonus" className={cn(cls, "press")}>
+    <Link to="/profile/level" className={cn(cls, "press")}>
       {children}
     </Link>
   ) : (

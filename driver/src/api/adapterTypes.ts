@@ -48,6 +48,8 @@ export type ApiCapabilities = {
   ratePassenger: boolean;
   /** SOS signal to IZGO from a trip. */
   sos: boolean;
+  /** Delete the account from the app (otherwise the public site's page). */
+  deleteAccount: boolean;
 };
 
 /** Server-pushed events (WebSocket), already reduced to what screens refresh on.
@@ -89,6 +91,8 @@ export interface ApiAdapter {
   /** Per-section progress while under review; null when the server doesn't report it. */
   getRegistrationReview(): Promise<RegistrationReview | null>;
   logout(): Promise<Session>;
+  /** Deletes the driver's account (irreversible); ends the session. */
+  deleteAccount(): Promise<Session>;
   /** GPS fix while the feed is open or a trip is active (the caller throttles to ≥10 s). */
   reportLocation(lat: number, lng: number): Promise<void>;
   /** The driver's position when the adapter has one without GPS (sample data: mock coordinates
