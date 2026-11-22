@@ -839,6 +839,12 @@ export const mockAdapter: ApiAdapter = {
           drivers: drivers.filter((x) => new Date(x.joinedAt).toDateString() === dayKey).length,
         };
       });
+      const ordersOverTime = Array.from({ length: bucketCount }, (_, i) => {
+        const d = new Date(refNow - (bucketCount - 1 - i) * step * dayMs);
+        const dayKey = d.toDateString();
+        const day = orders.filter((o) => new Date(o.createdAt).toDateString() === dayKey);
+        return { date: formatDayShort(d), orders: day.length, completed: day.filter((o) => o.status === "completed").length };
+      });
       const incomeOverTime = Array.from({ length: bucketCount }, (_, i) => {
         const dayStart = refNow - (bucketCount - 1 - i) * step * dayMs;
         const d = new Date(dayStart);
@@ -862,11 +868,14 @@ export const mockAdapter: ApiAdapter = {
         driversActive: drivers.filter((d) => d.status === "active" && !d.archived).length,
         driversBlocked: drivers.filter((d) => d.status === "blocked").length,
         driversNew: drivers.filter((d) => d.joinedAt >= since).length,
+        // Seed verdict (the server's in production), not a browser rule.
+        driversOverLimit: drivers.filter((d) => d.atDebtLimit && !d.archived).length,
         ordersTotal: periodOrders.length,
         ordersCompleted: completedPeriodOrders.length,
         ordersCancelled: periodOrders.filter((o) => o.status === "cancelled").length,
         // Sample data has no "expired": orders that found no driver in time stand for it.
         ordersExpired: periodOrders.filter((o) => o.status === "no_driver").length,
+        ordersOverTime,
         ordersByStatus,
         ordersByRoute,
         registrations,

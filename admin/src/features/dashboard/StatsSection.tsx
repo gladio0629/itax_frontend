@@ -79,15 +79,54 @@ function OrdersAndPeople({ stats }: { stats: MarketingStats }) {
     tile("Haydovchilar, jami", stats.driversTotal, stats.driversNew != null ? `+${formatNumber(stats.driversNew)} yangi` : undefined),
     tile("Faol haydovchilar", stats.driversActive),
     tile("Bloklangan haydovchilar", stats.driversBlocked),
+    tile("Qarz limitiga yetgan haydovchilar", stats.driversOverLimit),
   ].filter(Boolean);
-  if (!orders.length && !people.length && !stats.registrations) return null;
+  if (!orders.length && !people.length && !stats.registrations && !stats.ordersOverTime) return null;
   return (
     <section aria-label="Buyurtmalar va foydalanuvchilar" className="flex flex-col gap-4">
       <h2 className="label-caps px-1 text-muted">Buyurtmalar va foydalanuvchilar</h2>
       {orders.length > 0 && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{orders}</div>}
-      {people.length > 0 && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">{people}</div>}
-      {stats.registrations && <Registrations rows={stats.registrations} />}
+      {people.length > 0 && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">{people}</div>}
+      {(stats.ordersOverTime || stats.registrations) && (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {stats.ordersOverTime && <OrdersOverTime rows={stats.ordersOverTime} />}
+          {stats.registrations && <Registrations rows={stats.registrations} />}
+        </div>
+      )}
     </section>
+  );
+}
+
+function OrdersOverTime({ rows }: { rows: NonNullable<MarketingStats["ordersOverTime"]> }) {
+  return (
+    <Card className="flex flex-col gap-4">
+      <CardTitle
+        right={
+          <span className="flex gap-4 text-xs font-bold text-muted">
+            <Legend color="var(--ink)" label="Buyurtmalar" />
+            <Legend color="var(--green)" label="Yakunlangan" />
+          </span>
+        }
+      >
+        Buyurtmalar dinamikasi
+      </CardTitle>
+      <div className="h-[220px] w-full" role="img" aria-label="Kunlar bo'yicha buyurtmalar va yakunlangan buyurtmalar">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={rows} margin={{ top: 4, right: 0, bottom: 0, left: -18 }} barCategoryGap="24%">
+            <CartesianGrid vertical={false} stroke="var(--line)" />
+            <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 11, fontWeight: 600, fill: "var(--muted)" }} minTickGap={12} />
+            <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--muted)" }} allowDecimals={false} />
+            <Tooltip
+              cursor={{ fill: "var(--surface)" }}
+              contentStyle={TOOLTIP}
+              formatter={(v: number, name: string) => [formatNumber(v), name === "orders" ? "Buyurtmalar" : "Yakunlangan"]}
+            />
+            <Bar dataKey="orders" fill="var(--ink)" radius={[4, 4, 4, 4]} />
+            <Bar dataKey="completed" fill="var(--green)" radius={[4, 4, 4, 4]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
   );
 }
 
