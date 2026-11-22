@@ -25,12 +25,12 @@ const base =
   "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-extrabold transition-transform active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 select-none";
 
 export const buttonVariants: Record<ButtonVariant, string> = {
-  primary: "bg-green text-ink hover:bg-[#27c877]",
+  primary: "bg-green text-ink hover:bg-green-hover",
   dark: "bg-ink text-white hover:bg-ink/90",
   secondary: "bg-white text-ink shadow-hairline hover:bg-surface",
   soft: "bg-surface text-ink hover:bg-line",
   ghost: "bg-transparent text-ink hover:bg-surface",
-  danger: "bg-error-soft text-error hover:bg-[#fbdcd8]",
+  danger: "bg-error-soft text-error hover:bg-error-soft-hover",
 };
 
 export const buttonSizes: Record<Size, string> = {

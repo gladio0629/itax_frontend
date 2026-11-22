@@ -9,15 +9,17 @@ import { RequireSection } from "@/components/RequireSection";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/Skeleton";
 
-const StatsScreen = lazy(() => import("@/features/dashboard/StatsScreen").then((m) => ({ default: m.StatsScreen })));
+const DashboardScreen = lazy(() => import("@/features/dashboard/DashboardScreen").then((m) => ({ default: m.DashboardScreen })));
 const DriversScreen = lazy(() => import("@/features/drivers/DriversScreen").then((m) => ({ default: m.DriversScreen })));
+const DriverPage = lazy(() => import("@/features/drivers/DriverPage").then((m) => ({ default: m.DriverPage })));
 const PassengersScreen = lazy(() => import("@/features/passengers/PassengersScreen").then((m) => ({ default: m.PassengersScreen })));
 const OrdersScreen = lazy(() => import("@/features/orders/OrdersScreen").then((m) => ({ default: m.OrdersScreen })));
-const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen").then((m) => ({ default: m.WalletScreen })));
+const LedgerScreen = lazy(() => import("@/features/wallet/LedgerScreen").then((m) => ({ default: m.LedgerScreen })));
 const TariffsScreen = lazy(() => import("@/features/tariffs/TariffsScreen").then((m) => ({ default: m.TariffsScreen })));
 const ComplaintsScreen = lazy(() => import("@/features/complaints/ComplaintsScreen").then((m) => ({ default: m.ComplaintsScreen })));
 const StaffScreen = lazy(() => import("@/features/staff/StaffScreen").then((m) => ({ default: m.StaffScreen })));
 const OperatorsScreen = lazy(() => import("@/features/operators/OperatorsScreen").then((m) => ({ default: m.OperatorsScreen })));
+const MarketingScreen = lazy(() => import("@/features/marketing/MarketingScreen").then((m) => ({ default: m.MarketingScreen })));
 const AuditScreen = lazy(() => import("@/features/audit/AuditScreen").then((m) => ({ default: m.AuditScreen })));
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -64,7 +66,7 @@ export function AppRoutes() {
           element={
             <RequireSection section="stats">
               <Lazy>
-                <StatsScreen />
+                <DashboardScreen />
               </Lazy>
             </RequireSection>
           }
@@ -80,6 +82,16 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/drivers/:driverId/*"
+          element={
+            <RequireSection section="drivers">
+              <Lazy>
+                <DriverPage />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
           path="/passengers"
           element={
             <RequireSection section="passengers">
@@ -90,7 +102,7 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/orders"
+          path="/orders/*"
           element={
             <RequireSection section="orders">
               <Lazy>
@@ -100,11 +112,11 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/wallet"
+          path="/wallet/*"
           element={
             <RequireSection section="wallet">
               <Lazy>
-                <WalletScreen />
+                <LedgerScreen />
               </Lazy>
             </RequireSection>
           }
@@ -130,7 +142,7 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/staff"
+          path="/staff/*"
           element={
             <RequireSection section="staff">
               <Lazy>
@@ -140,7 +152,7 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/operators"
+          path="/operators/*"
           element={
             <RequireSection section="operators">
               <Lazy>
@@ -155,6 +167,16 @@ export function AppRoutes() {
             <RequireSection section="audit">
               <Lazy>
                 <AuditScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/marketing"
+          element={
+            <RequireSection section="marketing">
+              <Lazy>
+                <MarketingScreen />
               </Lazy>
             </RequireSection>
           }

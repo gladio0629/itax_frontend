@@ -6,10 +6,8 @@ import type { ErrorParams } from "@shared/http/errors";
 const GENERIC = "Xatolik yuz berdi. Qayta urinib ko'ring.";
 
 const FORBIDDEN_REASON: Record<string, string> = {
-  not_pending: "Bu yozuv endi tasdiq kutmayapti.",
   not_in_progress: "Bu vazifa jarayonda emas.",
   not_assigned: "Bu vazifa sizga biriktirilmagan.",
-  self_approval: "O'zingiz yaratgan yozuvni o'zingiz tasdiqlay yoki rad eta olmaysiz.",
   invalid_state: "Bu holatdan bunday o'zgartirib bo'lmaydi.",
   staff_inactive: "Hisobingiz faol emas.",
   invalid_transition: "Shikoyatni bu holatga o'tkazib bo'lmaydi. Ochiq shikoyatni avval ko'rib chiqishga oling (o'zingizga biriktiring).",
@@ -35,7 +33,6 @@ const MESSAGES: Record<string, (p: ErrorParams) => string> = {
   DRIVER_NOT_FOUND: () => "Haydovchi topilmadi.",
   PASSENGER_NOT_FOUND: () => "Yo'lovchi topilmadi.",
   TARIFF_NOT_FOUND: () => "Tarif topilmadi.",
-  TARIFF_CHANGE_PENDING: () => "Bu tarifda tasdiq kutayotgan o'zgarish bor. Avval uni tasdiqlang yoki rad eting.",
   IDEMPOTENCY_KEY_REUSED: () => "Bu so'rov boshqa ma'lumot bilan allaqachon yuborilgan. Formani qayta to'ldiring.",
   ORDER_NOT_FOUND: () => "Buyurtma topilmadi.",
   TRIP_ORDER_UNAVAILABLE: () => "Buyurtmalar xizmati javob bermadi. Keyinroq urinib ko'ring.",

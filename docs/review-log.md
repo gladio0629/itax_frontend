@@ -3,7 +3,20 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
-## 2026-11-22, round 6: driver `0a2d568` merged; admin `1928d19` YELLOW (not merged)
+## 2026-11-22, round 6 merge: admin `1928d19` into `redesign-v2`
+
+Owner decision:
+- "Hozir onlayn haydovchilar" stays out, because drivers have no online status. The admin terminal read decision 5 correctly.
+- Two items go to the admin terminal: the debt-limit drivers count (`driversOverLimit`) and the orders/completed over-time chart.
+
+Merged `redesign-admin` at `1928d19` as YELLOW, `--no-ff`, with no conflicts.
+- `docs/handoff-admin.md`:
+  - §1 is marked DONE: the design doc line is in place, and the main doc has had it since v1.8;
+  - §2 is main doc text, which stays with the main chat.
+- `docs/backend-gaps.md` index: the admin line now lists the redesign v2 groups.
+- After the merge, all three apps pass typecheck, the `VITE_DEMO_MODE=false` build and `check:no-network`.
+
+## 2026-11-22, round 6: driver `0a2d568` merged; admin `1928d19` YELLOW (merged afterwards, see above)
 
 ### redesign-driver `750065f..0a2d568` (1 commit): GREEN, merged
 - `HistoryCard.tsx`: a cancelled trip shows the server's earnings instead of a hard-coded 0.
@@ -27,9 +40,8 @@ Fixed from round 4:
 - Marketing for superadmin, owner and menejer: a "Marketing" item in Asosiy. The marketolog still sees it as "Umumiy statistika".
 - `docs/backend-gaps/admin.md`: no duplicate endpoints left, and the stale approve, reveal and old-tariff rows are gone.
 
-To fix (rule 2; owner decision 5 listed online drivers among the stats to restore, only the "Onlayn" column stays out):
-- `StatsSection.tsx` `OrdersAndPeople`: "Hozir onlayn haydovchilar" (`driversOnline`) is not shown. The type comment says "not shown: owner decision", which misreads decision 5.
-- Two more figures from the old StatsScreen are still missing (`63575a8:admin/src/features/dashboard/StatsScreen.tsx:123,188`):
+To fix (rule 2; the online-drivers figure stays out by owner decision, see the merge entry above):
+- Two figures from the old StatsScreen are still missing (`63575a8:admin/src/features/dashboard/StatsScreen.tsx:123,188`):
   - "Qarz limitiga yetgan haydovchilar" (`driversOverLimit`);
   - the orders/completed over-time chart.
 

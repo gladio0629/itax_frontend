@@ -10,30 +10,39 @@ npm run build
 npm run check:no-network
 ```
 
-## Demo login
+## Sign-in
 
-Login requires an email + password + 2FA code (all local, no real auth):
+Doc 2.5, design Main + Verify. Nothing is remembered on the device: every logout means a full sign-in.
 
-- `kamola@izgo.uz` / `javlon@izgo.uz` / `shahnoza@izgo.uz` — password: `demo1234`
-- The 2FA code is shown directly in the UI copy ("Demo kod: ...") after requesting it.
+- Staff with email (superadmin, owner, menejer, marketolog): email → email code, then the staff phone → SMS code.
+- Operator: "Operatormisiz? Telefon bilan kiring" → phone → SMS code.
 
-## Pages
+Sample-data build (`VITE_DEMO_MODE=true`): the code is shown under the boxes ("Sinov kodi").
+Accounts: kamola@izgo.example / +998 90 000 00 01 (superadmin), behzod@… / …02 (owner),
+javlon@… / …03 (menejer), shahnoza@… / …04 (marketolog), operator +998 90 000 00 05.
 
-Dashboard (KPIs + weekly revenue chart) · Driver verification (document review + approve/reject)
-· Drivers / Passengers (search, sort, pagination, detail drawer, phone reveal) · Orders (table +
-map detail drawer) · Wallet ledger · Tariffs (two-person approval: propose → second admin
-approves via `ReviewStatus` → applied) · Support tickets · Risk & fraud flags · Roles &
-permissions matrix · Audit log · Settings.
+## Pages (design v2)
+
+Dashboard (KPIs, 14-day chart, top routes, recent orders, attention cards) · Orders (+ `/orders/:id`
+detail panel: timeline, price lines, edit, cancel, send to operator) · Drivers (+ `/drivers/:id`
+profile, history, documents; block/unblock, edit, archive; no manual approval) · Passengers ·
+Complaints · Hamyon va to'lovlar (read-only ledger + `/wallet/fix` correction entry) · Tariflar
+(fuel price per litre, class and body markups, extra fees, level commissions) · Operators
+(supervisors: Navbat / Jarayonda / Bugungi tasdiqlanganlar board; operator: `/operators` current task
+with five results and postpone, `/operators/history` own tasks + read-only orders, `/operators/drivers`
+read-only drivers without balance) · Staff (+ `/staff/new`) · Audit log · Marketing (`/marketing`,
+read-only; marketolog, superadmin, owner, menejer) · Profile.
 
 ## Notable patterns
 
-- **Phone reveal**: phone numbers are masked by default; clicking "Ko'rsatish" reveals them and
-  writes a `phone_reveal` entry to the audit log (visible immediately on the Audit page).
-- **Two-person tariff approval**: proposing a tariff change requires a second admin to approve it
-  through the same `ReviewStatus` component used for 2FA login, with the
-  "Ikkinchi adminga yuborildi" copy.
-- Sidebar badge counts (pending verifications, open tickets, flagged risk items) refresh on every
-  route change.
+- **Two-step confirmation (decision 2026-11-22):** a tariff change or a correction entry is made by
+  one person: Save → `ChangeConfirmModal` (old → new) → Confirm sends one request; Cancel discards.
+  No second approver, no "Tasdiqlar" page. The server writes the audit entry.
+- **No business logic in the browser:** prices, examples, totals, levels, debt-limit badges, counts
+  and timelines come from the adapter (the mock plays the server). `null` = not reported = hidden.
+- **Phones are shown in full** for every role (decision 2026-11-22).
+- **Capabilities:** the http adapter calls the endpoints it expects; features the backend lacks stay
+  hidden behind `api.capabilities` (see `docs/backend-gaps/admin.md`).
 
-Use the floating Demo Control Panel (bottom-left) to reset the database or simulate
-"no driver found", slow internet, forced errors, wallet limit, or fast-forwarded time.
+Use the floating test panel (bottom-right, sample-data build only) to reset the data or simulate
+slow internet, forced errors and other scenarios.

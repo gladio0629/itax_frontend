@@ -6,14 +6,10 @@ import type {
   PassengerStatus,
   Complaint,
   ComplaintStatus,
-  Tariff,
   AdminUser,
   AdminRole,
   StaffStatus,
   AuditEntry,
-  TariffProposal,
-  AdjustmentProposal,
-  ReviewRequest,
   OrderWithNames,
   MarketingStats,
   StatsPeriod,
@@ -34,9 +30,6 @@ import type {
   PassengerQuery,
   OrderQuery,
   WalletQuery,
-  TariffQuery,
-  TariffProposalQuery,
-  AdjustmentProposalQuery,
   ComplaintQuery,
   AuditQuery,
   OperatorQueueQuery,
@@ -47,6 +40,22 @@ import type {
   OperatorCounts,
   AdapterCapabilities,
   GlobalSearchHit,
+  Dashboard,
+  DashboardPeriod,
+  OrderDetail,
+  DriverProfile,
+  DriverTrips,
+  DriverTripsQuery,
+  OrderStatus,
+  LedgerSummary,
+  WalletCorrectionInput,
+  WalletCorrectionResult,
+  TariffSettings,
+  TariffSettingsPatch,
+  OperatorMyStats,
+  Marketing,
+  MarketingPeriod,
+  ListCounts,
 } from "./types";
 
 /**
@@ -69,7 +78,6 @@ export interface ApiAdapter {
   /** `extra.phone` is sent when the step asked for it (`needsPhone`). */
   verifyLoginStep(requestId: string, code: string, extra?: { phone?: string }): Promise<LoginStepResult>;
   resendLoginCode(requestId: string): Promise<{ testCode?: string; resendSeconds: number; codeLength?: number }>;
-  getReviewStatus(reviewId: string): Promise<ReviewRequest>;
   logout(): Promise<void>;
   getMe(): Promise<Me>;
   isAuthenticated(): boolean;
@@ -77,6 +85,11 @@ export interface ApiAdapter {
 
   // --- stats ---
   getStats(period: StatsPeriod): Promise<MarketingStats>;
+  /** Marketolog page; `capabilities.marketing`. */
+  getMarketing(period: MarketingPeriod): Promise<Marketing>;
+  /** "Umumiy statistika" (v2). Blocks the server leaves null are hidden;
+   * recent orders / attention come only when the admin may see them. */
+  getDashboard(period: DashboardPeriod): Promise<Dashboard>;
 
   getCities(): Promise<City[]>;
 
@@ -88,6 +101,8 @@ export interface ApiAdapter {
 
   // --- staff ("Xodimlar") ---
   getStaff(query: StaffQuery): Promise<StaffRow[]>;
+  /** Role chip counts; `capabilities.staffCounts`. */
+  getStaffCounts(query: Omit<StaffQuery, "role">): Promise<ListCounts<AdminRole>>;
   createStaff(input: { name: string; email: string; phone: string; role: AdminRole }): Promise<AdminUser>;
   updateStaff(id: string, patch: { name?: string; email?: string; phone?: string; role?: AdminRole }): Promise<AdminUser>;
   setStaffStatus(id: string, status: StaffStatus): Promise<AdminUser>;
@@ -96,6 +111,13 @@ export interface ApiAdapter {
 
   // --- drivers ---
   getDrivers(query: DriverQuery): Promise<Driver[]>;
+  /** Chip counts for the same filters minus status; `capabilities.driverCounts`. */
+  getDriverCounts(query: Omit<DriverQuery, "status">): Promise<ListCounts<DriverStatus | "archived">>;
+  /** Route filter options; `capabilities.driverRouteFilter`. */
+  getDriverRoutes(): Promise<string[]>;
+  getDriver(id: string): Promise<DriverProfile>;
+  /** Driver history; `capabilities.driverTrips`. */
+  getDriverTrips(driverId: string, query: DriverTripsQuery): Promise<DriverTrips>;
   updateDriverProfile(id: string, patch: { name?: string; carModel?: string; carColor?: string; plate?: string }): Promise<Driver>;
   /** `reason` is required by the server when blocking. */
   setDriverStatus(id: string, status: "active" | "blocked", reason?: string): Promise<Driver>;
@@ -104,14 +126,23 @@ export interface ApiAdapter {
 
   // --- passengers ---
   getPassengers(query: PassengerQuery): Promise<Passenger[]>;
+  /** `capabilities.passengerCounts`. */
+  getPassengerCounts(query: Omit<PassengerQuery, "status">): Promise<ListCounts<PassengerStatus | "archived">>;
   createPassenger(input: { name: string; phone: string; cityId: string }): Promise<Passenger>;
   updatePassenger(id: string, patch: { name?: string; cityId?: string }): Promise<Passenger>;
-  setPassengerStatus(id: string, status: PassengerStatus, reason?: string): Promise<Passenger>;
+  /** Admins set active or blocked only ("warned" is display-only, from the server). */
+  setPassengerStatus(id: string, status: "active" | "blocked", reason?: string): Promise<Passenger>;
   archivePassenger(id: string): Promise<Passenger>;
   restorePassenger(id: string): Promise<Passenger>;
 
   // --- orders ---
   getOrders(query: OrderQuery): Promise<OrderWithNames[]>;
+  /** `capabilities.orderCounts`. */
+  getOrderCounts(query: Omit<OrderQuery, "status">): Promise<ListCounts<OrderStatus>>;
+  getOrder(id: string): Promise<OrderDetail>;
+  /** Puts a call task for this order into the operator queue;
+   * `capabilities.orderToOperator`. */
+  sendOrderToOperator(id: string, note: string): Promise<void>;
   createOrderForPassenger(input: {
     passengerId: string;
     fromCityId: string;
@@ -131,19 +162,21 @@ export interface ApiAdapter {
   getWalletLedger(query: WalletQuery): Promise<WalletLedgerRow[]>;
   /** `debtLimit: null` = the backend doesn't report it. */
   getDriverWalletInfo(driverId: string): Promise<{ balance: number; debtLimit: number | null }>;
-  proposeWalletAdjustment(driverId: string, amount: number, reason: string): Promise<AdjustmentProposal>;
-  getAdjustmentProposals(query: AdjustmentProposalQuery): Promise<AdjustmentProposal[]>;
-  approveAdjustment(proposalId: string): Promise<ReviewRequest>;
-  rejectAdjustment(proposalId: string, reason?: string): Promise<AdjustmentProposal>;
+  /** Ledger KPI tiles; `capabilities.ledgerSummary`. */
+  getLedgerSummary(): Promise<LedgerSummary>;
+  /** A correction entry, applied by this one request after the admin's
+   * Save → confirm modal → Confirm (decision 2026-11-22). The old entry is
+   * never edited; the server writes the audit entry. */
+  createWalletCorrection(input: WalletCorrectionInput): Promise<WalletCorrectionResult>;
 
-  // --- tariffs ---
-  getTariffs(query: TariffQuery): Promise<Tariff[]>;
-  getTariffProposals(query: TariffProposalQuery): Promise<TariffProposal[]>;
-  proposeTariffCreate(input: Omit<Tariff, "id" | "archived">): Promise<TariffProposal>;
-  proposeTariffEdit(tariffId: string, patch: Partial<Tariff>): Promise<TariffProposal>;
-  proposeTariffArchive(tariffId: string): Promise<TariffProposal>;
-  approveTariffProposal(proposalId: string): Promise<ReviewRequest>;
-  rejectTariffProposal(proposalId: string, reason?: string): Promise<TariffProposal>;
+  // --- tariffs (v2 model; `capabilities.tariffSettings`) ---
+  /** `cityId` null = the default for all regions. */
+  getTariffSettings(cityId: string | null): Promise<TariffSettings>;
+  /** Cities with their own tariff; `capabilities.tariffCities`. */
+  getTariffCities(): Promise<{ id: string; name: string }[]>;
+  /** One section per request, sent only after the confirm modal. Returns
+   * the saved settings (with fresh server examples). */
+  updateTariffSettings(cityId: string | null, patch: TariffSettingsPatch): Promise<TariffSettings>;
 
   // --- complaints ("Shikoyatlar") ---
   getComplaints(query: ComplaintQuery): Promise<Complaint[]>;
@@ -167,6 +200,11 @@ export interface ApiAdapter {
   getQueue(query: OperatorQueueQuery): Promise<QueueListItem[]>;
   getActiveTask(): Promise<ActiveTask | null>;
   startTask(queueId: string): Promise<ActiveTask>;
+  /** "Keyinga qoldirish": the task goes back to the queue with its wait
+   * time; `capabilities.queuePostpone`. */
+  postponeTask(queueId: string): Promise<QueueListItem>;
+  /** The current operator's day; `capabilities.operatorMyStats`. */
+  getOperatorMyStats(): Promise<OperatorMyStats>;
   rejectQueueItem(queueId: string, reason: string): Promise<QueueListItem>;
   finishTask(queueId: string, result: HistoryResult, note: string, rejectReason?: string): Promise<HistoryEntry>;
   // Jarayonda — supervisor-only ("operatorSupervise"); includes startedAt
@@ -177,7 +215,8 @@ export interface ApiAdapter {
   // supervisor gets everyone's, filterable by operatorId.
   getHistory(query: OperatorApprovedQuery): Promise<HistoryEntry[]>;
   editHistoryEntry(id: string, patch: { result?: HistoryResult; note?: string }): Promise<HistoryEntry>;
-  getOperatorCounts(): Promise<OperatorCounts>;
+  /** Board column counts for the same filters. */
+  getOperatorCounts(query?: OperatorApprovedQuery): Promise<OperatorCounts>;
   getOperatorsList(): Promise<{ id: string; name: string }[]>;
 
   /** Permission check + audit entry for a CSV export. The CSV itself is
