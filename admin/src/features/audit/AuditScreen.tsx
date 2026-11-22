@@ -14,6 +14,7 @@ import { api } from "@/api/client";
 import { useAdapterList } from "@/hooks/useAdapterList";
 import { ROLE_LABEL } from "@/lib/roles";
 import { formatDate, formatTime } from "@/lib/format";
+import { dayPresetRange, type DayPreset } from "@/lib/periods";
 import type { AuditAction, AuditCategory, AuditEntry, AuditQuery } from "@/api/types";
 
 // AuditAction labels below are the sample data's action names.
@@ -119,7 +120,7 @@ const CATEGORIES: { key: AuditCategory | "all"; label: string }[] = [
   { key: "login", label: "Kirish" },
   { key: "staff", label: "Xodim" },
 ];
-type Period = "all" | "today" | "yesterday" | "7d" | "30d" | "custom";
+type Period = DayPreset | "custom";
 const PERIODS: { value: Period; label: string }[] = [
   { value: "all", label: "Hammasi" },
   { value: "today", label: "Bugun" },
@@ -128,18 +129,6 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: "30d", label: "30 kun" },
   { value: "custom", label: "Boshqa sana" },
 ];
-const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-function presetRange(p: Exclude<Period, "custom">): { dateFrom?: string; dateTo?: string } {
-  if (p === "all") return {};
-  const day = (back: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() - back);
-    return iso(d);
-  };
-  if (p === "today") return { dateFrom: day(0), dateTo: day(0) };
-  if (p === "yesterday") return { dateFrom: day(1), dateTo: day(1) };
-  return { dateFrom: day(p === "7d" ? 6 : 29), dateTo: day(0) };
-}
 const DATE_INPUT =
   "tabular h-11 rounded-full bg-white px-3.5 text-13 font-bold text-ink shadow-hairline outline-none focus:shadow-[inset_0_0_0_2px_var(--ink),0_0_0_4px_var(--green-soft)]";
 const targetText = (e: AuditEntry) => `${ENTITY_LABEL[e.targetType] && caps.auditApiFilters ? ENTITY_LABEL[e.targetType] : e.targetType} · ${e.targetId}`;
@@ -154,7 +143,7 @@ export function AuditScreen() {
   const [period, setPeriod] = useState<Period>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const range = period === "custom" ? { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined } : presetRange(period);
+  const range = period === "custom" ? { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined } : dayPresetRange(period);
   const query: AuditQuery = {
     search: caps.auditSearch ? search : "",
     action,

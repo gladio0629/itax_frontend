@@ -18,31 +18,20 @@ import { Toast } from "@/components/Toast";
 import { formatDateTime } from "@/lib/format";
 import { OrdersScreen } from "@/features/orders/OrdersScreen";
 import { REASON, REASON_CHIPS, RESULT, Tag } from "./labels";
-import type { HistoryEntry, HistoryResult, ListPeriod, QueueReason } from "@/api/types";
+import { dayPresetRange, type DayPreset } from "@/lib/periods";
+import type { HistoryEntry, HistoryResult, QueueReason } from "@/api/types";
 
 const caps = api.capabilities;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
 type TabKey = "tasks" | "orders";
 
-const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const PERIODS: { value: Exclude<ListPeriod, "90d">; label: string }[] = [
+const PERIODS: { value: DayPreset; label: string }[] = [
   { value: "all", label: "Hammasi" },
   { value: "today", label: "Bugun" },
   { value: "yesterday", label: "Kecha" },
   { value: "7d", label: "7 kun" },
   { value: "30d", label: "30 kun" },
 ];
-function range(p: Exclude<ListPeriod, "90d">): { dateFrom?: string; dateTo?: string } {
-  if (p === "all") return {};
-  const day = (back: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() - back);
-    return iso(d);
-  };
-  if (p === "today") return { dateFrom: day(0), dateTo: day(0) };
-  if (p === "yesterday") return { dateFrom: day(1), dateTo: day(1) };
-  return { dateFrom: day(p === "7d" ? 6 : 29), dateTo: day(0) };
-}
 
 /** Operator's "Tarix" (design OperatorHistory): own task history (result
  * and comment editable) and the read-only orders window (doc 2.5). */
@@ -77,8 +66,8 @@ function MyTasks() {
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<HistoryResult | "all">("all");
   const [reason, setReason] = useState<QueueReason | "all">("all");
-  const [period, setPeriod] = useState<Exclude<ListPeriod, "90d">>("all");
-  const query = caps.historyFilters ? { search, result, reason, ...range(period) } : {};
+  const [period, setPeriod] = useState<DayPreset>("all");
+  const query = caps.historyFilters ? { search, result, reason, ...dayPresetRange(period) } : {};
   const { items, error, reload } = useAdapterList(api.getHistory, query);
 
   const [editing, setEditing] = useState<HistoryEntry | null>(null);

@@ -157,6 +157,7 @@ Field and endpoint names below are the frontend's proposal; error keys follow th
 - The operator's read-only windows (owner task, design OperatorHistory/OperatorDrivers): add sections `orders_view` and `drivers_view` for the operator role. They allow `GET /admin/v1/orders` (+ counts) and `GET /admin/v1/drivers` (+ counts) only, no detail, no actions, and the drivers response must not include `wallet_balance` (send `null`). Until `me` returns them the "Buyurtmalar" tab and "Haydovchilar" item are hidden.
 - Marketolog: a `marketing` section (design Marketing) next to or instead of `stats`. Until it exists the marketolog keeps the old dashboard in http mode.
 - Staff rows: `login_method: "email_sms" | "sms"` and `last_login_at` (column "Kirish", "Oxirgi faollik").
+- `me` has no action list, so http mode cannot tell queue work from supervising: everyone with the `operator` section gets the operator's Navbat/Tarix, and the supervisor board stays hidden. Needs `actions` (or a `operator_supervise` section) in `me` plus the supervisor endpoints listed above.
 
 **Operator queue** (owner decision 2026-11-22: five results, postpone keeps the wait time)
 - `QueueItem` additions: `subject_kind: "passenger" | "driver"`, `subject_name`, `phone` (full, see handoff decision), `order_id`, `request_text` (the "Zayavka" text), `kind` value `document_update` ("Hujjat").

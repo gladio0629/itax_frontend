@@ -13,11 +13,12 @@ import { Skeleton } from "@/components/Skeleton";
 import { useAdapterList } from "@/hooks/useAdapterList";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { dayPresetRange, type DayPreset } from "@/lib/periods";
 import { REASON, REASON_CHIPS, RESULT, SUBJECT_LABEL, Tag, since } from "./labels";
 import type { HistoryEntry, HistoryResult, OperatorCounts, QueueListItem, QueueReason } from "@/api/types";
 
 const caps = api.capabilities;
-type Period = "today" | "yesterday" | "7d" | "30d" | "all";
+type Period = DayPreset;
 const PERIODS: { value: Period; label: string }[] = [
   { value: "today", label: "Bugun" },
   { value: "yesterday", label: "Kecha" },
@@ -25,19 +26,6 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: "30d", label: "30 kun" },
   { value: "all", label: "Hammasi" },
 ];
-const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-/** Date filter → the history query's day range (a filter, not a rule). */
-function range(p: Period): { dateFrom?: string; dateTo?: string } {
-  if (p === "all") return {};
-  const day = (back: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() - back);
-    return iso(d);
-  };
-  if (p === "today") return { dateFrom: day(0), dateTo: day(0) };
-  if (p === "yesterday") return { dateFrom: day(1), dateTo: day(1) };
-  return { dateFrom: day(p === "7d" ? 6 : 29), dateTo: day(0) };
-}
 
 /** "Operatorlar" for supervisors (design Operators): three read-only columns. */
 export function OperatorsBoard() {
@@ -53,7 +41,7 @@ export function OperatorsBoard() {
   const filtersOn = caps.queueFilters;
   const queue = useAdapterList(api.getQueue, filtersOn ? { search, reason } : {});
   const inProgress = useAdapterList(api.getOperatorsInProgress, filtersOn ? { search, reason, operatorId } : {});
-  const historyQuery = caps.historyFilters ? { search, reason, operatorId, result, ...range(period) } : range("today");
+  const historyQuery = caps.historyFilters ? { search, reason, operatorId, result, ...dayPresetRange(period) } : dayPresetRange("today");
   const history = useAdapterList(api.getHistory, historyQuery);
 
   useEffect(() => {

@@ -228,7 +228,7 @@ const AUDIT_CATEGORY: Partial<Record<string, AuditCategory>> = {
 const sampleIp = (id: string) => {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return `${[185, 84, 213, 95][h % 4]}.${(h >> 3) % 250}.•.•`;
+  return `${[185, 84, 213, 95][h % 4]}.${(h >>> 3) % 250}.•.•`;
 };
 
 function countBy<T, K extends string>(rows: T[], key: (r: T) => K | null): ListCounts<K> {
