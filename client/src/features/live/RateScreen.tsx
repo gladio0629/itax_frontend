@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { OrderWithDetails, RouteSuggestion, TipOptions } from "@/api/types";
 import { serverErrorKey } from "@/lib/apiError";
-import { formatKm, formatLongDate, formatNumber, formatSom } from "@/lib/format";
+import { formatKm, formatLongDate, formatNumber, formatSom, SOM_LABEL } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
@@ -32,6 +32,7 @@ export function RateScreen() {
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tips, setTips] = useState<TipOptions | null>(null);
+  const [tipsError, setTipsError] = useState(false);
   const [suggestion, setSuggestion] = useState<RouteSuggestion | null>(null);
 
   const [rating, setRating] = useState(0);
@@ -44,6 +45,14 @@ export function RateScreen() {
   const [error, setError] = useState<string | null>(null);
   const customRef = useRef<HTMLInputElement>(null);
 
+  function loadTips() {
+    setTipsError(false);
+    api
+      .getTipOptions(orderId)
+      .then(setTips)
+      .catch(() => setTipsError(true));
+  }
+
   function load() {
     setLoadError(false);
     api
@@ -53,7 +62,7 @@ export function RateScreen() {
         if (o.rating) setRating(o.rating);
       })
       .catch(() => setLoadError(true));
-    if (api.capabilities.tips) api.getTipOptions(orderId).then(setTips).catch(() => setTips(null));
+    if (api.capabilities.tips) loadTips();
     if (api.capabilities.popularRoutes) api.getPopularRoutes().then((r) => setSuggestion(r[0] ?? null)).catch(() => {});
   }
   useEffect(load, [orderId]);
@@ -219,7 +228,7 @@ export function RateScreen() {
                 setCustom(e.target.value.replace(/\D/g, "").slice(0, 9));
                 setError(null);
               }}
-              trailing={<span className="shrink-0 text-[14px] font-bold text-iz-muted">so'm</span>}
+              trailing={<span className="shrink-0 text-[14px] font-bold text-iz-muted">{SOM_LABEL}</span>}
               hint={t("tip.range", { min: formatSom(tips.min, intlTag), max: formatSom(tips.max, intlTag) })}
             />
           )}
@@ -299,6 +308,12 @@ export function RateScreen() {
       )}
 
       {tipBlock}
+      {tipsError && (
+        <button type="button" onClick={loadTips} className="flex h-11 items-center gap-2 self-start text-[14px] font-bold text-iz-danger kb:hidden">
+          <Icon name="refresh" size={18} />
+          {t("rate.tip")} · {t("common.loadFailedRetry")}
+        </button>
+      )}
 
       {showNote && (
         <TextAreaField

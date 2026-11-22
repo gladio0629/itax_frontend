@@ -52,7 +52,7 @@ function MapButton({ label, onClick, children, sos, style }: { label: string; on
       className={cn(
         "absolute z-10 flex h-12 w-12 items-center justify-center rounded-full active:scale-95",
         sos
-          ? "right-5 bg-iz-sos text-[13px] font-extrabold text-iz-head-text shadow-[0_8px_20px_rgba(200,40,28,0.35)]"
+          ? "right-5 bg-iz-sos text-[13px] font-extrabold text-iz-head-text shadow-[0_8px_20px_var(--iz-sos-shadow)]"
           : "left-5 bg-iz-map-pin text-iz-head-text shadow-[0_8px_20px_var(--iz-shadow-strong)]"
       )}
     >
@@ -185,7 +185,9 @@ export function LiveOrderScreen() {
   useEffect(() => {
     if (!order || !sheet) return;
     const live = order.status === "searching" || order.status === "accepted" || order.status === "in_progress";
-    if ((sheet === "cancel" || sheet.startsWith("edit") || sheet === "safety") && !live) setSheet(null);
+    const cancellable = order.canCancel !== false && (order.status === "searching" || order.status === "accepted");
+    if ((sheet.startsWith("edit") || sheet === "safety") && !live) setSheet(null);
+    if (sheet === "cancel" && !cancellable) setSheet(null);
     if (sheet === "time" && view !== "noDriver") setSheet(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.status, view]);
@@ -476,7 +478,7 @@ export function LiveOrderScreen() {
         {panel}
       </div>
 
-      {sheet === "cancel" && live && (
+      {sheet === "cancel" && canCancel && (
         <CancelSheet
           loading={cancelling}
           error={cancelError}

@@ -291,7 +291,7 @@ export function DrawnLiveMap({
         )}
         {size.w > 0 && car && (
           <div className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 transition-[left,top] duration-1000 ease-linear" style={px(car)}>
-            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-iz-sheet bg-iz-map-pin text-iz-head-text shadow-[0_6px_14px_var(--iz-shadow-strong)]">
+            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-iz-head-text bg-iz-map-pin text-iz-head-text shadow-[0_6px_14px_var(--iz-shadow-strong)]">
               <Icon name="car" size={18} />
             </span>
           </div>

@@ -45,6 +45,7 @@
   --iz-warn-soft: #fff1e6;
   --iz-warn-tile: #3a2410; /* warning icon tile on the dark top */
   --iz-sos: #c8281c;
+  --iz-sos-shadow: rgba(200, 40, 28, 0.35);
 
   --iz-switch-off: #8a97a8;
   --iz-connector: #9aa7b6; /* dotted line between route points */
