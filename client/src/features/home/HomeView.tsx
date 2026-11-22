@@ -26,7 +26,7 @@ export function PickupPin({ eta }: { eta?: number | null }) {
           {t("home.pickupEta", { eta: t("pin.eta", { n: eta }) })}
         </span>
       )}
-      <span aria-hidden className="h-[22px] w-[22px] rounded-full border-4 border-white bg-iz-map-pin shadow-[0_2px_6px_var(--iz-shadow)]" />
+      <span aria-hidden className="h-[22px] w-[22px] rounded-full border-4 border-iz-head-text bg-iz-map-pin shadow-[0_2px_6px_var(--iz-shadow)]" />
     </span>
   );
 }

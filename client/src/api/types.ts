@@ -357,6 +357,8 @@ export type OrderWithDetails = Order & {
   priceLines?: QuoteLine[];
   /** Payme / Click: the provider page to pay on, when the server gives one. */
   paymentUrl?: string;
+  /** A number the passenger can call for this trip (the driver's, or a relay). */
+  driverPhone?: string;
   /** Minutes until the driver reaches the pickup (accepted, not arrived yet). */
   driverEtaMinutes?: number;
   /** After the driver arrived (`startedAt`, ms): free waiting ends at

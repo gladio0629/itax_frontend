@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { Address, AddressDetails, Profile, RouteSuggestion, SavedAddressInfo } from "@/api/types";
 import { MapCanvas } from "@/components/MapCanvas";
@@ -109,6 +109,35 @@ export default function OrderingHome() {
       .finally(() => setRecentLoading(false));
   }, [recentReload]);
 
+  // The history entry Home had before the order flow (react-router keeps an
+  // index in history.state). After ordering, the app goes back to it first,
+  // so one back press from tracking leaves the flow (round 4).
+  const location = useLocation();
+  const baseIdx = useRef<number | null>(null);
+  const pendingTrack = useRef<{ path: string; state?: unknown } | null>(null);
+  const historyIdx = () => (window.history.state as { idx?: number } | null)?.idx;
+  useEffect(() => {
+    // Only a real Home entry (no ?flow=) is the base; while going back to it
+    // the reset draft also shows Home, which must not move the base.
+    const next = pendingTrack.current;
+    if (!flow && !next) baseIdx.current = historyIdx() ?? null;
+    if (next && historyIdx() === baseIdx.current) {
+      pendingTrack.current = null;
+      navigate(next.path, { state: next.state });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow, location.key]);
+  function openTracking(path: string, state?: unknown) {
+    const cur = historyIdx();
+    const delta = baseIdx.current != null && cur != null ? baseIdx.current - cur : 0;
+    if (delta < 0) {
+      pendingTrack.current = { path, state };
+      navigate(delta);
+    } else {
+      navigate(path, { replace: true, state });
+    }
+  }
+
   // Back on Home after the order flow: refetch saved addresses, since the
   // flow may have changed one's Tafsilotlar.
   const wasAway = useRef(false);
@@ -210,7 +239,7 @@ export default function OrderingHome() {
       // (system browser); otherwise the tracking screen says it comes later.
       const paysInApp = draft.paymentMethod === "payme" || draft.paymentMethod === "click";
       if (paysInApp && order.paymentUrl) window.open(order.paymentUrl, "_blank", "noopener,noreferrer");
-      navigate(`/order/track/${order.id}`, { replace: true, state: paysInApp && !order.paymentUrl ? { paymentLater: true } : undefined });
+      openTracking(`/order/track/${order.id}`, paysInApp && !order.paymentUrl ? { paymentLater: true } : undefined);
       reset();
     } catch (e) {
       // The quote behind the shown price is gone (expired, used, changed):

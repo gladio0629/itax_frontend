@@ -160,7 +160,6 @@ export const ru: Dictionary = {
   "quote.class.biznes": "Класс «Бизнес» (+{{pct}}%)",
   "quote.class.miniven": "Класс «Минивэн» (+{{pct}}%)",
   "quote.promo": "Промокод {{code}} (−{{pct}}%)",
-  "class.title": "Класс",
   "class.standart": "Стандарт",
   "class.komfort": "Комфорт",
   "class.biznes": "Бизнес",
@@ -686,4 +685,7 @@ export const ru: Dictionary = {
   "rate.note": "Ваш отзыв",
   "rate.notePlaceholder": "По желанию",
   "rate.send": "Отправить",
+  "cargo.v2.reorder": "Переместить {{n}}-ю точку выгрузки",
+  "cargo.v2.reorderHint": "Перетащите или нажмите стрелки вверх/вниз",
+  "cargo.v2.moved": "Перемещено на {{n}}-е место",
 };

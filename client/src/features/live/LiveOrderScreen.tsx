@@ -392,7 +392,7 @@ export function LiveOrderScreen() {
             </div>
           </div>
         )}
-        {driver && <DriverRow driver={driver} tone="light" sub={driver.plate} onCall={callDriver} />}
+        {driver && <DriverRow driver={driver} phone={order.driverPhone} tone="light" sub={driver.plate} onCall={callDriver} />}
         <ActionTiles actions={actions} compact />
       </>
     );
@@ -431,7 +431,7 @@ export function LiveOrderScreen() {
             <span className="text-[12px] font-semibold text-iz-muted">{t("live.tripKm", { done: formatNumber(p.doneKm, intlTag), left: formatNumber(p.leftKm, intlTag) })}</span>
           </div>
         )}
-        {driver && <DriverRow driver={driver} tone="dark" sub={sub} onCall={callDriver} />}
+        {driver && <DriverRow driver={driver} phone={order.driverPhone} tone="dark" sub={sub} onCall={callDriver} />}
         {api.capabilities.safety ? (
           <PrimaryButton icon="share" onClick={share}>
             {t("live.shareRoute")}

@@ -593,6 +593,12 @@ const RATING_EDIT_WINDOW_MS = 7 * 86_400_000;
 const FREE_WAIT_MS = 5 * 60_000;
 const WAIT_PRICE_PER_MINUTE = 500;
 
+/** A stable sample number for a driver ("+998 90 123 45 67"). */
+function sampleDriverPhone(driverId: string) {
+  const n = String(hashSeed(`${driverId}|phone`) % 10_000_000).padStart(7, "0");
+  return `+998 9${hashSeed(driverId) % 10} ${n.slice(0, 3)} ${n.slice(3, 5)} ${n.slice(5)}`;
+}
+
 /** Share (0–1) of the way from `from` to `to` at this moment. */
 function shareOf(from: number, to: number) {
   return Math.min(1, Math.max(0, (Date.now() - from) / Math.max(1, to - from)));
@@ -643,6 +649,7 @@ function toDetails(order: Order): OrderWithDetails {
     lockedReasonKey: order.status === "completed" && !ratingEditable ? "history.rating.lockedReason" : undefined,
     extras: loadOrderExtras()[order.id],
     editable: order.status === "accepted",
+    driverPhone: driver && (order.status === "accepted" || order.status === "in_progress") ? sampleDriverPhone(driver.id) : undefined,
     ...liveInfo(order),
   };
 }

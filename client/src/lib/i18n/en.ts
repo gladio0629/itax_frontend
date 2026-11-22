@@ -160,7 +160,6 @@ export const en: Dictionary = {
   "quote.class.biznes": "Business class (+{{pct}}%)",
   "quote.class.miniven": "Minivan class (+{{pct}}%)",
   "quote.promo": "Promo code {{code}} (−{{pct}}%)",
-  "class.title": "Class",
   "class.standart": "Standard",
   "class.komfort": "Comfort",
   "class.biznes": "Business",
@@ -686,4 +685,7 @@ export const en: Dictionary = {
   "rate.note": "Your comment",
   "rate.notePlaceholder": "Optional",
   "rate.send": "Send",
+  "cargo.v2.reorder": "Move drop-off {{n}}",
+  "cargo.v2.reorderHint": "Drag, or press the up/down arrows",
+  "cargo.v2.moved": "Moved to place {{n}}",
 };

@@ -8,7 +8,7 @@ import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { ruleErrorKey } from "@/lib/apiError";
 import { formatSom } from "@/lib/format";
-import { BottomSheet, PrimaryButton, Screen, StateError, StateLoading, TextButton } from "@/ui";
+import { BottomSheet, PrimaryButton, Screen, StateError, StateLoading, Steps, TextButton } from "@/ui";
 import { AddressFlow } from "@/features/address/AddressFlow";
 import { AddressDetailsScreen } from "@/features/address/AddressDetailsScreen";
 import { detailsSummary } from "@/features/order/addressDetails";
@@ -264,6 +264,29 @@ export function CargoFlow({
     setField("toAddressId", last.addressId);
     setField("toDetails", last.details);
   }
+  /** Reverse the route: the pickup becomes the last drop-off (stops reversed). */
+  function swapRoute() {
+    const d = draftRef.current;
+    if (!d.toAddressId) return;
+    const f = d.fromAddressId;
+    const fd = d.fromDetails;
+    setField("fromAddressId", d.toAddressId);
+    setField("fromDetails", d.toDetails);
+    setField("toAddressId", f);
+    setField("toDetails", fd);
+    setField("stops", [...d.stops].reverse());
+  }
+  /** Drop-offs in a new order; the one that ends last becomes "Qayerga". */
+  function reorderDrops(fromIndex: number, to: number) {
+    const d = draftRef.current;
+    const list = [...d.stops, { uid: newStopUid(), addressId: d.toAddressId, details: d.toDetails }];
+    const [moved] = list.splice(fromIndex, 1);
+    list.splice(to, 0, moved);
+    const last = list.pop()!;
+    setField("stops", list);
+    setField("toAddressId", last.addressId);
+    setField("toDetails", last.details ?? {});
+  }
   /** Where the search may look: the scope decides. */
   function scope(point: Point): { excludeCityId?: string; onlyCityId?: string } {
     const fromCity = addresses.from?.cityId;
@@ -331,6 +354,9 @@ export function CargoFlow({
       onPickDrop={pickDrop}
       onAddDrop={() => pickDrop("new")}
       onRemoveDrop={removeDrop}
+      onSwap={tab === "marketplace" ? undefined : swapRoute}
+      onReorder={caps.stops ? reorderDrops : undefined}
+      lockLast={tab === "marketplace"}
       onDetails={caps.addressDetails ? (p) => openSheet({ kind: "details", point: p }) : undefined}
     />
   );
@@ -362,6 +388,13 @@ export function CargoFlow({
           onBack={back}
         />
       );
+    // Rules didn't load: say so and retry, never fall back to another step.
+    if (step === "terms" && !rules)
+      return (
+        <Screen title={t("cargo.v2.step.terms")} onBack={back} top={<Steps steps={stepNames} current={stepIndex} label={t("trip.steps")} />}>
+          {rulesQ.status === "error" ? <StateError onRetry={rulesQ.refetch} /> : <StateLoading rows={3} />}
+        </Screen>
+      );
     if (step === "terms" && rules)
       return (
         <CargoTermsScreen
@@ -370,6 +403,8 @@ export function CargoFlow({
           rules={rules}
           cargo={draft.cargo}
           rideAlong={rideData}
+          rideAlongError={rideAlong.status === "error"}
+          onRetryRideAlong={rideAlong.refetch}
           quote={quoteView}
           quoteReady={quote.status === "success"}
           quoteError={quoteError}
@@ -405,6 +440,8 @@ export function CargoFlow({
         stepNames={stepNames}
         current={stepIndex}
         rules={rules}
+        rulesError={rulesQ.status === "error"}
+        onRetryRules={rulesQ.refetch}
         vehicles={vehiclesView}
         route={route}
         quote={quoteView}

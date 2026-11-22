@@ -25,9 +25,10 @@ export async function shareTrip(orderId: string, t: ReturnType<typeof useT>["t"]
   }
 }
 
-function Row({ icon, title, sub, onClick, danger }: { icon: IconName; title: string; sub: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button type="button" onClick={onClick} className="flex min-h-[68px] items-center gap-3.5 rounded-iz-field bg-iz-field px-3.5 text-left active:opacity-80">
+function Row({ icon, title, sub, onClick, href, danger }: { icon: IconName; title: string; sub: string; onClick?: () => void; href?: string; danger?: boolean }) {
+  const cls = "flex min-h-[68px] items-center gap-3.5 rounded-iz-field bg-iz-field px-3.5 text-left active:opacity-80";
+  const body = (
+    <>
       <span aria-hidden className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-iz-tile", danger ? "bg-iz-sos text-iz-head-text" : "bg-iz-sheet text-iz-ink")}>
         <Icon name={icon} />
       </span>
@@ -36,14 +37,22 @@ function Row({ icon, title, sub, onClick, danger }: { icon: IconName; title: str
         <span className="line-clamp-2 text-[12px] text-iz-muted">{sub}</span>
       </span>
       <Icon name="chevronRight" size={18} className="shrink-0 text-iz-muted" />
+    </>
+  );
+  return href ? (
+    <a href={href} className={cls}>
+      {body}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} className={cls}>
+      {body}
     </button>
   );
 }
 
 /**
- * SOS during a trip: call support and share the trip. The support number is
- * the server's; calling from the app isn't wired yet, so the row shows the
- * number and a short note.
+ * SOS during a trip: call support (the server's number, as a phone link)
+ * and share the trip.
  */
 export function SafetySheet({ orderId, onClose, onToast }: { orderId: string; onClose: () => void; onToast: (msg: string) => void }) {
   const { t } = useT();
@@ -61,6 +70,7 @@ export function SafetySheet({ orderId, onClose, onToast }: { orderId: string; on
         danger
         title={t("safety.support")}
         sub={support ? `${t("safety.supportDesc")} · ${support}` : t("safety.supportDesc")}
+        href={support ? `tel:${support.replace(/[^\d+]/g, "")}` : undefined}
         onClick={() => onToast(t("safety.callUnavailable"))}
       />
       <Row

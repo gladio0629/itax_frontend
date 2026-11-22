@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import type { Address, CargoRules, CargoTab, DeliveryVehicle, DeliveryVehicleSpec, Quote } from "@/api/types";
 import type { OrderDraft } from "@/stores/orderStore";
 import { formatNumber } from "@/lib/format";
@@ -33,6 +34,9 @@ export function CargoRouteCard({
   onAddDrop,
   onRemoveDrop,
   onDetails,
+  onSwap,
+  onReorder,
+  lockLast,
 }: {
   draft: OrderDraft;
   from: Address | null;
@@ -45,14 +49,41 @@ export function CargoRouteCard({
   onAddDrop: () => void;
   onRemoveDrop: (ref: DropRef) => void;
   onDetails?: (ref: DropRef | "from") => void;
+  /** Reverse the route (pickup ↔ last drop-off); unset where it can't (warehouse). */
+  onSwap?: () => void;
+  /** Move drop-off `from` to place `to` (indexes in `drops`). */
+  onReorder?: (from: number, to: number) => void;
+  /** The last drop-off stays last (Marketpleys: the warehouse). */
+  lockLast?: boolean;
 }) {
   const { t } = useT();
   const extras = drops.length - 1;
-  const detailsBtn = (target: DropRef | "from", place?: string) =>
+  const movable = onReorder && drops.length > 1 ? (lockLast ? drops.length - 1 : drops.length) : 0;
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [drag, setDrag] = useState<{ index: number; startY: number; dy: number; heights: number[] } | null>(null);
+  const [announce, setAnnounce] = useState("");
+
+  /** Where the dragged row would land: its centre against the others'. */
+  function targetIndex(d: NonNullable<typeof drag>) {
+    const tops = d.heights.map((_, i) => d.heights.slice(0, i).reduce((a, b) => a + b, 0));
+    const centre = tops[d.index] + d.heights[d.index] / 2 + d.dy;
+    let to = d.index;
+    if (d.dy > 0) for (let i = d.index + 1; i < movable; i++) if (centre > tops[i] + d.heights[i] / 2) to = i;
+    if (d.dy < 0) for (let i = d.index - 1; i >= 0; i--) if (centre < tops[i] + d.heights[i] / 2) to = i;
+    return to;
+  }
+  function move(fromIndex: number, to: number) {
+    if (to === fromIndex || to < 0 || to >= movable) return;
+    onReorder?.(fromIndex, to);
+    setAnnounce(t("cargo.v2.moved", { n: to + 1 }));
+  }
+  const target = drag ? targetIndex(drag) : -1;
+
+  const detailsBtn = (point: DropRef | "from", place?: string) =>
     onDetails && place ? (
       <button
         type="button"
-        onClick={() => onDetails(target)}
+        onClick={() => onDetails(point)}
         aria-label={t("trip.details", { place })}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-iz-muted active:bg-iz-sheet"
       >
@@ -69,30 +100,106 @@ export function CargoRouteCard({
           {detailsSummary(draft.fromDetails, t) && <span className="truncate text-[12px] text-iz-muted">{detailsSummary(draft.fromDetails, t)}</span>}
         </button>
         {detailsBtn("from", from?.label)}
-      </div>
-      {drops.map((d, i) => (
-        <div key={d.ref.kind === "stop" ? d.ref.uid : "to"} className="flex min-h-[50px] items-center gap-3.5 border-b border-iz-divider-in-field">
-          <span aria-hidden className="h-[13px] w-[13px] shrink-0 rounded-[4px] bg-iz-ink" />
-          <button type="button" onClick={() => onPickDrop(d.ref)} className="flex min-w-0 flex-1 flex-col py-1.5 text-left active:opacity-70">
-            <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-iz-muted">{t("cargo.v2.drop", { n: i + 1 })}</span>
-            <span className={cn("truncate text-[15px]", d.address ? "font-bold text-iz-ink" : "font-semibold text-iz-muted")}>
-              {d.address?.label ?? (draft.cargo.tab === "marketplace" && d.ref.kind === "to" ? t("kargo.chooseWarehouse") : t("home.toPlaceholder"))}
-            </span>
-            {detailsSummary(d.details, t) && <span className="truncate text-[12px] text-iz-muted">{detailsSummary(d.details, t)}</span>}
+        {onSwap && (
+          <button
+            type="button"
+            onClick={onSwap}
+            disabled={!draft.toAddressId}
+            aria-label={t("home.swap")}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-iz-sheet text-iz-ink shadow-[0_4px_12px_var(--iz-shadow)] disabled:opacity-40"
+          >
+            <Icon name="swap" size={18} />
           </button>
-          {detailsBtn(d.ref, d.address?.label)}
-          {extras > 0 && (
-            <button
-              type="button"
-              onClick={() => onRemoveDrop(d.ref)}
-              aria-label={t("cargo.v2.removeDrop", { n: i + 1 })}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-iz-ink active:bg-iz-sheet"
-            >
-              <Icon name="close" size={16} />
+        )}
+      </div>
+      {drops.map((d, i) => {
+        let shift = 0;
+        if (drag && i !== drag.index) {
+          const h = drag.heights[drag.index];
+          if (i > drag.index && i <= target) shift = -h;
+          else if (i < drag.index && i >= target) shift = h;
+        }
+        const dragging = drag?.index === i;
+        const canMove = i < movable;
+        return (
+          <div
+            key={d.ref.kind === "stop" ? d.ref.uid : "to"}
+            ref={(el) => (rowRefs.current[i] = el)}
+            style={{ transform: `translateY(${dragging ? drag.dy : shift}px)` }}
+            className={cn(
+              "relative flex min-h-[50px] items-center gap-3.5 border-b border-iz-divider-in-field bg-iz-field",
+              dragging ? "z-10 rounded-iz-tile shadow-[0_8px_20px_var(--iz-shadow)]" : drag ? "transition-transform duration-150" : ""
+            )}
+          >
+            <span aria-hidden className="h-[13px] w-[13px] shrink-0 rounded-[4px] bg-iz-ink" />
+            <button type="button" onClick={() => onPickDrop(d.ref)} className="flex min-w-0 flex-1 flex-col py-1.5 text-left active:opacity-70">
+              <span className="text-[11px] font-bold uppercase tracking-[0.8px] text-iz-muted">{t("cargo.v2.drop", { n: i + 1 })}</span>
+              <span className={cn("truncate text-[15px]", d.address ? "font-bold text-iz-ink" : "font-semibold text-iz-muted")}>
+                {d.address?.label ?? (draft.cargo.tab === "marketplace" && d.ref.kind === "to" ? t("kargo.chooseWarehouse") : t("home.toPlaceholder"))}
+              </span>
+              {detailsSummary(d.details, t) && <span className="truncate text-[12px] text-iz-muted">{detailsSummary(d.details, t)}</span>}
             </button>
-          )}
-        </div>
-      ))}
+            {detailsBtn(d.ref, d.address?.label)}
+            {extras > 0 && (
+              <button
+                type="button"
+                onClick={() => onRemoveDrop(d.ref)}
+                aria-label={t("cargo.v2.removeDrop", { n: i + 1 })}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-iz-ink active:bg-iz-sheet"
+              >
+                <Icon name="close" size={16} />
+              </button>
+            )}
+            {movable > 1 &&
+              (canMove ? (
+                <button
+                  type="button"
+                  aria-label={t("cargo.v2.reorder", { n: i + 1 })}
+                  aria-describedby="cargo-reorder-hint"
+                  className="flex h-11 w-9 shrink-0 cursor-grab touch-none items-center justify-center rounded-full text-iz-muted active:cursor-grabbing"
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                      move(i, e.key === "ArrowUp" ? i - 1 : i + 1);
+                    }
+                  }}
+                  onPointerDown={(e) => {
+                    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                    const heights = drops.map((_, k) => rowRefs.current[k]?.offsetHeight ?? 50);
+                    setDrag({ index: i, startY: e.clientY, dy: 0, heights });
+                  }}
+                  onPointerMove={(e) => {
+                    if (!drag || drag.index !== i) return;
+                    const before = drag.heights.slice(0, i).reduce((a, b) => a + b, 0);
+                    const after = drag.heights.slice(i + 1, movable).reduce((a, b) => a + b, 0);
+                    setDrag({ ...drag, dy: Math.max(-before, Math.min(after, e.clientY - drag.startY)) });
+                  }}
+                  onPointerUp={() => {
+                    if (!drag) return;
+                    const to = targetIndex(drag);
+                    setDrag(null);
+                    move(drag.index, to);
+                  }}
+                  onPointerCancel={() => setDrag(null)}
+                >
+                  <Icon name="grip" size={18} />
+                </button>
+              ) : (
+                <span aria-hidden className="w-9 shrink-0" />
+              ))}
+          </div>
+        );
+      })}
+      {movable > 1 && (
+        <>
+          <span id="cargo-reorder-hint" className="sr-only">
+            {t("cargo.v2.reorderHint")}
+          </span>
+          <span className="sr-only" aria-live="polite">
+            {announce}
+          </span>
+        </>
+      )}
       {maxExtra !== 0 && (
         <button
           type="button"
@@ -119,6 +226,8 @@ export function CargoScreen({
   stepNames,
   current,
   rules,
+  rulesError,
+  onRetryRules,
   vehicles,
   route,
   quote,
@@ -138,6 +247,9 @@ export function CargoScreen({
   stepNames: string[];
   current: number;
   rules: CargoRules | null;
+  /** The Kargo rules (tabs, limits) failed to load. */
+  rulesError?: boolean;
+  onRetryRules?: () => void;
   vehicles: Load<DeliveryVehicleSpec[]>;
   route: React.ReactNode;
   quote: Load<Quote>;
@@ -177,6 +289,12 @@ export function CargoScreen({
         />
       }
     >
+      {rulesError && (
+        <button type="button" onClick={onRetryRules} className="flex h-11 shrink-0 items-center gap-2 self-start text-[14px] font-bold text-iz-danger">
+          <Icon name="refresh" size={18} />
+          {t("common.loadFailedRetry")}
+        </button>
+      )}
       {rules && (
         <Segmented
           label={t("kargo.tabs.label")}

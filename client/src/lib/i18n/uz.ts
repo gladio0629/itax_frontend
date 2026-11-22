@@ -161,7 +161,6 @@ export const uz = {
   "quote.class.biznes": "Biznes sinfi (+{{pct}}%)",
   "quote.class.miniven": "Miniven sinfi (+{{pct}}%)",
   "quote.promo": "Promo kod {{code}} (−{{pct}}%)",
-  "class.title": "Klass",
   "class.standart": "Standart",
   "class.komfort": "Komfort",
   "class.biznes": "Biznes",
@@ -687,6 +686,9 @@ export const uz = {
   "rate.note": "O'z fikringiz",
   "rate.notePlaceholder": "Ixtiyoriy",
   "rate.send": "Yuborish",
+  "cargo.v2.reorder": "{{n}}-tushirish manzilini ko'chirish",
+  "cargo.v2.reorderHint": "Sudrang yoki yuqoriga/pastga strelkalarini bosing",
+  "cargo.v2.moved": "{{n}}-o'ringa ko'chirildi",
 };
 
 export type Dictionary = typeof uz;

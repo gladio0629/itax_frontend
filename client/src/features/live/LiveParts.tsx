@@ -94,18 +94,23 @@ export function Plate({ plate }: { plate: string }) {
   );
 }
 
-export function CallButton({ onClick, outline }: { onClick: () => void; outline?: boolean }) {
+/** Green call button: a phone link when the server gives a number,
+ * otherwise `onUnavailable` (a short note). */
+export function CallButton({ phone, onUnavailable, outline }: { phone?: string; onUnavailable: () => void; outline?: boolean }) {
   const { t } = useT();
+  const cls = cn(
+    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full active:scale-95",
+    outline ? "border border-iz-chip-border text-iz-ink" : "bg-iz-green text-iz-on-green"
+  );
+  if (phone) {
+    return (
+      <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} aria-label={t("driver.call")} className={cls}>
+        <Icon name="phone" size={20} />
+      </a>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={t("driver.call")}
-      className={cn(
-        "flex h-12 w-12 shrink-0 items-center justify-center rounded-full active:scale-95",
-        outline ? "border border-iz-chip-border text-iz-ink" : "bg-iz-green text-iz-on-green"
-      )}
-    >
+    <button type="button" onClick={onUnavailable} aria-label={t("driver.call")} className={cls}>
       <Icon name="phone" size={20} />
     </button>
   );
@@ -140,7 +145,7 @@ export function DriverCardDark({ driver, order, onCall }: { driver: Driver; orde
             </span>
           )}
         </div>
-        <CallButton onClick={onCall} />
+        <CallButton phone={order.driverPhone} onUnavailable={onCall} />
       </div>
       <div className="flex items-center justify-between gap-3">
         {driver.plate ? <Plate plate={driver.plate} /> : <span />}
@@ -153,7 +158,7 @@ export function DriverCardDark({ driver, order, onCall }: { driver: Driver; orde
 }
 
 /** A compact driver line (design: Arrived, OnTrip). */
-export function DriverRow({ driver, tone, sub, onCall }: { driver: Driver; tone: "light" | "dark"; sub: string; onCall: () => void }) {
+export function DriverRow({ driver, phone, tone, sub, onCall }: { driver: Driver; phone?: string; tone: "light" | "dark"; sub: string; onCall: () => void }) {
   const { t, intlTag } = useT();
   const name = driver.name ? shortName(driver.name) : t("driver.unnamed");
   const rating = driver.rating > 0 ? ` · ${driver.rating.toLocaleString(intlTag, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : "";
@@ -167,7 +172,7 @@ export function DriverRow({ driver, tone, sub, onCall }: { driver: Driver; tone:
         </span>
         {sub && <span className={cn("truncate text-[13px]", tone === "light" ? "font-bold tracking-[0.5px] text-iz-ink" : "text-iz-muted")}>{sub}</span>}
       </div>
-      <CallButton onClick={onCall} outline={tone === "dark"} />
+      <CallButton phone={phone} onUnavailable={onCall} outline={tone === "dark"} />
     </div>
   );
 }

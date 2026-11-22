@@ -20,6 +20,8 @@ export function CargoTermsScreen({
   rules,
   cargo,
   rideAlong,
+  rideAlongError,
+  onRetryRideAlong,
   quote,
   quoteReady,
   quoteError,
@@ -34,6 +36,8 @@ export function CargoTermsScreen({
   rules: CargoRules;
   cargo: CargoInput;
   rideAlong: RideAlong | null;
+  rideAlongError?: boolean;
+  onRetryRideAlong?: () => void;
   quote: Load<Quote>;
   quoteReady: boolean;
   quoteError: string | null;
@@ -132,9 +136,16 @@ export function CargoTermsScreen({
         <div className={cn("flex min-h-16 items-center gap-3 py-2", rules.insurance.available && "border-b border-iz-border")}>
           <span className="flex flex-1 flex-col gap-px">
             <span className={cn("text-[15px] font-extrabold", rideOk ? "text-iz-ink" : "text-iz-muted")}>{t("cargo.v2.rideAlong")}</span>
-            <span className="text-[12px] text-iz-muted">
-              {rideAlong && !rideAlong.available && rideAlong.reasonKey ? t(rideAlong.reasonKey as TranslationKey) : t("cargo.v2.rideAlongDesc")}
-            </span>
+            {rideAlongError ? (
+              <button type="button" onClick={onRetryRideAlong} className="-my-3 flex min-h-[44px] items-center gap-1.5 self-start text-[12px] font-bold text-iz-danger">
+                <Icon name="refresh" size={14} />
+                {t("common.loadFailedRetry")}
+              </button>
+            ) : (
+              <span className="text-[12px] text-iz-muted">
+                {rideAlong && !rideAlong.available && rideAlong.reasonKey ? t(rideAlong.reasonKey as TranslationKey) : t("cargo.v2.rideAlongDesc")}
+              </span>
+            )}
           </span>
           <Switch checked={!!cargo.rideAlong && rideOk} disabled={!rideOk} label={t("cargo.v2.rideAlong")} onChange={(on) => onCargo({ rideAlong: on })} />
         </div>
