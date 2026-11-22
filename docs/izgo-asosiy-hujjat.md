@@ -349,7 +349,8 @@ Go, Kotlin (Spring Boot), TypeScript (NestJS), PostgreSQL, Redis, NATS JetStream
 | 2026-11-22 | Admin: operator uchun "Tarix" va "Haydovchilar" (faqat ko'rish, balans ko'rinmaydi); haydovchi tarixi sahifasi | [QAROR] |
 | 2026-11-22 | Favqulodda kontaktlar butunlay olib tashlandi (SOS tugmasi va marshrutni ulashish qoladi) | [QAROR] |
 | 2026-11-22 | Admin panelda telefon raqamlari to'liq ko'rinadi, maskalash va "Telefonni ochish" tugmasi yo'q | [QAROR] |
-| 2026-11-22 | Ilovalardagi huquqiy havolalar faqat https://xasanow.uz/terms va /privacy (client va driver), tarmoq tekshiruvida shu manzilga istisno | [QAROR] |
+| 2026-11-22 | Ilovalardagi sayt havolalari faqat https://xasanow.uz/terms, /privacy va /delete-account (client va driver). Manzil kodda (config.ts), .env git'da yo'q. Tarmoq tekshiruvida shu manzilga istisno | [QAROR] |
+| 2026-11-22 | Admin faqat o'zbek tilida. Eski statistika Dashboard'ga qo'shimcha bo'lim bo'lib qaytadi, marketolog ham ko'radi (faqat ko'rish). Terminallar dizaynda ham, ilovada ham yo'q katta funksiya qo'shmaydi | [QAROR] |
 | 2026-11-22 | Backend'da hali yo'q qismlar (bonus, promo, choy puli, to'xtashlar, klass, yukchi va h.k.) ham to'liq qilinadi. Dizayndagi raqamlar namuna, hammasi serverdan | [QAROR] |
 
 ## 10. Frontend o'zgarishlari — backend uchun xulosa (2026-11-09 – 2026-11-11)
