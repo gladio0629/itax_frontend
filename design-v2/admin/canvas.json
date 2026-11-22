@@ -1,0 +1,247 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-22T09:46:19Z"
+ },
+ "title": "IZGO Admin: yangi dizayn",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "title": "1. Kirish: email va kod",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Verify.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "title": "2. Kirish: telefon va SMS kod",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Dashboard.dc.html": {
+   "x": 0,
+   "y": 1320,
+   "w": 1440,
+   "h": 920,
+   "title": "3. Umumiy statistika",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Orders.dc.html": {
+   "x": 1520,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "4. Buyurtmalar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OrderDetail.dc.html": {
+   "x": 3040,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "5. Buyurtma tafsiloti",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Drivers.dc.html": {
+   "x": 4560,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "6. Haydovchilar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "DriverProfile.dc.html": {
+   "x": 6080,
+   "y": 1320,
+   "w": 1440,
+   "h": 1040,
+   "title": "7. Haydovchi profili",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "DriverHistory.dc.html": {
+   "x": 7600,
+   "y": 1320,
+   "w": 1440,
+   "h": 1130,
+   "title": "8. Haydovchi tarixi",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Passengers.dc.html": {
+   "x": 9120,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "9. Yo'lovchilar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Ledger.dc.html": {
+   "x": 0,
+   "y": 2870,
+   "w": 1440,
+   "h": 900,
+   "title": "10. Hamyon daftari",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "LedgerFix.dc.html": {
+   "x": 1520,
+   "y": 2870,
+   "w": 1440,
+   "h": 900,
+   "title": "11. Tuzatish yozuvi",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Tariffs.dc.html": {
+   "x": 3040,
+   "y": 2870,
+   "w": 1440,
+   "h": 1330,
+   "title": "12. Tariflar: yoqilg'i va ustama",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Operators.dc.html": {
+   "x": 0,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "13. Operatorlar (yuqori rollar)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OperatorView.dc.html": {
+   "x": 1520,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "14. Operator: Navbat",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OperatorHistory.dc.html": {
+   "x": 3040,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "15. Operator: Tarix (ko'rish)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OperatorDrivers.dc.html": {
+   "x": 4560,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "16. Operator: Haydovchilar (ko'rish)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Staff.dc.html": {
+   "x": 6080,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "17. Xodimlar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "StaffAdd.dc.html": {
+   "x": 7600,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "18. Xodim qo'shish",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Audit.dc.html": {
+   "x": 9120,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "19. Audit jurnali",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Marketing.dc.html": {
+   "x": 10640,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "20. Marketolog ko'rinishi",
+   "is_interactive": true,
+   "expand": "fill"
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Verify.dc.html",
+  "Dashboard.dc.html",
+  "Orders.dc.html",
+  "OrderDetail.dc.html",
+  "Drivers.dc.html",
+  "DriverProfile.dc.html",
+  "DriverHistory.dc.html",
+  "Passengers.dc.html",
+  "Ledger.dc.html",
+  "LedgerFix.dc.html",
+  "Tariffs.dc.html",
+  "Operators.dc.html",
+  "OperatorView.dc.html",
+  "OperatorHistory.dc.html",
+  "OperatorDrivers.dc.html",
+  "Staff.dc.html",
+  "StaffAdd.dc.html",
+  "Audit.dc.html",
+  "Marketing.dc.html"
+ ],
+ "notes": {
+  "t1": {
+   "x": 0,
+   "y": -300,
+   "text": "Kirish: avval email, keyin telefon",
+   "kind": "title1",
+   "maxW": 2960
+  },
+  "t2": {
+   "x": 0,
+   "y": 1020,
+   "text": "Asosiy bo'limlar",
+   "kind": "title1",
+   "maxW": 10560
+  },
+  "t3": {
+   "x": 0,
+   "y": 2570,
+   "text": "Pul: hamyon va tariflar",
+   "kind": "title1",
+   "maxW": 4480
+  },
+  "t4": {
+   "x": 0,
+   "y": 4320,
+   "text": "Jamoa va rollar",
+   "kind": "title1",
+   "maxW": 12080
+  }
+ },
+ "designSystems": []
+}

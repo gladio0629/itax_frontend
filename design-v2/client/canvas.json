@@ -1,0 +1,514 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-20T14:15:00Z"
+ },
+ "title": "IZGO Client — yangi dizayn",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "1. Kirish",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Otp.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "2. SMS kod",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Home.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "3. Asosiy",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Trip.dc.html": {
+   "x": 1410,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "4. Safar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Payment.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "5. To'lov",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Driver.dc.html": {
+   "x": 2350,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "6. Haydovchi yo'lda",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Address.dc.html": {
+   "x": 0,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "7. Manzil tanlash",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Cargo.dc.html": {
+   "x": 470,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "8. Dostavka: yuk",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Search.dc.html": {
+   "x": 940,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "9. Qidirilmoqda",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "NoDriver.dc.html": {
+   "x": 1410,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "10. Haydovchi topilmadi",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Rate.dc.html": {
+   "x": 1880,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "11. Baholash",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Time.dc.html": {
+   "x": 2350,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "22. Vaqt tanlash",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Menu.dc.html": {
+   "x": 0,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "12. Menyu",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "History.dc.html": {
+   "x": 470,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "13. Tarix",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "HistoryDetail.dc.html": {
+   "x": 940,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "14. Safar tafsiloti",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Bonus.dc.html": {
+   "x": 1410,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "15. Bonuslar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Settings.dc.html": {
+   "x": 1880,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "16. Sozlamalar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Account.dc.html": {
+   "x": 2350,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "17. Akkaunt",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Notifications.dc.html": {
+   "x": 2820,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "18. Bildirishnomalar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Language.dc.html": {
+   "x": 3290,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "19. Til",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Help.dc.html": {
+   "x": 3760,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "20. Yordam",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "About.dc.html": {
+   "x": 4230,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "21. Biz haqimizda",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbMain.dc.html": {
+   "x": 0,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K1. Kirish: telefon",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbOtp.dc.html": {
+   "x": 470,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K2. SMS kod",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbAddress.dc.html": {
+   "x": 940,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K3. Manzil qidirish",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbTime.dc.html": {
+   "x": 1410,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K4. Vaqt kiritish",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbPayment.dc.html": {
+   "x": 1880,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K5. Promo kod",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbRate.dc.html": {
+   "x": 2350,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K6. Baholash: fikr",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbAccount.dc.html": {
+   "x": 2820,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K7. Akkaunt: ism",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbHelp.dc.html": {
+   "x": 3290,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K8. Yordam: xabar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "MapPick.dc.html": {
+   "x": 2820,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "23. Xaritadan tanlash",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "AddressDetails.dc.html": {
+   "x": 3290,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "24. Manzil tafsilotlari",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Extras.dc.html": {
+   "x": 3760,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "25. Bagaj va izoh",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "CargoContacts.dc.html": {
+   "x": 4230,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "26. Dostavka: kontaktlar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "CargoTerms.dc.html": {
+   "x": 4700,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "27. Dostavka: shartlar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Arrived.dc.html": {
+   "x": 5170,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "28. Haydovchi yetib keldi",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "OnTrip.dc.html": {
+   "x": 5640,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "29. Safarda",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbDetails.dc.html": {
+   "x": 3760,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K9. Manzil tafsilotlari",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbExtras.dc.html": {
+   "x": 4230,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K10. Boshqa odam uchun",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbCargoContacts.dc.html": {
+   "x": 4700,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K11. Qabul qiluvchi",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "KbHistory.dc.html": {
+   "x": 5170,
+   "y": 3792,
+   "w": 390,
+   "h": 844,
+   "title": "K12. Tarixdan qidirish",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "HomeEmpty.dc.html": {
+   "x": 0,
+   "y": 5056,
+   "w": 390,
+   "h": 844,
+   "title": "S1. Asosiy: saqlangan manzil yo'q",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "StateLoading.dc.html": {
+   "x": 470,
+   "y": 5056,
+   "w": 390,
+   "h": 844,
+   "title": "S2. Yuklanmoqda",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "StateEmpty.dc.html": {
+   "x": 940,
+   "y": 5056,
+   "w": 390,
+   "h": 844,
+   "title": "S3. Bo'sh",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "StateError.dc.html": {
+   "x": 1410,
+   "y": 5056,
+   "w": 390,
+   "h": 844,
+   "title": "S4. Xato",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "StateOffline.dc.html": {
+   "x": 1880,
+   "y": 5056,
+   "w": 390,
+   "h": 844,
+   "title": "S5. Internet yo'q",
+   "is_interactive": true,
+   "radius": 36
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Otp.dc.html",
+  "Home.dc.html",
+  "Trip.dc.html",
+  "Payment.dc.html",
+  "Driver.dc.html",
+  "Address.dc.html",
+  "Cargo.dc.html",
+  "Search.dc.html",
+  "NoDriver.dc.html",
+  "Rate.dc.html",
+  "Time.dc.html",
+  "Menu.dc.html",
+  "History.dc.html",
+  "HistoryDetail.dc.html",
+  "Bonus.dc.html",
+  "Settings.dc.html",
+  "Account.dc.html",
+  "Notifications.dc.html",
+  "Language.dc.html",
+  "Help.dc.html",
+  "About.dc.html",
+  "KbMain.dc.html",
+  "KbOtp.dc.html",
+  "KbAddress.dc.html",
+  "KbTime.dc.html",
+  "KbPayment.dc.html",
+  "KbRate.dc.html",
+  "KbAccount.dc.html",
+  "KbHelp.dc.html",
+  "MapPick.dc.html",
+  "AddressDetails.dc.html",
+  "Extras.dc.html",
+  "CargoContacts.dc.html",
+  "CargoTerms.dc.html",
+  "Arrived.dc.html",
+  "OnTrip.dc.html",
+  "KbDetails.dc.html",
+  "KbExtras.dc.html",
+  "KbCargoContacts.dc.html",
+  "KbHistory.dc.html",
+  "HomeEmpty.dc.html",
+  "StateLoading.dc.html",
+  "StateEmpty.dc.html",
+  "StateError.dc.html",
+  "StateOffline.dc.html"
+ ],
+ "notes": {
+  "t1": {
+   "x": 0,
+   "y": -300,
+   "text": "IZGO Client: kirish va buyurtma oqimi",
+   "kind": "title1",
+   "maxW": 2740
+  },
+  "t2": {
+   "x": 0,
+   "y": 964,
+   "text": "Buyurtma va safar holatlari",
+   "kind": "title1",
+   "maxW": 6030
+  },
+  "t3": {
+   "x": 0,
+   "y": 2228,
+   "text": "Menyu va bo'limlar",
+   "kind": "title1",
+   "maxW": 4620
+  },
+  "t4": {
+   "x": 0,
+   "y": 3492,
+   "text": "Klaviatura ochilgan holatlar",
+   "kind": "title1",
+   "maxW": 5560
+  },
+  "t5": {
+   "x": 0,
+   "y": 4756,
+   "text": "Holatlar: bo'sh, yuklanmoqda, xato, internet yo'q",
+   "kind": "title1",
+   "maxW": 2270
+  }
+ },
+ "designSystems": []
+}

@@ -1,0 +1,270 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-22T09:06:08.051944Z"
+ },
+ "title": "IZGO Driver: yangi dizayn",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "1. Kirish",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Otp.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "2. SMS kod",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "RegPersonal.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "3. Shaxsiy ma'lumot",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "RegLicense.dc.html": {
+   "x": 1410,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "4. Haydovchilik guvohnomasi",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "RegCar.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "5. Mashina",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "RegSelfie.dc.html": {
+   "x": 2350,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "6. Selfi",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "RegReview.dc.html": {
+   "x": 2820,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "7. Tekshiruv",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Home.dc.html": {
+   "x": 0,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "8. Asosiy: so'rovlar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Request.dc.html": {
+   "x": 470,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "9. Yangi so'rov",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "OrderDetail.dc.html": {
+   "x": 940,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "10. Dostavka so'rovi",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "ToPickup.dc.html": {
+   "x": 1410,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "11. Yo'lovchi oldiga",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Waiting.dc.html": {
+   "x": 1880,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "12. Kutish",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "OnTrip.dc.html": {
+   "x": 2350,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "13. Safarda",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Finished.dc.html": {
+   "x": 2820,
+   "y": 1264,
+   "w": 390,
+   "h": 844,
+   "title": "14. Safar tugadi",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Wallet.dc.html": {
+   "x": 0,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "15. Hamyon",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "WalletDebt.dc.html": {
+   "x": 470,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "16. Qarz chegarasi",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "TopUp.dc.html": {
+   "x": 940,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "17. To'ldirish",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "History.dc.html": {
+   "x": 1410,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "18. Tarix",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Profile.dc.html": {
+   "x": 1880,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "19. Profil",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Level.dc.html": {
+   "x": 2350,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "20. Darajalar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Capabilities.dc.html": {
+   "x": 2820,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "21. Imkoniyatlar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Notifications.dc.html": {
+   "x": 3290,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "22. Bildirishnomalar",
+   "is_interactive": true,
+   "radius": 36
+  },
+  "Settings.dc.html": {
+   "x": 3760,
+   "y": 2528,
+   "w": 390,
+   "h": 844,
+   "title": "23. Sozlamalar",
+   "is_interactive": true,
+   "radius": 36
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Otp.dc.html",
+  "RegPersonal.dc.html",
+  "RegLicense.dc.html",
+  "RegCar.dc.html",
+  "RegSelfie.dc.html",
+  "RegReview.dc.html",
+  "Home.dc.html",
+  "Request.dc.html",
+  "OrderDetail.dc.html",
+  "ToPickup.dc.html",
+  "Waiting.dc.html",
+  "OnTrip.dc.html",
+  "Finished.dc.html",
+  "Wallet.dc.html",
+  "WalletDebt.dc.html",
+  "TopUp.dc.html",
+  "History.dc.html",
+  "Profile.dc.html",
+  "Level.dc.html",
+  "Capabilities.dc.html",
+  "Notifications.dc.html",
+  "Settings.dc.html"
+ ],
+ "notes": {
+  "t1": {
+   "x": 0,
+   "y": -300,
+   "text": "Kirish va ro'yxatdan o'tish",
+   "kind": "title1",
+   "maxW": 3210
+  },
+  "t2": {
+   "x": 0,
+   "y": 964,
+   "text": "Ish jarayoni: so'rovdan safar oxirigacha",
+   "kind": "title1",
+   "maxW": 3210
+  },
+  "t3": {
+   "x": 0,
+   "y": 2228,
+   "text": "Hamyon, tarix va profil",
+   "kind": "title1",
+   "maxW": 4150
+  }
+ },
+ "designSystems": []
+}
