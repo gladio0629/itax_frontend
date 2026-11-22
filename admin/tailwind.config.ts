@@ -5,23 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: "var(--color-bg)",
-        card: "var(--color-card)",
-        ink: "rgb(var(--color-text-rgb) / <alpha-value>)",
-        accent: "rgb(var(--color-accent-rgb) / <alpha-value>)",
-        "accent-5": "var(--color-accent-5)",
-        "accent-10": "var(--color-accent-10)",
-        "brand-yellow": "var(--color-brand-yellow)",
-        "brand-yellow-hover": "var(--color-brand-yellow-hover)",
-        success: "rgb(var(--color-success-rgb) / <alpha-value>)",
-        "on-yellow": "var(--color-on-yellow)",
-        warning: "rgb(var(--color-warning-rgb) / <alpha-value>)",
-        danger: "rgb(var(--color-danger-rgb) / <alpha-value>)",
-        border: "var(--color-border)",
-        "sidebar-bg": "var(--color-sidebar-bg)",
-        "sidebar-text": "rgb(var(--color-sidebar-text-rgb) / <alpha-value>)",
-        "sidebar-border": "var(--color-sidebar-border)",
-        // --- v2 ---
+        ink: "rgb(var(--ink-rgb) / <alpha-value>)",
         "ink-2": "var(--ink-2)",
         "ink-border": "var(--ink-border)",
         "ink-muted": "var(--ink-muted)",
@@ -61,15 +45,11 @@ export default {
         "30": ["30px", { lineHeight: "30px" }],
       },
       boxShadow: {
-        soft: "0 2px 12px -2px var(--shadow-color)",
-        softer: "0 1px 4px 0 var(--shadow-color)",
-        inner5: "inset 0 1px 0 0 rgba(255,255,255,0.18)",
         card: "var(--shadow-card)",
         pop: "var(--shadow-pop)",
         hairline: "inset 0 0 0 1px var(--line)",
       },
       borderRadius: {
-        button: "var(--radius-button)",
         card: "var(--radius-card)",
         sheet: "var(--radius-sheet)",
         field: "var(--radius-field)",

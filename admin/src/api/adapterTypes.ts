@@ -42,7 +42,6 @@ import type {
   GlobalSearchHit,
   Dashboard,
   DashboardPeriod,
-  ListCounts,
   OrderDetail,
   DriverProfile,
   DriverTrips,
@@ -53,6 +52,10 @@ import type {
   WalletCorrectionResult,
   TariffSettings,
   TariffSettingsPatch,
+  OperatorMyStats,
+  Marketing,
+  MarketingPeriod,
+  ListCounts,
 } from "./types";
 
 /**
@@ -82,6 +85,8 @@ export interface ApiAdapter {
 
   // --- stats ---
   getStats(period: StatsPeriod): Promise<MarketingStats>;
+  /** Marketolog page; `capabilities.marketing`. */
+  getMarketing(period: MarketingPeriod): Promise<Marketing>;
   /** "Umumiy statistika" (v2). Blocks the server leaves null are hidden;
    * recent orders / attention come only when the admin may see them. */
   getDashboard(period: DashboardPeriod): Promise<Dashboard>;
@@ -96,6 +101,8 @@ export interface ApiAdapter {
 
   // --- staff ("Xodimlar") ---
   getStaff(query: StaffQuery): Promise<StaffRow[]>;
+  /** Role chip counts; `capabilities.staffCounts`. */
+  getStaffCounts(query: Omit<StaffQuery, "role">): Promise<ListCounts<AdminRole>>;
   createStaff(input: { name: string; email: string; phone: string; role: AdminRole }): Promise<AdminUser>;
   updateStaff(id: string, patch: { name?: string; email?: string; phone?: string; role?: AdminRole }): Promise<AdminUser>;
   setStaffStatus(id: string, status: StaffStatus): Promise<AdminUser>;
@@ -193,6 +200,11 @@ export interface ApiAdapter {
   getQueue(query: OperatorQueueQuery): Promise<QueueListItem[]>;
   getActiveTask(): Promise<ActiveTask | null>;
   startTask(queueId: string): Promise<ActiveTask>;
+  /** "Keyinga qoldirish": the task goes back to the queue with its wait
+   * time; `capabilities.queuePostpone`. */
+  postponeTask(queueId: string): Promise<QueueListItem>;
+  /** The current operator's day; `capabilities.operatorMyStats`. */
+  getOperatorMyStats(): Promise<OperatorMyStats>;
   rejectQueueItem(queueId: string, reason: string): Promise<QueueListItem>;
   finishTask(queueId: string, result: HistoryResult, note: string, rejectReason?: string): Promise<HistoryEntry>;
   // Jarayonda — supervisor-only ("operatorSupervise"); includes startedAt
@@ -203,7 +215,8 @@ export interface ApiAdapter {
   // supervisor gets everyone's, filterable by operatorId.
   getHistory(query: OperatorApprovedQuery): Promise<HistoryEntry[]>;
   editHistoryEntry(id: string, patch: { result?: HistoryResult; note?: string }): Promise<HistoryEntry>;
-  getOperatorCounts(): Promise<OperatorCounts>;
+  /** Board column counts for the same filters. */
+  getOperatorCounts(query?: OperatorApprovedQuery): Promise<OperatorCounts>;
   getOperatorsList(): Promise<{ id: string; name: string }[]>;
 
   /** Permission check + audit entry for a CSV export. The CSV itself is

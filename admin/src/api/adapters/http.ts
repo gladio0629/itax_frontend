@@ -14,8 +14,10 @@ import { session } from "../httpSession";
 import * as map from "../httpMapper";
 import type {
   AdapterCapabilities,
+  AdminRole,
   Complaint,
   GlobalSearchHit,
+  HistoryResult,
   OrderWithNames,
   LoginStartResult,
   LoginStepResult,
@@ -80,12 +82,31 @@ const CAPABILITIES: AdapterCapabilities = {
   correctionEntryRef: false,
   tariffSettings: false,
   tariffCities: false,
+  // v2 group 5 (expected endpoints in docs/backend-gaps/admin.md)
+  queuePostpone: false,
+  operatorMyStats: false,
+  // All five are offered; the API stores them as "unresolved" with the
+  // label kept in the comment (it has resolved / unresolved / reject only).
+  operatorResults: ["resolved", "no_answer", "callback", "escalated", "rejected"],
+  staffCounts: false,
+  auditCategories: false,
+  marketing: false,
 };
 
 const CANCEL_REASONS: readonly OrderCancelReasonCode[] = ["admin_decision", "passenger_request", "driver_request", "duplicate", "fraud", "other"];
 const LOGOUT_TIMEOUT_MS = 5_000;
 const ADMIN_SEARCH_PATH = "/admin/v1/search";
 const TARIFF_SETTINGS_PATH = "/admin/v1/tariff-settings";
+const operatorPostponePath = (id: string) => `/admin/v1/operator/queue/${encodeURIComponent(id)}/postpone`;
+const OPERATOR_MY_STATS_PATH = "/admin/v1/operator/me/stats";
+const STAFF_COUNTS_PATH = "/admin/v1/staff/counts";
+const MARKETING_PATH = "/admin/v1/marketing";
+/** Results the API has no value for travel as "unresolved" + this label. */
+const RESULT_TAG: Partial<Record<HistoryResult, string>> = {
+  no_answer: "Javob bermadi",
+  callback: "Qayta qo'ng'iroq",
+  escalated: "Menejerga yuborildi",
+};
 // Expected (not in openapi.yml yet), see docs/backend-gaps/admin.md:
 const orderOperatorTaskPath = (id: string) => `${API_PATHS.adminOrder(id)}/operator-task`;
 const driverTripsPath = (id: string) => `${API_PATHS.adminDriver(id)}/trips`;
@@ -337,6 +358,9 @@ export const httpAdapter: ApiAdapter = {
     return map.dashboardFromApi(period, kpi, chart, chartRange, recent, me.sections);
   },
 
+  async getMarketing(period) {
+    return map.marketingFromApi(await http.get<map.ApiMarketing>(MARKETING_PATH, { period }), period);
+  },
   async getStats(period) {
     const range = map.statsRange(period);
     const stats = await http.get<Api.Stats>(API_PATHS.adminStats, range);
@@ -356,6 +380,9 @@ export const httpAdapter: ApiAdapter = {
   },
 
   // --- staff ------------------------------------------------------------
+  async getStaffCounts(query) {
+    return http.get<Partial<Record<AdminRole | "all", number>>>(STAFF_COUNTS_PATH, { q: query.search?.trim() || undefined });
+  },
   async getStaff(query) {
     const role = query.role && query.role !== "all" ? map.roleToApi(query.role) : undefined;
     const rows = remember(rawStaff, await fetchAll<Api.Staff>(API_PATHS.adminStaff, { role }));
@@ -642,7 +669,7 @@ export const httpAdapter: ApiAdapter = {
         ? await http.post<Api.QueueItem>(API_PATHS.adminOperatorReject(queueId), { reason: rejectReason(reason) } satisfies Api.QueueReject)
         : await http.post<Api.QueueItem>(API_PATHS.adminOperatorComplete(queueId), {
             result: result === "resolved" ? "resolved" : "unresolved",
-            comment: note.trim() || undefined,
+            comment: [RESULT_TAG[result] && `[${RESULT_TAG[result]}]`, note.trim()].filter(Boolean).join(" ") || undefined,
           } satisfies Api.QueueComplete);
     if (activeTask?.id === q.id) activeTask = null;
     return map.historyFromApi(q, meCache);
@@ -655,6 +682,15 @@ export const httpAdapter: ApiAdapter = {
   },
   editHistoryEntry: notSupported,
   getOperatorCounts: notSupported,
+  async postponeTask(queueId) {
+    const q = await http.post<Api.QueueItem>(operatorPostponePath(queueId));
+    if (activeTask?.id === q.id) activeTask = null;
+    return map.queueFromApi(q);
+  },
+  async getOperatorMyStats() {
+    const r = await http.get<{ resolved_today: number; no_answer_today: number; avg_handle_sec: number | null }>(OPERATOR_MY_STATS_PATH);
+    return { resolvedToday: r.resolved_today, noAnswerToday: r.no_answer_today, avgHandleSec: r.avg_handle_sec };
+  },
   getOperatorsList: notSupported,
 
   recordExport: notSupported,

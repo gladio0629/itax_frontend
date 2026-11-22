@@ -91,3 +91,16 @@ export function formatMonth(key: string): string {
   const name = MONTHS[(m || 1) - 1] ?? "";
   return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${y}`;
 }
+
+/** "Hozir", "12 daq oldin", "1 soat oldin", "Kecha", "3 kun oldin", "2 oy oldin". */
+export function formatAgo(ts: number, now = Date.now()): string {
+  const min = Math.floor((now - ts) / 60_000);
+  if (min < 5) return "Hozir";
+  if (min < 60) return `${min} daq oldin`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} soat oldin`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "Kecha";
+  if (d < 30) return `${d} kun oldin`;
+  return `${Math.floor(d / 30)} oy oldin`;
+}

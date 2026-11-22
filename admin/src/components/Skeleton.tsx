@@ -15,12 +15,3 @@ export function SkeletonRow({ cols = 5 }: { cols?: number }) {
     </tr>
   );
 }
-
-export function SkeletonCard() {
-  return (
-    <div className="rounded-card bg-white p-5 shadow-card">
-      <Skeleton className="mb-3 h-4 w-1/2" />
-      <Skeleton className="h-7 w-2/3" />
-    </div>
-  );
-}

@@ -18,9 +18,19 @@ import { cn } from "@/lib/cn";
 import { ROLE_LABEL } from "@/lib/roles";
 import { AdminBrand, Logo } from "./Logo";
 import { Avatar } from "./Avatar";
-import type { Me, Section, SectionBadges } from "@/api/types";
+import type { Action, Me, Section, SectionBadges } from "@/api/types";
 
-type NavItem = { to: string; section: Section; label: string; icon: typeof Car };
+type NavItem = {
+  to: string;
+  section: Section;
+  label: string;
+  icon: typeof Car;
+  /** Also needs this action from getMe (operator work vs supervising). */
+  action?: Action;
+  end?: boolean;
+  /** The section's count badge is shown on this item only. */
+  noBadge?: boolean;
+};
 
 /** Sidebar groups (design-v2). An item shows only when getMe().sections has
  * its section; a group shows only when it has items. Never a role check. */
@@ -36,6 +46,20 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
+    // Marketolog's page (section "marketing").
+    title: "Marketolog",
+    items: [{ to: "/marketing", section: "marketing", label: "Umumiy statistika", icon: BarChart3 }],
+  },
+  {
+    // Operator windows: shown for the "operatorWork" action / read-only grants.
+    title: "Operator",
+    items: [
+      { to: "/operators", section: "operators", action: "operatorWork", label: "Navbat", icon: Headset, end: true },
+      { to: "/operators/history", section: "operators", action: "operatorWork", label: "Tarix", icon: ScrollText, noBadge: true },
+      { to: "/operators/drivers", section: "drivers_view", label: "Haydovchilar", icon: Car },
+    ],
+  },
+  {
     title: "Pul",
     items: [
       { to: "/wallet", section: "wallet", label: "Hamyon va to'lovlar", icon: Wallet },
@@ -45,7 +69,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Jamoa",
     items: [
-      { to: "/operators", section: "operators", label: "Operatorlar", icon: Headset },
+      { to: "/operators", section: "operators", action: "operatorSupervise", label: "Operatorlar", icon: Headset },
       { to: "/staff", section: "staff", label: "Xodimlar", icon: UsersRound },
       { to: "/audit", section: "audit", label: "Audit jurnali", icon: ScrollText },
     ],
@@ -59,7 +83,11 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
  */
 export function Sidebar({ me, badges, onLogout }: { me: Me | null; badges: SectionBadges; onLogout: () => void }) {
   const sections = me?.sections ?? [];
-  const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => sections.includes(i.section)) })).filter((g) => g.items.length > 0);
+  const actions = me?.actions ?? [];
+  const groups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => sections.includes(i.section) && (!i.action || actions.includes(i.action))),
+  })).filter((g) => g.items.length > 0);
 
   return (
     <aside
@@ -81,12 +109,13 @@ export function Sidebar({ me, badges, onLogout }: { me: Me | null; badges: Secti
             <span className="label-caps hidden px-3 pb-1.5 text-ink-label xl:block">{g.title}</span>
             <span aria-hidden className="mx-auto mb-1.5 h-px w-6 bg-ink-border xl:hidden" />
             <ul className="flex flex-col gap-0.5">
-              {g.items.map(({ to, section, label, icon: Icon }) => {
-                const badge = badges[section];
+              {g.items.map(({ to, section, label, icon: Icon, end, noBadge }) => {
+                const badge = noBadge ? undefined : badges[section];
                 return (
                   <li key={to}>
                     <NavLink
                       to={to}
+                      end={end}
                       title={label}
                       aria-label={badge ? `${label}, ${badge} ta yangi` : label}
                       className={({ isActive }) =>

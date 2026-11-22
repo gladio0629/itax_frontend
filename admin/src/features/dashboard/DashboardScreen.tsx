@@ -350,7 +350,7 @@ function DashboardSkeleton() {
 
 /** Money and order-status figures from getStats (restored from the old
  * "Umumiy statistika"). Each block shows only when the server reports it. */
-function MoneyAndStatus({ stats }: { stats: MarketingStats }) {
+export function MoneyAndStatus({ stats }: { stats: MarketingStats }) {
   const tiles = [
     stats.totalIncome != null && { label: "Davr daromadi", v: formatCompactSom(stats.totalIncome) },
     stats.averageOrderValue != null && { label: "O'rtacha buyurtma", v: formatCompactSom(stats.averageOrderValue) },

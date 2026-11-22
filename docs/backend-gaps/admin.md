@@ -150,3 +150,28 @@ Field and endpoint names below are the frontend's proposal; error keys follow th
 - `PATCH /admin/v1/tariff-settings` with `Idempotency-Key`, body `{ city_id, <one section> }` (`fuel` | `classes` | `bodies` | `extras` | `levels`) → the full settings with fresh examples. Applies to new orders only; existing orders keep their price (doc 2.5). Errors: `VALIDATION_ERROR` (negative, commission > 100, unknown key).
 - `GET /admin/v1/tariff-settings/cities` → `{ data: { id, name }[] }` (the "Shahar" filter; only if tariffs differ per city).
 - Dashboard: `fuel_price_updated_at` (or an attention item) for the "Gaz narxi N kundan beri yangilanmagan" card.
+
+### Group 5: operators, staff, audit, marketing
+
+**Permissions (`GET /admin/v1/me`)**
+- The operator's read-only windows (owner task, design OperatorHistory/OperatorDrivers): add sections `orders_view` and `drivers_view` for the operator role. They allow `GET /admin/v1/orders` (+ counts) and `GET /admin/v1/drivers` (+ counts) only, no detail, no actions, and the drivers response must not include `wallet_balance` (send `null`). Until `me` returns them the "Buyurtmalar" tab and "Haydovchilar" item are hidden.
+- Marketolog: a `marketing` section (design Marketing) next to or instead of `stats`. Until it exists the marketolog keeps the old dashboard in http mode.
+- Staff rows: `login_method: "email_sms" | "sms"` and `last_login_at` (column "Kirish", "Oxirgi faollik").
+
+**Operator queue** (owner decision 2026-11-22: five results, postpone keeps the wait time)
+- `QueueItem` additions: `subject_kind: "passenger" | "driver"`, `subject_name`, `phone` (full, see handoff decision), `order_id`, `request_text` (the "Zayavka" text), `kind` value `document_update` ("Hujjat").
+- `POST /admin/v1/operator/queue/{id}/complete`: `result` needs `resolved | no_answer | callback | escalated` (today only `resolved | unresolved`). Until then the admin sends `unresolved` and puts the label ("Javob bermadi", "Qayta qo'ng'iroq", "Menejerga yuborildi") at the start of `comment`; history shows these as "Hal qilinmadi".
+- `POST /admin/v1/operator/queue/{id}/postpone` → the item back in the queue, `waiting_since` unchanged, assignment cleared (`queuePostpone`; button hidden until then).
+- `GET /admin/v1/operator/me/stats` → `{ resolved_today, no_answer_today, avg_handle_sec }` (KPI tiles under the current task; `operatorMyStats`).
+- Board filters: `GET /admin/v1/operator/queue` and the in-progress list accept `kind`, `operator_id`, `q`; history accepts `kind`, `result`, `operator_id`, `from_date`/`to_date`; counts endpoint with the same filters → `{ queue, in_progress, done }` (`queueFilters`, `historyFilters`, `operatorCounts`).
+- `PATCH` of the operator's own history entry (result + comment), already listed above as `historyEdit`.
+
+**Staff**
+- `GET /admin/v1/staff/counts?q=&status=` → `{ all, superadmin, owner, menejer, marketolog, operator }` (role chips; `staffCounts`).
+
+**Audit**
+- `AuditEntry` additions: `actor_role`, `category: money | tariff | block | personal | login | staff`, `ip` as the server wants it shown (design shows `185.74.•.•`). The IP column appears only when entries have it.
+- `GET /admin/v1/audit?category=` (category chips; `auditCategories`).
+
+**Marketing** (`marketing`)
+- `GET /admin/v1/marketing?period=3m|6m|12m` → `{ monthly_orders, active_passengers, active_drivers, average_check: { value, delta_pct, spark[] } | null, commission_by_month: { month, value }[] | null, funnel: { title, steps: { label, count, pct }[] } | null, order_types: { passenger_pct, delivery_pct } | null }`. Money in tiyin. Any `null` block is hidden. The funnel's first steps (app opened, price seen) need app analytics events that the backend does not collect yet.

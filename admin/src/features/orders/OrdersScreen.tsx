@@ -38,7 +38,9 @@ const PERIODS: { value: ListPeriod; label: string }[] = [
 ];
 
 /** Orders list (design Orders) with the detail panel as a nested route. */
-export function OrdersScreen() {
+/** `readOnly`: the operator's "Buyurtmalar" window (no actions, no detail),
+ * shown inside the operator's Tarix page, so it has no page header. */
+export function OrdersScreen({ readOnly = false }: { readOnly?: boolean } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
@@ -124,11 +126,11 @@ export function OrdersScreen() {
     },
     { key: "price", header: "Narx", align: "right", sortValue: (o) => o.price, render: (o) => formatNumber(o.price) },
     { key: "status", header: "Holat", render: (o) => <Badge tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Badge> },
-    {
+    ...(readOnly ? [] : [{
       key: "actions",
       header: "",
       width: "56px",
-      render: (o) => (
+      render: (o: OrderWithNames) => (
         <RowMenu
           label={`Buyurtma ${orderNo(o.id)}: amallar`}
           items={[
@@ -138,12 +140,12 @@ export function OrdersScreen() {
           ]}
         />
       ),
-    },
+    } satisfies Column<OrderWithNames>]),
   ];
 
   return (
     <>
-      <PageHeader
+      {!readOnly && <PageHeader
         subtitle="Hamma buyurtmalar"
         title="Buyurtmalar"
         actions={
@@ -173,7 +175,7 @@ export function OrdersScreen() {
             )}
           </>
         }
-      />
+      />}
 
       <div className="flex flex-wrap items-center gap-2.5">
         {caps.orderSearch && (
@@ -231,7 +233,7 @@ export function OrdersScreen() {
           columns={columns}
           rows={orders}
           rowKey={(o) => o.id}
-          onRowClick={(o) => open(o)}
+          onRowClick={readOnly ? undefined : (o) => open(o)}
           rowClassName={(o) => (o.id === selectedId ? "bg-row-hover" : undefined)}
           total={status === "all" ? counts?.all : counts?.[status as OrderStatus]}
           emptyIcon={<RouteIcon />}
@@ -240,11 +242,13 @@ export function OrdersScreen() {
         />
       )}
 
-      <Routes>
-        <Route path=":orderId" element={<OrderDetailPanel onChanged={refresh} />} />
-      </Routes>
+      {!readOnly && (
+        <Routes>
+          <Route path=":orderId" element={<OrderDetailPanel onChanged={refresh} />} />
+        </Routes>
+      )}
 
-      {caps.orderCreate && (
+      {caps.orderCreate && !readOnly && (
         <OrderCreateDrawer
           open={creating}
           onClose={() => setCreating(false)}

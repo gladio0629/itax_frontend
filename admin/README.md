@@ -27,8 +27,11 @@ Dashboard (KPIs, 14-day chart, top routes, recent orders, attention cards) · Or
 detail panel: timeline, price lines, edit, cancel, send to operator) · Drivers (+ `/drivers/:id`
 profile, history, documents; block/unblock, edit, archive; no manual approval) · Passengers ·
 Complaints · Hamyon va to'lovlar (read-only ledger + `/wallet/fix` correction entry) · Tariflar
-(fuel price per litre, class and body markups, extra fees, level commissions) · Operators · Staff ·
-Audit log · Profile.
+(fuel price per litre, class and body markups, extra fees, level commissions) · Operators
+(supervisors: Navbat / Jarayonda / Bugungi tasdiqlanganlar board; operator: `/operators` current task
+with five results and postpone, `/operators/history` own tasks + read-only orders, `/operators/drivers`
+read-only drivers without balance) · Staff (+ `/staff/new`) · Audit log · Marketing (`/marketing`,
+marketolog only, read-only) · Profile.
 
 ## Notable patterns
 

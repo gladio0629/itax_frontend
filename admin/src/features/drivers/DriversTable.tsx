@@ -49,10 +49,13 @@ export function DriversTable({
             key: "balance",
             header: "Balans",
             align: "right",
-            sortValue: (d: Driver) => d.walletBalance,
-            render: (d: Driver) => (
-              <span className={cn("font-bold", d.walletBalance < 0 ? "text-error" : "text-ink")}>{formatNumber(d.walletBalance)}</span>
-            ),
+            sortValue: (d: Driver) => d.walletBalance ?? 0,
+            render: (d: Driver) =>
+              d.walletBalance === null ? (
+                "—"
+              ) : (
+                <span className={cn("font-bold", d.walletBalance < 0 ? "text-error" : "text-ink")}>{formatNumber(d.walletBalance)}</span>
+              ),
           } satisfies Column<Driver>,
         ]
       : []),

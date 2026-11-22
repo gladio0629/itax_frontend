@@ -31,14 +31,19 @@ import type {
   QueueReason as SeedQueueReason,
   QueueStatus,
   HistoryEntry as SeedHistoryEntry,
-  HistoryResult,
+  HistoryResult as SeedHistoryResult,
 } from "@/mockDb/db";
 
 // The seed types are shared with the mock. The real API knows a few more
 // values (driver "rejected", order "arrived"/"expired", ledger "bonus"…), so
 // the UI types below widen them; the mock simply never produces the extras.
 export type DriverStatus = SeedDriverStatus | "rejected";
-export type Driver = Omit<SeedDriver, "status"> & { status: DriverStatus };
+/** `walletBalance: null` = not sent to this caller (the operator's
+ * read-only drivers window never receives balances). */
+export type Driver = Omit<SeedDriver, "status" | "walletBalance"> & { status: DriverStatus; walletBalance: number | null };
+/** "unresolved" = the real API's only non-resolved outcome; it can't tell
+ * "Javob bermadi" from "Qayta qo'ng'iroq", so it gets a neutral label. */
+export type HistoryResult = SeedHistoryResult | "unresolved";
 export type OrderStatus = SeedOrderStatus | "arrived" | "expired";
 export type PaymentMethod = SeedPaymentMethod | "wallet" | "payme" | "click";
 export type Order = Omit<SeedOrder, "status" | "paymentMethod"> & {
@@ -76,14 +81,26 @@ export type Complaint = Omit<SeedComplaint, "type"> & {
 };
 /** Real API actions are dotted strings ("staff.update"); the sample data
  * uses its own AuditAction names. */
-export type AuditEntry = Omit<SeedAuditEntry, "action"> & { action: AuditAction | (string & {}) };
+export type AuditEntry = Omit<SeedAuditEntry, "action"> & {
+  action: AuditAction | (string & {});
+  /** v2 (server): actor's role label, category and client IP as the server shows it. */
+  actorRole?: AdminRole | null;
+  category?: AuditCategory | null;
+  ip?: string | null;
+};
+export type AuditCategory = "money" | "tariff" | "block" | "personal" | "login" | "staff";
 export type WalletEntryType = SeedWalletEntryType | "trip_payment" | "bonus";
 export type WalletEntry = Omit<SeedWalletEntry, "type"> & { type: WalletEntryType };
 export type QueueReason = SeedQueueReason | "driver_application" | "document_update";
 /** `phone` is null when the backend doesn't send one (real API queue items
  * carry only a subject id); `subjectLabel` is shown instead. */
 export type QueueItem = Omit<SeedQueueItem, "reason" | "phone"> & { reason: QueueReason; phone: string | null; subjectLabel?: string };
-export type HistoryEntry = Omit<SeedHistoryEntry, "reason" | "phone"> & { reason: QueueReason; phone: string | null; subjectLabel?: string };
+export type HistoryEntry = Omit<SeedHistoryEntry, "reason" | "phone" | "result"> & {
+  reason: QueueReason;
+  result: HistoryResult;
+  phone: string | null;
+  subjectLabel?: string;
+};
 /** Passenger car classes (Standart, Komfort, Biznes, Miniven). */
 export type TariffCarClass = "economy" | "comfort" | "business" | "minivan";
 
@@ -120,6 +137,14 @@ export type AdapterCapabilities = {
   tariffSettings: boolean;
   /** Tariffs per city ("Shahar" filter). */
   tariffCities: boolean;
+  /** v2 group 5 */
+  queuePostpone: boolean;
+  operatorMyStats: boolean;
+  /** Results the operator can finish a task with, in display order. */
+  operatorResults: readonly HistoryResult[];
+  staffCounts: boolean;
+  auditCategories: boolean;
+  marketing: boolean;
   queueFilters: boolean;
   historyFilters: boolean;
   historyEdit: boolean;
@@ -195,7 +220,6 @@ export type {
   Action,
   AuditAction,
   QueueStatus,
-  HistoryResult,
 };
 
 export type { OrderKind, CargoBodySize, DriverLevel, DriverDocument };
@@ -284,7 +308,11 @@ export type TariffSettingsPatch =
 /** A staff row plus the adapter's own verdict on whether the current admin
  * may edit/block/archive this particular person — never re-derived from
  * creatableRoles in a screen. */
-export type StaffRow = AdminUser & { canEdit: boolean };
+export type StaffRow = AdminUser & {
+  canEdit: boolean;
+  /** How this person signs in (server): "email_sms" or "sms"; null = not reported. */
+  loginMethod?: "email_sms" | "sms" | null;
+};
 
 /** What the current admin is allowed to see and do — the ONLY source of
  * truth for permissions on the client. Every screen, the sidebar, route
@@ -546,12 +574,43 @@ export type ComplaintQuery = {
   assignedToMe?: boolean;
 };
 
-export type AuditQuery = { search?: string; action?: string; dateFrom?: string; dateTo?: string; entityType?: string };
+export type AuditQuery = {
+  search?: string;
+  action?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  entityType?: string;
+  /** capabilities.auditCategories */
+  category?: AuditCategory | "all";
+};
 
-export type OperatorQueueQuery = { search?: string; reason?: QueueReason | "all" };
+export type OperatorQueueQuery = { search?: string; reason?: QueueReason | "all"; operatorId?: string | "all" };
 export type OperatorInProgressQuery = { search?: string };
-export type OperatorHistoryQuery = { search?: string; result?: HistoryResult | "all"; dateFrom?: string; dateTo?: string };
+export type OperatorHistoryQuery = {
+  search?: string;
+  result?: HistoryResult | "all";
+  dateFrom?: string;
+  dateTo?: string;
+  reason?: QueueReason | "all";
+};
 export type OperatorApprovedQuery = OperatorHistoryQuery & { operatorId?: string | "all" };
 
 export type SectionBadges = Partial<Record<Section, number>>;
 export type OperatorCounts = { queue: number; inProgress: number; approvedToday: number };
+
+/** The operator's own day (OperatorView KPIs), from the server. */
+export type OperatorMyStats = { resolvedToday: number; noAnswerToday: number; avgHandleSec: number | null };
+
+export type MarketingPeriod = "3m" | "6m" | "12m";
+/** Marketolog's page (design Marketing). null blocks are hidden. */
+export type Marketing = {
+  period: MarketingPeriod;
+  monthlyOrders: Kpi | null;
+  activePassengers: Kpi | null;
+  activeDrivers: Kpi | null;
+  averageCheck: Kpi | null;
+  /** Commission per month, so'm, oldest first. */
+  commissionByMonth: { month: string; value: number }[] | null;
+  funnel: { title: string; steps: { label: string; count: number; pct: number }[] } | null;
+  orderTypes: { passengerPct: number; deliveryPct: number } | null;
+};

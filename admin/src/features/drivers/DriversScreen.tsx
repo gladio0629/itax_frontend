@@ -22,7 +22,7 @@ const caps = api.capabilities;
 
 /** Drivers list (design Drivers). No manual approval: documents are checked
  * automatically (doc 2.3); admins block/unblock, edit, archive/restore. */
-export function DriversScreen() {
+export function DriversScreen({ readOnly = false }: { readOnly?: boolean } = {}) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   useSearchFromUrl(setSearch);
@@ -67,10 +67,10 @@ export function DriversScreen() {
   return (
     <>
       <PageHeader
-        subtitle="Ro'yxatdan o'tgan hamma haydovchilar"
+        subtitle={readOnly ? "Faqat ko'rish" : "Ro'yxatdan o'tgan hamma haydovchilar"}
         title="Haydovchilar"
         actions={
-          <ExportButton
+          !readOnly && <ExportButton
             section="drivers"
             rows={drivers ?? []}
             filenamePrefix="haydovchilar"
@@ -82,7 +82,7 @@ export function DriversScreen() {
               "Yo'nalish": d.route ?? "",
               Reyting: d.rating,
               Daraja: d.level ? LEVEL_LABEL[d.level] : "",
-              Balans: d.walletBalance,
+              Balans: d.walletBalance ?? "",
               Holat: driverBadge(d).label,
             })}
           />
@@ -122,10 +122,10 @@ export function DriversScreen() {
         )}
       </div>
 
-      <InfoNote icon={<ShieldCheck className="h-[18px] w-[18px]" aria-hidden />}>
+      {!readOnly && <InfoNote icon={<ShieldCheck className="h-[18px] w-[18px]" aria-hidden />}>
         Hujjatlar davlat tizimi orqali <b className="text-ink">avtomatik</b> tekshiriladi. Qo'lda tasdiqlash yo'q: siz faqat bloklash yoki blokdan
         chiqarishingiz mumkin.
-      </InfoNote>
+      </InfoNote>}
 
       {error && drivers && <StaleNotice onRetry={reload} />}
       {error && !drivers ? (
@@ -139,10 +139,10 @@ export function DriversScreen() {
       ) : (
         <DriversTable
           rows={drivers}
-          showBalance
+          showBalance={!readOnly}
           total={status === "all" ? counts?.all : counts?.[status]}
-          onOpen={(d) => navigate(`/drivers/${d.id}`)}
-          actions={(d) => (
+          onOpen={readOnly ? undefined : (d) => navigate(`/drivers/${d.id}`)}
+          actions={readOnly ? undefined : (d) => (
             <RowMenu
               label={`${d.name}: amallar`}
               items={[

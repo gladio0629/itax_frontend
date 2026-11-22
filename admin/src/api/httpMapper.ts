@@ -25,6 +25,8 @@ import type {
   DashboardPeriod,
   ListPeriod,
   DriverTrips,
+  Marketing,
+  MarketingPeriod,
   TariffSettings,
   TariffSettingsPatch,
   CargoBodySize,
@@ -436,7 +438,9 @@ export function queueFromApi(q: Api.QueueItem): ActiveTask {
 
 function historyResult(q: Api.QueueItem): HistoryResult {
   if (q.status === "rejected") return "rejected";
-  return q.result === "unresolved" ? "callback" : "resolved";
+  // The API can't tell "Javob bermadi" / "Qayta qo'ng'iroq" / "Menejerga
+  // yuborildi" apart (the label is in the comment): neutral "unresolved".
+  return q.result === "unresolved" ? "unresolved" : "resolved";
 }
 
 export function historyFromApi(q: Api.QueueItem, me: Me | null): HistoryEntry {
@@ -755,4 +759,31 @@ export function tariffPatchToApi(cityId: string | null, p: TariffSettingsPatch) 
         })),
       };
   }
+}
+
+// ------------------------------------------------------------ marketing
+/** Expected GET /admin/v1/marketing?period= (not in openapi.yml yet). */
+type ApiKpi = { value: number; delta_pct: number | null; spark: number[] | null } | null;
+export type ApiMarketing = {
+  monthly_orders: ApiKpi;
+  active_passengers: ApiKpi;
+  active_drivers: ApiKpi;
+  average_check: ApiKpi;
+  commission_by_month: { month: string; value: Api.Money }[] | null;
+  funnel: { title: string; steps: { label: string; count: number; pct: number }[] } | null;
+  order_types: { passenger_pct: number; delivery_pct: number } | null;
+};
+const kpiFromApi = (k: ApiKpi, money = false) =>
+  k ? { value: money ? toSom(k.value) : k.value, deltaPct: k.delta_pct, spark: k.spark } : null;
+export function marketingFromApi(m: ApiMarketing, period: MarketingPeriod): Marketing {
+  return {
+    period,
+    monthlyOrders: kpiFromApi(m.monthly_orders),
+    activePassengers: kpiFromApi(m.active_passengers),
+    activeDrivers: kpiFromApi(m.active_drivers),
+    averageCheck: kpiFromApi(m.average_check, true),
+    commissionByMonth: m.commission_by_month ? m.commission_by_month.map((c) => ({ month: c.month, value: toSom(c.value) })) : null,
+    funnel: m.funnel,
+    orderTypes: m.order_types ? { passengerPct: m.order_types.passenger_pct, deliveryPct: m.order_types.delivery_pct } : null,
+  };
 }

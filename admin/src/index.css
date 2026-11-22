@@ -19,8 +19,8 @@
   }
   html,
   body {
-    background: var(--color-bg);
-    color: rgb(var(--color-text-rgb));
+    background: var(--surface);
+    color: rgb(var(--ink-rgb));
   }
   body {
     font-family: "IZGO Sans", system-ui, sans-serif;
@@ -72,9 +72,9 @@
   .shimmer-bg {
     background: linear-gradient(
       90deg,
-      var(--color-border) 25%,
-      rgb(var(--color-text-rgb) / 0.04) 37%,
-      var(--color-border) 63%
+      var(--line) 25%,
+      rgb(var(--ink-rgb) / 0.04) 37%,
+      var(--line) 63%
     );
     background-size: 400% 100%;
   }

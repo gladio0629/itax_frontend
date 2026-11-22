@@ -49,7 +49,7 @@ export function ServerGate({ children }: { children: ReactNode }) {
   const text = browserText();
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-5 px-8 text-center animate-fade-in">
-      <div className="flex h-16 w-16 items-center justify-center rounded-card bg-danger/10 text-danger" aria-hidden>
+      <div className="flex h-16 w-16 items-center justify-center rounded-card bg-error-soft text-error" aria-hidden>
         <WifiOff className="h-7 w-7" />
       </div>
       <p role="alert" className="max-w-sm text-base font-semibold text-ink">

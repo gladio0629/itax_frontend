@@ -142,7 +142,13 @@ export type Section =
   | "complaints"
   | "staff"
   | "operators"
-  | "audit";
+  | "audit"
+  /** Operator windows (v2): read-only orders and drivers, no actions, no
+   * balances. Separate from "orders"/"drivers" so they open nothing else. */
+  | "orders_view"
+  | "drivers_view"
+  /** Marketolog's "Umumiy statistika" (design Marketing). */
+  | "marketing";
 
 /** "export" gates the CSV buttons. "operatorWork" is the one operator
  * action (start/finish/reject a call task) — the adapter rejects the
@@ -172,8 +178,8 @@ export const ROLE_SECTIONS: Record<AdminRole, Section[]> = {
   superadmin: ALL_SECTIONS,
   owner: ALL_SECTIONS,
   menejer: ALL_SECTIONS,
-  marketolog: ["stats"],
-  operator: ["operators"],
+  marketolog: ["marketing"],
+  operator: ["operators", "orders_view", "drivers_view"],
 };
 
 export const ROLE_ACTIONS: Record<AdminRole, Action[]> = {
@@ -196,7 +202,7 @@ export const ROLE_LANDING: Record<AdminRole, string> = {
   superadmin: "/dashboard",
   owner: "/dashboard",
   menejer: "/dashboard",
-  marketolog: "/dashboard",
+  marketolog: "/marketing",
   operator: "/operators",
 };
 
@@ -455,7 +461,7 @@ export function setSession(session: Session | null) {
 // role (decision 2026-11-22); screens only see what the adapter hands them.
 // ---------------------------------------------------------------------
 
-export type QueueReason = "login_issue" | "info_needed" | "complaint";
+export type QueueReason = "login_issue" | "info_needed" | "complaint" | "document_update";
 export type QueueStatus = "waiting" | "in_progress" | "done" | "rejected";
 export type QueueItem = {
   id: string;
@@ -469,9 +475,16 @@ export type QueueItem = {
   /** Set when startTask() moves this to "in_progress" — the supervisor
    * view's running timer counts from this, not from the client's clock. */
   startedAt?: number;
+  /** v2: who the call is about and what they asked (server data). */
+  subjectKind?: "passenger" | "driver" | null;
+  subjectName?: string | null;
+  orderId?: string | null;
+  requestText?: string | null;
 };
 
-export type HistoryResult = "resolved" | "callback" | "rejected";
+/** "Hal qilindi", "Qayta qo'ng'iroq", "Rad etildi" (old app) plus the
+ * design's "Javob bermadi" and "Menejerga yuborildi" (owner, 2026-11-22). */
+export type HistoryResult = "resolved" | "no_answer" | "callback" | "escalated" | "rejected";
 export type HistoryEntry = {
   id: string;
   queueItemId: string;
@@ -485,6 +498,9 @@ export type HistoryEntry = {
   createdAt: number;
   resolvedAt: number;
   edited: boolean;
+  subjectKind?: "passenger" | "driver" | null;
+  subjectName?: string | null;
+  requestText?: string | null;
 };
 
 /** Sample number only: the "003" block keeps it obviously fake. The
@@ -498,6 +514,26 @@ function randomPhone(rng: ReturnType<typeof makeRng>): string {
 function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } {
   const rng = makeRng(90_210);
   const reasons: QueueReason[] = ["login_issue", "info_needed", "complaint"];
+  // v2 details drawn from a separate RNG so the old sample values stay put.
+  const extra = makeRng(90_211);
+  const REQUESTS: Record<QueueReason, string[]> = {
+    complaint: ["Haydovchi kech qoldi, pul qaytarishni so'rayapti.", "Haydovchi qo'pol gapirgan.", "Narx kelishilganidan ko'p olindi."],
+    login_issue: ["SMS kod kelmayapti.", "Telefon raqami almashgan.", "Ilovaga kira olmayapman."],
+    info_needed: ["Dostavka kuzovi qaysi biri mos?", "Narx qanday hisoblanadi?", "Toshkentdan Samarqandga ertalab mashina bormi?"],
+    document_update: ["Avtomatik tekshiruv 2 kundan beri tugamayapti.", "Guvohnoma muddati yangilandi."],
+    driver_application: [],
+  } as Record<QueueReason, string[]>;
+  const NAMES = ["Dilnoza R.", "Akmal T.", "Nodira S.", "Bekzod Q.", "Madina U.", "Sherzod N.", "Rustam A."];
+  const details = (reason: QueueReason) => {
+    const kind: "passenger" | "driver" = reason === "document_update" ? "driver" : extra.bool(0.6) ? "passenger" : "driver";
+    return {
+      subjectKind: kind,
+      subjectName: extra.pick(NAMES),
+      orderId: reason === "complaint" ? `ord_${String(extra.int(1, 170)).padStart(3, "0")}` : null,
+      requestText: extra.pick(REQUESTS[reason]),
+    };
+  };
+  const pickReason = () => (extra.bool(0.15) ? ("document_update" as const) : rng.pick(reasons));
   const now = Date.now();
   const dayMs = 86_400_000;
   const operators = [
@@ -510,7 +546,10 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
     return {
       id: `q_${i + 1}`,
       phone: full,
-      reason: rng.pick(reasons),
+      ...(() => {
+        const reason = pickReason();
+        return { reason, ...details(reason) };
+      })(),
       waitingSinceAt: now - rng.int(1, 45) * 60_000,
       status: "waiting" as const,
     };
@@ -524,7 +563,10 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
     return {
       id: `q_active_${i + 1}`,
       phone: full,
-      reason: rng.pick(reasons),
+      ...(() => {
+        const reason = pickReason();
+        return { reason, ...details(reason) };
+      })(),
       waitingSinceAt: startedAt - rng.int(2, 10) * 60_000,
       status: "in_progress" as const,
       assignedOperatorId: op.id,
@@ -533,7 +575,7 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
     };
   });
 
-  const results: HistoryResult[] = ["resolved", "resolved", "resolved", "callback", "rejected"];
+  const results: HistoryResult[] = ["resolved", "resolved", "resolved", "callback", "rejected", "no_answer", "escalated"];
   // Most history resolved today, so "Bugungi tasdiqlanganlar" isn't empty by
   // default; the rest spread over the past month so date/result filters have
   // something to narrow down.
@@ -548,9 +590,20 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
       operatorId: op.id,
       operatorName: op.name,
       phone: full,
-      reason: rng.pick(reasons),
+      ...(() => {
+        const reason = pickReason();
+        const d = details(reason);
+        return { reason, subjectKind: d.subjectKind, subjectName: d.subjectName, requestText: d.requestText };
+      })(),
       result,
-      note: result === "rejected" ? "Mijoz javob bermadi" : "Muammo hal qilindi, mijozga tushuntirildi.",
+      note:
+        result === "rejected"
+          ? "Mijoz javob bermadi"
+          : result === "no_answer"
+            ? "Javob bermadi, 2 marta urinildi."
+            : result === "escalated"
+              ? "Pul qaytarish menejerga yuborildi."
+              : "Muammo hal qilindi, mijozga tushuntirildi.",
       rejectReason: result === "rejected" ? "Mijoz javob bermadi" : undefined,
       createdAt: resolvedAt - 5 * 60_000,
       resolvedAt,
@@ -564,7 +617,7 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
 const QUEUE_KEY = "operator_queue";
 const HISTORY_KEY = "operator_history";
 const OPERATOR_SCHEMA_KEY = "operator_windows_version";
-const OPERATOR_SCHEMA_VERSION = 3;
+const OPERATOR_SCHEMA_VERSION = 4;
 
 export function getQueue(): QueueItem[] {
   const version = readJSON<number>(OPERATOR_SCHEMA_KEY, 0);

@@ -18,6 +18,7 @@
   --error-soft-hover: #fbdcd8; /* danger button hover */
   --row-hover: #f8f9fb; /* table row hover */
   --row-highlight: #f7fffa; /* correction rows in the ledger */
+  --board-column: #e9edf2; /* operator board columns */
   --line-strong: #d4dbe4; /* route / timeline connector */
   /* Charts (Dashboard): today's bar uses green + Ink, other days these. */
   --chart-passenger: #9eebc3;
@@ -47,30 +48,9 @@
   --radius-box: 14px;
   --radius-sheet: 24px;
   --radius-nav: 12px;
-  /* Old name kept for not-yet-migrated inputs/boxes; v2 buttons use rounded-full. */
-  --radius-button: 12px;
 
   --shadow-card: 0 1px 2px rgba(11, 21, 36, 0.04);
   --shadow-pop: 0 30px 60px rgba(11, 21, 36, 0.3);
-  --shadow-color: rgba(11, 21, 36, 0.1);
-
-  /* --- legacy names, aliased to v2 values (removed after group 5) --- */
-  --color-bg: var(--surface);
-  --color-card: #ffffff;
-  --color-text-rgb: var(--ink-rgb);
-  --color-accent-rgb: var(--green-text-rgb);
-  --color-accent-5: rgba(46, 219, 133, 0.06);
-  --color-accent-10: var(--green-soft);
-  --color-brand-yellow: var(--green);
-  --color-brand-yellow-hover: var(--green-hover);
-  --color-on-yellow: var(--ink);
-  --color-warning-rgb: var(--warn-rgb);
-  --color-danger-rgb: var(--error-rgb);
-  --color-success-rgb: var(--green-text-rgb);
-  --color-border: var(--line);
-  --color-sidebar-bg: var(--ink);
-  --color-sidebar-text-rgb: 159 176 195;
-  --color-sidebar-border: var(--ink-border);
 
   --sidebar-w: 256px;
   --sidebar-rail-w: 76px;

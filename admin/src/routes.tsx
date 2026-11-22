@@ -19,6 +19,7 @@ const TariffsScreen = lazy(() => import("@/features/tariffs/TariffsScreen").then
 const ComplaintsScreen = lazy(() => import("@/features/complaints/ComplaintsScreen").then((m) => ({ default: m.ComplaintsScreen })));
 const StaffScreen = lazy(() => import("@/features/staff/StaffScreen").then((m) => ({ default: m.StaffScreen })));
 const OperatorsScreen = lazy(() => import("@/features/operators/OperatorsScreen").then((m) => ({ default: m.OperatorsScreen })));
+const MarketingScreen = lazy(() => import("@/features/marketing/MarketingScreen").then((m) => ({ default: m.MarketingScreen })));
 const AuditScreen = lazy(() => import("@/features/audit/AuditScreen").then((m) => ({ default: m.AuditScreen })));
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -141,7 +142,7 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/staff"
+          path="/staff/*"
           element={
             <RequireSection section="staff">
               <Lazy>
@@ -151,7 +152,7 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/operators"
+          path="/operators/*"
           element={
             <RequireSection section="operators">
               <Lazy>
@@ -166,6 +167,16 @@ export function AppRoutes() {
             <RequireSection section="audit">
               <Lazy>
                 <AuditScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/marketing"
+          element={
+            <RequireSection section="marketing">
+              <Lazy>
+                <MarketingScreen />
               </Lazy>
             </RequireSection>
           }

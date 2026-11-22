@@ -75,6 +75,10 @@ import type {
   TariffSettingsPatch,
   LedgerSummary,
   WalletCorrectionResult,
+  AuditCategory,
+  OperatorMyStats,
+  Marketing,
+  Driver as ApiDriver,
 } from "../types";
 
 const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
@@ -191,6 +195,41 @@ const inBounds = (ts: number, b: [number, number] | null) => !b || (ts >= b[0] &
 function requireSection(actor: AdminUser, section: Section) {
   if (!ROLE_SECTIONS[actor.role].includes(section)) throw new ApiError("FORBIDDEN", "Bu bo'lim uchun ruxsatingiz yo'q.");
 }
+function requireAnySection(actor: AdminUser, sections: Section[]) {
+  if (!sections.some((x) => ROLE_SECTIONS[actor.role].includes(x))) throw new ApiError("FORBIDDEN", "Bu bo'lim uchun ruxsatingiz yo'q.");
+}
+/** The operator's read-only drivers window never receives balances. */
+function driversFor(actor: AdminUser, rows: Driver[]): ApiDriver[] {
+  return ROLE_SECTIONS[actor.role].includes("drivers") ? rows : rows.map((d) => ({ ...d, walletBalance: null }));
+}
+
+const AUDIT_CATEGORY: Partial<Record<string, AuditCategory>> = {
+  wallet_correction: "money",
+  tariff_update: "tariff",
+  driver_block: "block",
+  driver_unblock: "block",
+  passenger_block: "block",
+  passenger_unblock: "block",
+  staff_block: "block",
+  staff_unblock: "block",
+  login_requested: "login",
+  login_verified: "login",
+  logout: "login",
+  staff_create: "staff",
+  staff_edit: "staff",
+  staff_archive: "staff",
+  staff_restore: "staff",
+  driver_edit: "personal",
+  passenger_edit: "personal",
+  passenger_create: "personal",
+  export: "personal",
+};
+/** Sample client address per staff member, shown the way the server would. */
+const sampleIp = (id: string) => {
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `${[185, 84, 213, 95][h % 4]}.${(h >> 3) % 250}.•.•`;
+};
 
 function countBy<T, K extends string>(rows: T[], key: (r: T) => K | null): ListCounts<K> {
   const out: ListCounts<K> = { all: rows.length } as ListCounts<K>;
@@ -440,6 +479,12 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
   correctionEntryRef: true,
   tariffSettings: true,
   tariffCities: true,
+  queuePostpone: true,
+  operatorMyStats: true,
+  operatorResults: ["resolved", "no_answer", "callback", "escalated", "rejected"],
+  staffCounts: true,
+  auditCategories: true,
+  marketing: true,
 };
 
 export const mockAdapter: ApiAdapter = {
@@ -591,6 +636,55 @@ export const mockAdapter: ApiAdapter = {
       });
     }),
 
+  getMarketing: (period) =>
+    withLatency<Marketing>(() => {
+      requireSection(currentAdmin(), "marketing");
+      const months = period === "3m" ? 3 : period === "12m" ? 12 : 6;
+      const ref = new Date(db.generatedAt());
+      const orders = db.orders();
+      const monthStart = (back: number) => new Date(ref.getFullYear(), ref.getMonth() - back, 1).getTime();
+      const inMonth = (ts: number, back: number) => ts >= monthStart(back) && ts < monthStart(back - 1);
+      const ordersIn = (back: number) => orders.filter((o) => inMonth(o.createdAt, back));
+      const MONTHS_SHORT = ["Yan", "Fev", "Mar", "Apr", "May", "Iyn", "Iyl", "Avg", "Sen", "Okt", "Noy", "Dek"];
+      const kpi = (f: (back: number) => number) => ({
+        value: f(0),
+        deltaPct: pctDelta(f(0), f(1)),
+        spark: Array.from({ length: 6 }, (_, i) => f(5 - i)),
+      });
+      const cur = ordersIn(0);
+      const completed = cur.filter((o) => o.status === "completed");
+      const passenger = cur.filter((o) => o.kind === "passenger").length;
+      // Sample funnel: the mock has no app-open events, so the first two steps are scaled samples.
+      const ordered = cur.length;
+      return {
+        period,
+        monthlyOrders: kpi((b) => ordersIn(b).length),
+        activePassengers: kpi((b) => new Set(ordersIn(b).map((o) => o.passengerId)).size),
+        activeDrivers: kpi((b) => new Set(ordersIn(b).map((o) => o.driverId).filter(Boolean)).size),
+        averageCheck: kpi((b) => {
+          const list = ordersIn(b).filter((o) => o.status === "completed");
+          return list.length ? Math.round(list.reduce((s2, o) => s2 + o.price, 0) / list.length) : 0;
+        }),
+        commissionByMonth: Array.from({ length: months }, (_, i) => {
+          const back = months - 1 - i;
+          const d = new Date(ref.getFullYear(), ref.getMonth() - back, 1);
+          return { month: MONTHS_SHORT[d.getMonth()], value: ordersIn(back).reduce((s2, o) => s2 + (o.commission ?? 0), 0) };
+        }),
+        funnel: ordered
+          ? {
+              title: `${["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"][ref.getMonth()]}, yo'lovchi ilovasi`,
+              steps: [
+                { label: "Ilovani ochdi", count: ordered * 9, pct: 100 },
+                { label: "Narxni ko'rdi", count: ordered * 6, pct: 67 },
+                { label: "Buyurtma berdi", count: ordered, pct: Math.round((ordered / (ordered * 9)) * 100) },
+                { label: "Safar tugadi", count: completed.length, pct: Math.round((completed.length / (ordered * 9)) * 100) },
+              ],
+            }
+          : null,
+        orderTypes: cur.length ? { passengerPct: Math.round((passenger / cur.length) * 100), deliveryPct: 100 - Math.round((passenger / cur.length) * 100) } : null,
+      };
+    }),
+
   getDashboard: (period) =>
     withLatency<Dashboard>(() => {
       const actor = currentAdmin();
@@ -686,6 +780,7 @@ export const mockAdapter: ApiAdapter = {
 
   getStats: (period) =>
     withLatency<MarketingStats>(() => {
+      requireAnySection(currentAdmin(), ["stats", "marketing"]);
       const days = period === "today" ? 1 : period === "7d" ? 7 : period === "30d" ? 30 : 90;
       const dayMs = 86_400_000;
       const refNow = db.generatedAt();
@@ -835,7 +930,19 @@ export const mockAdapter: ApiAdapter = {
       let rows = filterByArchivableStatus(readStaff(), query.status);
       if (query.role && query.role !== "all") rows = rows.filter((u) => u.role === query.role);
       if (query.search) rows = rows.filter((u) => matchesSearch(`${u.name} ${u.email} ${u.phone}`, query.search));
-      return rows.map((u) => ({ ...u, canEdit: u.id !== actor.id && canCreateRole(actor.role, u.role) }));
+      return rows.map((u) => ({
+        ...u,
+        canEdit: u.id !== actor.id && canCreateRole(actor.role, u.role),
+        loginMethod: u.email ? ("email_sms" as const) : ("sms" as const),
+      }));
+    }),
+
+  getStaffCounts: (query) =>
+    withLatency(() => {
+      currentAdmin();
+      let rows = filterByArchivableStatus(readStaff(), query.status);
+      if (query.search) rows = rows.filter((u) => matchesSearch(`${u.name} ${u.email} ${u.phone}`, query.search));
+      return countBy(rows, (u) => u.role) as ListCounts<AdminRole>;
     }),
 
   createStaff: (input) =>
@@ -950,10 +1057,15 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   getDrivers: (query: DriverQuery) =>
-    withLatency<Driver[]>(() => filterByArchivableStatus(driversMatching(query), query.status)),
+    withLatency<ApiDriver[]>(() => {
+      const actor = currentAdmin();
+      requireAnySection(actor, ["drivers", "drivers_view"]);
+      return driversFor(actor, filterByArchivableStatus(driversMatching(query), query.status));
+    }),
 
   getDriverCounts: (query) =>
     withLatency(() => {
+      requireAnySection(currentAdmin(), ["drivers", "drivers_view"]);
       const rows = driversMatching(query);
       const c = countBy(rows, (d) => (d.archived ? "archived" : d.status)) as ListCounts<Driver["status"] | "archived">;
       // "all" = every non-archived driver, like the list's "all" filter.
@@ -965,7 +1077,7 @@ export const mockAdapter: ApiAdapter = {
 
   getDriver: (id) =>
     withLatency<DriverProfile>(() => {
-      currentAdmin();
+      requireSection(currentAdmin(), "drivers");
       const d = db.getDriver(id);
       if (!d) throw new ApiError("DRIVER_NOT_FOUND", "Haydovchi topilmadi.");
       const recent = db
@@ -1155,12 +1267,17 @@ export const mockAdapter: ApiAdapter = {
 
   getOrders: (query: OrderQuery) =>
     withLatency<OrderWithNames[]>(() => {
+      requireAnySection(currentAdmin(), ["orders", "orders_view"]);
       let rows = ordersMatching(query);
       if (query.status && query.status !== "all") rows = rows.filter((o) => o.status === query.status);
       return rows.map(decorateOrder);
     }),
 
-  getOrderCounts: (query) => withLatency(() => countBy(ordersMatching(query), (o) => o.status)),
+  getOrderCounts: (query) =>
+    withLatency(() => {
+      requireAnySection(currentAdmin(), ["orders", "orders_view"]);
+      return countBy(ordersMatching(query), (o) => o.status);
+    }),
 
   getOrder: (id) =>
     withLatency<OrderDetail>(() => {
@@ -1482,7 +1599,14 @@ export const mockAdapter: ApiAdapter = {
 
   getAuditLog: (query: AuditQuery) =>
     withLatency(() => {
-      let rows = readAuditLog();
+      const staff = readStaff();
+      let rows = readAuditLog().map((e) => ({
+        ...e,
+        actorRole: staff.find((u) => u.id === e.actorId)?.role ?? null,
+        category: AUDIT_CATEGORY[e.action] ?? null,
+        ip: sampleIp(e.actorId),
+      }));
+      if (query.category && query.category !== "all") rows = rows.filter((e) => e.category === query.category);
       if (query.action && query.action !== "all") rows = rows.filter((e) => e.action === query.action);
       if (query.dateFrom) rows = rows.filter((e) => e.createdAt >= dayStartMs(query.dateFrom!));
       if (query.dateTo) rows = rows.filter((e) => e.createdAt <= dayEndMs(query.dateTo!));
@@ -1558,6 +1682,7 @@ export const mockAdapter: ApiAdapter = {
       const actor = currentAdmin();
       requireAction(actor, "operatorWork");
       if (result === "rejected" && !rejectReason) throw new ApiError("VALIDATION", "Rad etish sababini kiriting.");
+      if (result === "unresolved") throw new ApiError("VALIDATION", "Natijani tanlang.");
       const list = readQueue();
       const item = list.find((q) => q.id === queueId);
       if (!item) throw new ApiError("NOT_FOUND", "Topilmadi");
@@ -1580,6 +1705,9 @@ export const mockAdapter: ApiAdapter = {
         result,
         note,
         rejectReason,
+        subjectKind: item.subjectKind,
+        subjectName: item.subjectName,
+        requestText: item.requestText,
         createdAt: item.waitingSinceAt,
         resolvedAt: Date.now(),
         edited: false,
@@ -1591,11 +1719,46 @@ export const mockAdapter: ApiAdapter = {
       return entry;
     }),
 
+  postponeTask: (queueId) =>
+    withLatency<QueueListItem>(() => {
+      const actor = currentAdmin();
+      requireAction(actor, "operatorWork");
+      const list = readQueue();
+      const item = list.find((q) => q.id === queueId && q.assignedOperatorId === actor.id && q.status === "in_progress");
+      if (!item) throw new ApiError("NOT_FOUND", "Faol vazifa topilmadi.");
+      // Back to the queue; the wait time (waitingSinceAt) is kept.
+      item.status = "waiting";
+      item.assignedOperatorId = undefined;
+      item.assignedOperatorName = undefined;
+      item.startedAt = undefined;
+      saveQueue(list);
+      addAuditEntry({ actorId: actor.id, actorName: actor.name, action: "operator_task_result", targetType: "queue", targetId: queueId, detail: "Keyinga qoldirildi (navbatga qaytdi)" });
+      return toQueueListItem(item);
+    }),
+
+  getOperatorMyStats: () =>
+    withLatency<OperatorMyStats>(() => {
+      const actor = currentAdmin();
+      requireAction(actor, "operatorWork");
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const mine = readHistory().filter((h) => h.operatorId === actor.id && h.resolvedAt >= start.getTime());
+      const durations = mine.map((h) => Math.max(0, (h.resolvedAt - h.createdAt) / 1000)).filter((x) => x > 0 && x < 3600);
+      return {
+        resolvedToday: mine.filter((h) => h.result === "resolved").length,
+        noAnswerToday: mine.filter((h) => h.result === "no_answer").length,
+        avgHandleSec: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
+      };
+    }),
+
   getOperatorsInProgress: (query: OperatorInProgressQuery) =>
     withLatency<QueueListItem[]>(() => {
       const actor = currentAdmin();
       requireAction(actor, "operatorSupervise");
       let rows = readQueue().filter((q) => q.status === "in_progress");
+      const qq = query as OperatorQueueQuery;
+      if (qq.reason && qq.reason !== "all") rows = rows.filter((q) => q.reason === qq.reason);
+      if (qq.operatorId && qq.operatorId !== "all") rows = rows.filter((q) => q.assignedOperatorId === qq.operatorId);
       if (query.search) rows = rows.filter((q) => matchesSearch(`${q.assignedOperatorName ?? ""} ${q.phone}`, query.search));
       return rows.map(toQueueListItem);
     }),
@@ -1611,6 +1774,7 @@ export const mockAdapter: ApiAdapter = {
         if (query.operatorId && query.operatorId !== "all") rows = rows.filter((h) => h.operatorId === query.operatorId);
       }
       if (query.result && query.result !== "all") rows = rows.filter((h) => h.result === query.result);
+      if (query.reason && query.reason !== "all") rows = rows.filter((h) => h.reason === query.reason);
       if (query.dateFrom) rows = rows.filter((h) => h.resolvedAt >= dayStartMs(query.dateFrom!));
       if (query.dateTo) rows = rows.filter((h) => h.resolvedAt <= dayEndMs(query.dateTo!));
       if (query.search) rows = rows.filter((h) => matchesSearch(`${h.phone} ${h.note} ${h.operatorName}`, query.search));
@@ -1638,16 +1802,29 @@ export const mockAdapter: ApiAdapter = {
       return entry;
     }),
 
-  getOperatorCounts: () =>
+  getOperatorCounts: (query = {}) =>
     withLatency<OperatorCounts>(() => {
       const all = readQueue();
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-      const history = readHistory();
+      const byReason = (r: { reason: string }) => !query.reason || query.reason === "all" || r.reason === query.reason;
+      const bySearch = (text: string) => !query.search || matchesSearch(text, query.search);
+      const byOperator = (id?: string) => !query.operatorId || query.operatorId === "all" || id === query.operatorId;
+      const from = query.dateFrom ? dayStartMs(query.dateFrom) : todayStart.getTime();
+      const to = query.dateTo ? dayEndMs(query.dateTo) : Infinity;
+      const history = readHistory().filter(
+        (h) =>
+          h.resolvedAt >= from &&
+          h.resolvedAt <= to &&
+          byReason(h) &&
+          byOperator(h.operatorId) &&
+          bySearch(`${h.phone} ${h.note} ${h.operatorName}`) &&
+          (!query.result || query.result === "all" || h.result === query.result)
+      );
       return {
-        queue: all.filter((q) => q.status === "waiting").length,
-        inProgress: all.filter((q) => q.status === "in_progress").length,
-        approvedToday: history.filter((h) => h.resolvedAt >= todayStart.getTime() && h.result === "resolved").length,
+        queue: all.filter((q) => q.status === "waiting" && byReason(q) && bySearch(q.phone)).length,
+        inProgress: all.filter((q) => q.status === "in_progress" && byReason(q) && byOperator(q.assignedOperatorId) && bySearch(`${q.assignedOperatorName ?? ""} ${q.phone}`)).length,
+        approvedToday: history.length,
       };
     }),
 

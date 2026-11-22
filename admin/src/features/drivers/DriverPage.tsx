@@ -204,15 +204,16 @@ function Overview({ driver, onOpenOrder }: { driver: DriverProfile; onOpenOrder:
         sub={driver.cancelLimitWeek !== null ? `bu hafta, chegara ${driver.cancelLimitWeek}` : "bu hafta"}
       />
     );
-  stats.push(
-    <MiniStat
-      key="b"
-      label="Balans"
-      value={formatNumber(driver.walletBalance)}
-      tone={driver.walletBalance < 0 ? "danger" : undefined}
-      sub={caps.driverDebtLimit ? `so'm, chegara ${formatNumber(driver.debtLimit)}` : "so'm"}
-    />
-  );
+  if (driver.walletBalance !== null)
+    stats.push(
+      <MiniStat
+        key="b"
+        label="Balans"
+        value={formatNumber(driver.walletBalance)}
+        tone={driver.walletBalance < 0 ? "danger" : undefined}
+        sub={caps.driverDebtLimit ? `so'm, chegara ${formatNumber(driver.debtLimit)}` : "so'm"}
+      />
+    );
 
   const capabilities = [
     ...(driver.cargoBodies?.length ? [`Dostavka kuzovi: ${driver.cargoBodies.join(", ")}`] : []),

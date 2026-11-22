@@ -1,16 +1,20 @@
 import { useState } from "react";
+import { History, Lock, Search } from "lucide-react";
 import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
-import { History } from "lucide-react";
+import { PageHeader } from "@/layouts/PageHeader";
 import { DataTable, type Column } from "@/components/DataTable";
-import { Badge } from "@/components/Badge";
-import { ErrorState } from "@/components/ErrorState";
+import { ErrorState, StaleNotice } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
-import { ListToolbar } from "@/components/ListToolbar";
+import { SearchInput } from "@/components/Input";
+import { FilterChips } from "@/components/FilterChips";
 import { FilterSelect } from "@/components/FilterSelect";
+import { ExportButton } from "@/components/ExportButton";
+import { InfoNote, PersonCell } from "@/components/Cells";
 import { api } from "@/api/client";
 import { useAdapterList } from "@/hooks/useAdapterList";
-import { formatDateTime } from "@/lib/format";
-import type { AuditAction, AuditEntry, AuditQuery } from "@/api/types";
+import { ROLE_LABEL } from "@/lib/roles";
+import { formatDate, formatTime } from "@/lib/format";
+import type { AuditAction, AuditCategory, AuditEntry, AuditQuery } from "@/api/types";
 
 // AuditAction labels below are the sample data's action names.
 
@@ -97,123 +101,173 @@ const ENTITY_LABEL: Record<string, string> = {
 const LABELS: Record<string, string> = api.capabilities.auditApiFilters ? API_ACTION_LABEL : ACTION_LABEL;
 const actionLabel = (a: string) => LABELS[a] ?? (ACTION_LABEL as Record<string, string>)[a] ?? a;
 const ACTION_OPTIONS: { value: string; label: string }[] = [
-  { value: "all", label: "Barcha amallar" },
+  { value: "all", label: "Hammasi" },
   ...Object.keys(LABELS).map((a) => ({ value: a, label: LABELS[a] })),
 ];
 const ENTITY_OPTIONS: { value: string; label: string }[] = [
-  { value: "all", label: "Barcha obyektlar" },
+  { value: "all", label: "Hammasi" },
   ...Object.keys(ENTITY_LABEL).map((e) => ({ value: e, label: ENTITY_LABEL[e] })),
 ];
 const caps = api.capabilities;
 
+const CATEGORIES: { key: AuditCategory | "all"; label: string }[] = [
+  { key: "all", label: "Hammasi" },
+  { key: "money", label: "Pul" },
+  { key: "tariff", label: "Tarif" },
+  { key: "block", label: "Bloklash" },
+  { key: "personal", label: "Shaxsiy ma'lumot" },
+  { key: "login", label: "Kirish" },
+  { key: "staff", label: "Xodim" },
+];
+type Period = "all" | "today" | "yesterday" | "7d" | "30d" | "custom";
+const PERIODS: { value: Period; label: string }[] = [
+  { value: "all", label: "Hammasi" },
+  { value: "today", label: "Bugun" },
+  { value: "yesterday", label: "Kecha" },
+  { value: "7d", label: "7 kun" },
+  { value: "30d", label: "30 kun" },
+  { value: "custom", label: "Boshqa sana" },
+];
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function presetRange(p: Exclude<Period, "custom">): { dateFrom?: string; dateTo?: string } {
+  if (p === "all") return {};
+  const day = (back: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - back);
+    return iso(d);
+  };
+  if (p === "today") return { dateFrom: day(0), dateTo: day(0) };
+  if (p === "yesterday") return { dateFrom: day(1), dateTo: day(1) };
+  return { dateFrom: day(p === "7d" ? 6 : 29), dateTo: day(0) };
+}
+const DATE_INPUT =
+  "tabular h-11 rounded-full bg-white px-3.5 text-13 font-bold text-ink shadow-hairline outline-none focus:shadow-[inset_0_0_0_2px_var(--ink),0_0_0_4px_var(--green-soft)]";
+const targetText = (e: AuditEntry) => `${ENTITY_LABEL[e.targetType] && caps.auditApiFilters ? ENTITY_LABEL[e.targetType] : e.targetType} · ${e.targetId}`;
+
+/** Audit jurnali (design Audit): read-only, nothing here edits a record. */
 export function AuditScreen() {
   const [search, setSearch] = useState("");
   useSearchFromUrl(setSearch);
+  const [category, setCategory] = useState<AuditCategory | "all">("all");
   const [action, setAction] = useState<string>("all");
   const [entityType, setEntityType] = useState<string>("all");
+  const [period, setPeriod] = useState<Period>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const range = period === "custom" ? { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined } : presetRange(period);
   const query: AuditQuery = {
     search: caps.auditSearch ? search : "",
     action,
     entityType: caps.auditApiFilters ? entityType : "all",
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
+    category: caps.auditCategories ? category : "all",
+    ...range,
   };
   const { items: entries, error, reload } = useAdapterList(api.getAuditLog, query);
+  const showIp = !!entries?.some((e) => e.ip);
 
   const columns: Column<AuditEntry>[] = [
     {
       key: "date",
-      header: "Sana",
+      header: "Vaqt",
       sortValue: (e) => e.createdAt,
-      render: (e) => <span className="text-ink/60">{formatDateTime(e.createdAt)}</span>,
-    },
-    {
-      key: "actor",
-      header: "Admin",
-      sortValue: (e) => e.actorName,
-      render: (e) => <span className="block max-w-[140px] truncate">{e.actorName}</span>,
-    },
-    { key: "action", header: "Amal", render: (e) => <Badge tone="info">{actionLabel(e.action)}</Badge> },
-    {
-      key: "target",
-      header: "Obyekt",
       render: (e) => (
-        <span className="block max-w-[160px] truncate text-ink/70" title={`${e.targetType}: ${e.targetId}`}>
-          {ENTITY_LABEL[e.targetType] && caps.auditApiFilters ? ENTITY_LABEL[e.targetType] : e.targetType}: {e.targetId}
+        <span className="flex flex-col">
+          <span className="tabular font-bold">{formatTime(e.createdAt)}</span>
+          <span className="tabular text-xs font-semibold text-muted">{formatDate(e.createdAt)}</span>
         </span>
       ),
     },
     {
-      key: "detail",
-      header: "Tafsilot",
-      render: (e) => <span className="block max-w-[260px] truncate text-ink/70" title={e.detail}>
-          {e.detail}
-        </span>,
+      key: "actor",
+      header: "Xodim",
+      sortValue: (e) => e.actorName,
+      render: (e) => <PersonCell name={e.actorName} sub={e.actorRole ? ROLE_LABEL[e.actorRole] : undefined} />,
     },
+    { key: "action", header: "Amal", render: (e) => <span className="font-bold">{actionLabel(e.action)}</span> },
+    {
+      key: "target",
+      header: "Obyekt",
+      truncate: { maxWidth: 300, title: (e) => `${targetText(e)}${e.detail ? ` — ${e.detail}` : ""}` },
+      render: (e) => (
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate">{targetText(e)}</span>
+          {e.detail && <span className="truncate text-xs font-semibold text-muted">{e.detail}</span>}
+        </span>
+      ),
+    },
+    ...(showIp ? [{ key: "ip", header: "IP", render: (e: AuditEntry) => <span className="tabular text-muted">{e.ip ?? "—"}</span> } satisfies Column<AuditEntry>] : []),
   ];
 
-  if (error) return <ErrorState onRetry={reload} />;
-  if (!entries) {
-    return (
-      <div className="space-y-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  const hasActiveFilters = action !== "all" || entityType !== "all" || !!dateFrom || !!dateTo;
-  function clearFilters() {
-    setAction("all");
-    setEntityType("all");
-    setDateFrom("");
-    setDateTo("");
-  }
-
   return (
-    <div className="space-y-4">
-      <ListToolbar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Admin, amal yoki obyekt bo'yicha qidirish…"
-        searchEnabled={caps.auditSearch}
-        resultCount={entries.length}
-        hasActiveFilters={hasActiveFilters}
-        onClear={clearFilters}
-      >
-        <FilterSelect value={action} onChange={setAction} options={ACTION_OPTIONS} aria-label="Amal bo'yicha filtr" />
-        {caps.auditApiFilters && (
-          <FilterSelect value={entityType} onChange={setEntityType} options={ENTITY_OPTIONS} aria-label="Obyekt turi bo'yicha filtr" />
-        )}
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          aria-label="Boshlanish sanasi"
-          className="h-10 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
-        />
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          aria-label="Tugash sanasi"
-          className="h-10 rounded-button border border-border bg-card px-3 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
-        />
-      </ListToolbar>
-
-      <DataTable
-        key={`${search}-${action}-${entityType}-${dateFrom}-${dateTo}`}
-        columns={columns}
-        rows={entries}
-        rowKey={(e) => e.id}
-        pageSize={15}
-        emptyIcon={<History className="h-6 w-6" />}
-        emptyTitle="Hech narsa topilmadi"
-        emptyDescription="Qidiruv yoki filtrlarga mos audit yozuvi yo'q."
+    <>
+      <PageHeader
+        subtitle="Kim, nima, qachon"
+        title="Audit jurnali"
+        actions={
+          <ExportButton
+            section="audit"
+            rows={entries ?? []}
+            filenamePrefix="audit"
+            buildRow={(e) => ({
+              Vaqt: new Date(e.createdAt).toISOString(),
+              Xodim: e.actorName,
+              Rol: e.actorRole ? ROLE_LABEL[e.actorRole] : "",
+              Amal: actionLabel(e.action),
+              Obyekt: targetText(e),
+              Tafsilot: e.detail,
+              IP: e.ip ?? "",
+            })}
+          />
+        }
       />
-    </div>
+
+      <InfoNote icon={<Lock className="h-[18px] w-[18px]" aria-hidden />}>
+        Jurnal <b className="text-ink">o'zgarmaydi</b>: hech kim, superadmin ham, yozuvni tahrirlay yoki o'chira olmaydi.
+      </InfoNote>
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        {caps.auditSearch && (
+          <SearchInput
+            className="w-[260px] max-w-full"
+            label="Xodim, amal yoki obyekt"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            icon={<Search className="h-4 w-4" aria-hidden />}
+          />
+        )}
+        {caps.auditCategories && <FilterChips label="Toifa bo'yicha" items={CATEGORIES} value={category} onChange={setCategory} />}
+        <span className="flex-1" />
+        <FilterSelect label="Amal" aria-label="Amal" value={action} onChange={setAction} options={ACTION_OPTIONS} />
+        {caps.auditApiFilters && <FilterSelect label="Obyekt" aria-label="Obyekt turi" value={entityType} onChange={setEntityType} options={ENTITY_OPTIONS} />}
+        <FilterSelect label="Sana" aria-label="Sana" value={period} onChange={setPeriod} options={PERIODS} />
+        {period === "custom" && (
+          <>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Boshlanish sanasi" className={DATE_INPUT} />
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="Tugash sanasi" className={DATE_INPUT} />
+          </>
+        )}
+      </div>
+
+      {error && entries && <StaleNotice onRetry={reload} />}
+      {error && !entries ? (
+        <ErrorState onRetry={reload} />
+      ) : !entries ? (
+        <div className="flex flex-col gap-2 rounded-card bg-white p-4 shadow-card" aria-busy>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={entries}
+          rowKey={(e) => e.id}
+          pageSize={15}
+          emptyIcon={<History />}
+          emptyTitle="Yozuv topilmadi"
+          emptyDescription="Qidiruv yoki filtrlarga mos audit yozuvi yo'q."
+        />
+      )}
+    </>
   );
 }
