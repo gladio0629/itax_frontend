@@ -3,6 +3,38 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-22, round 6: driver `0a2d568` merged; admin `1928d19` YELLOW (not merged)
+
+### redesign-driver `750065f..0a2d568` (1 commit): GREEN, merged
+- `HistoryCard.tsx`: a cancelled trip shows the server's earnings instead of a hard-coded 0.
+- The unused key `caps.childSeatHint` is removed from uz/ru/en.
+- Merged `--no-ff` with no conflicts.
+- After the merge, all three apps pass typecheck, the `VITE_DEMO_MODE=false` build and `check:no-network`. `cap sync` passes for the driver.
+
+### redesign-admin `c9b3236..1928d19` (merge of `redesign-v2` at `2cad494` and 1 commit): YELLOW
+Checks: typecheck, `VITE_DEMO_MODE=false` build and `check:no-network` pass. `dist` has no test panel or "demo" text. Screens checked: Dashboard and Marketing (demo, superadmin).
+
+Fixed from round 4:
+- Stats: these come back from `getStats`:
+  - order totals (all, completed, cancelled, expired);
+  - passengers (total and new);
+  - drivers (total, active, blocked);
+  - the registrations chart.
+  
+  `StatsSection` handles errors: a failure shows "Qayta urinish", and a failed period change keeps the old figures with a StaleNotice. A request-order guard is in place.
+- Operator queue: a sequence guard on the active task. "Boshlash" stays disabled until the active task has loaded. `CurrentTask` has `key`.
+- Operators board: refreshes every 15 s (skipped while the tab is hidden), timers tick every second, the done column pages by 20, the date shows outside "today", and a custom date range is back.
+- Marketing for superadmin, owner and menejer: a "Marketing" item in Asosiy. The marketolog still sees it as "Umumiy statistika".
+- `docs/backend-gaps/admin.md`: no duplicate endpoints left, and the stale approve, reveal and old-tariff rows are gone.
+
+To fix (rule 2; owner decision 5 listed online drivers among the stats to restore, only the "Onlayn" column stays out):
+- `StatsSection.tsx` `OrdersAndPeople`: "Hozir onlayn haydovchilar" (`driversOnline`) is not shown. The type comment says "not shown: owner decision", which misreads decision 5.
+- Two more figures from the old StatsScreen are still missing (`63575a8:admin/src/features/dashboard/StatsScreen.tsx:123,188`):
+  - "Qarz limitiga yetgan haydovchilar" (`driversOverLimit`);
+  - the orders/completed over-time chart.
+
+Note: in the demo the "Ro'yxatdan o'tganlar" and "Daromad dinamikasi" charts show one point on 7-noy for the period "Bugun". This is mock data, not a finding.
+
 ## 2026-11-22, round 5: client `253cbd0..2aa8f8e` (live order and rating) and owner answers after round 4
 
 Owner answers:
