@@ -94,11 +94,13 @@ Admin panelga faqat jamoa xodimlari kiradi. Foydalanuvchilar ko'paygan sari xodi
 | owner | hamma bo'lim va statistika | menejer, marketolog, operator. Owner va superadmin yarata olmaydi |
 | menejer | hamma bo'lim va statistika | marketolog, operator. Menejer, owner, superadmin yarata olmaydi |
 | marketolog | faqat "Umumiy statistika", lekin hamma turdagi statistika: yo'lovchi, haydovchi, buyurtma sonlari, shuningdek daromad va pulga oid ko'rsatkichlar. Faqat ko'rish. Boshqa bo'limlar yo'q (2026-11-09) | yo'q |
-| operator | faqat o'z oynalari: "Navbat" va "Tarix" | yo'q |
+| operator | faqat o'z oynalari: "Navbat", "Tarix" (Mening vazifalarim + Buyurtmalar, faqat ko'rish) va "Haydovchilar" (faqat ko'rish, balans ko'rinmaydi) (2026-11-22) | yo'q |
 
 **Operator [QAROR]:** vazifasi kirishda muammosi bor, qo'shimcha ma'lumotga muhtoj yoki shikoyat qilmoqchi bo'lgan odamlarga qo'ng'iroq qilish.
 - "Navbat" oynasi: qo'ng'iroq qilinadigan telefon raqamlar ro'yxati. Har birida "Boshlash" va "Rad etish" tugmasi.
 - "Tarix" oynasi: operatorning ko'rib chiqqan vazifalari (tasdiqlangan, rad etilgan va h.k.). Natija va izohni tahrirlash mumkin.
+- [QAROR] (2026-11-22) Vazifa natijalari 5 ta: Hal qilindi, Javob bermadi, Qayta qo'ng'iroq, Menejerga yuborildi, Rad etish (sabab majburiy). Joriy vazifada "Keyinga qoldirish": vazifa navbatga qaytadi, kutish vaqti saqlanadi.
+- [QAROR] (2026-11-22) Marketolog "Marketing" sahifasini ko'radi (KPI, komissiya grafigi, voronka, buyurtma turlari) va ostida daromad va holatlar bo'limi. Faqat ko'rish.
 - Operatordan boshqa rollar (superadmin, owner, menejer) "Operatorlar" bo'limini 3 qismda ko'radi: **Navbat**, **Jarayonda**, **Bugungi tasdiqlanganlar**. Operator o'zi faqat "Navbat" va "Tarix" oynalarini ko'radi. [QAROR]
 - Operator hisobini jamoa yaratadi: operator telefon raqamini aytadi, xodim hisob ochadi. Telefon hamma rol uchun majburiy. Email operatordan boshqa hamma rol uchun majburiy, operator uchun shart emas. [QAROR]
 - [QAROR] (2026-11-22) Admin panelda telefon raqamlari hamma joyda to'liq ko'rinadi (maskalash yo'q). Operator faqat o'z tarixini ko'radi, yuqori rollar hammasini ko'radi.
@@ -351,6 +353,7 @@ Go, Kotlin (Spring Boot), TypeScript (NestJS), PostgreSQL, Redis, NATS JetStream
 | 2026-11-22 | Admin panelda telefon raqamlari to'liq ko'rinadi, maskalash va "Telefonni ochish" tugmasi yo'q | [QAROR] |
 | 2026-11-22 | Ilovalardagi sayt havolalari faqat https://xasanow.uz/terms, /privacy va /delete-account (client va driver). Manzil kodda (config.ts), .env git'da yo'q. Tarmoq tekshiruvida shu manzilga istisno | [QAROR] |
 | 2026-11-22 | Admin faqat o'zbek tilida. Eski statistika Dashboard'ga qo'shimcha bo'lim bo'lib qaytadi, marketolog ham ko'radi (faqat ko'rish). Terminallar dizaynda ham, ilovada ham yo'q katta funksiya qo'shmaydi | [QAROR] |
+| 2026-11-22 | Admin operator: 5 natija, "Keyinga qoldirish", Tarix (vazifalar + buyurtmalar) va Haydovchilar (faqat ko'rish). Marketolog: Marketing sahifasi + daromad bo'limi | [QAROR] |
 | 2026-11-22 | Backend'da hali yo'q qismlar (bonus, promo, choy puli, to'xtashlar, klass, yukchi va h.k.) ham to'liq qilinadi. Dizayndagi raqamlar namuna, hammasi serverdan | [QAROR] |
 
 ## 10. Frontend o'zgarishlari — backend uchun xulosa (2026-11-09 – 2026-11-11)
