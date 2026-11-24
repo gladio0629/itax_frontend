@@ -1,4 +1,7 @@
+import { useCallback, useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { api } from "@/api/client";
+import type { OpTasksSummary } from "@/api/ops/types";
 import { cn } from "@/lib/cn";
 import { formatNumber } from "@/lib/format";
 import { opPath } from "./paths";
@@ -45,4 +48,39 @@ export function OpHistoryTabs({ ordersCount, tasksCount, first }: { ordersCount?
       ))}
     </nav>
   );
+}
+
+/** Orders tab counter: all orders the operator may see (server count). */
+export function useOrdersTotal(): number | undefined {
+  const [total, setTotal] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (!api.capabilities.orderCounts) return;
+    let live = true;
+    api
+      .getOrderCounts({})
+      .then((c) => live && setTotal(c.all))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  return total;
+}
+
+/** The operator's own requests and calls (tiles + tab counter). */
+export function useTasksSummary(): { summary: OpTasksSummary | null; reload: () => void } {
+  const [summary, setSummary] = useState<OpTasksSummary | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let live = true;
+    api
+      .getMyTasksSummary()
+      .then((s) => live && setSummary(s))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [tick]);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
+  return { summary, reload };
 }

@@ -11,6 +11,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useAuthStore } from "@/stores/authStore";
 import { PageHeaderContext, usePageHeaderSlots } from "./PageHeader";
+import { OpRequestHost } from "@/features/ops/OpRequestModal";
 import type { SectionBadges } from "@/api/types";
 
 
@@ -53,6 +54,8 @@ export function AdminLayout() {
               ) : (
                 <Outlet />
               )}
+              {/* "Menejerga so'rov" for ?request=<kind>:<id> on any operator page. */}
+              <OpRequestHost />
             </div>
           </main>
         </div>

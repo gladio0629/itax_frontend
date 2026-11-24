@@ -306,8 +306,9 @@ const TYPE_HINT: Partial<Record<ManagerRequestType, string>> = {
 
 function seedRequests(): StoredRequest[] {
   const staff = readStaff();
-  const ops = staff.filter((u) => u.role === "operator" && !u.archived);
-  const mgr = staff.find((u) => u.role === "menejer") ?? staff[0];
+  // The first active operator is the one the sample login uses.
+  const ops = staff.filter((u) => u.role === "operator" && !u.archived && u.status === "active");
+  const mgr = staff.find((u) => u.role === "menejer" && !u.archived) ?? staff[0];
   const op1 = ops[0] ?? staff[0];
   const op2 = ops[1] ?? op1;
   const done = db.orders().filter((o) => o.status === "completed" && o.driverId);
