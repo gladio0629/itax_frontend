@@ -21,6 +21,7 @@ const ComplaintsScreen = lazy(() => import("@/features/complaints/ComplaintsScre
 const StaffScreen = lazy(() => import("@/features/staff/StaffScreen").then((m) => ({ default: m.StaffScreen })));
 const OperatorsScreen = lazy(() => import("@/features/operators/OperatorsScreen").then((m) => ({ default: m.OperatorsScreen })));
 const MarketingScreen = lazy(() => import("@/features/marketing/MarketingScreen").then((m) => ({ default: m.MarketingScreen })));
+const ManagerRequestsPage = lazy(() => import("@/features/ops/ManagerRequestsPage").then((m) => ({ default: m.ManagerRequestsPage })));
 const AuditScreen = lazy(() => import("@/features/audit/AuditScreen").then((m) => ({ default: m.AuditScreen })));
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -165,6 +166,16 @@ export function AppRoutes() {
             <RequireSection section="operators">
               <Lazy>
                 <OperatorsScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/requests"
+          element={
+            <RequireSection section="requests">
+              <Lazy>
+                <ManagerRequestsPage />
               </Lazy>
             </RequireSection>
           }

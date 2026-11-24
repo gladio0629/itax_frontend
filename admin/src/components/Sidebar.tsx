@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { BarChart3, Car, ClipboardList, Clock3, Headset, LogOut, MessageSquareWarning, ScrollText, Search, SlidersHorizontal, UserRound, Users, UsersRound, Wallet, TrendingUp } from "lucide-react";
-import { opPath } from "@/features/ops/paths";
+import { BarChart3, Car, ClipboardList, Clock3, Headset, Inbox, LogOut, MessageSquareWarning, ScrollText, Search, SlidersHorizontal, UserRound, Users, UsersRound, Wallet, TrendingUp } from "lucide-react";
+import { REQUESTS_PATH, opPath } from "@/features/ops/paths";
 import { cn } from "@/lib/cn";
 import { ROLE_LABEL } from "@/lib/roles";
 import { AdminBrand, Logo } from "./Logo";
@@ -30,10 +30,10 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Asosiy",
     items: [
       { to: "/dashboard", section: "stats", label: "Umumiy statistika", icon: BarChart3 },
-      { to: "/marketing", section: "marketing", label: "Marketing", icon: TrendingUp, altLabel: { whenMissing: "stats", label: "Umumiy statistika" } },
       { to: "/orders", section: "orders", label: "Buyurtmalar", icon: ClipboardList },
       { to: "/drivers", section: "drivers", label: "Haydovchilar", icon: Car },
       { to: "/passengers", section: "passengers", label: "Yo'lovchilar", icon: Users },
+      { to: "/marketing", section: "marketing", label: "Marketing", icon: TrendingUp, altLabel: { whenMissing: "stats", label: "Umumiy statistika" } },
       { to: "/complaints", section: "complaints", label: "Shikoyatlar", icon: MessageSquareWarning },
     ],
   },
@@ -62,6 +62,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Jamoa",
     items: [
       { to: "/operators", section: "operators", action: "operatorSupervise", label: "Operatorlar", icon: Headset, end: true },
+      { to: REQUESTS_PATH, section: "requests", label: "So'rovlar", icon: Inbox },
       { to: "/staff", section: "staff", label: "Xodimlar", icon: UsersRound },
       { to: "/audit", section: "audit", label: "Audit jurnali", icon: ScrollText },
     ],
