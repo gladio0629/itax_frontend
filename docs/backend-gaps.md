@@ -288,3 +288,50 @@ the query (or the driver when the order ID matched).
 (absent = all). Response: page of
 `{ id, name, phone, orders_count, rating, last_trip_at, status }` plus
 `counts: { all, active, warned, blocked }` for the same `q`.
+
+**Passenger card.** `{id}` is the passenger id. Each card response carries `actions`: the buttons
+this operator may use now (`call`, `request`, `refund_request`, `sms_unlock`, `sms_resend`,
+`add_note`). The frontend shows only listed buttons.
+
+- `GET /admin/v1/operator/passengers/{id}`: header, tab counters and the "Umumiy" tab.
+  ```
+  { id, display_id: "P-20931", name, phone, status, joined_at, language, actions: [...],
+    tabs: { orders, payments, notes, sms_alert },
+    status_note: { text, by_name, at } | null,          // why warned / blocked
+    stats: { orders, cancelled, cancelled_this_week, bonus_balance, rating },
+    profile: { app, main_payment, saved_addresses: [string], last_order: { id, created_at } | null },
+    status_history: [{ id, title, detail, at, tone: "success"|"danger"|"neutral" }],
+    deletion_request: { requested_at, reason, auto_delete_at } | null }
+  ```
+- `GET .../passengers/{id}/orders?status=active|completed|cancelled&period=today|yesterday|7d|30d|90d&page=`:
+  page of `{ id, kind, from, to, created_at, driver: { name, phone } | null, payment, price, status,
+  cancelled_by }` plus `counts: { all, active, completed, cancelled }` for the same period.
+- `GET .../passengers/{id}/payments?type=card|payme|click|refund|tip&page=`: page of
+  `{ id, at, type: card|payme|click|cash|refund|tip, order_id, txn_id, card_last4, amount,
+  status: held|paid|refunded|failed|to_driver }` plus
+  `summary: { paid, refunded, refund_count, tips, tip_count, failed_count, last_failed: { type, at } | null }`
+  and `counts: { all, card, payme, click, refund, tip }`.
+- `GET .../passengers/{id}/bonus`: `{ balance, entries: [{ id, at, text, order_id, amount, balance_after }],
+  promos: [{ code, discount: { percent, max_amount } | { amount }, used_at, valid_until, status: used|active|expired }] }`.
+
+**Login SMS and notes, both cards.** `{kind}` is `passengers` or `drivers`.
+
+- `GET /admin/v1/operator/{kind}/{id}/sms?period=7d|14d|30d`:
+  ```
+  { last_at, last_result, attempts: { used, max }, lock: { wrong_attempts, minutes } | null,
+    actions: ["sms_unlock", "sms_resend"],              // only what is allowed now
+    log: [{ id, at, type: login|login_retry|login_resent, provider, result, limit: { used, max } | null }] }
+  ```
+  `result`: `delivered|entered|wrong_code|limit|not_delivered`.
+- `POST .../{kind}/{id}/sms/unlock?period=`: "Limitni ochish". Returns the same body as the GET.
+  Errors: `SMS_NOT_LOCKED` (409), `FORBIDDEN`. The server writes the audit entry and adds a
+  status-history line ("Kirish limiti ochildi").
+- `POST .../{kind}/{id}/sms/resend?period=`: "Kodni qayta yuborish". Returns the same body.
+  Error: `SMS_RESEND_LIMIT` (429) when the hourly resend limit is reached.
+- `GET .../{kind}/{id}/notes`: `{ notes: [{ id, author_name, category: complaint|login|info|payment, text, at }],
+  requests: [{ id, display_id: "S-118", type, amount, status: pending|approved|rejected }], actions: ["add_note"] }`.
+  `requests` are the "Menejerga so'rov" items about this person; `type` is one of `refund`, `sms_unlock`,
+  `ledger_fix`, `compensation`, `penalty_cancel`, `block`, `unblock`, `phone_change`, `deletion_cancel`;
+  `amount` is signed for `ledger_fix`.
+- `POST .../{kind}/{id}/notes` `{ text }` (1–1000 chars): returns the new note. The server sets
+  author and category. Error: `VALIDATION_ERROR`.

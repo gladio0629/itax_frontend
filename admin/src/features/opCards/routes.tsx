@@ -2,6 +2,7 @@ import { Navigate, Route } from "react-router-dom";
 import type { Me } from "@/api/types";
 import { OpSearchScreen } from "./OpSearchScreen";
 import { OpPassengersScreen } from "./OpPassengersScreen";
+import { OpPassengerPage } from "./OpPassengerPage";
 
 /**
  * Operator search, passengers and the passenger/driver cards, under the
@@ -18,6 +19,7 @@ export function opCardRoutes(me: Me) {
     <>
       <Route path="search" element={canSearch ? <OpSearchScreen /> : home} />
       <Route path="passengers" element={canPassengers ? <OpPassengersScreen /> : home} />
+      <Route path="passengers/:passengerId/:tab?" element={canPassengers ? <OpPassengerPage /> : home} />
     </>
   );
 }
