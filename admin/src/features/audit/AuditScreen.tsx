@@ -53,6 +53,10 @@ const ACTION_LABEL: Record<AuditAction, string> = {
   operator_task_start: "Operator vazifasi boshlandi",
   operator_task_result: "Operator vazifasi yakunlandi",
   operator_history_edit: "Operator tarixi tahrirlandi",
+  order_restart_search: "Qidiruv qayta boshlandi",
+  request_create: "Menejerga so'rov yuborildi",
+  request_approve: "So'rov tasdiqlandi",
+  request_reject: "So'rov rad etildi",
   export: "Eksport qilindi",
 };
 // The real backend's action names (AuditEntry.action is a free string in

@@ -28,6 +28,7 @@ import {
 } from "@/mockDb/db";
 import { formatDayShort, formatPhone } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
+import { mockOps, pendingRequestCount } from "./mockOps";
 import type {
   MarketingStats,
   OrderWithNames,
@@ -488,6 +489,9 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
 };
 
 export const mockAdapter: ApiAdapter = {
+  // Operator order page and manager requests (2026-11-24): ./mockOps.ts
+  ...mockOps,
+
   capabilities: MOCK_CAPABILITIES,
   // The mock session never expires on its own (idle logout is UI-side).
   onSessionEnd: () => () => {},
@@ -934,6 +938,10 @@ export const mockAdapter: ApiAdapter = {
       if (ROLE_SECTIONS[actor.role].includes("operators")) {
         const waitingCount = readQueue().filter((q) => q.status === "waiting").length;
         if (waitingCount) badges.operators = waitingCount;
+      }
+      if (ROLE_SECTIONS[actor.role].includes("requests")) {
+        const pending = pendingRequestCount();
+        if (pending) badges.requests = pending;
       }
       return badges;
     }),

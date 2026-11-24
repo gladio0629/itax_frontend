@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { DriversScreen } from "@/features/drivers/DriversScreen";
 import { OpOrdersPage } from "@/features/ops/OpOrdersPage";
+import { OpOrderPage } from "@/features/ops/OpOrderPage";
 import { OpTasksPage } from "@/features/ops/OpTasksPage";
 import { opPath } from "@/features/ops/paths";
 import { OperatorsBoard } from "./OperatorsBoard";
@@ -24,6 +25,7 @@ export function OperatorsScreen() {
       <Route index element={canWork ? <Navigate to={opPath.queue} replace /> : canSupervise ? <OperatorsBoard /> : <Navigate to="/" replace />} />
       <Route path="queue" element={work(<OperatorQueueView />)} />
       <Route path="orders" element={work(<OpOrdersPage />)} />
+      <Route path="orders/:orderId" element={work(<OpOrderPage />)} />
       <Route path="tasks" element={work(<OpTasksPage />)} />
       {/* Old link of the operator's "Tarix". */}
       <Route path="history" element={<Navigate to={opPath.tasks} replace />} />
