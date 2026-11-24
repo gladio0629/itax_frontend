@@ -45,8 +45,8 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { to: opPath.queue, section: "operators", action: "operatorWork", label: "Navbat", icon: Headset },
       { to: opPath.search, section: "operators", action: "operatorWork", label: "Qidiruv", icon: Search, noBadge: true },
-      { to: opPath.orders, section: "operators", action: "operatorWork", label: "Buyurtmalar", icon: ClipboardList, noBadge: true },
-      { to: opPath.drivers, section: "operators", action: "operatorWork", label: "Haydovchilar", icon: Car, noBadge: true },
+      { to: opPath.orders, section: "orders_view", action: "operatorWork", label: "Buyurtmalar", icon: ClipboardList, noBadge: true },
+      { to: opPath.drivers, section: "drivers_view", label: "Haydovchilar", icon: Car, noBadge: true },
       { to: opPath.passengers, section: "operators", action: "operatorWork", label: "Yo'lovchilar", icon: Users, noBadge: true },
       { to: opPath.tasks, section: "operators", action: "operatorWork", label: "Tarix", icon: Clock3, noBadge: true },
     ],

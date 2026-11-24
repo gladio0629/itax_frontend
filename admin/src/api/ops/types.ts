@@ -148,7 +148,8 @@ export type ManagerRequest = {
 };
 
 export type ManagerRequestQuery = {
-  status?: ManagerRequestStatus | "all";
+  /** "decided" = approved or rejected, newest decision first. */
+  status?: ManagerRequestStatus | "all" | "decided";
   type?: ManagerRequestType | "all";
   operatorId?: string | "all";
   period?: "all" | "today" | "7d" | "30d";

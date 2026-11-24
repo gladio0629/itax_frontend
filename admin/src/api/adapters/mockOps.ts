@@ -306,8 +306,11 @@ const TYPE_HINT: Partial<Record<ManagerRequestType, string>> = {
 
 function seedRequests(): StoredRequest[] {
   const staff = readStaff();
-  // The first active operator is the one the sample login uses.
+  // Samples belong to the signed-in operator when an operator seeds them
+  // (the demo login), else to the first active operator.
+  const me = getSession() ? getStaffMember(getSession()!.adminId) : undefined;
   const ops = staff.filter((u) => u.role === "operator" && !u.archived && u.status === "active");
+  if (me?.role === "operator") ops.sort((a, b) => (a.id === me.id ? -1 : b.id === me.id ? 1 : 0));
   const mgr = staff.find((u) => u.role === "menejer" && !u.archived) ?? staff[0];
   const op1 = ops[0] ?? staff[0];
   const op2 = ops[1] ?? op1;
@@ -413,6 +416,12 @@ function matchesQuery(r: StoredRequest, q: Omit<ManagerRequestQuery, "status">):
     if (r.createdAt < start) return false;
   }
   return true;
+}
+
+function statusMatches(r: StoredRequest, status: ManagerRequestQuery["status"]): boolean {
+  if (!status || status === "all") return true;
+  if (status === "decided") return r.status !== "pending";
+  return r.status === status;
 }
 
 /** Does this passenger have an open account deletion request? (sample) */
@@ -647,7 +656,7 @@ export const mockOps: OpsAdapter = {
       const u = actor();
       requireWork(u);
       return readRequests()
-        .filter((r) => r.operator.id === u.id && (!query.status || query.status === "all" || r.status === query.status) && matchesQuery(r, query))
+        .filter((r) => r.operator.id === u.id && statusMatches(r, query.status) && matchesQuery(r, query))
         .sort((a, b) => b.createdAt - a.createdAt)
         .map((r) => present(r, false));
     }),
@@ -673,7 +682,7 @@ export const mockOps: OpsAdapter = {
     withLatency(() => {
       requireAny(actor(), ["requests"]);
       return readRequests()
-        .filter((r) => (!query.status || query.status === "all" || r.status === query.status) && matchesQuery(r, query))
+        .filter((r) => statusMatches(r, query.status) && matchesQuery(r, query))
         .sort((a, b) => (b.decision?.at ?? b.createdAt) - (a.decision?.at ?? a.createdAt))
         .map((r) => present(r, true));
     }),

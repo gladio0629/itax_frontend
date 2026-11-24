@@ -322,7 +322,7 @@ Cancel `reason` is one of `passenger_asked`, `driver_asked`, `driver_no_show`, `
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| GET | `/admin/v1/requests?status=pending\|approved\|rejected&type=&operator_id=&period=today\|7d\|30d` | – | `ManagerRequest[]` |
+| GET | `/admin/v1/requests?status=pending\|approved\|rejected\|decided&type=&operator_id=&period=today\|7d\|30d` | – | `ManagerRequest[]` (`decided` = approved or rejected, newest decision first: "So'nggi qarorlar") |
 | GET | `/admin/v1/requests/counts?type=&operator_id=&period=` | – | `{ all, pending, approved, rejected }` |
 | GET | `/admin/v1/requests/{id}/preview` | – | `{ title, rows [{label, before, after}] }`: the old → new modal |
 | POST | `/admin/v1/requests/{id}/approve` | – | `ManagerRequest` |

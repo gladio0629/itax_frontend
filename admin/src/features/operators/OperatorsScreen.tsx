@@ -18,14 +18,15 @@ export function OperatorsScreen() {
   const canWork = me.actions.includes("operatorWork");
   const canSupervise = me.actions.includes("operatorSupervise");
   const canDrivers = me.sections.includes("drivers_view");
-  const work = (el: JSX.Element) => (canWork ? el : <Navigate to="/operators" replace />);
+  const canOrders = canWork && me.sections.includes("orders_view");
+  const work = (el: JSX.Element, allowed = canWork) => (allowed ? el : <Navigate to="/operators" replace />);
 
   return (
     <Routes>
       <Route index element={canWork ? <Navigate to={opPath.queue} replace /> : canSupervise ? <OperatorsBoard /> : <Navigate to="/" replace />} />
       <Route path="queue" element={work(<OperatorQueueView />)} />
-      <Route path="orders" element={work(<OpOrdersPage />)} />
-      <Route path="orders/:orderId" element={work(<OpOrderPage />)} />
+      <Route path="orders" element={work(<OpOrdersPage />, canOrders)} />
+      <Route path="orders/:orderId" element={work(<OpOrderPage />, canOrders)} />
       <Route path="tasks" element={work(<OpTasksPage />)} />
       {/* Old link of the operator's "Tarix". */}
       <Route path="history" element={<Navigate to={opPath.tasks} replace />} />

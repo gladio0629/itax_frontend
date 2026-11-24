@@ -20,6 +20,7 @@ import { Toast } from "@/components/Toast";
 import { ChangeConfirmModal } from "@/components/ChangeConfirmModal";
 import { ModalNote } from "@/components/Modal";
 import { cn } from "@/lib/cn";
+import { refreshSectionBadges } from "@/lib/badgeEvents";
 import { formatNumber, formatShortDateTime } from "@/lib/format";
 import { Tag } from "@/features/operators/labels";
 import { REQUEST_STATUS, REQUEST_TYPE, REQUEST_TYPES } from "./requestLabels";
@@ -57,7 +58,7 @@ export function ManagerRequestsPage() {
   const filters = { type, operatorId, period };
   const { items, error, reload } = useAdapterList(api.getManagerRequests, { ...filters, status });
   // "So'nggi qarorlar" under the pending list.
-  const decided = useAdapterList(api.getManagerRequests, { ...filters, status: "all" } as ManagerRequestQuery);
+  const decided = useAdapterList(api.getManagerRequests, { ...filters, status: "decided" } as ManagerRequestQuery);
   const [counts, setCounts] = useState<ManagerRequestCounts | null>(null);
   const [countsTick, setCountsTick] = useState(0);
   const [operators, setOperators] = useState<{ id: string; name: string }[] | null>(null);
@@ -84,13 +85,14 @@ export function ManagerRequestsPage() {
 
   const refresh = (message: string) => {
     setToast(message);
+    refreshSectionBadges();
     reload();
     decided.reload();
     setCountsTick((n) => n + 1);
   };
 
   const orderHref = (id: string) => (me?.sections.includes("orders") ? `/orders/${encodeURIComponent(id)}` : opPath.order(id));
-  const recent = (decided.items ?? []).filter((r) => r.status !== "pending").slice(0, 10);
+  const recent = decided.items ?? [];
 
   const decisionColumns: Column<ManagerRequest>[] = [
     { key: "code", header: "So'rov", render: (r) => <span className="font-extrabold">{r.code}</span> },
