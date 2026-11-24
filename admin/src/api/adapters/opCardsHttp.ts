@@ -7,6 +7,14 @@ import type { HttpClient } from "@shared/http/client";
 import type { OpCardsApi } from "../opCards/adapter";
 import type {
   OpBonusEntry,
+  OpCancelRow,
+  OpComplaintRow,
+  OpDriverCard,
+  OpDriverDoc,
+  OpDriverTripRow,
+  OpDriverTrips,
+  OpLedgerRow,
+  OpTopUp,
   OpCardAction,
   OpNote,
   OpNoteCategory,
@@ -29,7 +37,7 @@ import type {
   OpSubject,
   OpTimelineItem,
 } from "../opCards/types";
-import type { DriverStatus, OrderKind, OrderStatus, PassengerStatus, PaymentMethod } from "../types";
+import type { CargoBodySize, DriverStatus, OrderKind, OrderStatus, PassengerStatus, PaymentMethod, TariffCarClass, WalletEntryType } from "../types";
 
 const ms = (iso: string | null | undefined) => (iso ? Date.parse(iso) : null);
 const msReq = (iso: string) => Date.parse(iso);
@@ -218,9 +226,120 @@ type ApiNotes = {
   actions: OpCardAction[];
 };
 
+type ApiDriverCard = {
+  id: string;
+  display_id: string;
+  name: string;
+  phone: string;
+  status: DriverStatus;
+  at_debt_limit: boolean | null;
+  car_model: string;
+  plate: string;
+  on_trip: boolean;
+  actions: OpCardAction[];
+  tabs: { docs: number; trips: number; cancels: number; complaints: number; notes: number };
+  last_block: { from: string; to: string | null; reason: string; blocked_by: string; unblocked_by: string | null } | null;
+  stats: { trips: number; rating: number | null; cancels_this_month: number; balance: number };
+  car: { title: string; plate: string; car_class: TariffCarClass | null; seats: number | null; routes: string[]; bodies: CargoBodySize[]; loader_help: boolean | null };
+  app: {
+    version: string | null;
+    last_seen_at: string | null;
+    last_location: string | null;
+    speed_kmh: number | null;
+    current_trip: { id: string; from: string; to: string } | null;
+    min_version: string | null;
+  };
+  status_history: ApiTimelineItem[];
+};
+const driverCard = (c: ApiDriverCard): OpDriverCard => ({
+  id: c.id,
+  displayId: c.display_id,
+  name: c.name,
+  phone: c.phone,
+  status: c.status,
+  atDebtLimit: c.at_debt_limit,
+  carModel: c.car_model,
+  plate: c.plate,
+  onTrip: c.on_trip,
+  actions: c.actions,
+  tabs: c.tabs,
+  lastBlock: c.last_block && {
+    from: msReq(c.last_block.from),
+    to: ms(c.last_block.to),
+    reason: c.last_block.reason,
+    blockedBy: c.last_block.blocked_by,
+    unblockedBy: c.last_block.unblocked_by,
+  },
+  stats: { trips: c.stats.trips, rating: c.stats.rating, cancelsThisMonth: c.stats.cancels_this_month, balance: c.stats.balance },
+  car: {
+    title: c.car.title,
+    plate: c.car.plate,
+    carClass: c.car.car_class,
+    seats: c.car.seats,
+    routes: c.car.routes,
+    bodies: c.car.bodies,
+    loaderHelp: c.car.loader_help,
+  },
+  app: {
+    version: c.app.version,
+    lastSeenAt: ms(c.app.last_seen_at),
+    lastLocation: c.app.last_location,
+    speedKmh: c.app.speed_kmh,
+    currentTrip: c.app.current_trip,
+    minVersion: c.app.min_version,
+  },
+  statusHistory: c.status_history.map(timelineItem),
+});
+
+type ApiDocs = {
+  docs: { id: string; title: string; detail: string; status: OpDriverDoc["status"]; note: string | null; reject_reason: string | null }[];
+  history: ApiTimelineItem[];
+};
+type ApiWallet = {
+  balance: number;
+  debt_limit: number;
+  until_limit: number;
+  month_commission: number;
+  bar_percent: number;
+  months: string[];
+  month: string;
+  ledger: ApiPage<{ id: string; at: string; type: WalletEntryType; order_id: string | null; txn_id: string | null; amount: number; balance_after: number }>;
+  top_ups: { id: string; at: string; provider: OpTopUp["provider"]; txn_id: string; amount: number; status: OpTopUp["status"] }[];
+};
+type ApiTrips = ApiPage<{
+  id: string;
+  kind: OrderKind;
+  from: string;
+  to: string;
+  at: string;
+  passenger: { name: string; phone: string } | null;
+  body_size: CargoBodySize | null;
+  price: number;
+  commission: number | null;
+  status: OrderStatus;
+}> & {
+  summary: { trips: number; earned: number; commission: number; avg_price: number };
+  counts: OpDriverTrips["counts"];
+  months: string[];
+  month: string;
+};
+type ApiCancels = {
+  summary: { driver_cancels: number; penalties: number; share_pct: number; avg_share_pct: number };
+  rows: { id: string; at: string; order_id: string; by: OpCancelRow["by"]; reason: string; penalty: number | null; penalty_status: OpCancelRow["penaltyStatus"] }[];
+};
+type ApiReviews = {
+  rating: number | null;
+  rating_basis: number;
+  distribution: { stars: number; percent: number }[];
+  open_complaints: number;
+  complaints: { id: string; at: string; from_name: string; from_phone: string; topic: string; order_id: string | null; status: OpComplaintRow["status"] }[];
+  reviews: { id: string; stars: number; author: string; text: string | null; at: string }[];
+};
+
 const OP = "/admin/v1/operator";
 const subjectPath = (s: OpSubject) => `${OP}/${s.kind === "passenger" ? "passengers" : "drivers"}/${encodeURIComponent(s.id)}`;
 const passengerPath = (id: string) => subjectPath({ kind: "passenger", id });
+const driverPath = (id: string) => subjectPath({ kind: "driver", id });
 
 export function opCardsHttp(http: HttpClient): OpCardsApi {
   return {
@@ -329,6 +448,98 @@ export function opCardsHttp(http: HttpClient): OpCardsApi {
     },
     async addOpNote(subject, text) {
       return note(await http.post<ApiNote>(`${subjectPath(subject)}/notes`, { text: text.trim() }));
+    },
+
+    async getOpDriver(id) {
+      return driverCard(await http.get<ApiDriverCard>(driverPath(id)));
+    },
+
+    async getOpDriverDocs(id) {
+      const r = await http.get<ApiDocs>(`${driverPath(id)}/documents`);
+      return {
+        docs: r.docs.map((d) => ({ id: d.id, title: d.title, detail: d.detail, status: d.status, note: d.note, rejectReason: d.reject_reason })),
+        history: r.history.map(timelineItem),
+      };
+    },
+
+    async getOpDriverWallet(id, query) {
+      const r = await http.get<ApiWallet>(`${driverPath(id)}/wallet`, { month: query.month || undefined, page: query.page });
+      return {
+        balance: r.balance,
+        debtLimit: r.debt_limit,
+        untilLimit: r.until_limit,
+        monthCommission: r.month_commission,
+        barPercent: r.bar_percent,
+        months: r.months,
+        month: r.month,
+        ledger: pageOf(
+          r.ledger,
+          (e): OpLedgerRow => ({ id: e.id, at: msReq(e.at), type: e.type, orderId: e.order_id, txnId: e.txn_id, amount: e.amount, balanceAfter: e.balance_after })
+        ),
+        topUps: r.top_ups.map((t) => ({ id: t.id, at: msReq(t.at), provider: t.provider, txnId: t.txn_id, amount: t.amount, status: t.status })),
+      };
+    },
+
+    async getOpDriverTrips(id, query) {
+      const r = await http.get<ApiTrips>(`${driverPath(id)}/trips`, {
+        filter: query.filter === "all" ? undefined : query.filter,
+        month: query.month || undefined,
+        page: query.page,
+      });
+      return {
+        ...pageOf(
+          r,
+          (t): OpDriverTripRow => ({
+            id: t.id,
+            kind: t.kind,
+            from: t.from,
+            to: t.to,
+            at: msReq(t.at),
+            passenger: t.passenger,
+            bodySize: t.body_size,
+            price: t.price,
+            commission: t.commission,
+            status: t.status,
+          })
+        ),
+        summary: { trips: r.summary.trips, earned: r.summary.earned, commission: r.summary.commission, avgPrice: r.summary.avg_price },
+        counts: r.counts,
+        months: r.months,
+        month: r.month,
+      };
+    },
+
+    async getOpDriverCancels(id, period) {
+      const r = await http.get<ApiCancels>(`${driverPath(id)}/cancels`, { period });
+      return {
+        summary: {
+          driverCancels: r.summary.driver_cancels,
+          penalties: r.summary.penalties,
+          sharePct: r.summary.share_pct,
+          avgSharePct: r.summary.avg_share_pct,
+        },
+        rows: r.rows.map((x) => ({ id: x.id, at: msReq(x.at), orderId: x.order_id, by: x.by, reason: x.reason, penalty: x.penalty, penaltyStatus: x.penalty_status })),
+      };
+    },
+
+    async getOpDriverReviews(id) {
+      const r = await http.get<ApiReviews>(`${driverPath(id)}/reviews`);
+      return {
+        rating: r.rating,
+        ratingBasis: r.rating_basis,
+        distribution: r.distribution,
+        openComplaints: r.open_complaints,
+        complaints: r.complaints.map((c) => ({
+          id: c.id,
+          at: msReq(c.at),
+          fromName: c.from_name,
+          fromPhone: c.from_phone,
+          topic: c.topic,
+          orderId: c.order_id,
+          status: c.status,
+        })),
+        reviews: r.reviews.map((x) => ({ id: x.id, stars: x.stars, author: x.author, text: x.text, at: msReq(x.at) })),
+      };
     },
   };
 }

@@ -3,6 +3,7 @@ import type { Me } from "@/api/types";
 import { OpSearchScreen } from "./OpSearchScreen";
 import { OpPassengersScreen } from "./OpPassengersScreen";
 import { OpPassengerPage } from "./OpPassengerPage";
+import { OpDriverPage } from "./OpDriverPage";
 
 /**
  * Operator search, passengers and the passenger/driver cards, under the
@@ -13,13 +14,16 @@ import { OpPassengerPage } from "./OpPassengerPage";
 export function opCardRoutes(me: Me) {
   const has = (...s: Me["sections"]) => s.some((x) => me.sections.includes(x));
   const canPassengers = has("passengers_view", "passengers");
-  const canSearch = canPassengers || has("drivers_view", "drivers", "orders_view", "orders");
+  const canDrivers = has("drivers_view", "drivers");
+  const canSearch = canPassengers || canDrivers || has("orders_view", "orders");
   const home = <Navigate to="/operators" replace />;
   return (
     <>
       <Route path="search" element={canSearch ? <OpSearchScreen /> : home} />
       <Route path="passengers" element={canPassengers ? <OpPassengersScreen /> : home} />
       <Route path="passengers/:passengerId/:tab?" element={canPassengers ? <OpPassengerPage /> : home} />
+      {/* The list itself (/operators/drivers) stays in OperatorsScreen. */}
+      <Route path="drivers/:driverId/:tab?" element={canDrivers ? <OpDriverPage /> : home} />
     </>
   );
 }

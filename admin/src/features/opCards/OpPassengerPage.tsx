@@ -29,7 +29,7 @@ export function OpPassengerPage() {
   const { data: card, error, loading, reload } = useOpData(
     () =>
       api.getOpPassenger(passengerId).catch((e) => {
-        if (isNotFound(e)) throw Object.assign(new Error("not_found"), { notFound: true });
+        if (isNotFound(e)) throw new Error("not_found");
         throw e;
       }),
     passengerId

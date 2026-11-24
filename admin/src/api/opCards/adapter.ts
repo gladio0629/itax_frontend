@@ -1,4 +1,13 @@
 import type {
+  OpCancelsPeriod,
+  OpDriverCancels,
+  OpDriverCard,
+  OpDriverDocs,
+  OpDriverReviews,
+  OpDriverTrips,
+  OpDriverTripsQuery,
+  OpDriverWallet,
+  OpDriverWalletQuery,
   OpNote,
   OpNotes,
   OpPassengerBonus,
@@ -33,6 +42,16 @@ export interface OpCardsApi {
   getOpPassengerOrders(id: string, query: OpPassengerOrdersQuery): Promise<OpPassengerOrdersPage>;
   getOpPassengerPayments(id: string, query: OpPaymentsQuery): Promise<OpPassengerPayments>;
   getOpPassengerBonus(id: string): Promise<OpPassengerBonus>;
+
+  // --- driver card (read-only for money, documents and blocking) ---
+  /** Header, tab counters, allowed actions and the "Umumiy" tab. */
+  getOpDriver(id: string): Promise<OpDriverCard>;
+  getOpDriverDocs(id: string): Promise<OpDriverDocs>;
+  /** `month` "" = the current month. */
+  getOpDriverWallet(id: string, query: OpDriverWalletQuery): Promise<OpDriverWallet>;
+  getOpDriverTrips(id: string, query: OpDriverTripsQuery): Promise<OpDriverTrips>;
+  getOpDriverCancels(id: string, period: OpCancelsPeriod): Promise<OpDriverCancels>;
+  getOpDriverReviews(id: string): Promise<OpDriverReviews>;
 
   // --- both cards: login SMS and notes ---
   getOpSms(subject: OpSubject, period: OpSmsPeriod): Promise<OpSmsInfo>;

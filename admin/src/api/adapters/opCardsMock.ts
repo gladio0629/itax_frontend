@@ -10,6 +10,16 @@ import type { Driver, Order, Passenger } from "@/seed/generate";
 import type { OpCardsApi } from "../opCards/adapter";
 import type {
   OpBonusEntry,
+  OpCancelRow,
+  OpCancelsPeriod,
+  OpComplaintRow,
+  OpDriverCard,
+  OpDriverDoc,
+  OpDriverTripRow,
+  OpDriverTripsFilter,
+  OpLedgerRow,
+  OpReview,
+  OpTopUp,
   OpNote,
   OpNoteCategory,
   OpNotes,
@@ -30,7 +40,7 @@ import type {
   OpSubjectRequest,
   OpTimelineItem,
 } from "../opCards/types";
-import type { ListPeriod, OrderStatus } from "../types";
+import type { ListPeriod, OrderStatus, TariffCarClass } from "../types";
 
 const PAGE_SIZE = 10;
 /** Hits per group; the "Hammasi" view shows the first few of each. */
@@ -498,6 +508,143 @@ const PAYMENT_FILTER: Record<Exclude<OpPaymentsFilter, "all">, (r: OpPaymentRow)
   tip: (r) => r.type === "tip",
 };
 
+// ------------------------------------------------------------ driver card
+
+const monthKey = (ts: number) => {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+const driverOrders = (id: string) =>
+  db
+    .orders()
+    .filter((o) => o.driverId === id)
+    .sort((a, b) => b.createdAt - a.createdAt);
+const shortName = (name: string) => {
+  const [first, last] = name.split(" ");
+  return last ? `${first} ${last[0]}.` : first;
+};
+const cancelBy = (o: Order): OpCancelRow["by"] => (o.cancelledBy === "driver" ? "driver" : o.cancelledBy === "passenger" ? "passenger" : "system");
+
+function driverDocs(d: Driver): OpDriverDoc[] {
+  const r = rngFor(`docs:${d.id}`);
+  const base: OpDriverDoc[] = (d.documents ?? []).map((x, i) => ({ id: `${d.id}:d${i}`, title: x.title, detail: x.detail, status: x.status, note: null, rejectReason: null }));
+  if (base[1] && r.bool(0.4)) {
+    base[1].detail = `${base[1].detail} · 2-urinish`;
+    base[1].note = "1-urinish rad etilgan: rasm xira, raqam o'qilmadi. Keyin qayta yuklandi.";
+  }
+  const carPhotoRejected = d.status !== "blocked" && hash(d.id) % 3 === 0;
+  base.push({
+    id: `${d.id}:car`,
+    title: "Mashina rasmi (4 tomondan)",
+    detail: carPhotoRejected ? "Old, chap, o'ng yuklangan · orqasi yo'q" : "Old, orqa, chap, o'ng",
+    status: carPhotoRejected ? "rejected" : d.status === "auto_review" ? "checking" : "verified",
+    note: null,
+    rejectReason: carPhotoRejected ? "orqa tomondan rasm yuklanmagan. Haydovchi ilovada \"Profil → Hujjatlar\" bo'limidan qayta yuklashi kerak." : null,
+  });
+  return base;
+}
+
+function driverHistory(d: Driver): { items: OpTimelineItem[]; lastBlock: OpDriverCard["lastBlock"] } {
+  const r = rngFor(`dh:${d.id}`);
+  const owner = pickStaff("owner", d.id);
+  const mgr = pickStaff("menejer", d.id);
+  const items: OpTimelineItem[] = [{ id: `${d.id}:h0`, title: "Tekshiruvdan o'tdi", detail: "Avtomatik tekshiruv", at: d.joinedAt + DAY, tone: "success" }];
+  let lastBlock: OpDriverCard["lastBlock"] = null;
+  const reason = r.pick(["naqd to'lovda yo'lovchidan ortiqcha pul so'ragan", "bir hafta ichida ko'p marta bekor qilgan", "yo'lovchilardan qo'pol muomala bo'yicha shikoyatlar"]);
+  if (d.status === "blocked") {
+    const from = today0() - r.int(2, 20) * DAY + r.int(9 * 60, 19 * 60) * MIN;
+    lastBlock = { from, to: null, reason, blockedBy: signed(owner, "owner"), unblockedBy: null };
+    items.push({ id: `${d.id}:h1`, title: "Bloklandi", detail: `${signed(owner, "owner")}: ${reason}`, at: from, tone: "danger" });
+  } else if (hash(d.id) % 4 === 0) {
+    const from = today0() - r.int(30, 60) * DAY + r.int(9 * 60, 19 * 60) * MIN;
+    const to = from + DAY - r.int(1, 6) * 60 * MIN;
+    lastBlock = { from, to, reason, blockedBy: signed(owner, "owner"), unblockedBy: signed(mgr, "menejer") };
+    items.push({ id: `${d.id}:h1`, title: "Bloklandi", detail: `${signed(owner, "owner")}: ${reason}`, at: from, tone: "danger" });
+    items.push({ id: `${d.id}:h2`, title: "Faol", detail: `${signed(mgr, "menejer")} blokdan chiqardi`, at: to, tone: "success" });
+  }
+  return { items: items.sort((a, b) => b.at - a.at), lastBlock };
+}
+
+function driverCard(d: Driver): OpDriverCard {
+  const r = rngFor(`dc:${d.id}`);
+  const subject: OpSubject = { kind: "driver", id: d.id };
+  const orders = driverOrders(d.id);
+  const current = orders.find((o) => o.status === "in_progress") ?? null;
+  const monthStart = new Date(today0()).setDate(1);
+  const docs = driverDocs(d);
+  const hist = driverHistory(d);
+  const st = readState();
+  const carClass: TariffCarClass | null = (d.seats ?? 4) >= 6 ? "minivan" : (["economy", "economy", "comfort", "business"] as const)[hash(d.id) % 4];
+  return {
+    id: d.id,
+    displayId: `D-${10400 + seqNo(d.id)}`,
+    name: d.name,
+    phone: d.phone,
+    status: d.status,
+    atDebtLimit: d.atDebtLimit,
+    carModel: d.carModel,
+    plate: d.plate,
+    onTrip: !!current,
+    actions: ["call", "request", "add_note"],
+    tabs: {
+      docs: docs.filter((x) => x.status !== "verified").length,
+      trips: orders.length,
+      cancels: orders.filter((o) => o.status === "cancelled").length,
+      complaints: db.complaints().filter((c) => c.driverId === d.id && (c.status === "open" || c.status === "reviewing")).length,
+      notes: notesFor(subject, st).length,
+    },
+    lastBlock: hist.lastBlock,
+    stats: {
+      trips: d.totalTrips,
+      rating: d.rating || null,
+      cancelsThisMonth: orders.filter((o) => o.status === "cancelled" && o.cancelledBy === "driver" && o.createdAt >= monthStart).length,
+      balance: d.walletBalance,
+    },
+    car: {
+      title: [d.carModel, d.carColor?.toLowerCase(), d.carYear].filter(Boolean).join(", "),
+      plate: d.plate,
+      carClass,
+      seats: d.seats,
+      routes: d.route ? [d.route] : [],
+      bodies: d.cargoBodies ?? [],
+      loaderHelp: d.loaderHelp,
+    },
+    app: {
+      version: r.pick(["2.0.3 · Android 14", "2.0.1 · Android 13", "1.9.8 · Android 12", "2.0.3 · iOS 18"]),
+      lastSeenAt: Math.floor(Date.now() / (10 * MIN)) * 10 * MIN - r.int(0, 30) * MIN,
+      lastLocation: current ? `${cityName(current.fromCityId)} – ${cityName(current.toCityId)} yo'lida` : `${cityName(d.cityId)}`,
+      speedKmh: current ? r.int(40, 95) : null,
+      currentTrip: current ? { id: current.id, from: cityName(current.fromCityId), to: cityName(current.toCityId) } : null,
+      minVersion: "2.0.0",
+    },
+    statusHistory: hist.items,
+  };
+}
+
+const PROVIDERS = ["payme", "click", "card"] as const;
+const TXN_PREFIX = { payme: "PM", click: "CL", card: "CR" } as const;
+function ledgerOf(d: Driver): OpLedgerRow[] {
+  return db
+    .walletEntries()
+    .filter((e) => e.driverId === d.id)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((e) => {
+      const p = PROVIDERS[hash(e.id) % 3];
+      return {
+        id: e.id,
+        at: e.createdAt,
+        type: e.type,
+        orderId: e.orderId ?? null,
+        txnId: e.type === "topup" ? `${TXN_PREFIX[p]}-${String(hash(e.id) % 9000 + 1000)}-${String(hash(e.id + "t") % 9000 + 1000)}` : null,
+        amount: e.amount,
+        balanceAfter: e.balanceAfter,
+      };
+    });
+}
+
+const COMPLAINT_TOPIC: Partial<Record<string, string>> = { service_quality: "Xizmat sifati", payment_dispute: "Ortiqcha pul" };
+const REVIEW_TEXTS = ["Hushmuomala, mashina toza.", "Vaqtida keldi.", "Hammasi zo'r.", "Yukni ehtiyotkorlik bilan tushirdi, biroz kechikdi.", null, "Yo'lda musiqani baland qo'ydi."];
+
 export const opCardsMock: OpCardsApi = {
   opSearch: (q) =>
     withLatency(() => {
@@ -615,5 +762,171 @@ export const opCardsMock: OpCardsApi = {
       st.notes[key] = [note, ...notesFor(subject, st)];
       writeState(st);
       return note;
+    }),
+
+  getOpDriver: (id) => withLatency(() => driverCard(requireDriver(id))),
+
+  getOpDriverDocs: (id) =>
+    withLatency(() => {
+      const d = requireDriver(id);
+      const docs = driverDocs(d);
+      const history: OpTimelineItem[] = [];
+      docs.forEach((doc, i) => {
+        const at = doc.status === "rejected" || doc.note ? today0() - (i + 1) * DAY + (10 * 60 + i) * MIN : d.joinedAt + DAY;
+        if (doc.status === "rejected") history.push({ id: `${doc.id}:r`, title: `${doc.title} rad etildi`, detail: doc.rejectReason?.split(".")[0] ?? null, at, tone: "danger" });
+        if (doc.note) {
+          history.push({ id: `${doc.id}:n1`, title: `${doc.title} rad etildi`, detail: "Rasm xira, raqam o'qilmadi", at: at - DAY, tone: "danger" });
+          history.push({ id: `${doc.id}:n2`, title: `${doc.title} tasdiqlandi`, detail: "2-urinish", at, tone: "success" });
+        }
+      });
+      history.push({ id: `${d.id}:docs0`, title: "Guvohnoma va selfi tasdiqlandi", detail: "Avtomatik", at: d.joinedAt + DAY, tone: "success" });
+      return { docs, history: history.sort((a, b) => b.at - a.at) };
+    }),
+
+  getOpDriverWallet: (id, query) =>
+    withLatency(() => {
+      const d = requireDriver(id);
+      const all = ledgerOf(d);
+      const months = [...new Set([monthKey(Date.now()), ...all.map((e) => monthKey(e.at))])].sort().reverse();
+      const month = query.month && months.includes(query.month) ? query.month : months[0];
+      const inMonth = all.filter((e) => monthKey(e.at) === month);
+      const curMonth = all.filter((e) => monthKey(e.at) === monthKey(Date.now()));
+      const untilLimit = d.walletBalance - d.debtLimit;
+      const topUps: OpTopUp[] = all
+        .filter((e) => e.type === "topup")
+        .slice(0, 5)
+        .map((e) => ({ id: e.id, at: e.at, provider: PROVIDERS[hash(e.id) % 3], txnId: e.txnId ?? "", amount: e.amount, status: "ok" as const }));
+      if (topUps[0] && hash(d.id) % 2 === 0)
+        topUps.splice(1, 0, { ...topUps[0], id: `${topUps[0].id}:f`, at: topUps[0].at - 4 * MIN, txnId: `${topUps[0].txnId.slice(0, 8)}0410`, status: "failed" });
+      return {
+        balance: d.walletBalance,
+        debtLimit: d.debtLimit,
+        untilLimit,
+        monthCommission: Math.abs((month === monthKey(Date.now()) ? curMonth : inMonth).filter((e) => e.type === "commission").reduce((a, e) => a + e.amount, 0)),
+        barPercent: Math.max(0, Math.min(100, Math.round((untilLimit / (Math.abs(d.debtLimit) * 2.5)) * 100))),
+        months,
+        month,
+        ledger: page(inMonth, query.page),
+        topUps,
+      };
+    }),
+
+  getOpDriverTrips: (id, query) =>
+    withLatency(() => {
+      requireDriver(id);
+      const all = driverOrders(id);
+      const months = [...new Set([monthKey(Date.now()), ...all.map((o) => monthKey(o.createdAt))])].sort().reverse();
+      const month = query.month && months.includes(query.month) ? query.month : months[0];
+      const inMonth = all.filter((o) => monthKey(o.createdAt) === month);
+      const done = inMonth.filter((o) => o.status === "completed");
+      const match: Record<OpDriverTripsFilter, (o: Order) => boolean> = {
+        all: () => true,
+        passenger: (o) => o.kind === "passenger",
+        delivery: (o) => o.kind === "delivery",
+        cancelled: (o) => o.status === "cancelled",
+      };
+      const counts = { all: inMonth.length, passenger: inMonth.filter(match.passenger).length, delivery: inMonth.filter(match.delivery).length, cancelled: inMonth.filter(match.cancelled).length };
+      const rows: OpDriverTripRow[] = inMonth.filter(match[query.filter]).map((o) => {
+        const p = db.getPassenger(o.passengerId);
+        return {
+          id: o.id,
+          kind: o.kind,
+          from: cityName(o.fromCityId),
+          to: cityName(o.toCityId),
+          at: o.createdAt,
+          passenger: p ? { name: shortName(p.name), phone: p.phone } : null,
+          bodySize: o.bodySize,
+          price: o.price,
+          commission: o.status === "completed" ? o.commission : null,
+          status: o.status,
+        };
+      });
+      const earned = done.reduce((a, o) => a + o.price, 0);
+      return {
+        ...page(rows, query.page),
+        summary: { trips: done.length, earned, commission: done.reduce((a, o) => a + (o.commission ?? 0), 0), avgPrice: done.length ? Math.round(earned / done.length / 1000) * 1000 : 0 },
+        counts,
+        months,
+        month,
+      };
+    }),
+
+  getOpDriverCancels: (id, period: OpCancelsPeriod) =>
+    withLatency(() => {
+      requireDriver(id);
+      const days = period === "1m" ? 30 : period === "3m" ? 90 : 365;
+      const all = driverOrders(id);
+      const inRange = all.filter((o) => o.createdAt >= today0() - days * DAY);
+      const rows: OpCancelRow[] = inRange
+        .filter((o) => o.status === "cancelled")
+        .map((o) => {
+          const by = cancelBy(o);
+          const fined = by === "driver" && hash(o.id) % 2 === 0;
+          return {
+            id: o.id,
+            at: o.createdAt,
+            orderId: o.id,
+            by,
+            reason: o.cancelReason ?? (by === "system" ? "Tizim bekor qildi" : "Sabab ko'rsatilmagan"),
+            penalty: fined ? 5000 : null,
+            penaltyStatus: fined ? "charged" : "none",
+          };
+        });
+      const driverCancels = rows.filter((x) => x.by === "driver").length;
+      return {
+        summary: {
+          driverCancels,
+          penalties: rows.reduce((a, x) => a + (x.penaltyStatus === "charged" ? x.penalty ?? 0 : 0), 0),
+          sharePct: inRange.length ? Math.round((driverCancels / inRange.length) * 1000) / 10 : 0,
+          avgSharePct: 2.4,
+        },
+        rows,
+      };
+    }),
+
+  getOpDriverReviews: (id) =>
+    withLatency(() => {
+      const d = requireDriver(id);
+      const rated = driverOrders(id).filter((o) => o.status === "completed" && o.rating);
+      const basis = Math.min(100, d.totalTrips);
+      const r = rngFor(`rev:${d.id}`);
+      const p5 = Math.max(50, Math.min(97, Math.round((d.rating - 4) * 95)));
+      const p1 = r.int(0, 1);
+      const p2 = Math.min(100 - p5 - p1, r.int(0, 2));
+      const p3 = Math.min(100 - p5 - p1 - p2, r.int(0, 3));
+      const p4 = 100 - p5 - p3 - p2 - p1;
+      const complaints: OpComplaintRow[] = db
+        .complaints()
+        .filter((c) => c.driverId === id && COMPLAINT_TOPIC[c.type])
+        .map((c) => {
+          const p = c.passengerId ? db.getPassenger(c.passengerId) : undefined;
+          return {
+            id: c.id,
+            at: c.createdAt,
+            fromName: p ? shortName(p.name) : "Yo'lovchi",
+            fromPhone: p?.phone ?? "",
+            topic: COMPLAINT_TOPIC[c.type] ?? "",
+            orderId: c.orderId ?? null,
+            status: c.status,
+          };
+        });
+      const reviews: OpReview[] = rated.slice(0, 6).map((o) => {
+        const p = db.getPassenger(o.passengerId);
+        return { id: o.id, stars: o.rating ?? 5, author: p ? shortName(p.name) : "Yo'lovchi", text: REVIEW_TEXTS[hash(o.id) % REVIEW_TEXTS.length], at: o.createdAt + (o.durationMin ?? 120) * MIN };
+      });
+      return {
+        rating: d.rating || null,
+        ratingBasis: basis,
+        distribution: [
+          { stars: 5, percent: p5 },
+          { stars: 4, percent: p4 },
+          { stars: 3, percent: p3 },
+          { stars: 2, percent: p2 },
+          { stars: 1, percent: p1 },
+        ],
+        openComplaints: complaints.filter((c) => c.status === "open" || c.status === "reviewing").length,
+        complaints,
+        reviews,
+      };
     }),
 };

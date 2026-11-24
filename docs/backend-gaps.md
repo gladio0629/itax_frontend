@@ -335,3 +335,36 @@ this operator may use now (`call`, `request`, `refund_request`, `sms_unlock`, `s
   `amount` is signed for `ledger_fix`.
 - `POST .../{kind}/{id}/notes` `{ text }` (1–1000 chars): returns the new note. The server sets
   author and category. Error: `VALIDATION_ERROR`.
+
+**Driver card.** Read-only for money, documents and blocking (changes go through "Menejerga
+so'rov"). No level and no SOS fields. The operator sees the balance and the full ledger here
+(doc 2.5, 2026-11-24), unlike the old operator drivers list.
+
+- `GET /admin/v1/operator/drivers/{id}`:
+  ```
+  { id, display_id: "D-10482", name, phone, status, at_debt_limit, car_model, plate, on_trip, actions: [...],
+    tabs: { docs, trips, cancels, complaints, notes },     // docs = documents that are not verified
+    last_block: { from, to | null, reason, blocked_by, unblocked_by | null } | null,
+    stats: { trips, rating, cancels_this_month, balance },
+    car: { title: "Chevrolet Cobalt, oq, 2021", plate, car_class: economy|comfort|business|minivan|null,
+           seats, routes: [string], bodies: ["S".."3XL"], loader_help },
+    app: { version, last_seen_at, last_location, speed_kmh, current_trip: { id, from, to } | null, min_version },
+    status_history: [{ id, title, detail, at, tone }] }
+  ```
+- `GET .../drivers/{id}/documents`: `{ docs: [{ id, title, detail, status: verified|checking|rejected,
+  note, reject_reason }], history: [timeline items] }`.
+- `GET .../drivers/{id}/wallet?month=YYYY-MM&page=`: `{ balance, debt_limit, until_limit, month_commission,
+  bar_percent (0–100), months: ["YYYY-MM"], month, ledger: page of { id, at, type, order_id, txn_id, amount,
+  balance_after }, top_ups: [{ id, at, provider: payme|click|card, txn_id, amount, status: ok|failed|pending }] }`.
+  `type` uses the ledger kinds (`commission`, `topup`, `tip`, `penalty`, `adjustment`, `cash`, `card`, ...).
+- `GET .../drivers/{id}/trips?filter=passenger|delivery|cancelled&month=&page=`: page of
+  `{ id, kind, from, to, at, passenger: { name, phone } | null, body_size, price, commission, status }` plus
+  `summary: { trips, earned, commission, avg_price }` for the month, `counts: { all, passenger, delivery,
+  cancelled }`, `months`, `month`.
+- `GET .../drivers/{id}/cancels?period=1m|3m|12m`: `{ summary: { driver_cancels, penalties, share_pct,
+  avg_share_pct }, rows: [{ id, at, order_id, by: driver|passenger|system, reason, penalty, penalty_status:
+  charged|none|waived }] }`.
+- `GET .../drivers/{id}/reviews`: `{ rating, rating_basis, distribution: [{ stars, percent }],
+  open_complaints, complaints: [{ id, at, from_name, from_phone, topic, order_id, status }],
+  reviews: [{ id, stars, author, text, at }] }`.
+- SMS and notes: the `{kind}` endpoints above with `drivers`.
