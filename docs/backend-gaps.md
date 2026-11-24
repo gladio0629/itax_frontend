@@ -337,3 +337,18 @@ Cancel `reason` is one of `passenger_asked`, `driver_asked`, `driver_no_show`, `
   gets new entries; old entries are never edited. The audit entries are `request_create`,
   `request_approve` and `request_reject`.
 - Both approve and reject answer `conflict` when the request was already decided.
+
+**Call results and history rights** (owner, 2026-11-24: no business rules in the frontend)
+
+| Method | Path | Response |
+|---|---|---|
+| GET | `/admin/v1/operator/call-results` | `[{ result, reason_required }]`: the results a call task may be finished with |
+
+- The doc 2.5 list is `resolved`, `no_answer`, `callback`, `escalated` and `rejected`. Only
+  `rejected` has `reason_required: true`.
+- Until the endpoint exists, the http adapter offers the results the current contract accepts.
+- Every history entry (`GET /admin/v1/operator/history`) should carry:
+  - `allowed_actions`: `["edit"]` when the caller may change its result and comment. Per doc 2.5,
+    that is the operator who owns the entry.
+  - `edit_results`: the results it may be changed to. "Rad etildi" only comes from the reject flow.
+- The UI shows "edit" only when the server lists it.

@@ -1,7 +1,7 @@
 // Operator order page and "Menejerga so'rov" (2026-11-24, doc 2.5
 // "Operator huquqlari"). Everything here is server data: statuses, money,
 // counts and which buttons appear (allowedActions). Screens only display it.
-import type { CargoBodySize, ListCounts, OrderKind, OrderStatus } from "../types";
+import type { CargoBodySize, HistoryResult, ListCounts, OrderKind, OrderStatus } from "../types";
 
 // ------------------------------------------------------------ order page
 
@@ -168,5 +168,8 @@ export type OpTasksSummary = {
   resolvedToday: number;
   total: number;
 };
+
+/** One call result the operator may choose (server list, doc 2.5). */
+export type CallResultOption = { result: HistoryResult; reasonRequired: boolean };
 
 export type ManagerRequestCounts = ListCounts<ManagerRequestStatus>;

@@ -1,4 +1,5 @@
 import type {
+  CallResultOption,
   ManagerRequest,
   ManagerRequestCounts,
   ManagerRequestInput,
@@ -31,6 +32,10 @@ export interface OpsAdapter {
   /** The signed-in operator's own requests. */
   getMyRequests(query: ManagerRequestQuery): Promise<ManagerRequest[]>;
   getMyTasksSummary(): Promise<OpTasksSummary>;
+
+  // --- call results (Navbat, Tarix, Operatorlar board) ---
+  /** Results a call task may be finished with, and which need a reason. */
+  getCallResults(): Promise<CallResultOption[]>;
 
   // --- manager "So'rovlar" (section requests) ---
   getManagerRequests(query: ManagerRequestQuery): Promise<ManagerRequest[]>;

@@ -17,7 +17,9 @@ import { formatNumber, formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { orderNo } from "@/features/orders/labels";
 import { REASON, REASON_CHIPS, RESULT, SUBJECT_LABEL, Tag, since } from "./labels";
+import { useCallResults } from "@/features/ops/useCallResults";
 import type { ActiveTask, HistoryResult, OperatorMyStats, QueueReason } from "@/api/types";
+import type { CallResultOption } from "@/api/ops/types";
 
 const caps = api.capabilities;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
@@ -38,6 +40,7 @@ export function OperatorQueueView() {
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const results = useCallResults();
 
   // Every change of the active task bumps this, so a late answer from an
   // older getActiveTask() (e.g. the refresh after "Yakunlash") can't
@@ -115,6 +118,7 @@ export function OperatorQueueView() {
             <CurrentTask
               task={active}
               key={active.id}
+              results={results}
               onDone={(msg) => {
                 putActive(null);
                 setToast(msg);
@@ -214,7 +218,7 @@ export function OperatorQueueView() {
   );
 }
 
-function CurrentTask({ task, onDone }: { task: ActiveTask; onDone: (message: string) => void }) {
+function CurrentTask({ task, results, onDone }: { task: ActiveTask; results: CallResultOption[] | null; onDone: (message: string) => void }) {
   const [result, setResult] = useState<HistoryResult | null>(null);
   const [note, setNote] = useState("");
   const [rejectReason, setRejectReason] = useState("");
@@ -228,7 +232,7 @@ function CurrentTask({ task, onDone }: { task: ActiveTask; onDone: (message: str
   }, []);
 
   const elapsed = task.startedAt ? Math.max(0, Math.floor((now - task.startedAt) / 1000)) : null;
-  const needReason = result === "rejected";
+  const needReason = !!results?.find((r) => r.result === result)?.reasonRequired;
   const canFinish = !!result && (!needReason || rejectReason.trim().length > 0);
 
   async function finish() {
@@ -308,7 +312,8 @@ function CurrentTask({ task, onDone }: { task: ActiveTask; onDone: (message: str
       <div className="flex flex-col gap-2" role="group" aria-label="Natija">
         <span className="label-caps text-muted">Natija</span>
         <div className="flex flex-wrap gap-2">
-          {caps.operatorResults.map((r) => (
+          {!results && <Skeleton className="h-11 w-full max-w-[420px] rounded-full" />}
+          {results?.map(({ result: r }) => (
             <button
               key={r}
               type="button"

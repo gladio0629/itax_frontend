@@ -28,7 +28,7 @@ import {
 } from "@/mockDb/db";
 import { formatDayShort, formatPhone } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
-import { mockOps, pendingRequestCount } from "./mockOps";
+import { mockOps, pendingRequestCount, withHistoryRights } from "./mockOps";
 import type {
   MarketingStats,
   OrderWithNames,
@@ -80,6 +80,7 @@ import type {
   OperatorMyStats,
   Marketing,
   Driver as ApiDriver,
+  HistoryEntry as ApiHistoryEntry,
 } from "../types";
 
 const FRAUD_TYPES: ComplaintType[] = ["suspicious_gps", "repeated_pair", "otp_abuse", "referral_abuse"];
@@ -1700,7 +1701,7 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   finishTask: (queueId, result, note, rejectReason) =>
-    withLatency<HistoryEntry>(() => {
+    withLatency<ApiHistoryEntry>(() => {
       const actor = currentAdmin();
       requireAction(actor, "operatorWork");
       if (result === "rejected" && !rejectReason) throw new ApiError("VALIDATION", "Rad etish sababini kiriting.");
@@ -1738,7 +1739,7 @@ export const mockAdapter: ApiAdapter = {
       hist.unshift(entry);
       saveHistory(hist);
       addAuditEntry({ actorId: actor.id, actorName: actor.name, action: "operator_task_result", targetType: "queue", targetId: queueId, detail: `Natija: ${result}` });
-      return entry;
+      return withHistoryRights(entry, actor);
     }),
 
   postponeTask: (queueId) =>
@@ -1786,7 +1787,7 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   getHistory: (query: OperatorApprovedQuery) =>
-    withLatency<HistoryEntry[]>(() => {
+    withLatency<ApiHistoryEntry[]>(() => {
       const actor = currentAdmin();
       let rows = readHistory();
       if (actor.role === "operator") {
@@ -1800,17 +1801,18 @@ export const mockAdapter: ApiAdapter = {
       if (query.dateFrom) rows = rows.filter((h) => h.resolvedAt >= dayStartMs(query.dateFrom!));
       if (query.dateTo) rows = rows.filter((h) => h.resolvedAt <= dayEndMs(query.dateTo!));
       if (query.search) rows = rows.filter((h) => matchesSearch(`${h.phone} ${h.note} ${h.operatorName}`, query.search));
-      return rows;
+      return rows.map((h) => withHistoryRights(h, actor));
     }),
 
   editHistoryEntry: (id, patch) =>
-    withLatency<HistoryEntry>(() => {
+    withLatency<ApiHistoryEntry>(() => {
       const actor = currentAdmin();
       requireAction(actor, "operatorWork");
       const all = readHistory();
       const entry = all.find((h) => h.id === id);
       if (!entry) throw new ApiError("NOT_FOUND", "Topilmadi");
-      if (entry.operatorId !== actor.id) throw new ApiError("FORBIDDEN", "Faqat o'z tarixingizni tahrirlay olasiz.");
+      if (!withHistoryRights(entry, actor).allowedActions?.includes("edit")) throw new ApiError("FORBIDDEN", "Faqat o'z tarixingizni tahrirlay olasiz.");
+      if (patch.result && !withHistoryRights(entry, actor).editResults?.includes(patch.result)) throw new ApiError("VALIDATION", "Bu natijani tanlab bo'lmaydi.");
       Object.assign(entry, patch, { edited: true });
       saveHistory(all);
       addAuditEntry({
@@ -1821,7 +1823,7 @@ export const mockAdapter: ApiAdapter = {
         targetId: id,
         detail: "Tarix yozuvi tahrirlandi",
       });
-      return entry;
+      return withHistoryRights(entry, actor);
     }),
 
   getOperatorCounts: (query = {}) =>

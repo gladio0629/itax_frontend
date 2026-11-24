@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { History, Pencil, Search } from "lucide-react";
 import { api } from "@/api/client";
-import { usePermissions } from "@/hooks/usePermissions";
 import { useAdapterList } from "@/hooks/useAdapterList";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
@@ -15,6 +14,7 @@ import { Toast } from "@/components/Toast";
 import { formatDateTime } from "@/lib/format";
 import { REASON, REASON_CHIPS, RESULT, Tag } from "./labels";
 import { dayPresetRange, type DayPreset } from "@/lib/periods";
+import { useCallResults } from "@/features/ops/useCallResults";
 import type { HistoryEntry, HistoryResult, QueueReason } from "@/api/types";
 
 const caps = api.capabilities;
@@ -30,7 +30,6 @@ const PERIODS: { value: DayPreset; label: string }[] = [
 
 /** The operator's resolved calls (result and note editable). */
 export function MyTasks() {
-  const { me } = usePermissions();
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<HistoryResult | "all">("all");
   const [reason, setReason] = useState<QueueReason | "all">("all");
@@ -45,7 +44,9 @@ export function MyTasks() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const canEdit = (e: HistoryEntry) => caps.historyEdit && !!me?.actions.includes("operatorWork") && e.operatorId === me?.id;
+  const results = useCallResults();
+  // Editing and its choices are the server's (entry.allowedActions / editResults).
+  const canEdit = (e: HistoryEntry) => !!e.allowedActions?.includes("edit");
 
   function openEdit(e: HistoryEntry) {
     setEditing(e);
@@ -69,10 +70,7 @@ export function MyTasks() {
     }
   }
 
-  // "Rad etildi" is set by the reject flow (with its reason), not by editing.
-  const editOptions = caps.operatorResults
-    .filter((r) => r !== "rejected" || editing?.result === "rejected")
-    .map((r) => ({ value: r, label: RESULT[r].label }));
+  const editOptions = (editing?.editResults ?? []).map((r) => ({ value: r, label: RESULT[r].label }));
   if (editing && !editOptions.some((o) => o.value === editing.result)) editOptions.push({ value: editing.result, label: RESULT[editing.result].label });
 
   const columns: Column<HistoryEntry>[] = [
@@ -127,7 +125,7 @@ export function MyTasks() {
             aria-label="Natija"
             value={result}
             onChange={setResult}
-            options={[{ value: "all", label: "Hammasi" }, ...caps.operatorResults.map((r) => ({ value: r, label: RESULT[r].label }))]}
+            options={[{ value: "all", label: "Hammasi" }, ...(results ?? []).map((r) => ({ value: r.result, label: RESULT[r.result].label }))]}
           />
           <FilterSelect label="Sana" aria-label="Sana" value={period} onChange={setPeriod} options={PERIODS} />
         </div>

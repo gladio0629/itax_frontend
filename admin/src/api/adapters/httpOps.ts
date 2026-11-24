@@ -6,7 +6,13 @@
 import type { QueryValue } from "@shared/http/client";
 import { session } from "../httpSession";
 import type { OpsAdapter } from "../ops/adapter";
-import type { ManagerRequestQuery } from "../ops/types";
+import type { CallResultOption, ManagerRequestQuery } from "../ops/types";
+import type { HistoryResult } from "../types";
+
+/** Results the current contract accepts: complete(result) plus the reject
+ * endpoint, which requires a reason. Replaced by GET
+ * /admin/v1/operator/call-results once the server has it (backend-gaps). */
+const CONTRACT_RESULTS: HistoryResult[] = ["resolved", "no_answer", "callback", "escalated", "rejected"];
 
 const http = session.http;
 const enc = encodeURIComponent;
@@ -42,6 +48,10 @@ function listQuery(q: Partial<ManagerRequestQuery>): Record<string, QueryValue> 
 }
 
 export const httpOps: OpsAdapter = {
+  async getCallResults() {
+    return CONTRACT_RESULTS.map((result): CallResultOption => ({ result, reasonRequired: result === "rejected" }));
+  },
+
   async getOpOrder(id) {
     return fromWire(await http.get(OP_ORDER(id)));
   },

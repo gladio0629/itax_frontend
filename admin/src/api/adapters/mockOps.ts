@@ -13,13 +13,16 @@ import {
   getStaff as readStaff,
   getStaffMember,
   type AdminUser,
+  type HistoryEntry as DbHistoryEntry,
   type Section,
 } from "@/mockDb/db";
 import { makeRng } from "@/lib/prng";
 import { formatNumber } from "@/lib/format";
 import type { CargoBodySize, Order } from "@/seed/generate";
 import type { OpsAdapter } from "../ops/adapter";
+import type { HistoryEntry, HistoryResult } from "../types";
 import type {
+  CallResultOption,
   ManagerRequest,
   ManagerRequestPreview,
   ManagerRequestQuery,
@@ -563,7 +566,34 @@ function findRequest(id: string): { rows: StoredRequest[]; r: StoredRequest } {
   return { rows, r };
 }
 
+// ---------------------------------------------------------- call results
+
+/** Doc 2.5 (2026-11-22): five results; "Rad etish" needs a reason. */
+const CALL_RESULTS: CallResultOption[] = [
+  { result: "resolved", reasonRequired: false },
+  { result: "no_answer", reasonRequired: false },
+  { result: "callback", reasonRequired: false },
+  { result: "escalated", reasonRequired: false },
+  { result: "rejected", reasonRequired: true },
+];
+
+/** Server rights on a history entry: the operator edits the result and
+ * comment of their own entries (doc 2.5 "Tarix"). "Rad etildi" is set only
+ * by the reject flow, so it is offered only to an entry that already has it. */
+export function withHistoryRights(entry: DbHistoryEntry, u: AdminUser): HistoryEntry {
+  const own = ROLE_ACTIONS[u.role].includes("operatorWork") && entry.operatorId === u.id;
+  const editResults: HistoryResult[] = CALL_RESULTS.map((c) => c.result).filter((r) => r !== "rejected" || entry.result === "rejected");
+  return { ...entry, allowedActions: own ? ["edit"] : [], editResults: own ? editResults : [] };
+}
+
 export const mockOps: OpsAdapter = {
+  getCallResults: () =>
+    withLatency(() => {
+      const u = actor();
+      if (!ROLE_ACTIONS[u.role].some((a) => a === "operatorWork" || a === "operatorSupervise")) throw new ApiError("FORBIDDEN", "Bu bo'lim uchun ruxsatingiz yo'q.");
+      return CALL_RESULTS;
+    }),
+
   getOpOrder: (id) =>
     withLatency(() => {
       requireAny(actor(), ["orders", "orders_view"]);

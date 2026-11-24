@@ -100,6 +100,10 @@ export type HistoryEntry = Omit<SeedHistoryEntry, "reason" | "phone" | "result">
   result: HistoryResult;
   phone: string | null;
   subjectLabel?: string;
+  /** Server: what the signed-in staff member may do with this entry. */
+  allowedActions?: "edit"[];
+  /** Server: results this entry may be changed to when editing. */
+  editResults?: HistoryResult[];
 };
 /** Passenger car classes (Standart, Komfort, Biznes, Miniven). */
 export type TariffCarClass = "economy" | "comfort" | "business" | "minivan";
