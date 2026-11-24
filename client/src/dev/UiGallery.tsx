@@ -33,7 +33,8 @@ import {
   type IconName,
 } from "@/ui";
 import { SeatPicker } from "@/features/trip/SeatPicker";
-import type { Driver, OrderWithDetails, Seat } from "@/api/types";
+import type { Driver, OrderWithDetails } from "@/api/types";
+import type { SeatLayout } from "@/api/seatLayout";
 import { DriverCardDark, DriverRow, PhaseBar } from "@/features/live/LiveParts";
 
 /** The real backend's driver today: only the id (no name, car or plate). */
@@ -49,12 +50,23 @@ const ICONS: IconName[] = [
   "homeFilled", "seats", "chevronDown", "card", "box", "map", "starSharp",
 ];
 
-const SAMPLE_SEATS: Seat[] = [
-  { id: "front", position: "front", taken: false, price: 0 },
-  { id: "back-left", position: "back-left", taken: true, price: 0 },
-  { id: "back-mid", position: "back-mid", taken: false, price: 0 },
-  { id: "back-right", position: "back-right", taken: false, price: 0 },
-];
+const SAMPLE_LAYOUT: SeatLayout = {
+  carClass: "standart",
+  cabin: "sedan",
+  rows: [
+    [
+      { id: "driver", kind: "driver", taken: true },
+      { id: "front", kind: "passenger", taken: false },
+    ],
+    [
+      { id: "back-left", kind: "passenger", taken: true },
+      { id: "back-mid", kind: "passenger", taken: false },
+      { id: "back-right", kind: "passenger", taken: false },
+    ],
+  ],
+  passengerSeats: 4,
+  wholeCarAvailable: false,
+};
 
 type View = "kit" | "empty" | "error" | "loading" | "offline";
 
@@ -157,7 +169,7 @@ export default function UiGallery() {
             </div>
 
             <SectionLabel>Seat picker (back-left taken)</SectionLabel>
-            <SeatPicker seats={SAMPLE_SEATS} mode="seat" seatIds={seatIds} onChange={(_m, ids) => setSeatIds(ids)} />
+            <SeatPicker layout={SAMPLE_LAYOUT} mode="seat" seatIds={seatIds} onChange={(_m, ids) => setSeatIds(ids)} />
 
             <SectionLabel>Live order (full driver / id only)</SectionLabel>
             <PhaseBar current={1} />

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import type { Address, CarClass, CarClassId, Quote, Seat } from "@/api/types";
+import type { Address, CarClass, CarClassId, Quote } from "@/api/types";
+import { layoutFor, type SeatLayout } from "@/api/seatLayout";
 import type { OrderDraft } from "@/stores/orderStore";
 import { formatNumber, formatSom, SOM_LABEL } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
@@ -154,7 +155,8 @@ export function TripScreen({
   stops: (Address | undefined)[];
   /** null: no limit known yet; 0: stops not offered. */
   maxStops: number | null;
-  seats: Load<Seat[]>;
+  /** Seat layouts of every class; the picker shows the chosen class's. */
+  seats: Load<SeatLayout[]>;
   classes: Load<CarClass[]>;
   quote: Load<Quote>;
   /** The quote matches what is on screen (false while re-pricing). */
@@ -174,6 +176,7 @@ export function TripScreen({
 }) {
   const { t } = useT();
   const needSeats = draft.mode === "seat" && draft.seatIds.length === 0;
+  const layout = seats.status === "success" ? layoutFor(seats.data, draft.carClass) : null;
 
   const detailsButton = (p: RoutePoint, place: string | undefined) =>
     onDetails && place ? (
@@ -265,9 +268,15 @@ export function TripScreen({
         )}
       </div>
 
-      {seats.status === "success" ? (
-        <SeatPicker seats={seats.data} mode={draft.mode} seatIds={draft.seatIds} onChange={onSeats} />
-      ) : seats.status === "error" ? (
+      {layout ? (
+        <SeatPicker
+          layout={layout}
+          classLabel={t(`class.${layout.carClass}` as TranslationKey)}
+          mode={draft.mode}
+          seatIds={draft.seatIds}
+          onChange={onSeats}
+        />
+      ) : seats.status === "error" || (seats.status === "success" && seats.data.length > 0) ? (
         <button type="button" onClick={onRetrySeats} className="flex h-11 items-center gap-2 self-start text-[14px] font-bold text-iz-danger">
           <Icon name="refresh" size={18} />
           {t("seats.loadFailed")} · {t("common.retry")}

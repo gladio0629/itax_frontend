@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
-import type { Address, AddressDetails, CarClass, OrderDetailsRules, SchedulingRules, Seat } from "@/api/types";
+import type { Address, AddressDetails, CarClass, CarClassId, OrderDetailsRules, SchedulingRules } from "@/api/types";
+import { fitSeatsToLayout, layoutFor, type SeatLayout } from "@/api/seatLayout";
 import { newStopUid, type OrderDraft } from "@/stores/orderStore";
 import { useQuery } from "@/lib/useQuery";
 import { useT } from "@/lib/i18n/provider";
@@ -121,21 +122,27 @@ export function PassengerFlow({
   const seatsKey = draft.seatIds.join(",");
 
   const [seatsReload, setSeatsReload] = useState(0);
-  const seats = useQuery<Seat[]>(
-    () => (canQuote ? api.getSeatMap({ fromAddressId: draft.fromAddressId, toAddressId: draft.toAddressId }) : Promise.resolve([])),
+  // Seat layout of every class (sedan or minivan cabin, taken seats).
+  const seats = useQuery<SeatLayout[]>(
+    () => (canQuote ? api.getSeatLayouts({ fromAddressId: draft.fromAddressId, toAddressId: draft.toAddressId }) : Promise.resolve([])),
     [canQuote, draft.fromAddressId, draft.toAddressId, seatsReload]
   );
-  // A seat taken in the meantime: drop it from the draft (whole car too).
-  useEffect(() => {
-    if (seats.status !== "success") return;
-    const taken = new Set<string>(seats.data.filter((s) => s.taken).map((s) => s.id));
+  /** Keep only the picked seats the class's layout has free (whole car only
+   * while the server offers it). */
+  function fitSeats(carClass: CarClassId, layouts: SeatLayout[] | null) {
+    const layout = layoutFor(layouts, carClass);
+    if (!layout) return;
     const d = draftRef.current;
-    if (d.mode === "car" && taken.size > 0) {
-      setField("mode", "seat");
-      setField("seatIds", []);
-    } else if (d.seatIds.some((id) => taken.has(id))) setField("seatIds", d.seatIds.filter((id) => !taken.has(id)));
+    const next = fitSeatsToLayout(layout, d.mode, d.seatIds);
+    if (next.mode !== d.mode) setField("mode", next.mode);
+    if (next.seatIds.length !== d.seatIds.length) setField("seatIds", next.seatIds);
+  }
+  const layoutsData = seats.status === "success" ? seats.data : null;
+  // A seat taken in the meantime, or the class changed: drop what no longer fits.
+  useEffect(() => {
+    fitSeats(draft.carClass, layoutsData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seats.status === "success" ? seats.data : null]);
+  }, [layoutsData, draft.carClass]);
 
   // Wishes are removed (2026-11-22): nothing is ever sent as an option.
   const quoteInput = {
@@ -163,7 +170,10 @@ export function PassengerFlow({
     const cur = classes.data.find((c) => c.id === draftRef.current.carClass);
     if (cur && !cur.available) {
       const first = classes.data.find((c) => c.available);
-      if (first) setField("carClass", first.id);
+      if (first) {
+        setField("carClass", first.id);
+        fitSeats(first.id, layoutsData);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classes.status === "success" ? classes.data : null]);
@@ -182,10 +192,10 @@ export function PassengerFlow({
 
   const lastQuote = useRef(null as null | Awaited<ReturnType<typeof api.getQuote>>);
   const lastClasses = useRef<CarClass[] | null>(null);
-  const lastSeats = useRef<Seat[] | null>(null);
+  const lastSeats = useRef<SeatLayout[] | null>(null);
   const quoteView = settle(quote as { status: string; data?: Awaited<ReturnType<typeof api.getQuote>> }, lastQuote);
   const classesView = settle(classes as { status: string; data?: CarClass[] }, lastClasses);
-  const seatsView = settle(seats as { status: string; data?: Seat[] }, lastSeats);
+  const seatsView = settle(seats as { status: string; data?: SeatLayout[] }, lastSeats);
 
   // ── Route points ───────────────────────────────────────────────────────
   function pointAddressId(p: RoutePoint): string {
@@ -368,7 +378,11 @@ export function PassengerFlow({
             setField("mode", mode);
             setField("seatIds", seatIds);
           }}
-          onClass={(id) => setField("carClass", id)}
+          onClass={(id) => {
+            // Same tick as the class, so no quote goes out with seats the new cabin lacks.
+            setField("carClass", id);
+            fitSeats(id, layoutsData);
+          }}
           onExtras={() => setOverlay({ kind: "extras" })}
           onRetrySeats={() => setSeatsReload((n) => n + 1)}
           onContinue={() => goStep("payment")}
