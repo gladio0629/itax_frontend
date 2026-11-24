@@ -147,6 +147,8 @@ export type Section =
    * balances. Separate from "orders"/"drivers" so they open nothing else. */
   | "orders_view"
   | "drivers_view"
+  /** Operator "Yo'lovchilar" window and passenger card (2026-11-24). */
+  | "passengers_view"
   /** Marketolog's "Umumiy statistika" (design Marketing). */
   | "marketing";
 
@@ -181,7 +183,7 @@ export const ROLE_SECTIONS: Record<AdminRole, Section[]> = {
   owner: ALL_SECTIONS,
   menejer: ALL_SECTIONS,
   marketolog: ["marketing"],
-  operator: ["operators", "orders_view", "drivers_view"],
+  operator: ["operators", "orders_view", "drivers_view", "passengers_view"],
 };
 
 export const ROLE_ACTIONS: Record<AdminRole, Action[]> = {

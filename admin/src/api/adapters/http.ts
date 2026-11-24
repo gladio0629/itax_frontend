@@ -9,6 +9,7 @@ import { ApiError, type ErrorParams } from "@shared/http/errors";
 import { uuidV4 } from "@shared/http/uuid";
 import type { QueryValue } from "@shared/http/client";
 import type { ApiAdapter } from "../adapterTypes";
+import { opCardsHttp } from "./opCardsHttp";
 import { adminErrorMessage } from "../httpErrors";
 import { session } from "../httpSession";
 import * as map from "../httpMapper";
@@ -243,6 +244,7 @@ async function complaintDetail(id: string): Promise<Complaint> {
 
 // --------------------------------------------------------------- adapter
 export const httpAdapter: ApiAdapter = {
+  ...opCardsHttp(http),
   capabilities: CAPABILITIES,
   onSessionEnd: (listener) =>
     session.onEnd((reason) => {

@@ -28,6 +28,7 @@ import {
 } from "@/mockDb/db";
 import { formatDayShort, formatPhone } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
+import { opCardsMock } from "./opCardsMock";
 import type {
   MarketingStats,
   OrderWithNames,
@@ -488,6 +489,7 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
 };
 
 export const mockAdapter: ApiAdapter = {
+  ...opCardsMock,
   capabilities: MOCK_CAPABILITIES,
   // The mock session never expires on its own (idle logout is UI-side).
   onSessionEnd: () => () => {},

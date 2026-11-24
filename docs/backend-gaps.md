@@ -255,3 +255,36 @@ Native apps (Capacitor) need an endpoint to register a device push token:
 `POST /api/v1/devices` `{ platform: "ios"|"android", token, app: "client"|"driver" }`
 and `DELETE` on logout. Notification service then sends via FCM/APNs with minimal
 payload (event ID only, F-21). Until then the apps ship without push.
+
+## admin (operator, 2026-11-24)
+
+### Search, passengers, passenger card, driver card (terminal A)
+
+Doc 2.5 "Operator huquqlari (2026-11-24)". Frontend: `admin/src/api/opCards/` (types, interface),
+`admin/src/api/adapters/opCardsHttp.ts` (calls below), `opCardsMock.ts` (sample server).
+All JSON is snake_case, times are ISO 8601, money is whole so'm. Errors: `{ error: { key, params } }`
+with the usual keys (`UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`).
+
+Access: every endpoint below is for staff whose `GET /admin/v1/me` sections include the operator
+windows. New section key **`passengers_view`** (operator "Yo'lovchilar" window and passenger card),
+next to the existing `drivers_view` and `orders_view`. The server checks it; the frontend only hides.
+Phones are returned in full (decision 2026-11-22). No driver level and no SOS in these responses.
+
+Lists use one page shape: `{ items: [...], total, page, page_size }`, `page` is 1-based.
+
+**`GET /admin/v1/operator/search?q=`**: phone (any digits), name, order ID (`#48213`, `48213`) or plate.
+Response:
+```
+{ passengers: [{ id, name, phone, orders_count, status: "active"|"warned"|"blocked" }],
+  drivers:    [{ id, name, phone, car_model, plate, status, at_debt_limit }],
+  orders:     [{ id, kind: "passenger"|"delivery", from, to, created_at,
+                 person: { role: "driver"|"passenger", name } | null, price, status }],
+  counts: { passengers, drivers, orders } }
+```
+Each list holds at most 20 hits; `counts` are the full totals. `person` is the side that matched
+the query (or the driver when the order ID matched).
+
+**`GET /admin/v1/operator/passengers?q=&status=&page=`**: `status` = `active|warned|blocked`
+(absent = all). Response: page of
+`{ id, name, phone, orders_count, rating, last_trip_at, status }` plus
+`counts: { all, active, warned, blocked }` for the same `q`.

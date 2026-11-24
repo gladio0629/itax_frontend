@@ -4,6 +4,7 @@ import { DriversScreen } from "@/features/drivers/DriversScreen";
 import { OperatorsBoard } from "./OperatorsBoard";
 import { OperatorQueueView } from "./OperatorQueueView";
 import { OperatorHistory } from "./OperatorHistory";
+import { opCardRoutes } from "@/features/opCards/routes";
 
 /** `/operators/*`. Which window opens is decided by Me (actions and
  * sections), never by a role name: "operatorWork" gets the operator's own
@@ -20,6 +21,7 @@ export function OperatorsScreen() {
       <Route index element={canWork ? <OperatorQueueView /> : canSupervise ? <OperatorsBoard /> : <Navigate to="/" replace />} />
       <Route path="history" element={canWork ? <OperatorHistory /> : <Navigate to="/operators" replace />} />
       <Route path="drivers" element={canDrivers ? <DriversScreen readOnly /> : <Navigate to="/operators" replace />} />
+      {opCardRoutes(me)}
       <Route path="*" element={<Navigate to="/operators" replace />} />
     </Routes>
   );
