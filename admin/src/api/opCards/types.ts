@@ -102,7 +102,7 @@ export type OpPassengerCard = {
     lastOrder: { id: string; createdAt: number } | null;
   };
   statusHistory: OpTimelineItem[];
-  deletionRequest: { requestedAt: number; reason: string | null; autoDeleteAt: number } | null;
+  deletionRequest: { status: "reviewing" | "approved"; requestedAt: number; reason: string | null; autoDeleteAt: number } | null;
 };
 
 export type OpPassengerOrdersFilter = "all" | "active" | "completed" | "cancelled";
@@ -204,7 +204,8 @@ export type OpDriverCard = {
   tabs: { docs: number; trips: number; cancels: number; complaints: number; notes: number };
   /** The last block, shown as a banner while it is recent. */
   lastBlock: { from: number; to: number | null; reason: string; blockedBy: string; unblockedBy: string | null } | null;
-  stats: { trips: number; rating: number | null; cancelsThisMonth: number; balance: number };
+  /** `ratingBasis`: how many recent trips the rating covers. */
+  stats: { trips: number; rating: number | null; ratingBasis: number; cancelsThisMonth: number; balance: number };
   car: {
     /** "Chevrolet Cobalt, oq, 2021" */
     title: string;

@@ -43,7 +43,13 @@ const nowMonth = () => {
  * (designs OpDriver + OpDriver*). Money, documents and blocking are
  * read-only; changes go through "Menejerga so'rov". */
 export function OpDriverPage() {
-  const { driverId = "", tab } = useParams();
+  const { driverId = "" } = useParams();
+  // Keyed by id: another driver's card never shows while this one loads.
+  return <DriverCard key={driverId} driverId={driverId} />;
+}
+
+function DriverCard({ driverId }: { driverId: string }) {
+  const { tab } = useParams();
   const { data: card, error, loading, reload } = useOpData(
     () =>
       api.getOpDriver(driverId).catch((e) => {
@@ -151,7 +157,7 @@ function Overview({ card }: { card: OpDriverCard }) {
       )}
       <StatRow>
         <OpStat label="Safarlar" value={formatNumber(s.trips)} sub="jami" />
-        <OpStat label="Reyting" value={s.rating ? s.rating.toFixed(2) : "—"} sub="so'nggi 100 safar" />
+        <OpStat label="Reyting" value={s.rating ? s.rating.toFixed(2) : "—"} sub={`so'nggi ${s.ratingBasis} safar`} />
         <OpStat label="Bekor qilgan" value={s.cancelsThisMonth} sub={monthIn(nowMonth())} tone={s.cancelsThisMonth > 0 ? "danger" : undefined} />
         <OpStat label="Balans" value={formatNumber(s.balance)} sub="so'm" tone={s.balance < 0 ? "danger" : undefined} />
       </StatRow>

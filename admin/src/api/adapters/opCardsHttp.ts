@@ -97,7 +97,7 @@ type ApiPassengerCard = {
   stats: { orders: number; cancelled: number; cancelled_this_week: number; bonus_balance: number; rating: number | null };
   profile: { app: string | null; main_payment: PaymentMethod | null; saved_addresses: string[]; last_order: { id: string; created_at: string } | null };
   status_history: ApiTimelineItem[];
-  deletion_request: { requested_at: string; reason: string | null; auto_delete_at: string } | null;
+  deletion_request: { status: "reviewing" | "approved"; requested_at: string; reason: string | null; auto_delete_at: string } | null;
 };
 const passengerCard = (c: ApiPassengerCard): OpPassengerCard => ({
   id: c.id,
@@ -125,6 +125,7 @@ const passengerCard = (c: ApiPassengerCard): OpPassengerCard => ({
   },
   statusHistory: c.status_history.map(timelineItem),
   deletionRequest: c.deletion_request && {
+    status: c.deletion_request.status,
     requestedAt: msReq(c.deletion_request.requested_at),
     reason: c.deletion_request.reason,
     autoDeleteAt: msReq(c.deletion_request.auto_delete_at),
@@ -239,7 +240,7 @@ type ApiDriverCard = {
   actions: OpCardAction[];
   tabs: { docs: number; trips: number; cancels: number; complaints: number; notes: number };
   last_block: { from: string; to: string | null; reason: string; blocked_by: string; unblocked_by: string | null } | null;
-  stats: { trips: number; rating: number | null; cancels_this_month: number; balance: number };
+  stats: { trips: number; rating: number | null; rating_basis: number; cancels_this_month: number; balance: number };
   car: { title: string; plate: string; car_class: TariffCarClass | null; seats: number | null; routes: string[]; bodies: CargoBodySize[]; loader_help: boolean | null };
   app: {
     version: string | null;
@@ -270,7 +271,7 @@ const driverCard = (c: ApiDriverCard): OpDriverCard => ({
     blockedBy: c.last_block.blocked_by,
     unblockedBy: c.last_block.unblocked_by,
   },
-  stats: { trips: c.stats.trips, rating: c.stats.rating, cancelsThisMonth: c.stats.cancels_this_month, balance: c.stats.balance },
+  stats: { trips: c.stats.trips, rating: c.stats.rating, ratingBasis: c.stats.rating_basis, cancelsThisMonth: c.stats.cancels_this_month, balance: c.stats.balance },
   car: {
     title: c.car.title,
     plate: c.car.plate,

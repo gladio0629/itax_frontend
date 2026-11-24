@@ -480,7 +480,7 @@ function passengerCard(p: Passenger): OpPassengerCard {
       lastOrder: orders[0] ? { id: orders[0].id, createdAt: orders[0].createdAt } : null,
     },
     statusHistory: history,
-    deletionRequest: deletion ? { requestedAt, reason: r.pick(["Boshqa raqamga o'tyapman", null]), autoDeleteAt: requestedAt + 30 * DAY } : null,
+    deletionRequest: deletion ? { status: "reviewing", requestedAt, reason: r.pick(["Boshqa raqamga o'tyapman", null]), autoDeleteAt: requestedAt + 30 * DAY } : null,
   };
 }
 
@@ -588,7 +588,7 @@ function driverCard(d: Driver): OpDriverCard {
     actions: ["call", "request", "add_note"],
     tabs: {
       docs: docs.filter((x) => x.status !== "verified").length,
-      trips: orders.length,
+      trips: d.totalTrips,
       cancels: orders.filter((o) => o.status === "cancelled").length,
       complaints: db.complaints().filter((c) => c.driverId === d.id && (c.status === "open" || c.status === "reviewing")).length,
       notes: notesFor(subject, st).length,
@@ -597,6 +597,7 @@ function driverCard(d: Driver): OpDriverCard {
     stats: {
       trips: d.totalTrips,
       rating: d.rating || null,
+      ratingBasis: Math.min(100, d.totalTrips),
       cancelsThisMonth: orders.filter((o) => o.status === "cancelled" && o.cancelledBy === "driver" && o.createdAt >= monthStart).length,
       balance: d.walletBalance,
     },

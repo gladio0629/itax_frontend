@@ -25,7 +25,13 @@ const isNotFound = (e: unknown) => isApiError(e) && /NOT_FOUND$/.test(e.code);
  * (designs OpPassenger + OpPassenger*). Read-only except the actions the
  * server lists (SMS, notes, manager request). */
 export function OpPassengerPage() {
-  const { passengerId = "", tab } = useParams();
+  const { passengerId = "" } = useParams();
+  // Keyed by id: another passenger's card never shows while this one loads.
+  return <PassengerCard key={passengerId} passengerId={passengerId} />;
+}
+
+function PassengerCard({ passengerId }: { passengerId: string }) {
+  const { tab } = useParams();
   const { data: card, error, loading, reload } = useOpData(
     () =>
       api.getOpPassenger(passengerId).catch((e) => {
@@ -148,7 +154,13 @@ function Overview({ card }: { card: OpPassengerCard }) {
         </Section>
         <Section
           title="Hisobni o'chirish so'rovi"
-          right={del ? <Badge tone="warning">Ko'rib chiqilmoqda</Badge> : <Badge tone="neutral">Yo'q</Badge>}
+          right={
+            del ? (
+              del.status === "approved" ? <Badge tone="danger">Tasdiqlangan</Badge> : <Badge tone="warning">Ko'rib chiqilmoqda</Badge>
+            ) : (
+              <Badge tone="neutral">Yo'q</Badge>
+            )
+          }
         >
           {del ? (
             <>

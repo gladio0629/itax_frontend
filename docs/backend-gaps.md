@@ -301,7 +301,7 @@ this operator may use now (`call`, `request`, `refund_request`, `sms_unlock`, `s
     stats: { orders, cancelled, cancelled_this_week, bonus_balance, rating },
     profile: { app, main_payment, saved_addresses: [string], last_order: { id, created_at } | null },
     status_history: [{ id, title, detail, at, tone: "success"|"danger"|"neutral" }],
-    deletion_request: { requested_at, reason, auto_delete_at } | null }
+    deletion_request: { status: reviewing|approved, requested_at, reason, auto_delete_at } | null }
   ```
 - `GET .../passengers/{id}/orders?status=active|completed|cancelled&period=today|yesterday|7d|30d|90d&page=`:
   page of `{ id, kind, from, to, created_at, driver: { name, phone } | null, payment, price, status,
@@ -345,7 +345,7 @@ so'rov"). No level and no SOS fields. The operator sees the balance and the full
   { id, display_id: "D-10482", name, phone, status, at_debt_limit, car_model, plate, on_trip, actions: [...],
     tabs: { docs, trips, cancels, complaints, notes },     // docs = documents that are not verified
     last_block: { from, to | null, reason, blocked_by, unblocked_by | null } | null,
-    stats: { trips, rating, cancels_this_month, balance },
+    stats: { trips, rating, rating_basis, cancels_this_month, balance },   // rating_basis = trips the rating covers
     car: { title: "Chevrolet Cobalt, oq, 2021", plate, car_class: economy|comfort|business|minivan|null,
            seats, routes: [string], bodies: ["S".."3XL"], loader_help },
     app: { version, last_seen_at, last_location, speed_kmh, current_trip: { id, from, to } | null, min_version },
