@@ -5,6 +5,7 @@ import type {
   ManagerRequestInput,
   ManagerRequestPreview,
   ManagerRequestQuery,
+  OpNotifications,
   OpCancelReason,
   OpOrderDetail,
   OpTasksSummary,
@@ -32,6 +33,10 @@ export interface OpsAdapter {
   /** The signed-in operator's own requests. */
   getMyRequests(query: ManagerRequestQuery): Promise<ManagerRequest[]>;
   getMyTasksSummary(): Promise<OpTasksSummary>;
+  /** Header bell count. */
+  getMyNotifications(): Promise<OpNotifications>;
+  /** Called when "Mening vazifalarim" is opened: the bell is cleared. */
+  markMyNotificationsSeen(): Promise<void>;
 
   // --- call results (Navbat, Tarix, Operatorlar board) ---
   /** Results a call task may be finished with, and which need a reason. */

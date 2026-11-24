@@ -169,6 +169,9 @@ export type OpTasksSummary = {
   total: number;
 };
 
+/** Operator header bell: decided requests the operator has not opened yet. */
+export type OpNotifications = { unread: number };
+
 /** One call result the operator may choose (server list, doc 2.5). */
 export type CallResultOption = { result: HistoryResult; reasonRequired: boolean };
 

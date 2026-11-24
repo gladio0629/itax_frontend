@@ -18,6 +18,7 @@ import { OpHistoryTabs, useOrdersTotal, useTasksSummary } from "./OpHistoryTabs"
 import { REQUEST_STATUS, REQUEST_TYPE } from "./requestLabels";
 import { REQUEST_PARAM } from "./requestParam";
 import { opPath } from "./paths";
+import { refreshSectionBadges } from "@/lib/badgeEvents";
 import type { ManagerRequest, ManagerRequestStatus } from "@/api/ops/types";
 
 const STATUS_OPTIONS: { value: ManagerRequestStatus | "all"; label: string }[] = [
@@ -36,6 +37,13 @@ export function OpTasksPage() {
   const [params] = useSearchParams();
   const [status, setStatus] = useState<ManagerRequestStatus | "all">("all");
   const { items, error, reload } = useAdapterList(api.getMyRequests, { status });
+  // Opening this page clears the header bell (server side).
+  useEffect(() => {
+    api
+      .markMyNotificationsSeen()
+      .then(refreshSectionBadges)
+      .catch(() => {});
+  }, []);
   // The request modal can open on this page too: refresh when it closes.
   const requestOpen = params.has(REQUEST_PARAM);
   const wasOpen = useRef(requestOpen);

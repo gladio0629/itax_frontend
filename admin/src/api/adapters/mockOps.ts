@@ -296,6 +296,8 @@ type StoredRequest = Omit<ManagerRequest, "allowedActions" | "needsPreview" | "t
   orderId: string | null;
   /** Number behind the "S-" code. */
   no: number;
+  /** The operator opened "Mening vazifalarim" after the decision. */
+  seen?: boolean;
 };
 
 const REQUESTS_KEY = "op_requests_v1";
@@ -701,6 +703,22 @@ export const mockOps: OpsAdapter = {
         resolvedToday: calls.filter((h) => h.resolvedAt >= today).length,
         total: mine.length + calls.length,
       };
+    }),
+
+  getMyNotifications: () =>
+    withLatency(() => {
+      const u = actor();
+      requireWork(u);
+      return { unread: readRequests().filter((r) => r.operator.id === u.id && r.status !== "pending" && !r.seen).length };
+    }),
+
+  markMyNotificationsSeen: () =>
+    withLatency(() => {
+      const u = actor();
+      requireWork(u);
+      const rows = readRequests();
+      for (const r of rows) if (r.operator.id === u.id && r.status !== "pending") r.seen = true;
+      saveRequests(rows);
     }),
 
   getManagerRequests: (query) =>

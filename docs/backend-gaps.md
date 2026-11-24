@@ -306,6 +306,8 @@ Cancel `reason` is one of `passenger_asked`, `driver_asked`, `driver_no_show`, `
 | POST | `/admin/v1/requests` | `{ subject_kind, subject_id, type, amount?, order_id?, reason }` | `ManagerRequest` |
 | GET | `/admin/v1/requests/mine?status=&type=&period=` | – | `ManagerRequest[]`: only the caller's own requests |
 | GET | `/admin/v1/requests/mine/summary` | – | `{ pending, approved_week, rejected_week, resolved_today, total }` |
+| GET | `/admin/v1/requests/mine/notifications` | – | `{ unread }`: own requests decided since the operator last opened "Mening vazifalarim" (header bell) |
+| POST | `/admin/v1/requests/mine/notifications/seen` | – | 204; called when "Mening vazifalarim" opens |
 
 - `type` is one of `refund`, `compensation`, `penalty_cancel`, `ledger_fix`, `block`, `unblock`,
   `phone_change` or `deletion_cancel`: exactly the list in doc 2.5 "Operator huquqlari

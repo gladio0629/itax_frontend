@@ -84,6 +84,13 @@ export const httpOps: OpsAdapter = {
     return fromWire(await http.get(`${REQUESTS}/mine/summary`));
   },
 
+  async getMyNotifications() {
+    return fromWire(await http.get(`${REQUESTS}/mine/notifications`));
+  },
+  async markMyNotificationsSeen() {
+    await http.post(`${REQUESTS}/mine/notifications/seen`);
+  },
+
   async getManagerRequests(query) {
     return fromWire(await http.get(REQUESTS, listQuery(query)));
   },
