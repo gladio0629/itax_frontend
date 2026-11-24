@@ -11,6 +11,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { useAuthStore } from "@/stores/authStore";
 import { PageHeaderContext, usePageHeaderSlots } from "./PageHeader";
+import { OpRequestHost } from "@/features/ops/OpRequestModal";
+import { onSectionBadgesRefresh } from "@/lib/badgeEvents";
 import type { SectionBadges } from "@/api/types";
 
 
@@ -22,10 +24,12 @@ export function AdminLayout() {
   const [badges, setBadges] = useState<SectionBadges>({});
   const slots = usePageHeaderSlots();
 
+  const [badgeTick, setBadgeTick] = useState(0);
+  useEffect(() => onSectionBadgesRefresh(() => setBadgeTick((n) => n + 1)), []);
   useEffect(() => {
     if (!me || !api.capabilities.sectionBadges) return;
     api.getSectionBadges().then(setBadges).catch(() => {});
-  }, [me, location.pathname]);
+  }, [me, location.pathname, badgeTick]);
 
   async function handleLogout() {
     await logout();
@@ -53,6 +57,8 @@ export function AdminLayout() {
               ) : (
                 <Outlet />
               )}
+              {/* "Menejerga so'rov" for ?request=<kind>:<id> on any operator page. */}
+              <OpRequestHost />
             </div>
           </main>
         </div>

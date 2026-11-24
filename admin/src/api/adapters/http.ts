@@ -12,6 +12,7 @@ import type { ApiAdapter } from "../adapterTypes";
 import { adminErrorMessage } from "../httpErrors";
 import { session } from "../httpSession";
 import * as map from "../httpMapper";
+import { httpOps } from "./httpOps";
 import type {
   AdapterCapabilities,
   AdminRole,
@@ -243,6 +244,9 @@ async function complaintDetail(id: string): Promise<Complaint> {
 
 // --------------------------------------------------------------- adapter
 export const httpAdapter: ApiAdapter = {
+  // Operator order page and manager requests (2026-11-24): ./httpOps.ts
+  ...httpOps,
+
   capabilities: CAPABILITIES,
   onSessionEnd: (listener) =>
     session.onEnd((reason) => {

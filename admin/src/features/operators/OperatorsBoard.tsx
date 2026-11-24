@@ -16,6 +16,7 @@ import { cn } from "@/lib/cn";
 import { dayPresetRange, type DayPreset } from "@/lib/periods";
 import { REASON, REASON_CHIPS, RESULT, SUBJECT_LABEL, Tag, since } from "./labels";
 import type { HistoryEntry, HistoryResult, OperatorCounts, QueueListItem, QueueReason } from "@/api/types";
+import { useCallResults } from "@/features/ops/useCallResults";
 
 const caps = api.capabilities;
 type Period = DayPreset | "custom";
@@ -34,6 +35,7 @@ const DATE_INPUT =
 
 /** "Operatorlar" for supervisors (design Operators): three read-only columns. */
 export function OperatorsBoard() {
+  const callResults = useCallResults();
   const [search, setSearch] = useState("");
   const [reason, setReason] = useState<QueueReason | "all">("all");
   const [operatorId, setOperatorId] = useState<string>("all");
@@ -143,7 +145,7 @@ export function OperatorsBoard() {
               aria-label="Natija"
               value={result}
               onChange={setResult}
-              options={[{ value: "all", label: "Hammasi" }, ...caps.operatorResults.map((r) => ({ value: r, label: RESULT[r].label }))]}
+              options={[{ value: "all", label: "Hammasi" }, ...(callResults ?? []).map((r) => ({ value: r.result, label: RESULT[r.result].label }))]}
             />
             <FilterSelect label="Sana" aria-label="Sana" value={period} onChange={setPeriod} options={PERIODS} />
             {period === "custom" && (

@@ -107,6 +107,9 @@ const SECTION_FROM_API: Record<Api.AdminSection, Section> = {
   complaints: "complaints",
   audit: "audit",
 };
+/** Sections the contract doesn't list yet (docs/backend-gaps.md,
+ * "## admin (operator, 2026-11-24)"); mapped once the server sends them. */
+const EXTRA_SECTIONS: Partial<Record<string, Section>> = { requests: "requests" };
 /** Route of each section, in sidebar order (first allowed = landing page). */
 const SECTION_PATH: [Section, string][] = [
   ["stats", "/dashboard"],
@@ -122,7 +125,7 @@ const SECTION_PATH: [Section, string][] = [
 ];
 
 export function meFromApi(me: Api.AdminMe): Me {
-  const sections = me.sections.map((s) => SECTION_FROM_API[s]).filter(Boolean);
+  const sections = me.sections.map((s) => SECTION_FROM_API[s] ?? EXTRA_SECTIONS[s]).filter((s): s is Section => !!s);
   return {
     id: me.id,
     name: me.full_name || me.email,
