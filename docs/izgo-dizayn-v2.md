@@ -43,7 +43,7 @@ Sana: 2026-11-22 · Manba: Claude Design canvaslari. Bu faylning o'zi project hu
 - Klaviatura ochilganda: tepa to'q qism siqiladi, oq varaq va asosiy tugma klaviatura ustida turadi (client'dagi Kb* ekranlari). Klaviaturaning o'zi tizimniki, ilova chizmaydi.
 - Aylanadigan ro'yxatlarda scrollbar ko'rinmaydi.
 
-## Client (46 ekran)
+## Client (47 ekran)
 
 | Bo'lim | Ekran(lar) |
 |---|---|
@@ -67,6 +67,7 @@ Sana: 2026-11-22 · Manba: Claude Design canvaslari. Bu faylning o'zi project hu
 - Dostavka kuzovi: S, M, L, XL, XXL, 3XL segmentli tanlagich, kuzov rasmi, o'lcham va "Maksimum N kg". Boshlang'ich: M. O'lcham, vazn va narx serverdan.
 - Istaklar (bolalar o'rindig'i, hayvon, konditsioner va h.k.) YO'Q.
 - Vaqt: Hozir / Aniq vaqt / Oraliq.
+- Miniven o'rindiqlari (2026-11-24): Miniven klassi tanlansa o'rindiq xaritasi miniven saloniga almashadi (TripVan ekrani): oldida haydovchi + 1, 2-qatorda 3, 3-qatorda 3. Boshqa klasslarda oddiy sxema. O'rinlar soni va bandligi serverdan.
 
 ## Driver (23 ekran)
 
@@ -79,14 +80,18 @@ Sana: 2026-11-22 · Manba: Claude Design canvaslari. Bu faylning o'zi project hu
 - 2026-11-22: istaklar butunlay olib tashlandi. Capabilities ekranida faqat dostavka kuzovi (S–3XL) va "yukchi sifatida yordam" qoladi. So'rov kartalaridagi "Katta bagaj", "Konditsioner", "1 bola" kabi istak belgilari ko'rsatilmaydi (bagaj soni va izoh qolishi mumkin).
 - Komissiya foizi, daraja, balans: hammasi serverdan.
 
-## Admin (20 sahifa)
+## Admin (43 sahifa, 2026-11-24)
 
 1. Kirish: Main (email + email kodi), Verify (telefon + SMS kodi). Operator faqat telefon + SMS.
 2. Asosiy: Dashboard, Orders, OrderDetail, Drivers (qo'lda tasdiqlash yo'q, faqat bloklash), DriverProfile, DriverHistory, Passengers.
 3. Pul: Ledger (daftar o'zgarmaydi), LedgerFix (tuzatish yozuvi), Tariffs.
-4. Jamoa: Operators (Navbat / Jarayonda / Bugungi tasdiqlanganlar), OperatorView (operator: Navbat), OperatorHistory va OperatorDrivers (operator: faqat ko'rish, balans ko'rinmaydi), Staff, StaffAdd, Audit, Marketing (faqat statistika, faqat ko'rish).
+4. Jamoa: Operators (Navbat / Jarayonda / Bugungi tasdiqlanganlar), Staff, StaffAdd, Audit, Marketing (faqat statistika, faqat ko'rish; menejer menyusida ham bor).
+5. Operator (2026-11-24): OperatorView (Navbat), OpSearch (Qidiruv), OperatorHistory (Buyurtmalar), OperatorDrivers (Haydovchilar), OpPassengers (Yo'lovchilar), OpMyTasks (Tarix → Mening vazifalarim). Yo'lovchi kartasi: OpPassenger + OpPassengerOrders / Pay / Bonus / Sms / Notes. Haydovchi kartasi: OpDriver + OpDriverDocs / Wallet / Trips / Cancels / Reviews / Sms / Notes. Buyurtma: OpOrder, OpOrderCargo, OpCancel (modal), OpRequest (modal "Menejerga so'rov").
+6. Menejer (2026-11-24): ManagerRequests (So'rovlar), ManagerRequestConfirm (eski → yangi modal).
 
-- Telefon raqamlari hamma joyda, hamma rol uchun to'liq ko'rinadi (+998 90 123 45 67). Maskalash va "Telefonni ochish" tugmasi yo'q (2026-11-22).
+- Telefon raqamlari hamma joyda to'liq ko'rinadi (maskalash yo'q).
+- Operator huquqlari: asosiy hujjat 2.5 "Operator huquqlari (2026-11-24)". Pul, bloklash, ma'lumot o'zgarishi faqat "Menejerga so'rov" orqali. Operator ekranlarida daraja va SOS yo'q.
+- Sahifadan sahifaga o'tilgan har joyda "Orqaga" tugmasi (2026-11-24).
 - "Tasdiqlar" bo'limi YO'Q. Ikki kishi tasdig'i YO'Q.
 - **2 bosqichli tasdiq [QAROR 2026-11-22]:** tarif o'zgarishi va tuzatish yozuvi uchun bitta xodim: o'zgartiradi → "Saqlash" → tasdiqlash oynasi (modal: nima o'zgaradi, eski → yangi) → "Tasdiqlash" bosilsa kuchga kiradi, "Bekor qilish" bosilsa hech narsa o'zgarmaydi. Har o'zgarish audit jurnaliga yoziladi.
 - Narx modeli: asosiy narx = masofa (km) × 1 litr yoqilg'i narxi (gaz yoki benzin). Har klass va kuzov uchun ustama: foiz yoki summa. Qo'shimcha to'lovlar: bepul kutish, kutish narxi, to'xtash, yukchi, bekor qilish jarimasi. Daraja komissiyalari. Hisob faqat serverda, admin faqat qiymatlarni kiritadi.

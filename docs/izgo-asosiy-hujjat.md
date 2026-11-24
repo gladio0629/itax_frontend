@@ -94,7 +94,7 @@ Admin panelga faqat jamoa xodimlari kiradi. Foydalanuvchilar ko'paygan sari xodi
 | owner | hamma bo'lim va statistika | menejer, marketolog, operator. Owner va superadmin yarata olmaydi |
 | menejer | hamma bo'lim va statistika | marketolog, operator. Menejer, owner, superadmin yarata olmaydi |
 | marketolog | faqat "Umumiy statistika", lekin hamma turdagi statistika: yo'lovchi, haydovchi, buyurtma sonlari, shuningdek daromad va pulga oid ko'rsatkichlar. Faqat ko'rish. Boshqa bo'limlar yo'q (2026-11-09) | yo'q |
-| operator | faqat o'z oynalari: "Navbat", "Tarix" (Mening vazifalarim + Buyurtmalar, faqat ko'rish) va "Haydovchilar" (faqat ko'rish, balans ko'rinmaydi) (2026-11-22) | yo'q |
+| operator | faqat o'z oynalari (2026-11-24): "Navbat", "Qidiruv", "Buyurtmalar", "Haydovchilar", "Yo'lovchilar", "Tarix" (Mening vazifalarim). Haydovchi va yo'lovchi kartasini, hamyon daftarini va safar tarixini to'liq ko'radi. Pulga, bloklashga, tarifga, xodimlarga, auditga va eksportga tegmaydi | yo'q |
 
 **Operator [QAROR]:** vazifasi kirishda muammosi bor, qo'shimcha ma'lumotga muhtoj yoki shikoyat qilmoqchi bo'lgan odamlarga qo'ng'iroq qilish.
 - "Navbat" oynasi: qo'ng'iroq qilinadigan telefon raqamlar ro'yxati. Har birida "Boshlash" va "Rad etish" tugmasi.
@@ -105,6 +105,17 @@ Admin panelga faqat jamoa xodimlari kiradi. Foydalanuvchilar ko'paygan sari xodi
 - Operator hisobini jamoa yaratadi: operator telefon raqamini aytadi, xodim hisob ochadi. Telefon hamma rol uchun majburiy. Email operatordan boshqa hamma rol uchun majburiy, operator uchun shart emas. [QAROR]
 - [QAROR] (2026-11-22) Admin panelda telefon raqamlari hamma joyda to'liq ko'rinadi (maskalash yo'q). Operator faqat o'z tarixini ko'radi, yuqori rollar hammasini ko'radi.
 - [TAKLIF] Yuqori rollar uchun uchinchi qism sukut bo'yicha bugungi tasdiqlanganlarni ko'rsatadi, sana va natija filtri bor (rad etilganlar va eski kunlar ham topiladi).
+
+**Operator huquqlari (2026-11-24) [QAROR]:** maqsad: mijoz yoki haydovchi qo'ng'iroq qilganda operator muammoni to'liq hal qila olsin, lekin chegaradan chiqmasin.
+- Qidiruv: telefon, ism, buyurtma ID, davlat raqami bo'yicha (yo'lovchi, haydovchi, buyurtma).
+- Yo'lovchi kartasi: Umumiy (profil, holat va sababi, holat tarixi, hisobni o'chirish so'rovi), Buyurtmalar, To'lovlar (tranzaksiya ID bilan), Bonus va promo, Kirish (SMS jurnali), Murojaatlar (izohlar).
+- Haydovchi kartasi: Umumiy (mashina, yo'nalish, kuzov, ilova versiyasi, oxirgi joylashuv, hozirgi safar, blok tarixi va sababi), Hujjatlar (rad etish sababi bilan), Hamyon (daftar va to'ldirishlar), Safarlar (kimni, qayerdan qayerga), Bekor qilishlar va jarimalar, Shikoyat va baholar, Kirish (SMS), Murojaatlar.
+- Buyurtma sahifasi: holatlar tarixi, nechta haydovchiga ko'rsatilgani, kutish, yo'nalish va to'xtashlar, narx qatorlari, to'lovlar; dostavkada yuk, kuzov, qabul qiluvchilar.
+- Operator o'zi qiladigan amallar: qo'ng'iroq, SMS limitini ochish, kodni qayta yuborish, qidiruvni qayta boshlash, buyurtmani bekor qilish (sabab majburiy), izoh yozish. Qaysi tugma qaysi holatda ko'rinishini server aytadi.
+- Pul qaytarish, kompensatsiya (bonus yoki promo), jarimani bekor qilish, daftar tuzatish, bloklash/blokdan chiqarish, telefon raqamini almashtirish, hisobni o'chirish so'rovini bekor qilish: faqat "Menejerga so'rov" orqali. So'rov holati "Tarix → Mening vazifalarim"da: Kutilmoqda, Tasdiqlandi, Rad etildi (sabab bilan).
+- Menejer (va undan yuqori rollar) "So'rovlar" sahifasida tasdiqlaydi yoki rad etadi (sabab majburiy). Pulga oid so'rovda "eski → yangi" oynasi chiqadi. Har qaror audit jurnaliga yoziladi.
+- Haydovchi darajasi va SOS operator ekranlarida yo'q.
+- Admin panelda bir sahifadan boshqasiga o'tilgan har joyda "Orqaga" tugmasi bor.
 
 **Kirish (xavfsizlik) [QAROR]:**
 - Operatordan boshqa hamma uchun 2 qadam: email'ga kelgan kod + telefonga SMS kodi.
@@ -343,6 +354,7 @@ Go, Kotlin (Spring Boot), TypeScript (NestJS), PostgreSQL, Redis, NATS JetStream
 | 2026-11-20 | Google Play: IZGO (uz.izgo.client) va IZGO Driver (uz.izgo.driver) yopiq testga (Alpha, Uzbekistan, 12 tester) yuborildi. Shaxsiy akkaunt: production uchun 12 tester × 14 kun. Sayt izgo.uz / xasanow.uz: privacy, terms, delete-account. Review akkauntlari: +998900000001 (yo'lovchi), +998900000002 (haydovchi), kod backend secrets'da. App Store: keyingi qadam | Jarayonda |
 | 2026-11-20 | App Store: IZGO (uz.izgo.client) build 1.0 (1) yuklandi, faqat iPhone (TARGETED_DEVICE_FAMILY=1). Sahifa, maxfiylik (8 tur), yosh 18+, skrinshotlar tayyor. Qoldi: kategoriya Путешествия, kontent huquqlari, narx bepul + faqat Uzbekistan, keyin Добавить для проверки. IZGO Driver App Store'ga hali yuklanmagan | Jarayonda |
 | 2026-11-21 | App Store: IZGO 1.0 Apple ko'rigiga yuborildi (Ожидание проверки, 48 soatgacha). Bepul, faqat Uzbekistan, 18+, kategoriya Путешествия. Keyingi: IZGO Driver'ni App Store'ga yuklash | Jarayonda |
+| 2026-11-24 | Google Play: IZGO va IZGO Driver yopiq testi tasdiqlandi (Closed testing faol), testerlarga havola yuborildi; production uchun 12 tester × 14 kun. App Store: ikkalasi Guideline 2.1 (Information Needed) bilan rad etilgan edi; iPhone'dagi demo video (TestFlight orqali) va Notes (6 savolga javob) qo'shilib qayta yuborildi | Jarayonda |
 | 2026-11-22 | Yangi dizayn (v2): client 46, driver 23, admin 20 ekran (Claude Design artefaktlari). Ishlash: `onlyfront`da, har ilova alohida branch/worktree, umumiy tekshiruvchi | [QAROR] |
 | 2026-11-22 | Dostavka: kuzov o'lchami S, M, L, XL, XXL, 3XL. Mashina nomlari (Spark→Fura) bekor | [QAROR] |
 | 2026-11-22 | Istaklar butunlay olib tashlandi (client va driver). Client'da "Bagaj va izoh": bagaj soni, izoh, boshqa odam uchun | [QAROR] |
@@ -355,6 +367,9 @@ Go, Kotlin (Spring Boot), TypeScript (NestJS), PostgreSQL, Redis, NATS JetStream
 | 2026-11-22 | Admin faqat o'zbek tilida. Eski statistika Dashboard'ga qo'shimcha bo'lim bo'lib qaytadi, marketolog ham ko'radi (faqat ko'rish). Terminallar dizaynda ham, ilovada ham yo'q katta funksiya qo'shmaydi | [QAROR] |
 | 2026-11-22 | Admin operator: 5 natija, "Keyinga qoldirish", Tarix (vazifalar + buyurtmalar) va Haydovchilar (faqat ko'rish). Marketolog: Marketing sahifasi + daromad bo'limi | [QAROR] |
 | 2026-11-22 | Backend'da hali yo'q qismlar (bonus, promo, choy puli, to'xtashlar, klass, yukchi va h.k.) ham to'liq qilinadi. Dizayndagi raqamlar namuna, hammasi serverdan | [QAROR] |
+| 2026-11-24 | Operator huquqlari kengaytirildi (2.5): qidiruv, yo'lovchi va haydovchi kartalari (hamyon, safarlar, hujjatlar, SMS va h.k.), buyurtma sahifasi, bekor qilish (sabab bilan). Pul, bloklash va ma'lumot o'zgarishi "Menejerga so'rov" orqali; menejerda "So'rovlar" sahifasi. Operator ekranlarida daraja va SOS yo'q. Admin dizayni 43 ekran | [QAROR] |
+| 2026-11-24 | Admin: sahifadan sahifaga o'tilgan har joyda "Orqaga" tugmasi. Menejer menyusida "Marketing" | [QAROR] |
+| 2026-11-24 | Client: Miniven klassi tanlanganda o'rindiq sxemasi miniven ko'rinishiga o'tadi (TripVan). O'rinlar soni va bandligi serverdan | [QAROR] |
 
 ## 10. Frontend o'zgarishlari — backend uchun xulosa (2026-11-09 – 2026-11-11)
 
