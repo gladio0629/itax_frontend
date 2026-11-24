@@ -15,6 +15,7 @@ const SCENARIO_LABELS: Record<keyof TestScenarios, { label: string; hint: string
   forceErrors: { label: "Xatoliklarni qaytarish", hint: "So'rovlar ko'pincha xato bilan tugaydi" },
   walletLimit: { label: "Hamyon limiti", hint: "Balans -50 000 so'mga yetdi deb hisoblanadi" },
   fastForward: { label: "Vaqtni tezlashtirish", hint: "Kutish vaqtlari qisqartiriladi" },
+  holdStatus: { label: "Holatni to'xtatish", hint: "Safar joriy holatida qoladi, keyingisiga o'tmaydi" },
   bonusBelowMin: { label: "Bonus minimal darajadan past", hint: "Bonusni yechib bo'lmaydi deb hisoblanadi" },
   newPassenger: { label: "Yangi yo'lovchi", hint: "Saqlangan manzil va oxirgi yo'nalishlar yo'q" },
 };

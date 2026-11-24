@@ -704,6 +704,8 @@ function genId(prefix: string) {
 /** Pure function of time: resolves a live order's transient status. */
 function resolveLiveStatus(order: Order): Order {
   if (!order.timeline) return order;
+  // Test panel: the order stays where it is (e.g. to try "O'zgartirish").
+  if (getTestScenarios().holdStatus) return order;
   const now = Date.now();
   const t = order.timeline;
 
