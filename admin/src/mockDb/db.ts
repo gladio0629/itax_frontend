@@ -205,7 +205,7 @@ export const ROLE_LANDING: Record<AdminRole, string> = {
   owner: "/dashboard",
   menejer: "/dashboard",
   marketolog: "/marketing",
-  operator: "/operators",
+  operator: "/operators/queue",
 };
 
 export function canCreateRole(actorRole: AdminRole, targetRole: AdminRole): boolean {

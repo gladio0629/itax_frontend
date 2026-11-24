@@ -1,11 +1,8 @@
 import { useState } from "react";
 import { History, Pencil, Search } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
-import { PageHeader } from "@/layouts/PageHeader";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAdapterList } from "@/hooks/useAdapterList";
-import { Tabs } from "@/components/Tabs";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { IconButton } from "@/components/Button";
@@ -16,14 +13,12 @@ import { ErrorState, StaleNotice } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
 import { formatDateTime } from "@/lib/format";
-import { OrdersScreen } from "@/features/orders/OrdersScreen";
 import { REASON, REASON_CHIPS, RESULT, Tag } from "./labels";
 import { dayPresetRange, type DayPreset } from "@/lib/periods";
 import type { HistoryEntry, HistoryResult, QueueReason } from "@/api/types";
 
 const caps = api.capabilities;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
-type TabKey = "tasks" | "orders";
 
 const PERIODS: { value: DayPreset; label: string }[] = [
   { value: "all", label: "Hammasi" },
@@ -33,35 +28,8 @@ const PERIODS: { value: DayPreset; label: string }[] = [
   { value: "30d", label: "30 kun" },
 ];
 
-/** Operator's "Tarix" (design OperatorHistory): own task history (result
- * and comment editable) and the read-only orders window (doc 2.5). */
-export function OperatorHistory() {
-  const { me } = usePermissions();
-  const [params, setParams] = useSearchParams();
-  const canOrders = !!me?.sections.includes("orders_view");
-  const tab: TabKey = params.get("tab") === "orders" && canOrders ? "orders" : "tasks";
-  const setTab = (t: TabKey) => setParams(t === "tasks" ? {} : { tab: t }, { replace: true });
-
-  return (
-    <>
-      <PageHeader subtitle="Natijalarim va buyurtmalar" title="Tarix" />
-      {canOrders && (
-        <Tabs
-          label="Tarix bo'limlari"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { key: "tasks", label: "Mening vazifalarim" },
-            { key: "orders", label: "Buyurtmalar" },
-          ]}
-        />
-      )}
-      {tab === "orders" ? <OrdersScreen readOnly /> : <MyTasks />}
-    </>
-  );
-}
-
-function MyTasks() {
+/** The operator's resolved calls (result and note editable). */
+export function MyTasks() {
   const { me } = usePermissions();
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<HistoryResult | "all">("all");

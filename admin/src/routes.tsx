@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { AdminLayout } from "@/layouts/AdminLayout";
@@ -8,6 +8,7 @@ import { AccountScreen } from "@/features/account/AccountScreen";
 import { RequireSection } from "@/components/RequireSection";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/Skeleton";
+import { OP_BASE } from "@/features/ops/paths";
 
 const DashboardScreen = lazy(() => import("@/features/dashboard/DashboardScreen").then((m) => ({ default: m.DashboardScreen })));
 const DriversScreen = lazy(() => import("@/features/drivers/DriversScreen").then((m) => ({ default: m.DriversScreen })));
@@ -40,6 +41,13 @@ function RouteFallback() {
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+}
+
+/** Route contract links of the form /op/<tail> land on the operator
+ * windows under /operators/<tail>, query (?request=...) included. */
+function OpAlias() {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate to={`${OP_BASE}${pathname.slice("/op".length)}${search}${hash}`} replace />;
 }
 
 function RootRedirect() {
@@ -181,6 +189,7 @@ export function AppRoutes() {
             </RequireSection>
           }
         />
+        <Route path="/op/*" element={<OpAlias />} />
         <Route path="/account" element={<AccountScreen />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
