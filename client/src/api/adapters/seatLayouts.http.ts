@@ -4,6 +4,7 @@ import type * as Api from "@shared/api/openapi";
 import { session } from "../httpSession";
 import { toUiCarClass } from "../httpMapper";
 import type { LayoutSeat, SeatCabin, SeatLayout } from "../seatLayout";
+import type { CarClassId, Seat } from "../types";
 
 export const SEAT_LAYOUTS_PATH = "/api/v1/orders/seat-layouts";
 
@@ -28,4 +29,23 @@ const toUiLayout = (l: WireLayout): SeatLayout => ({
 export async function fetchSeatLayouts(from: Api.GeoPoint, to: Api.GeoPoint): Promise<SeatLayout[]> {
   const res = await session.http.get<WireSeatLayouts>(SEAT_LAYOUTS_PATH, { from_lat: from.lat, from_lng: from.lng, to_lat: to.lat, to_lng: to.lng });
   return res.data.map(toUiLayout);
+}
+
+/** Until the server has seat-layouts: the sedan classes from the existing
+ * seat map (the old behaviour); no minivan layout, so its card stays whole car. */
+export function sedanLayoutsFromSeatMap(seats: Seat[]): SeatLayout[] {
+  const byId = new Map(seats.map((s) => [s.id as string, s]));
+  const seat = (id: string): LayoutSeat => ({ id, kind: "passenger", taken: byId.get(id)?.taken ?? true });
+  const rows: LayoutSeat[][] = [
+    [{ id: "driver", kind: "driver", taken: true }, seat("front")],
+    [seat("back-left"), seat("back-mid"), seat("back-right")],
+  ];
+  const anyTaken = rows.flat().some((s) => s.kind === "passenger" && s.taken);
+  return (["standart", "komfort", "biznes"] as CarClassId[]).map((carClass) => ({
+    carClass,
+    cabin: "sedan",
+    rows,
+    passengerSeats: seats.length,
+    wholeCarAvailable: !anyTaken,
+  }));
 }

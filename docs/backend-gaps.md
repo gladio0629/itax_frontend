@@ -279,6 +279,7 @@ Trip screen seat map per car class (design `TripVan`): Miniven shows a minivan c
   ```
   One entry per class the route offers. `cabin`: `sedan` | `minivan` (which drawing the app uses). `rows`: front to back, seats left to right; the app places seats by row and position, the ids are opaque and are sent back as `seat_ids`. `passenger_seats` is shown as "N yo'lovchi o'rni" and as "N o'rin" on the class card. `whole_car_available`: "Butun mashina" is enabled only when true (no seat taken).
 - **Errors:** `VALIDATION_ERROR` (bad coordinates), `INVALID_ROUTE`.
+- **Until it exists (404):** the http app builds the sedan classes from `GET /api/v1/orders/seat-map` (as before) and has no minivan layout, so Miniven stays whole car only.
 
 ### Quote, create order, order update: seats with a class
 

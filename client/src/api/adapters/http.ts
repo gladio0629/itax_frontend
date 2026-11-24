@@ -55,7 +55,7 @@ import {
   toUiWallet,
 } from "../httpMapper";
 import { layoutFor, passengerSeats, type SeatLayout } from "../seatLayout";
-import { fetchSeatLayouts } from "./seatLayouts.http";
+import { fetchSeatLayouts, sedanLayoutsFromSeatMap } from "./seatLayouts.http";
 
 const { http } = session;
 
@@ -512,7 +512,15 @@ export const httpAdapter: ApiAdapter = {
     const res = await http.get<Api.SeatMap>(API_PATHS.orderSeatMap, { from_lat: from.lat, from_lng: from.lng, to_lat: to.lat, to_lng: to.lng });
     return res.seats.map(toUiSeat);
   },
-  getSeatLayouts: ({ fromAddressId, toAddressId }) => fetchSeatLayouts(geoPoint(fromAddressId), geoPoint(toAddressId)),
+  getSeatLayouts: async (route) => {
+    try {
+      return await fetchSeatLayouts(geoPoint(route.fromAddressId), geoPoint(route.toAddressId));
+    } catch (err) {
+      // Endpoint not deployed yet: keep the sedan map from seat-map.
+      if (!(err instanceof ApiError) || err.status !== 404) throw err;
+      return sedanLayoutsFromSeatMap(await httpAdapter.getSeatMap(route));
+    }
+  },
   getQuote: async (input: QuoteInput) => {
     if (input.stops?.length || input.promoCode) return unsupported();
     const body = quoteBody(input);
