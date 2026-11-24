@@ -18,6 +18,7 @@ import { Toast } from "@/components/Toast";
 import { InfoNote } from "@/components/Cells";
 import { useAdapterList } from "@/hooks/useAdapterList";
 import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
+import { overlayFromList } from "@/hooks/useCloseOverlay";
 import { formatCompactSom, formatNumber, formatShortDateTime, formatTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { LEDGER_CHIP_ORDER, LEDGER_KIND, LedgerKindCell, entryNo } from "./ledgerLabels";
@@ -116,7 +117,7 @@ export function LedgerScreen() {
       render: (r) => (
         <RowMenu
           label={`${entryNo(r.id)}: amallar`}
-          items={[{ label: "Tuzatish yozuvi", icon: <Scale />, onSelect: () => navigate(fixPath(r)), hidden: !r.driverId }]}
+          items={[{ label: "Tuzatish yozuvi", icon: <Scale />, onSelect: () => navigate(fixPath(r), { state: overlayFromList(params) }), hidden: !r.driverId }]}
         />
       ),
     },
@@ -128,6 +129,7 @@ export function LedgerScreen() {
   return (
     <>
       <PageHeader
+        back={driverId ? `/drivers/${encodeURIComponent(driverId)}` : undefined}
         subtitle="Haydovchilar hamyoni daftari"
         title="Hamyon va to'lovlar"
         actions={
@@ -146,7 +148,7 @@ export function LedgerScreen() {
                 Balans: r.balanceAfter,
               })}
             />
-            <Button onClick={() => navigate(fixPath())}>
+            <Button onClick={() => navigate(fixPath(), { state: overlayFromList(params) })}>
               <Plus className="h-4 w-4" aria-hidden /> Tuzatish yozuvi
             </Button>
           </>

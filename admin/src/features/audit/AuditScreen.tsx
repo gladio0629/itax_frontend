@@ -2,6 +2,7 @@ import { useState } from "react";
 import { History, Lock, Search } from "lucide-react";
 import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { PageHeader } from "@/layouts/PageHeader";
+import { hasInAppHistory } from "@/components/BackButton";
 import { DataTable, type Column } from "@/components/DataTable";
 import { ErrorState, StaleNotice } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
@@ -136,6 +137,8 @@ const targetText = (e: AuditEntry) => `${ENTITY_LABEL[e.targetType] && caps.audi
 /** Audit jurnali (design Audit): read-only, nothing here edits a record. */
 export function AuditScreen() {
   const [search, setSearch] = useState("");
+  // Opened from a driver or order ("Audit" link, `?q=` is dropped on mount).
+  const [openedFromPage] = useState(() => new URLSearchParams(window.location.search).has("q") && hasInAppHistory());
   useSearchFromUrl(setSearch);
   const [category, setCategory] = useState<AuditCategory | "all">("all");
   const [action, setAction] = useState<string>("all");
@@ -190,6 +193,7 @@ export function AuditScreen() {
   return (
     <>
       <PageHeader
+        back={openedFromPage ? "/audit" : undefined}
         subtitle="Kim, nima, qachon"
         title="Audit jurnali"
         actions={

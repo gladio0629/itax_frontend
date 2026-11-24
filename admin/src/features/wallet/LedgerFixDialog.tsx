@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Info, Scale } from "lucide-react";
 import { api } from "@/api/client";
 import { Button } from "@/components/Button";
@@ -7,6 +7,7 @@ import { Modal, ModalNote } from "@/components/Modal";
 import { ChangeConfirmModal } from "@/components/ChangeConfirmModal";
 import { SelectField, TextArea } from "@/components/Input";
 import { NumberField } from "@/components/NumberField";
+import { useCloseOverlay } from "@/hooks/useCloseOverlay";
 import { Segmented } from "@/components/Tabs";
 import { formatNumber, formatShortDateTime } from "@/lib/format";
 import { LEDGER_KIND, entryNo } from "./ledgerLabels";
@@ -24,7 +25,7 @@ const REASON_MAX = 500;
  * never changed; the new balance is the server's, not computed here.
  */
 export function LedgerFixDialog({ onDone }: { onDone: (result: { applied: boolean }) => void }) {
-  const navigate = useNavigate();
+  const closeOverlay = useCloseOverlay();
   const [params] = useSearchParams();
   const minReason = Math.max(5, caps.adjustmentReasonMinLength);
 
@@ -65,11 +66,10 @@ export function LedgerFixDialog({ onDone }: { onDone: (result: { applied: boolea
     };
   }, [driverId]);
 
-  const close = () => {
-    const next = new URLSearchParams(params);
-    next.delete("entry");
-    navigate({ pathname: "/wallet", search: next.toString() });
-  };
+  const listSearch = new URLSearchParams(params);
+  listSearch.delete("entry");
+  const listTarget = { pathname: "/wallet", search: listSearch.toString() };
+  const close = () => closeOverlay(listTarget);
 
   const driver = drivers?.find((d) => d.id === driverId);
   const entry = entries.find((e) => e.id === entryId);
@@ -117,6 +117,7 @@ export function LedgerFixDialog({ onDone }: { onDone: (result: { applied: boolea
       <Modal
         open={!confirming}
         onClose={close}
+        back={listTarget}
         title="Tuzatish yozuvi"
         description="Eski yozuv o'zgarmaydi. Yangi yozuv daftarga alohida qator bo'lib qo'shiladi."
         icon={<Scale className="h-6 w-6" aria-hidden />}

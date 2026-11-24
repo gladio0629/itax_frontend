@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { Drawer } from "./Drawer";
 import { Button } from "./Button";
+import type { BackTarget } from "./BackButton";
 
 /** Thin shared wrapper over Drawer for every add/edit form: title, fields,
  * error line, pinned submit button. A real <form>, so Enter submits. */
@@ -15,6 +16,7 @@ export function FormDrawer({
   disabled,
   error,
   children,
+  back,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,6 +27,8 @@ export function FormDrawer({
   disabled?: boolean;
   error?: string | null;
   children: ReactNode;
+  /** "← Orqaga" above the title (see BackButton); defaults to closing the form. */
+  back?: BackTarget;
 }) {
   const formId = `form-${title.replace(/\W+/g, "-")}`;
   return (
@@ -32,6 +36,7 @@ export function FormDrawer({
       open={open}
       onClose={onClose}
       title={title}
+      back={back ?? onClose}
       footer={
         <div className="space-y-3">
           {error && (

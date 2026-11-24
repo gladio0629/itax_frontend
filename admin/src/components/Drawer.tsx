@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { IconButton } from "./Button";
+import { BackButton, type BackTarget } from "./BackButton";
 
 /** Open drawers, oldest first (Escape closes only the last one). */
 const openStack: object[] = [];
@@ -17,6 +18,7 @@ export function Drawer({
   width = 480,
   children,
   footer,
+  back,
 }: {
   open: boolean;
   onClose: () => void;
@@ -27,6 +29,9 @@ export function Drawer({
   width?: number;
   children: ReactNode;
   footer?: ReactNode;
+  /** "← Orqaga" above the title: a route (opened from another page) or a
+   * close handler (opened over its own list). */
+  back?: BackTarget;
 }) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
@@ -72,6 +77,7 @@ export function Drawer({
       >
         <div className="flex min-h-[76px] shrink-0 items-center justify-between gap-4 border-b border-line px-6 py-4 sm:px-7">
           <span className="flex min-w-0 flex-col gap-1">
+            {back !== undefined && <BackButton to={back} />}
             <span className="flex min-w-0 flex-wrap items-center gap-2.5">
               <h2 id={titleId} className="truncate text-22 font-extrabold text-ink">
                 {title}
@@ -90,3 +96,4 @@ export function Drawer({
     </div>
   );
 }
+

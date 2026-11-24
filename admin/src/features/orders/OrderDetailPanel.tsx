@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Ban, ClipboardList, Headset, Pencil } from "lucide-react";
 import { api } from "@/api/client";
 import { isApiError } from "@shared/http/errors";
 import { EmptyState } from "@/components/EmptyState";
+import { useCloseOverlay } from "@/hooks/useCloseOverlay";
 import { Drawer } from "@/components/Drawer";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
@@ -30,6 +31,8 @@ const isNotFound = (e: unknown) => isApiError(e) && /NOT_FOUND$/.test(e.code);
 export function OrderDetailPanel({ onChanged }: { onChanged: () => void }) {
   const { orderId = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const closeOverlay = useCloseOverlay();
   const [params, setParams] = useSearchParams();
   const { me } = usePermissions();
   const [order, setOrder] = useState<OrderDetail | null>(null);
@@ -70,12 +73,13 @@ export function OrderDetailPanel({ onChanged }: { onChanged: () => void }) {
       const next = new URLSearchParams(params);
       next.delete("edit");
       next.delete("cancel");
-      setParams(next, { replace: true });
+      setParams(next, { replace: true, state: location.state });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order]);
 
-  const close = () => navigate({ pathname: "/orders", search: params.toString() });
+  const listTarget = { pathname: "/orders", search: params.toString() };
+  const close = () => closeOverlay(listTarget);
   const changed = (msg: string) => {
     setToast(msg);
     load();
@@ -105,6 +109,7 @@ export function OrderDetailPanel({ onChanged }: { onChanged: () => void }) {
         open
         onClose={close}
         width={560}
+        back={listTarget}
         title={order ? `Buyurtma ${orderNo(order.id)}` : "Buyurtma"}
         titleAddon={st && <Badge tone={st.tone}>{st.label}</Badge>}
         subtitle={subtitle}
