@@ -378,8 +378,6 @@ function titleOf(r: StoredRequest, name: string): string {
       return `${who}ni bloklash: ${name}`;
     case "unblock":
       return `${who}ni blokdan chiqarish: ${name}`;
-    case "data_change":
-      return `Ma'lumotni o'zgartirish: ${name}`;
     case "phone_change":
       return `Telefon raqamini almashtirish: ${name}`;
     case "deletion_cancel":
@@ -447,8 +445,8 @@ function formFor(kind: RequestSubjectKind, id: string): RequestForm {
     if (d) add("ledger_fix");
     if (d) add("penalty_cancel");
     add(p?.status === "blocked" ? "unblock" : "block");
-    add("data_change");
     add("phone_change");
+    if (p && hasDeletionRequest(p.id)) add("deletion_cancel");
     orders = [o];
     defaultOrderId = o.id;
   } else if (kind === "passenger") {
@@ -459,7 +457,6 @@ function formFor(kind: RequestSubjectKind, id: string): RequestForm {
     add("refund");
     add("compensation");
     add(p.status === "blocked" ? "unblock" : "block");
-    add("data_change");
     add("phone_change");
     if (hasDeletionRequest(p.id)) add("deletion_cancel");
     orders = db.orders().filter((o) => o.passengerId === p.id);
@@ -471,7 +468,6 @@ function formFor(kind: RequestSubjectKind, id: string): RequestForm {
     add("ledger_fix");
     add("penalty_cancel");
     add(d.status === "blocked" ? "unblock" : "block");
-    add("data_change");
     add("phone_change");
     orders = db.orders().filter((o) => o.driverId === d.id);
   }
@@ -521,7 +517,6 @@ const TYPE_TITLE: Record<ManagerRequestType, string> = {
   ledger_fix: "daftar tuzatish",
   block: "bloklash",
   unblock: "blokdan chiqarish",
-  data_change: "ma'lumotni o'zgartirish",
   phone_change: "telefon raqamini almashtirish",
   deletion_cancel: "o'chirish so'rovini bekor qilish",
 };

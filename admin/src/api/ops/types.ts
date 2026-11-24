@@ -101,7 +101,6 @@ export type ManagerRequestType =
   | "ledger_fix"
   | "block"
   | "unblock"
-  | "data_change"
   | "phone_change"
   | "deletion_cancel";
 export type ManagerRequestStatus = "pending" | "approved" | "rejected";

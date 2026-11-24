@@ -9,7 +9,6 @@ export const REQUEST_TYPE: Record<ManagerRequestType, string> = {
   ledger_fix: "Daftar tuzatish",
   block: "Bloklash",
   unblock: "Blokdan chiqarish",
-  data_change: "Ma'lumotni o'zgartirish",
   phone_change: "Telefon raqamini almashtirish",
   deletion_cancel: "O'chirish so'rovini bekor qilish",
 };

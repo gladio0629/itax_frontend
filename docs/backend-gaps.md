@@ -308,7 +308,9 @@ Cancel `reason` is one of `passenger_asked`, `driver_asked`, `driver_no_show`, `
 | GET | `/admin/v1/requests/mine/summary` | – | `{ pending, approved_week, rejected_week, resolved_today, total }` |
 
 - `type` is one of `refund`, `compensation`, `penalty_cancel`, `ledger_fix`, `block`, `unblock`,
-  `data_change`, `phone_change` or `deletion_cancel`.
+  `phone_change` or `deletion_cancel`: exactly the list in doc 2.5 "Operator huquqlari
+  (2026-11-24)" (block and unblock are the two directions of one item). The design's "Ma'lumotni
+  o'zgartirish" is not a request type (owner, 2026-11-24).
 - `RequestForm` is `{ subject {kind, id, title}, people [{role, name, phone}], types [{type, hint, needs_amount}], orders [{id, label}], default_order_id }`.
   The server decides which types a subject gets. For example, `block` or `unblock` depends on the
   current status, and `deletion_cancel` appears only when a deletion request is open.
