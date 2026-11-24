@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Clock } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
+import { useMainScrollRestore } from "@/hooks/useMainScrollRestore";
 import { useAuthStore } from "@/stores/authStore";
 import { PageHeaderContext, usePageHeaderSlots } from "./PageHeader";
 import type { SectionBadges } from "@/api/types";
@@ -21,6 +22,8 @@ export function AdminLayout() {
   const { me, error: meError, loading: meLoading, retry } = usePermissions();
   const [badges, setBadges] = useState<SectionBadges>({});
   const slots = usePageHeaderSlots();
+  const mainRef = useRef<HTMLElement>(null);
+  useMainScrollRestore(mainRef);
 
   useEffect(() => {
     if (!me || !api.capabilities.sectionBadges) return;
@@ -46,7 +49,7 @@ export function AdminLayout() {
         <Sidebar me={me} badges={badges} onLogout={handleLogout} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Header titleRef={slots.setTitleEl} actionsRef={slots.setActionsEl} />
-          <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-6 outline-none lg:px-8 lg:pt-7">
+          <main ref={mainRef} id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-6 outline-none lg:px-8 lg:pt-7">
             <div className="flex min-w-0 flex-col gap-5">
               {meError && !me ? (
                 <ErrorState message="Hisob ruxsatlarini yuklab bo'lmadi. Qayta urinib ko'ring." onRetry={retry} retrying={meLoading} />
