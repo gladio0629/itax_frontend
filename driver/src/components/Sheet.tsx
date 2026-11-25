@@ -67,8 +67,10 @@ export function Sheet({
       <div className="absolute inset-0 animate-fade-in bg-night/60" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
-        className="absolute inset-x-0 bottom-0 flex max-h-[88%] animate-sheet-up flex-col rounded-t-sheet bg-bg shadow-2"
-        style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
+        className="absolute inset-x-0 bottom-0 flex animate-sheet-up flex-col rounded-t-sheet bg-bg shadow-2"
+        // 88% tall at most, and never up under the status bar (a web view
+        // shrunk by the keyboard).
+        style={{ maxHeight: "min(88%, calc(100% - var(--safe-top) - 8px))", paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
       >
         <div
           className="flex h-6 shrink-0 cursor-grab touch-none items-center justify-center"

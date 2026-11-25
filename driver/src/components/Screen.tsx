@@ -141,7 +141,7 @@ export function Screen({ title, subtitle, back, right, header, top, keepTop, foo
         </div>
         {footer && (
           // With the keyboard up the home indicator is under it: no bottom inset then.
-          <div className="shrink-0 bg-bg px-5 pt-3" style={{ paddingBottom: keyboard ? "12px" : "calc(var(--safe-bottom) + var(--tabbar-space, 0px) + 16px)" }}>
+          <div className="shrink-0 bg-bg px-5 pt-3" style={{ paddingBottom: keyboard ? "calc(var(--tabbar-space, 0px) + 12px)" : "calc(var(--safe-bottom) + var(--tabbar-space, 0px) + 16px)" }}>
             {footer}
           </div>
         )}

@@ -8,8 +8,8 @@ const config: CapacitorConfig = {
   plugins: {
     StatusBar: {
       // Every screen has the dark (Ink) top, in both themes: light status-bar
-      // text over the web view, which pads itself with env(safe-area-inset-*).
-      overlaysWebView: true,
+      // text. The bar overlays the web view (the plugin default), which pads
+      // itself with env(safe-area-inset-*).
       style: 'DARK',
     },
     Keyboard: {
