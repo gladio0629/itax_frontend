@@ -12,7 +12,8 @@ import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { formatNumber, formatShortDateTime } from "@/lib/format";
 import { driverBadge } from "@/features/drivers/driverLabels";
-import { ORDER_STATUS, PASSENGER_STATUS, opPath, orderNo } from "./labels";
+import { opPath } from "@/features/ops/paths";
+import { ORDER_STATUS, PASSENGER_STATUS, orderNo } from "./labels";
 import type { OpSearchResult } from "@/api/opCards/types";
 
 type Group = "all" | "passengers" | "drivers" | "orders";

@@ -8,6 +8,7 @@ import { readJSON, writeJSON } from "@/mockDb/storage";
 import { makeRng } from "@/lib/prng";
 import type { Driver, Order, Passenger } from "@/seed/generate";
 import type { OpCardsApi } from "../opCards/adapter";
+import { requestsAbout } from "./mockOps";
 import type {
   OpBonusEntry,
   OpCancelRow,
@@ -311,34 +312,10 @@ function notesFor(s: OpSubject, st: CardState): OpNote[] {
   });
 }
 
+/** The "Menejerga so'rov" items about this person: the same store as the
+ * request modal and the manager's "So'rovlar" (mockOps, op_requests_v1). */
 function requestsFor(s: OpSubject): OpSubjectRequest[] {
-  const key = subjectKey(s);
-  const r = rngFor(`req:${key}`);
-  const n = r.int(0, 2);
-  const out: OpSubjectRequest[] = [];
-  for (let i = 0; i < n; i++) {
-    const no = 100 + ((hash(key) + i * 7) % 90);
-    if (s.kind === "passenger") {
-      const refund = i === 0;
-      out.push({
-        id: `${key}:r${i}`,
-        displayId: `S-${no}`,
-        type: refund ? "refund" : "sms_unlock",
-        amount: refund ? r.pick([13000, 26000, 52000]) : null,
-        status: refund ? "pending" : "approved",
-      });
-    } else {
-      const fix = i === 0;
-      out.push({
-        id: `${key}:r${i}`,
-        displayId: `S-${no}`,
-        type: fix ? "ledger_fix" : "penalty_cancel",
-        amount: fix ? r.pick([1300, 2600, -5000]) : 5000,
-        status: fix ? "pending" : r.pick(["approved", "rejected"] as const),
-      });
-    }
-  }
-  return out;
+  return requestsAbout(s.kind, s.id).map((q) => ({ id: q.id, displayId: q.code, type: q.type, amount: q.amount, status: q.status }));
 }
 
 function notesInfo(s: OpSubject): OpNotes {

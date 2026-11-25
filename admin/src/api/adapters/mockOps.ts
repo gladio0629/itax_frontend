@@ -481,6 +481,14 @@ function formFor(kind: RequestSubjectKind, id: string): RequestForm {
 }
 
 /** Pending requests for the sidebar badge (mock.ts getSectionBadges). */
+/** Requests about one person, newest first (the card's "Murojaatlar" tab). */
+export function requestsAbout(kind: "passenger" | "driver", id: string): ManagerRequest[] {
+  return readRequests()
+    .filter((r) => r.subjectKind === kind && r.subjectId === id)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((r) => present(r, false));
+}
+
 export function pendingRequestCount(): number {
   return readRequests().filter((r) => r.status === "pending").length;
 }

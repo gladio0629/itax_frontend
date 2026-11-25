@@ -430,9 +430,11 @@ this operator may use now (`call`, `request`, `refund_request`, `sms_unlock`, `s
   Error: `SMS_RESEND_LIMIT` (429) when the hourly resend limit is reached.
 - `GET .../{kind}/{id}/notes`: `{ notes: [{ id, author_name, category: complaint|login|info|payment, text, at }],
   requests: [{ id, display_id: "S-118", type, amount, status: pending|approved|rejected }], actions: ["add_note"] }`.
-  `requests` are the "Menejerga so'rov" items about this person; `type` is one of `refund`, `sms_unlock`,
-  `ledger_fix`, `compensation`, `penalty_cancel`, `block`, `unblock`, `phone_change`, `deletion_cancel`;
-  `amount` is signed for `ledger_fix`.
+  `requests` are the "Menejerga so'rov" items about this person (the same records as `POST /admin/v1/requests`
+  and the manager's "So'rovlar", newest first, so a request just sent from the card shows here);
+  `type` is one of `refund`, `compensation`, `penalty_cancel`, `ledger_fix`, `block`, `unblock`,
+  `phone_change`, `deletion_cancel`. "Limitni ochish" is not a request: it is the operator's own
+  `sms_unlock` action above.
 - `POST .../{kind}/{id}/notes` `{ text }` (1–1000 chars): returns the new note. The server sets
   author and category. Error: `VALIDATION_ERROR`.
 

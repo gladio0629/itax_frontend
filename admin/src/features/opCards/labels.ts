@@ -4,23 +4,9 @@ import type {
   OpNoteCategory,
   OpPaymentStatus,
   OpPaymentType,
-  OpRequestStatus,
-  OpRequestType,
   OpSmsResult,
   OpSmsType,
 } from "@/api/opCards/types";
-
-/** Operator window routes. The app's operator prefix is /operators
- * (the route contract's /op/... tails live under it). */
-export const opPath = {
-  search: "/operators/search",
-  passengers: "/operators/passengers",
-  passenger: (id: string, tab?: string) => `/operators/passengers/${encodeURIComponent(id)}${tab ? `/${tab}` : ""}`,
-  drivers: "/operators/drivers",
-  driver: (id: string, tab?: string) => `/operators/drivers/${encodeURIComponent(id)}${tab ? `/${tab}` : ""}`,
-  /** Order pages are built by the other admin terminal. */
-  order: (id: string) => `/operators/orders/${encodeURIComponent(id)}`,
-};
 
 /** Value of ?request= that opens the "Menejerga so'rov" modal. */
 export { requestParam } from "@/features/ops/requestParam";
@@ -67,24 +53,6 @@ export const NOTE_CATEGORY: Record<OpNoteCategory, { label: string; className: s
   login: { label: "Kirish", className: "bg-info-soft text-info" },
   payment: { label: "To'lov", className: "bg-info-soft text-info" },
   info: { label: "Ma'lumot", className: "bg-surface text-ink" },
-};
-
-export const REQUEST_TYPE: Record<OpRequestType, string> = {
-  refund: "Pul qaytarish",
-  sms_unlock: "Limitni ochish",
-  ledger_fix: "Daftar tuzatish",
-  compensation: "Kompensatsiya",
-  penalty_cancel: "Jarimani bekor qilish",
-  block: "Bloklash",
-  unblock: "Blokdan chiqarish",
-  phone_change: "Telefon raqamini almashtirish",
-  deletion_cancel: "O'chirish so'rovini bekor qilish",
-};
-
-export const REQUEST_STATUS: Record<OpRequestStatus, { label: string; tone: BadgeTone }> = {
-  pending: { label: "Kutilmoqda", tone: "warning" },
-  approved: { label: "Tasdiqlandi", tone: "success" },
-  rejected: { label: "Rad etildi", tone: "danger" },
 };
 
 export { orderNo, ORDER_STATUS, CANCELLED_BY_LABEL, PAYMENT_LABEL } from "@/features/orders/labels";
