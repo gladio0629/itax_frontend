@@ -189,7 +189,8 @@ export function MapPick({
         onClick={locate}
         aria-label={t("home.myLocation")}
         className="absolute right-5 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-iz-sheet text-iz-ink shadow-[0_8px_20px_var(--iz-shadow)] active:scale-95"
-        style={{ bottom: sheetH + 16 }}
+        // Never up under the status bar / search pill on a short screen.
+        style={{ bottom: `min(${sheetH + 16}px, calc(100% - var(--safe-top) - 124px))` }}
       >
         <Icon name="locate" size={22} />
       </button>

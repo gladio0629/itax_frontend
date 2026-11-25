@@ -360,7 +360,9 @@ export default function OrderingHome() {
         type="button"
         aria-label={t("home.myLocation")}
         className="absolute right-5 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-iz-sheet text-iz-ink shadow-[0_8px_20px_var(--iz-shadow)] active:scale-95"
-        style={{ bottom: panelH + 16 }}
+        // Above the sheet, but never up under the status bar / top bar (a tall
+        // sheet on a short screen).
+        style={{ bottom: `min(${panelH + 16}px, calc(100% - var(--safe-top) - 124px))` }}
         // "Where am I": the adapter resolves the device position (the map's
         // centre in the demo) to a pickup point.
         onClick={() =>
