@@ -108,6 +108,26 @@
   .pb-tabbar {
     padding-bottom: calc(var(--tabbar-space, 0px) + 24px);
   }
+  /* Route change (AppShell): a 200 ms fade with a short slide from the side
+     the screen comes from (--route-dx). Enter only, and `backwards` fill so
+     no transform stays on the wrapper afterwards (it would re-anchor
+     positioned children and keep a layer alive). */
+  .route-enter {
+    animation: route-in 200ms var(--ease) backwards;
+  }
+  .route-enter[data-dir="0"] {
+    animation-name: route-fade;
+  }
+  /* Tab bar: the active icon pops in. */
+  .tab-pop {
+    animation: tab-pop 200ms var(--ease) backwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .route-enter,
+    .tab-pop {
+      animation: none;
+    }
+  }
   /* Small caps label: 11px / 700 / uppercase / 0.8px tracking. */
   .label-caps {
     font-size: 11px;
@@ -115,5 +135,32 @@
     font-weight: 700;
     letter-spacing: 0.8px;
     text-transform: uppercase;
+  }
+}
+
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--route-dx, 0px), 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes route-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes tab-pop {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: none;
   }
 }
