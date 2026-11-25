@@ -480,7 +480,6 @@ function formFor(kind: RequestSubjectKind, id: string): RequestForm {
   return { subject: { kind, id, title }, people, types, orders: orders.map((o) => ({ id: o.id, label: orderLabel(o) })), defaultOrderId };
 }
 
-/** Pending requests for the sidebar badge (mock.ts getSectionBadges). */
 /** Requests about one person, newest first (the card's "Murojaatlar" tab). */
 export function requestsAbout(kind: "passenger" | "driver", id: string): ManagerRequest[] {
   return readRequests()
@@ -489,6 +488,7 @@ export function requestsAbout(kind: "passenger" | "driver", id: string): Manager
     .map((r) => present(r, false));
 }
 
+/** Pending requests for the sidebar badge (mock.ts getSectionBadges). */
 export function pendingRequestCount(): number {
   return readRequests().filter((r) => r.status === "pending").length;
 }

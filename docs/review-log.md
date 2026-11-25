@@ -3,6 +3,18 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-25, update v3 round 2: admin-ops-cards `2547589`: GREEN, merged `62ec22d`
+
+All 4 items from round 1 are fixed:
+1. There is one `opPath` (`features/ops/paths.ts`, with an optional `tab`). A's copy in `opCards/labels.ts` is removed, and every import uses `features/ops/paths`.
+2. The request types are B's `ManagerRequestType` / `ManagerRequestStatus` and `features/ops/requestLabels.ts`. A's `OpRequestType` and labels are removed. `sms_unlock` remains only as the operator's own card action (`OpCardAction`), which is correct. The `backend-gaps.md` notes entry lists the 8 types from doc 2.5.
+3. The "Murojaatlar" requests are read from the mockOps store (`requestsAbout`, `op_requests_v1`). The tab reloads when the "Menejerga so'rov" modal closes, so a request just sent shows on the card.
+4. The sidebar "Yo'lovchilar" item is gated by `passengers_view`.
+
+Checks before and after the merge: typecheck, builds with `VITE_DEMO_MODE=true` and `false`, and `check:no-network` in both modes pass for admin, client and driver. No http build contains "Sinov paneli".
+
+Reviewer fix (small): in `mockOps.ts` the badge comment was sitting above `requestsAbout`. It is moved back to `pendingRequestCount`.
+
 ## 2026-11-25, update v3: `redesign-v2` after the A/B/C merges, client-van merged
 
 Scope: `redesign-v2` at `9ec2529` (terminals merged B `3ca14ee`, A `ed9eb09`, C `9ec2529` themselves), then client-van `74d96a9` merged by the reviewer as `0eb2cde`.
