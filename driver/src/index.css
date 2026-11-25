@@ -103,10 +103,11 @@
   .no-scrollbar {
     scrollbar-width: none;
   }
-  /* Scroll area that ends above the floating tab bar. AppShell sets
-     --tabbar-space to 0 on screens without the tab bar. */
+  /* Scroll area that ends above the floating tab bar, or above the home
+     indicator on screens without it (AppShell sets --tabbar-space to 0 there;
+     with the bar it already includes the bottom inset). */
   .pb-tabbar {
-    padding-bottom: calc(var(--tabbar-space, 0px) + 24px);
+    padding-bottom: calc(max(var(--tabbar-space, 0px), var(--safe-bottom)) + 24px);
   }
   /* Route change (AppShell): a 200 ms fade with a short slide from the side
      the screen comes from (--route-dx). Enter only, and `backwards` fill so

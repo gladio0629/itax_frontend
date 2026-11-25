@@ -17,7 +17,8 @@ function readStored(): Theme | null {
 
 // Redesign v2: light sheets by default; "Tungi rejim" makes the sheets dark.
 // The top of every screen is Ink in both themes, so the status-bar colour
-// stays Ink.
+// stays Ink and its text light (capacitor.config.ts; lib/statusBar.ts for the
+// map screens).
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => readStored() ?? "light");
 

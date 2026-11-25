@@ -136,7 +136,7 @@ function PhoneScreen({ digits, setDigits, onSent }: { digits: string; setDigits:
 
       <form
         className="flex shrink-0 flex-col gap-4 rounded-t-sheet bg-bg px-6 pt-7"
-        style={{ paddingBottom: "calc(var(--safe-bottom) + 28px)" }}
+        style={{ paddingBottom: compact ? "16px" : "calc(var(--safe-bottom) + 28px)" }}
         onSubmit={(e) => {
           e.preventDefault();
           send();
@@ -319,7 +319,7 @@ function OtpScreen({
         </p>
       </div>
 
-      <div className="flex shrink-0 flex-col gap-[18px] rounded-t-sheet bg-bg px-6 pt-7" style={{ paddingBottom: "calc(var(--safe-bottom) + 28px)" }}>
+      <div className="flex shrink-0 flex-col gap-[18px] rounded-t-sheet bg-bg px-6 pt-7" style={{ paddingBottom: compact ? "16px" : "calc(var(--safe-bottom) + 28px)" }}>
         <div className="flex flex-col gap-2.5">
           <span id="otp-label" className="text-sm font-bold text-ink">
             {t("reg.codeLen", { n: CODE_MAX })}

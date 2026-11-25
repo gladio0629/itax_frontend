@@ -1,6 +1,7 @@
 // /trip/:id — one accepted booking, the screen chosen by the server's stage:
 // to_pickup → ToPickup, waiting → Waiting, in_progress → OnTrip. The step
 // button is the server's next action; finishing opens /trip/:id/done.
+import { useStatusBar } from "@/lib/statusBar";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client";
@@ -143,6 +144,8 @@ function TripLayout({ b, pill, chip, footer, children }: { b: Booking; pill: Rea
   const navigate = useNavigate();
   const sheet = useRef<HTMLDivElement>(null);
   const [covered, setCovered] = useState(0);
+  // The light map runs under the status bar here.
+  useStatusBar("dark");
   useLayoutEffect(() => {
     const el = sheet.current;
     if (!el) return;
