@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { History, Pencil, Search } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
-import { PageHeader } from "@/layouts/PageHeader";
-import { usePermissions } from "@/hooks/usePermissions";
 import { useAdapterList } from "@/hooks/useAdapterList";
-import { Tabs } from "@/components/Tabs";
 import { DataTable, type Column } from "@/components/DataTable";
 import { Badge } from "@/components/Badge";
 import { IconButton } from "@/components/Button";
@@ -16,14 +12,13 @@ import { ErrorState, StaleNotice } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { Toast } from "@/components/Toast";
 import { formatDateTime } from "@/lib/format";
-import { OrdersScreen } from "@/features/orders/OrdersScreen";
 import { REASON, REASON_CHIPS, RESULT, Tag } from "./labels";
 import { dayPresetRange, type DayPreset } from "@/lib/periods";
+import { useCallResults } from "@/features/ops/useCallResults";
 import type { HistoryEntry, HistoryResult, QueueReason } from "@/api/types";
 
 const caps = api.capabilities;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
-type TabKey = "tasks" | "orders";
 
 const PERIODS: { value: DayPreset; label: string }[] = [
   { value: "all", label: "Hammasi" },
@@ -33,36 +28,8 @@ const PERIODS: { value: DayPreset; label: string }[] = [
   { value: "30d", label: "30 kun" },
 ];
 
-/** Operator's "Tarix" (design OperatorHistory): own task history (result
- * and comment editable) and the read-only orders window (doc 2.5). */
-export function OperatorHistory() {
-  const { me } = usePermissions();
-  const [params, setParams] = useSearchParams();
-  const canOrders = !!me?.sections.includes("orders_view");
-  const tab: TabKey = params.get("tab") === "orders" && canOrders ? "orders" : "tasks";
-  const setTab = (t: TabKey) => setParams(t === "tasks" ? {} : { tab: t }, { replace: true });
-
-  return (
-    <>
-      <PageHeader subtitle="Natijalarim va buyurtmalar" title="Tarix" />
-      {canOrders && (
-        <Tabs
-          label="Tarix bo'limlari"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { key: "tasks", label: "Mening vazifalarim" },
-            { key: "orders", label: "Buyurtmalar" },
-          ]}
-        />
-      )}
-      {tab === "orders" ? <OrdersScreen readOnly /> : <MyTasks />}
-    </>
-  );
-}
-
-function MyTasks() {
-  const { me } = usePermissions();
+/** The operator's resolved calls (result and note editable). */
+export function MyTasks() {
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<HistoryResult | "all">("all");
   const [reason, setReason] = useState<QueueReason | "all">("all");
@@ -77,7 +44,9 @@ function MyTasks() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const canEdit = (e: HistoryEntry) => caps.historyEdit && !!me?.actions.includes("operatorWork") && e.operatorId === me?.id;
+  const results = useCallResults();
+  // Editing and its choices are the server's (entry.allowedActions / editResults).
+  const canEdit = (e: HistoryEntry) => !!e.allowedActions?.includes("edit");
 
   function openEdit(e: HistoryEntry) {
     setEditing(e);
@@ -101,10 +70,7 @@ function MyTasks() {
     }
   }
 
-  // "Rad etildi" is set by the reject flow (with its reason), not by editing.
-  const editOptions = caps.operatorResults
-    .filter((r) => r !== "rejected" || editing?.result === "rejected")
-    .map((r) => ({ value: r, label: RESULT[r].label }));
+  const editOptions = (editing?.editResults ?? []).map((r) => ({ value: r, label: RESULT[r].label }));
   if (editing && !editOptions.some((o) => o.value === editing.result)) editOptions.push({ value: editing.result, label: RESULT[editing.result].label });
 
   const columns: Column<HistoryEntry>[] = [
@@ -159,7 +125,7 @@ function MyTasks() {
             aria-label="Natija"
             value={result}
             onChange={setResult}
-            options={[{ value: "all", label: "Hammasi" }, ...caps.operatorResults.map((r) => ({ value: r, label: RESULT[r].label }))]}
+            options={[{ value: "all", label: "Hammasi" }, ...(results ?? []).map((r) => ({ value: r.result, label: RESULT[r.result].label }))]}
           />
           <FilterSelect label="Sana" aria-label="Sana" value={period} onChange={setPeriod} options={PERIODS} />
         </div>

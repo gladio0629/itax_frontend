@@ -10,7 +10,8 @@ import type { Driver } from "@/api/types";
 
 /**
  * Drivers table (design Drivers). Also used read-only by the operator's
- * "Haydovchilar" window (group 5): `showBalance={false}` and no actions.
+ * "Haydovchilar" window: `showBalance={false}`, `operatorView` (design
+ * OperatorDrivers: no level, no trips column) and a row opening the card.
  */
 export function DriversTable({
   rows,
@@ -18,9 +19,11 @@ export function DriversTable({
   total,
   onOpen,
   actions,
+  operatorView = false,
 }: {
   rows: Driver[];
   showBalance: boolean;
+  operatorView?: boolean;
   total?: number | null;
   onOpen?: (d: Driver) => void;
   actions?: (d: Driver) => ReactNode;
@@ -41,8 +44,10 @@ export function DriversTable({
       ? [{ key: "route", header: "Yo'nalish", render: (d: Driver) => d.route ?? "—" } satisfies Column<Driver>]
       : []),
     { key: "rating", header: "Reyting", sortValue: (d) => d.rating, render: (d) => (d.rating ? d.rating.toFixed(2) : "—") },
-    { key: "trips", header: "Safarlar", align: "right", sortValue: (d) => d.totalTrips, render: (d) => formatNumber(d.totalTrips) },
-    ...(rows.some((d) => d.level) ? [{ key: "level", header: "Daraja", render: (d: Driver) => <LevelBadge level={d.level} /> } satisfies Column<Driver>] : []),
+    ...(operatorView
+      ? []
+      : [{ key: "trips", header: "Safarlar", align: "right", sortValue: (d: Driver) => d.totalTrips, render: (d: Driver) => formatNumber(d.totalTrips) } satisfies Column<Driver>]),
+    ...(!operatorView && rows.some((d) => d.level) ? [{ key: "level", header: "Daraja", render: (d: Driver) => <LevelBadge level={d.level} /> } satisfies Column<Driver>] : []),
     ...(showBalance
       ? [
           {

@@ -147,8 +147,12 @@ export type Section =
    * balances. Separate from "orders"/"drivers" so they open nothing else. */
   | "orders_view"
   | "drivers_view"
+  /** Operator "Yo'lovchilar" window and passenger card (2026-11-24). */
+  | "passengers_view"
   /** Marketolog's "Umumiy statistika" (design Marketing). */
-  | "marketing";
+  | "marketing"
+  /** Manager "So'rovlar": operators' requests to approve or reject (2026-11-24). */
+  | "requests";
 
 /** "export" gates the CSV buttons. "operatorWork" is the one operator
  * action (start/finish/reject a call task) — the adapter rejects the
@@ -173,6 +177,7 @@ const ALL_SECTIONS: Section[] = [
   "complaints",
   "staff",
   "operators",
+  "requests",
   "audit",
 ];
 
@@ -181,7 +186,7 @@ export const ROLE_SECTIONS: Record<AdminRole, Section[]> = {
   owner: ALL_SECTIONS,
   menejer: ALL_SECTIONS,
   marketolog: ["marketing"],
-  operator: ["operators", "orders_view", "drivers_view"],
+  operator: ["operators", "orders_view", "drivers_view", "passengers_view"],
 };
 
 export const ROLE_ACTIONS: Record<AdminRole, Action[]> = {
@@ -205,7 +210,7 @@ export const ROLE_LANDING: Record<AdminRole, string> = {
   owner: "/dashboard",
   menejer: "/dashboard",
   marketolog: "/marketing",
-  operator: "/operators",
+  operator: "/operators/queue",
 };
 
 export function canCreateRole(actorRole: AdminRole, targetRole: AdminRole): boolean {
@@ -358,6 +363,10 @@ export type AuditAction =
   | "operator_task_start"
   | "operator_task_result"
   | "operator_history_edit"
+  | "order_restart_search"
+  | "request_create"
+  | "request_approve"
+  | "request_reject"
   | "export";
 
 export type AuditEntry = {

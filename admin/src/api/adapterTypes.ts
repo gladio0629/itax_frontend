@@ -57,6 +57,8 @@ import type {
   MarketingPeriod,
   ListCounts,
 } from "./types";
+import type { OpsAdapter } from "./ops/adapter";
+import type { OpCardsApi } from "./opCards/adapter";
 
 /**
  * Every admin screen talks to the app exclusively through this interface.
@@ -66,7 +68,7 @@ import type {
  * (api/openapi.yml) and rejects with ApiError("NOT_SUPPORTED") where the
  * contract has no endpoint; `capabilities` tells screens what to hide.
  */
-export interface ApiAdapter {
+export interface ApiAdapter extends OpsAdapter, OpCardsApi {
   /** What this adapter can do; screens hide whatever is false. */
   readonly capabilities: AdapterCapabilities;
   /** Called when the server ends the session (token expired/rejected) so

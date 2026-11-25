@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Ban, ExternalLink, Pencil, Plus, Route as RouteIcon, Search, X } from "lucide-react";
+import { Ban, ChevronRight, ExternalLink, Pencil, Plus, Route as RouteIcon, Search, X } from "lucide-react";
 import { api } from "@/api/client";
 import { PageHeader } from "@/layouts/PageHeader";
 import { DataTable, type Column } from "@/components/DataTable";
@@ -39,9 +39,10 @@ const PERIODS: { value: ListPeriod; label: string }[] = [
 ];
 
 /** Orders list (design Orders) with the detail panel as a nested route. */
-/** `readOnly`: the operator's "Buyurtmalar" window (no actions, no detail),
- * shown inside the operator's Tarix page, so it has no page header. */
-export function OrdersScreen({ readOnly = false }: { readOnly?: boolean } = {}) {
+/** `readOnly`: the operator's "Buyurtmalar" window (no row menu, no export,
+ * no admin detail panel), rendered under the operator page's own header.
+ * `onOpen`: where a row leads in that window (the operator order page). */
+export function OrdersScreen({ readOnly = false, onOpen }: { readOnly?: boolean; onOpen?: (o: OrderWithNames) => void } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
@@ -127,6 +128,20 @@ export function OrdersScreen({ readOnly = false }: { readOnly?: boolean } = {}) 
     },
     { key: "price", header: "Narx", align: "right", sortValue: (o) => o.price, render: (o) => formatNumber(o.price) },
     { key: "status", header: "Holat", render: (o) => <Badge tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Badge> },
+    ...(readOnly && onOpen
+      ? [
+          {
+            key: "open",
+            header: "",
+            width: "56px",
+            render: () => (
+              <span className="flex justify-end text-muted" aria-hidden>
+                <ChevronRight className="h-[18px] w-[18px]" />
+              </span>
+            ),
+          } satisfies Column<OrderWithNames>,
+        ]
+      : []),
     ...(readOnly ? [] : [{
       key: "actions",
       header: "",
@@ -235,7 +250,7 @@ export function OrdersScreen({ readOnly = false }: { readOnly?: boolean } = {}) 
           columns={columns}
           rows={orders}
           rowKey={(o) => o.id}
-          onRowClick={readOnly ? undefined : (o) => open(o)}
+          onRowClick={readOnly ? onOpen : (o) => open(o)}
           rowClassName={(o) => (o.id === selectedId ? "bg-row-hover" : undefined)}
           total={status === "all" ? counts?.all : counts?.[status as OrderStatus]}
           emptyIcon={<RouteIcon />}

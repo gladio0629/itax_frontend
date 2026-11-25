@@ -255,3 +255,217 @@ Native apps (Capacitor) need an endpoint to register a device push token:
 `POST /api/v1/devices` `{ platform: "ios"|"android", token, app: "client"|"driver" }`
 and `DELETE` on logout. Notification service then sends via FCM/APNs with minimal
 payload (event ID only, F-21). Until then the apps ship without push.
+
+## admin (operator, 2026-11-24)
+
+### Operator order page and manager requests (admin-ops-orders)
+
+None of these is in `api/openapi.yml` yet. The admin works with them in mock mode only. Responses
+use the shapes of `admin/src/api/ops/types.ts` in snake_case. Times are ISO 8601 (`at`, `until`,
+`*_at`). Errors use the usual `{ error: { key, params } }`. The server decides every status, every
+amount and which buttons appear (`allowed_actions`), and it writes the audit entries.
+
+**Me / sections**
+- New section `requests` (manager "So'rovlar") for `menejer`, `owner` and `superadmin`.
+- The operator keeps `operator` + `orders_view`. The sidebar badge for `requests` is the count of
+  pending requests.
+- New section `passengers_view` for the operator ("Yo'lovchilar" window and passenger card), next to
+  `drivers_view` and `orders_view`. So the operator's `GET /admin/v1/me` sections are
+  `operators`, `orders_view`, `drivers_view`, `passengers_view`. See "Search, passengers, passenger
+  card, driver card" below.
+
+**Operator order page** (sections `orders_view` or `orders`)
+
+| Method | Path | Request | Response | Errors |
+|---|---|---|---|---|
+| GET | `/admin/v1/operator/orders/{id}` | – | `OpOrderDetail` | `order_not_found` |
+| POST | `/admin/v1/operator/orders/{id}/restart-search` | – | `OpOrderDetail` | `forbidden` (not allowed in this status) |
+| POST | `/admin/v1/operator/orders/{id}/cancel` | `{ reason, comment? }` | `OpOrderDetail` | `validation_error`, `forbidden`, `order_closed` |
+
+`OpOrderDetail` contains:
+- `id`, `kind` (`passenger` / `delivery`), `status`, `created_at`, `from_city`, `to_city`, `seats`,
+  `car_class_label` and `payment_label`.
+- `customer {id, name, phone}`: the passenger, or the sender of a delivery.
+- `driver {id, name, phone, plate} | null` and `recipients [{id, name, phone}]`.
+- `timeline [{title, detail, at, until?, estimated?, state: done|current|pending}]`.
+- `stops [{kind: pickup|stop|dropoff, address, promised_at?, contact? {role: sender|recipient, name, phone}, state: done|active|pending, state_text}]`.
+- `last_location {text, at, speed_kmh} | null`.
+- `dispatch {shown, declined, no_answer, accepted_by, accepted_in_sec} | null`: how many drivers
+  saw the order.
+- `price {quoted, lines [{label, amount, kind: base|extra|discount}], final | null}`.
+- `payments [{method, method_kind: card|wallet|cash, ref, amount, status: held|pending|paid|refunded|failed}]`.
+  `ref` is the transaction ID.
+- `cargo {body_size, body_dims, max_kg, items, loaders, pricing: route|hourly, companion, insurance, note} | null`.
+- `allowed_actions`: any of `call_passenger`, `call_driver`, `restart_search`, `cancel` and
+  `manager_request`. A button shows only when the server lists it.
+
+Cancel `reason` is one of `passenger_asked`, `driver_asked`, `driver_no_show`, `passenger_no_show`,
+`technical` or `other`. The reason is required and the comment is at most 500 characters.
+
+**"Menejerga so'rov"** (action `operatorWork`)
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/v1/requests/form?subject_kind=passenger\|driver\|order&subject_id=` | – | `RequestForm` |
+| POST | `/admin/v1/requests` | `{ subject_kind, subject_id, type, amount?, order_id?, reason }` | `ManagerRequest` |
+| GET | `/admin/v1/requests/mine?status=&type=&period=` | – | `ManagerRequest[]`: only the caller's own requests |
+| GET | `/admin/v1/requests/mine/summary` | – | `{ pending, approved_week, rejected_week, resolved_today, total }` |
+| GET | `/admin/v1/requests/mine/notifications` | – | `{ unread }`: own requests decided since the operator last opened "Mening vazifalarim" (header bell) |
+| POST | `/admin/v1/requests/mine/notifications/seen` | – | 204; called when "Mening vazifalarim" opens |
+
+- `type` is one of `refund`, `compensation`, `penalty_cancel`, `ledger_fix`, `block`, `unblock`,
+  `phone_change` or `deletion_cancel`: exactly the list in doc 2.5 "Operator huquqlari
+  (2026-11-24)" (block and unblock are the two directions of one item). The design's "Ma'lumotni
+  o'zgartirish" is not a request type (owner, 2026-11-24).
+- `RequestForm` is `{ subject {kind, id, title}, people [{role, name, phone}], types [{type, hint, needs_amount}], orders [{id, label}], default_order_id }`.
+  The server decides which types a subject gets. For example, `block` or `unblock` depends on the
+  current status, and `deletion_cancel` appears only when a deletion request is open.
+- `amount` is a positive whole number of so'm and is required when `needs_amount`. `reason` is
+  required. `order_id` must be one of `form.orders`.
+- A request made from an order names its person: the driver for `ledger_fix` and `penalty_cancel`,
+  otherwise the passenger.
+- Errors: `validation_error`, `forbidden` and `not_found`.
+
+**Manager "So'rovlar"** (section `requests`)
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/v1/requests?status=pending\|approved\|rejected\|decided&type=&operator_id=&period=today\|7d\|30d` | – | `ManagerRequest[]` (`decided` = approved or rejected, newest decision first: "So'nggi qarorlar") |
+| GET | `/admin/v1/requests/counts?type=&operator_id=&period=` | – | `{ all, pending, approved, rejected }` |
+| GET | `/admin/v1/requests/{id}/preview` | – | `{ title, rows [{label, before, after}] }`: the old → new modal |
+| POST | `/admin/v1/requests/{id}/approve` | – | `ManagerRequest` |
+| POST | `/admin/v1/requests/{id}/reject` | `{ reason }` (required) | `ManagerRequest` |
+
+- `ManagerRequest` is `{ id, code ("S-118"), type, status, title, subject {kind, id, name, phone}, order {id, label} | null, amount, reason, created_at, operator {id, name}, decision {by_name, at, reason} | null, allowed_actions [approve|reject], needs_preview }`.
+- `needs_preview` is true for money requests. For those the UI shows the preview rows first and
+  then calls approve.
+- Approve applies the change in one transaction: money, block status and so on. The ledger only
+  gets new entries; old entries are never edited. The audit entries are `request_create`,
+  `request_approve` and `request_reject`.
+- Both approve and reject answer `conflict` when the request was already decided.
+
+**Call results and history rights** (owner, 2026-11-24: no business rules in the frontend)
+
+| Method | Path | Response |
+|---|---|---|
+| GET | `/admin/v1/operator/call-results` | `[{ result, reason_required }]`: the results a call task may be finished with |
+
+- The doc 2.5 list is `resolved`, `no_answer`, `callback`, `escalated` and `rejected`. Only
+  `rejected` has `reason_required: true`.
+- Until the endpoint exists, the http adapter offers the results the current contract accepts.
+- Every history entry (`GET /admin/v1/operator/history`) should carry:
+  - `allowed_actions`: `["edit"]` when the caller may change its result and comment. Per doc 2.5,
+    that is the operator who owns the entry.
+  - `edit_results`: the results it may be changed to. "Rad etildi" only comes from the reject flow.
+- The UI shows "edit" only when the server lists it.
+
+### Search, passengers, passenger card, driver card (terminal A)
+
+Doc 2.5 "Operator huquqlari (2026-11-24)". Frontend: `admin/src/api/opCards/` (types, interface),
+`admin/src/api/adapters/opCardsHttp.ts` (calls below), `opCardsMock.ts` (sample server).
+All JSON is snake_case, times are ISO 8601, money is whole so'm. Errors: `{ error: { key, params } }`
+with the usual keys (`UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`).
+
+Access: every endpoint below is for staff whose `GET /admin/v1/me` sections include the operator
+windows. New section key **`passengers_view`** (operator "Yo'lovchilar" window and passenger card),
+next to the existing `drivers_view` and `orders_view`. The server checks it; the frontend only hides.
+Phones are returned in full (decision 2026-11-22). No driver level and no SOS in these responses.
+
+Lists use one page shape: `{ items: [...], total, page, page_size }`, `page` is 1-based.
+
+**`GET /admin/v1/operator/search?q=`**: phone (any digits), name, order ID (`#48213`, `48213`) or plate.
+Response:
+```
+{ passengers: [{ id, name, phone, orders_count, status: "active"|"warned"|"blocked" }],
+  drivers:    [{ id, name, phone, car_model, plate, status, at_debt_limit }],
+  orders:     [{ id, kind: "passenger"|"delivery", from, to, created_at,
+                 person: { role: "driver"|"passenger", name } | null, price, status }],
+  counts: { passengers, drivers, orders } }
+```
+Each list holds at most 20 hits; `counts` are the full totals. `person` is the side that matched
+the query (or the driver when the order ID matched).
+
+**`GET /admin/v1/operator/passengers?q=&status=&page=`**: `status` = `active|warned|blocked`
+(absent = all). Response: page of
+`{ id, name, phone, orders_count, rating, last_trip_at, status }` plus
+`counts: { all, active, warned, blocked }` for the same `q`.
+
+**Passenger card.** `{id}` is the passenger id. Each card response carries `actions`: the buttons
+this operator may use now (`call`, `request`, `refund_request`, `sms_unlock`, `sms_resend`,
+`add_note`). The frontend shows only listed buttons.
+
+- `GET /admin/v1/operator/passengers/{id}`: header, tab counters and the "Umumiy" tab.
+  ```
+  { id, display_id: "P-20931", name, phone, status, joined_at, language, actions: [...],
+    tabs: { orders, payments, notes, sms_alert },
+    status_note: { text, by_name, at } | null,          // why warned / blocked
+    stats: { orders, cancelled, cancelled_this_week, bonus_balance, rating },
+    profile: { app, main_payment, saved_addresses: [string], last_order: { id, created_at } | null },
+    status_history: [{ id, title, detail, at, tone: "success"|"danger"|"neutral" }],
+    deletion_request: { status: reviewing|approved, requested_at, reason, auto_delete_at } | null }
+  ```
+- `GET .../passengers/{id}/orders?status=active|completed|cancelled&period=today|yesterday|7d|30d|90d&page=`:
+  page of `{ id, kind, from, to, created_at, driver: { name, phone } | null, payment, price, status,
+  cancelled_by }` plus `counts: { all, active, completed, cancelled }` for the same period.
+- `GET .../passengers/{id}/payments?type=card|payme|click|refund|tip&page=`: page of
+  `{ id, at, type: card|payme|click|cash|refund|tip, order_id, txn_id, card_last4, amount,
+  status: held|paid|refunded|failed|to_driver }` plus
+  `summary: { paid, refunded, refund_count, tips, tip_count, failed_count, last_failed: { type, at } | null }`
+  and `counts: { all, card, payme, click, refund, tip }`.
+- `GET .../passengers/{id}/bonus`: `{ balance, entries: [{ id, at, text, order_id, amount, balance_after }],
+  promos: [{ code, discount: { percent, max_amount } | { amount }, used_at, valid_until, status: used|active|expired }] }`.
+
+**Login SMS and notes, both cards.** `{kind}` is `passengers` or `drivers`.
+
+- `GET /admin/v1/operator/{kind}/{id}/sms?period=7d|14d|30d`:
+  ```
+  { last_at, last_result, attempts: { used, max }, lock: { wrong_attempts, minutes } | null,
+    actions: ["sms_unlock", "sms_resend"],              // only what is allowed now
+    log: [{ id, at, type: login|login_retry|login_resent, provider, result, limit: { used, max } | null }] }
+  ```
+  `result`: `delivered|entered|wrong_code|limit|not_delivered`.
+- `POST .../{kind}/{id}/sms/unlock?period=`: "Limitni ochish". Returns the same body as the GET.
+  Errors: `SMS_NOT_LOCKED` (409), `FORBIDDEN`. The server writes the audit entry and adds a
+  status-history line ("Kirish limiti ochildi").
+- `POST .../{kind}/{id}/sms/resend?period=`: "Kodni qayta yuborish". Returns the same body.
+  Error: `SMS_RESEND_LIMIT` (429) when the hourly resend limit is reached.
+- `GET .../{kind}/{id}/notes`: `{ notes: [{ id, author_name, category: complaint|login|info|payment, text, at }],
+  requests: [{ id, display_id: "S-118", type, amount, status: pending|approved|rejected }], actions: ["add_note"] }`.
+  `requests` are the "Menejerga so'rov" items about this person; `type` is one of `refund`, `sms_unlock`,
+  `ledger_fix`, `compensation`, `penalty_cancel`, `block`, `unblock`, `phone_change`, `deletion_cancel`;
+  `amount` is signed for `ledger_fix`.
+- `POST .../{kind}/{id}/notes` `{ text }` (1–1000 chars): returns the new note. The server sets
+  author and category. Error: `VALIDATION_ERROR`.
+
+**Driver card.** Read-only for money, documents and blocking (changes go through "Menejerga
+so'rov"). No level and no SOS fields. The operator sees the balance and the full ledger here
+(doc 2.5, 2026-11-24), unlike the old operator drivers list.
+
+- `GET /admin/v1/operator/drivers/{id}`:
+  ```
+  { id, display_id: "D-10482", name, phone, status, at_debt_limit, car_model, plate, on_trip, actions: [...],
+    tabs: { docs, trips, cancels, complaints, notes },     // docs = documents that are not verified
+    last_block: { from, to | null, reason, blocked_by, unblocked_by | null } | null,
+    stats: { trips, rating, rating_basis, cancels_this_month, balance },   // rating_basis = trips the rating covers
+    car: { title: "Chevrolet Cobalt, oq, 2021", plate, car_class: economy|comfort|business|minivan|null,
+           seats, routes: [string], bodies: ["S".."3XL"], loader_help },
+    app: { version, last_seen_at, last_location, speed_kmh, current_trip: { id, from, to } | null, min_version },
+    status_history: [{ id, title, detail, at, tone }] }
+  ```
+- `GET .../drivers/{id}/documents`: `{ docs: [{ id, title, detail, status: verified|checking|rejected,
+  note, reject_reason }], history: [timeline items] }`.
+- `GET .../drivers/{id}/wallet?month=YYYY-MM&page=`: `{ balance, debt_limit, until_limit, month_commission,
+  bar_percent (0–100), months: ["YYYY-MM"], month, ledger: page of { id, at, type, order_id, txn_id, amount,
+  balance_after }, top_ups: [{ id, at, provider: payme|click|card, txn_id, amount, status: ok|failed|pending }] }`.
+  `type` uses the ledger kinds (`commission`, `topup`, `tip`, `penalty`, `adjustment`, `cash`, `card`, ...).
+- `GET .../drivers/{id}/trips?filter=passenger|delivery|cancelled&month=&page=`: page of
+  `{ id, kind, from, to, at, passenger: { name, phone } | null, body_size, price, commission, status }` plus
+  `summary: { trips, earned, commission, avg_price }` for the month, `counts: { all, passenger, delivery,
+  cancelled }`, `months`, `month`.
+- `GET .../drivers/{id}/cancels?period=1m|3m|12m`: `{ summary: { driver_cancels, penalties, share_pct,
+  avg_share_pct }, rows: [{ id, at, order_id, by: driver|passenger|system, reason, penalty, penalty_status:
+  charged|none|waived }] }`.
+- `GET .../drivers/{id}/reviews`: `{ rating, rating_basis, distribution: [{ stars, percent }],
+  open_complaints, complaints: [{ id, at, from_name, from_phone, topic, order_id, status }],
+  reviews: [{ id, stars, author, text, at }] }`.
+- SMS and notes: the `{kind}` endpoints above with `drivers`.
