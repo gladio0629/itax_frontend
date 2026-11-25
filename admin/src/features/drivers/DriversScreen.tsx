@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Ban, CheckCircle2, ExternalLink, Pencil, RotateCcw, Search, ShieldCheck, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Ban, CheckCircle2, ChevronRight, ExternalLink, Pencil, RotateCcw, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { api } from "@/api/client";
 import { PageHeader } from "@/layouts/PageHeader";
 import { SearchInput } from "@/components/Input";
@@ -16,6 +16,7 @@ import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { DRIVER_STATUS, driverBadge, driverChipStatuses } from "./driverLabels";
 import { DriversTable } from "./DriversTable";
 import { useDriverActions } from "./useDriverActions";
+import { opPath } from "@/features/opCards/labels";
 import type { ArchivableStatusFilter, DriverLevel, DriverQuery, DriverStatus, ListCounts } from "@/api/types";
 
 const caps = api.capabilities;
@@ -67,7 +68,7 @@ export function DriversScreen({ readOnly = false }: { readOnly?: boolean } = {})
   return (
     <>
       <PageHeader
-        subtitle={readOnly ? "Faqat ko'rish" : "Ro'yxatdan o'tgan hamma haydovchilar"}
+        subtitle={readOnly ? "Operator oynasi" : "Ro'yxatdan o'tgan hamma haydovchilar"}
         title="Haydovchilar"
         actions={
           !readOnly && <ExportButton
@@ -108,7 +109,7 @@ export function DriversScreen({ readOnly = false }: { readOnly?: boolean } = {})
             options={[{ value: "all", label: "Hammasi" }, ...routes.map((r) => ({ value: r, label: r }))]}
           />
         )}
-        {caps.driverLevelFilter && (
+        {caps.driverLevelFilter && !readOnly && (
           <FilterSelect
             label="Daraja"
             aria-label="Daraja"
@@ -140,9 +141,20 @@ export function DriversScreen({ readOnly = false }: { readOnly?: boolean } = {})
         <DriversTable
           rows={drivers}
           showBalance={!readOnly}
+          operatorView={readOnly}
           total={status === "all" ? counts?.all : counts?.[status]}
-          onOpen={readOnly ? undefined : (d) => navigate(`/drivers/${d.id}`)}
-          actions={readOnly ? undefined : (d) => (
+          onOpen={(d) => navigate(readOnly ? opPath.driver(d.id) : `/drivers/${d.id}`)}
+          actions={readOnly ? (d) => (
+            <Link
+              to={opPath.driver(d.id)}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`${d.name}: kartani ochish`}
+              title="Kartani ochish"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink hover:bg-line"
+            >
+              <ChevronRight className="h-[18px] w-[18px]" aria-hidden />
+            </Link>
+          ) : (d) => (
             <RowMenu
               label={`${d.name}: amallar`}
               items={[

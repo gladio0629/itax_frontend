@@ -29,6 +29,7 @@ import {
 import { formatDayShort, formatPhone } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import { mockOps, pendingRequestCount, withHistoryRights } from "./mockOps";
+import { opCardsMock } from "./opCardsMock";
 import type {
   MarketingStats,
   OrderWithNames,
@@ -492,6 +493,8 @@ const MOCK_CAPABILITIES: AdapterCapabilities = {
 export const mockAdapter: ApiAdapter = {
   // Operator order page and manager requests (2026-11-24): ./mockOps.ts
   ...mockOps,
+  // Operator search, passenger and driver cards (2026-11-24): ./opCardsMock.ts
+  ...opCardsMock,
 
   capabilities: MOCK_CAPABILITIES,
   // The mock session never expires on its own (idle logout is UI-side).

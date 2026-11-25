@@ -9,6 +9,7 @@ import { ApiError, type ErrorParams } from "@shared/http/errors";
 import { uuidV4 } from "@shared/http/uuid";
 import type { QueryValue } from "@shared/http/client";
 import type { ApiAdapter } from "../adapterTypes";
+import { opCardsHttp } from "./opCardsHttp";
 import { adminErrorMessage } from "../httpErrors";
 import { session } from "../httpSession";
 import * as map from "../httpMapper";
@@ -246,6 +247,8 @@ async function complaintDetail(id: string): Promise<Complaint> {
 export const httpAdapter: ApiAdapter = {
   // Operator order page and manager requests (2026-11-24): ./httpOps.ts
   ...httpOps,
+  // Operator search, passenger and driver cards (2026-11-24): ./opCardsHttp.ts
+  ...opCardsHttp(http),
 
   capabilities: CAPABILITIES,
   onSessionEnd: (listener) =>

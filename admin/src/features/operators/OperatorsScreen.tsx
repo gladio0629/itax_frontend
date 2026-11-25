@@ -7,6 +7,7 @@ import { OpTasksPage } from "@/features/ops/OpTasksPage";
 import { opPath } from "@/features/ops/paths";
 import { OperatorsBoard } from "./OperatorsBoard";
 import { OperatorQueueView } from "./OperatorQueueView";
+import { opCardRoutes } from "@/features/opCards/routes";
 
 /** `/operators/*`. Which window opens is decided by Me (actions and
  * sections), never by a role name: "operatorWork" gets the operator's own
@@ -31,6 +32,7 @@ export function OperatorsScreen() {
       {/* Old link of the operator's "Tarix". */}
       <Route path="history" element={<Navigate to={opPath.tasks} replace />} />
       <Route path="drivers" element={canDrivers ? <DriversScreen readOnly /> : <Navigate to="/operators" replace />} />
+      {opCardRoutes(me)}
       <Route path="*" element={<Navigate to="/operators" replace />} />
     </Routes>
   );
