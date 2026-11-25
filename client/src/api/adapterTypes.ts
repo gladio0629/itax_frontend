@@ -50,6 +50,7 @@ import type { DeliveryVehicleSpec,
   OrderEvent,
   DriverLocation,
 } from "./types";
+import type { SeatLayout } from "./seatLayout";
 
 /**
  * Every screen talks to the app exclusively through this interface.
@@ -115,6 +116,8 @@ export interface ApiAdapter {
   reverseGeocode(x: number, y: number, excludeCityId?: string, onlyCityId?: string): Promise<Address>;
   getPickupEta(): Promise<{ minutes: number }>;
   getSeatMap(input: { fromAddressId: string; toAddressId: string }): Promise<Seat[]>;
+  /** Seat layout of every car class for the route (rows, ids, taken seats). */
+  getSeatLayouts(input: { fromAddressId: string; toAddressId: string }): Promise<SeatLayout[]>;
   getQuote(input: QuoteInput): Promise<Quote>;
   getDeliveryVehicles(): Promise<DeliveryVehicleSpec[]>;
   getSchedulingRules(): Promise<SchedulingRules>;

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
-import type { OrderMode, OrderTiming, OrderWithDetails, PayMethod, SavedCard, SchedulingRules, Seat } from "@/api/types";
+import type { OrderMode, OrderTiming, OrderWithDetails, PayMethod, SavedCard, SchedulingRules } from "@/api/types";
+import { layoutFor, type SeatLayout } from "@/api/seatLayout";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
 import { cn } from "@/lib/cn";
@@ -72,10 +73,12 @@ export function EditOrderScreen({
   const [error, setError] = useState<string | null>(null);
   const delivery = order.extras?.serviceType === "delivery";
 
-  const seats = useQuery<Seat[]>(
-    () => (!delivery && fromAddressId && toAddressId ? api.getSeatMap({ fromAddressId, toAddressId }) : Promise.resolve([])),
+  // The order's class decides the cabin (sedan or minivan).
+  const seats = useQuery<SeatLayout[]>(
+    () => (!delivery && fromAddressId && toAddressId ? api.getSeatLayouts({ fromAddressId, toAddressId }) : Promise.resolve([])),
     [delivery, fromAddressId, toAddressId]
   );
+  const seatLayout = seats.status === "success" ? layoutFor(seats.data, order.extras?.carClass) : null;
   const scheduling = useQuery<SchedulingRules>(() => api.getSchedulingRules(), []);
   const navigate = useNavigate();
   const cards = useQuery<SavedCard[]>(() => (api.capabilities.savedCards ? api.getSavedCards() : Promise.resolve([])), []);
@@ -216,13 +219,14 @@ export function EditOrderScreen({
 
             {!delivery && (
               <section className="flex flex-col gap-2" aria-label={t("seats.title")}>
-                {seats.status === "error" ? (
-                  <StateError onRetry={seats.refetch} />
-                ) : seats.status === "loading" ? (
+                {seats.status === "loading" ? (
                   <StateLoading rows={2} />
+                ) : !seatLayout ? (
+                  <StateError onRetry={seats.refetch} />
                 ) : (
                   <SeatPicker
-                    seats={seats.data}
+                    layout={seatLayout}
+                    classLabel={t(`class.${seatLayout.carClass}` as TranslationKey)}
                     mode={mode}
                     seatIds={seatIds}
                     onChange={(m, ids) => {

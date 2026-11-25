@@ -269,10 +269,9 @@ amount and which buttons appear (`allowed_actions`), and it writes the audit ent
 - New section `requests` (manager "So'rovlar") for `menejer`, `owner` and `superadmin`.
 - The operator keeps `operator` + `orders_view`. The sidebar badge for `requests` is the count of
   pending requests.
-- New section `passengers_view` for the operator ("Yo'lovchilar" window and passenger card), next to
-  `drivers_view` and `orders_view`. So the operator's `GET /admin/v1/me` sections are
-  `operators`, `orders_view`, `drivers_view`, `passengers_view`. See "Search, passengers, passenger
-  card, driver card" below.
+- The operator's `GET /admin/v1/me` sections are `operators`, `orders_view`, `drivers_view` and
+  `passengers_view`. `passengers_view` is new and is described under "Search, passengers,
+  passenger card, driver card" below.
 
 **Operator order page** (sections `orders_view` or `orders`)
 
@@ -469,3 +468,35 @@ so'rov"). No level and no SOS fields. The operator sees the balance and the full
   open_complaints, complaints: [{ id, at, from_name, from_phone, topic, order_id, status }],
   reviews: [{ id, stars, author, text, at }] }`.
 - SMS and notes: the `{kind}` endpoints above with `drivers`.
+
+## client (miniven, 2026-11-24)
+
+Trip screen seat map per car class (design `TripVan`): Miniven shows a minivan cabin (driver + 1, then 3, then 3), the other classes the sedan cabin. Layout, taken seats, seat counts and prices all come from the server. Client: `client/src/api/seatLayout.ts`, `client/src/api/adapters/seatLayouts.http.ts`.
+
+### `GET /api/v1/orders/seat-layouts` (new)
+
+- **Query:** `from_lat`, `from_lng`, `to_lat`, `to_lng` (same as `seat-map`).
+- **200:**
+  ```json
+  { "data": [
+    { "car_class": "economy", "cabin": "sedan",
+      "rows": [[{ "id": "driver", "kind": "driver", "taken": true }, { "id": "front", "kind": "passenger", "taken": false }],
+               [{ "id": "back-left", "kind": "passenger", "taken": false }, { "id": "back-mid", "kind": "passenger", "taken": false }, { "id": "back-right", "kind": "passenger", "taken": true }]],
+      "passenger_seats": 4, "whole_car_available": false },
+    { "car_class": "minivan", "cabin": "minivan",
+      "rows": [[{ "id": "driver", "kind": "driver", "taken": true }, { "id": "front", "kind": "passenger", "taken": false }],
+               [{ "id": "row2-left", ... }, { "id": "row2-mid", ... }, { "id": "row2-right", ... }],
+               [{ "id": "row3-left", ... }, { "id": "row3-mid", ... }, { "id": "row3-right", ... }]],
+      "passenger_seats": 7, "whole_car_available": true }
+  ] }
+  ```
+  One entry per class the route offers. `cabin`: `sedan` | `minivan` (which drawing the app uses). `rows`: front to back, seats left to right; the app places seats by row and position, the ids are opaque and are sent back as `seat_ids`. `passenger_seats` is shown as "N yo'lovchi o'rni" and as "N o'rin" on the class card. `whole_car_available`: "Butun mashina" is enabled only when true (no seat taken).
+- **Errors:** `VALIDATION_ERROR` (bad coordinates), `INVALID_ROUTE`.
+- **Until it exists (404):** the http app builds the sedan classes from `GET /api/v1/orders/seat-map` (as before) and has no minivan layout, so Miniven stays whole car only.
+
+### Quote, create order, order update: seats with a class
+
+- `POST /api/v1/orders/quote`, `POST /api/v1/orders` and `PATCH /api/v1/orders/{id}` must accept `seat_ids` **together with** `car_class` for a per-seat order of the minivan (today the contract is "seat_ids OR car_class"). `seat_ids` are ids from `seat-layouts` for that class (e.g. `front`, `row2-mid`), not only the four sedan ids.
+- The app sends `car_class: "minivan"` with minivan seat ids; sedan per-seat orders are sent as before (no class).
+- **Errors:** `SEAT_TAKEN` (a picked seat is taken now), `VALIDATION_ERROR` (a seat id the class does not have).
+- Price for the class and the picked seats is the server's quote, as for every other order.

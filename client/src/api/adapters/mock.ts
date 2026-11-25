@@ -18,6 +18,8 @@ import {
 import { makeRng } from "@/lib/prng";
 import { offsetPoint } from "@shared/map/geo";
 import type { ApiAdapter } from "../adapterTypes";
+import type { SeatLayout } from "../seatLayout";
+import { mockPassengerSeats, mockSeatIds, mockSeatLayouts } from "./seatLayouts.mock";
 import type {
   AddressDetails,
   AddressSearchResult,
@@ -250,14 +252,13 @@ const CAR_CLASSES: Record<CarClassId, { nameKey: string; seats: number; surcharg
   standart: { nameKey: "class.standart", seats: 4, surchargePct: 0 },
   komfort: { nameKey: "class.komfort", seats: 4, surchargePct: 25 },
   biznes: { nameKey: "class.biznes", seats: 4, surchargePct: 70 },
-  miniven: { nameKey: "class.miniven", seats: 6, surchargePct: 40 },
+  miniven: { nameKey: "class.miniven", seats: 7, surchargePct: 40 },
 };
 const CAR_CLASS_IDS = Object.keys(CAR_CLASSES) as CarClassId[];
 const BIZNES_MAX_KM = 700;
 
-function classAvailability(id: CarClassId, mode: OrderMode, directKm: number): string | undefined {
-  // The seat map has 4 seats; a 6-seat minivan is booked whole.
-  if (id === "miniven" && mode === "seat") return "class.reason.wholeCarOnly";
+function classAvailability(id: CarClassId, _mode: OrderMode, directKm: number): string | undefined {
+  // The minivan has its own seat map (getSeatLayouts), so it is booked per seat too.
   if (id === "biznes" && directKm > BIZNES_MAX_KM) return "class.reason.longRoute";
   return undefined;
 }
@@ -703,6 +704,8 @@ function genId(prefix: string) {
 /** Pure function of time: resolves a live order's transient status. */
 function resolveLiveStatus(order: Order): Order {
   if (!order.timeline) return order;
+  // Test panel: the order stays where it is (e.g. to try "O'zgartirish").
+  if (getTestScenarios().holdStatus) return order;
   const now = Date.now();
   const t = order.timeline;
 
@@ -968,6 +971,13 @@ export const mockAdapter: ApiAdapter = {
       }));
     }, { minMs: 200, maxMs: 450 }),
 
+  getSeatLayouts: ({ fromAddressId, toAddressId }) =>
+    withLatency<SeatLayout[]>(() => {
+      addressOf(fromAddressId);
+      addressOf(toAddressId);
+      return mockSeatLayouts(fromAddressId, toAddressId);
+    }, { minMs: 200, maxMs: 450 }),
+
   getSchedulingRules: () => withLatency<SchedulingRules>(() => ({ ...SCHEDULING_RULES }), { minMs: 100, maxMs: 250 }),
 
   getOrderDetailsRules: () =>
@@ -981,21 +991,23 @@ export const mockAdapter: ApiAdapter = {
         const reasonKey = classAvailability(id, input.mode, directKm);
         let price = 0;
         if (!reasonKey) {
-          // Same price the quote would give with this class.
+          // Same price the quote would give with this class (only the
+          // picked seats this class's cabin has).
+          const classSeats = mockSeatIds(id);
           price = priceOrder({
             serviceType: "passenger",
             fromAddressId: input.fromAddressId,
             toAddressId: input.toAddressId,
             stops: input.stops ?? [],
             mode: input.mode,
-            seatIds: input.seatIds,
+            seatIds: input.seatIds.filter((s) => classSeats.includes(s)),
             carClass: id,
             promoCode: input.promoCode,
           }).total;
         }
         // A deterministic "nearest car" per class and route.
         const etaMinutes = 3 + (hashSeed(`${input.fromAddressId}|${id}`) % 9);
-        return { id, nameKey: c.nameKey, seats: c.seats, price, available: !reasonKey, reasonKey, etaMinutes };
+        return { id, nameKey: c.nameKey, seats: mockPassengerSeats(id), price, available: !reasonKey, reasonKey, etaMinutes };
       });
     }, { minMs: 250, maxMs: 500 }),
 
