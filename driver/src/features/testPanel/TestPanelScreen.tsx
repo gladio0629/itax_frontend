@@ -10,7 +10,7 @@ import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { useSession } from "@/stores/sessionStore";
 import { useTestControls } from "@/stores/testControlsStore";
-import { AlertTriangle, Armchair, Car, Gift, LayoutGrid, RotateCcw, Truck, User, UserPlus, UserX, Wallet, WifiOff, Zap } from "@/lib/icons";
+import { AlertTriangle, Armchair, Car, LayoutGrid, RotateCcw, Truck, User, UserPlus, UserX, Wallet, WifiOff, Zap } from "@/lib/icons";
 import { Screen } from "@/components/Screen";
 import { SectionLabel } from "@/components/Card";
 import { SettingsGroup, SettingsRow } from "@/components/SettingsRow";
@@ -25,7 +25,6 @@ const PRESETS: { key: TestPreset; icon: typeof User; tile: "blue" | "yellow" | "
   { key: "active", icon: Car, tile: "green" },
   { key: "near_debt", icon: Wallet, tile: "orange" },
   { key: "debt", icon: AlertTriangle, tile: "red" },
-  { key: "bonus", icon: Gift, tile: "yellow" },
 ];
 
 export default function TestPanelScreen() {

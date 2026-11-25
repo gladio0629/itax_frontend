@@ -149,7 +149,6 @@ export type HomeSummary = {
   unreadNotifications: number;
   debt: DebtState;
   canAcceptOrders: boolean;
-  bonusActive: boolean;
   /** New matching requests the driver hasn't looked at yet (Asosiy tab badge). */
   newRequests: number;
   /** A trip was accepted and isn't finished yet (drives GPS reporting). */
@@ -302,11 +301,6 @@ export type TripSummary = {
   gross: number;
   commissionPct: number;
   commission: number;
-  baseCommissionPct: number;
-  /** What the commission would have been without the bonus. */
-  baseCommission: number;
-  /** True when a bonus waived the commission (show it crossed out). */
-  commissionWaived: boolean;
   net: number;
   ratingReceived: number | null;
   /** Absent when the server doesn't label the payment (e.g. wallet). */
@@ -363,7 +357,7 @@ export type TripDetail = HistoryItem & {
   cargo?: Cargo;
   timeline: TimelineEvent[];
   /** commissionPct absent when the server gives only the amount. */
-  breakdown: { base: number; commission: number; commissionPct?: number; bonusDiscount: number; net: number };
+  breakdown: { base: number; commission: number; commissionPct?: number; net: number };
   cancelReasonKey?: string;
 };
 
@@ -389,7 +383,8 @@ export type WalletSummary = {
   debt: DebtState;
   // Optional: the real backend has no today stats, commission info or card list yet.
   today?: { earnings: number; trips: number; avgPerTrip: number };
-  commission?: { pct: number; bonusPct: number; bonusActive: boolean; levelKey?: "bronze" | "silver" | "gold" };
+  /** The commission rate the server applies (shown as is). */
+  commission?: { pct: number };
   cards?: LinkedCard[];
   /** This week's earnings and the change against last week, in percent (server). */
   week?: { earnings: number; changePct?: number };
@@ -397,31 +392,6 @@ export type WalletSummary = {
 
 /** From the server; `presets` may be empty and `min` / `max` absent (the server still validates the amount). */
 export type TopupOptions = { presets: number[]; min?: number; max?: number; providers: PayProvider[]; savedCards?: LinkedCard[] };
-
-export type BonusLevel = {
-  key: "bronze" | "silver" | "gold";
-  tripsRequired: number;
-  commissionPct: number;
-  /** 0..1 position of this milestone on the weekly progress bar. */
-  position: number;
-  reached: boolean;
-};
-export type BonusRule = { key: string; progress: number; target: number; done: boolean; ratio: number };
-export type BonusInfo = {
-  active: boolean;
-  currentLevel: BonusLevel;
-  nextLevel: BonusLevel | null;
-  levels: BonusLevel[];
-  weekTrips: number;
-  /** 0..1 progress toward next level (1 when at top). */
-  progressRatio: number;
-  tripsToNext: number;
-  commissionPct: number;
-  baseCommissionPct: number;
-  rules: BonusRule[];
-  savedThisWeek: number;
-  resetsInDays: number;
-};
 
 export type NotificationKind = "order" | "wallet" | "docs" | "bonus" | "news";
 export type NotificationItem = {
@@ -513,4 +483,4 @@ export type CancelReason = { key: string };
 /** Which kind of request a test-panel event produces (sample-data mode). */
 export type TestOrderVariant = "random" | "full" | "cargo";
 
-export type TestPreset = "new" | "active" | "near_debt" | "debt" | "bonus";
+export type TestPreset = "new" | "active" | "near_debt" | "debt";

@@ -85,7 +85,6 @@ export default function TripDetailScreen() {
                     label={d.breakdown.commissionPct == null ? t("detail.commissionAmount") : t("detail.commission", { pct: d.breakdown.commissionPct })}
                     value={formatAmount(-d.breakdown.commission)}
                   />
-                  {d.breakdown.bonusDiscount > 0 && <Row label={t("detail.bonusDiscount")} value={formatAmount(d.breakdown.bonusDiscount, { signed: true })} tone="gold" />}
                   <div className="flex items-center justify-between border-t border-line pt-3">
                     <dt className="font-bold text-ink">{t("detail.net")}</dt>
                     <dd>
@@ -143,11 +142,11 @@ export default function TripDetailScreen() {
   );
 }
 
-function Row({ label, value, tone }: { label: string; value: string; tone?: "gold" }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <dt className="text-muted">{label}</dt>
-      <dd className={cn("tabular", tone === "gold" ? "text-brand-ink" : "text-ink")}>{value}</dd>
+      <dd className="tabular text-ink">{value}</dd>
     </div>
   );
 }

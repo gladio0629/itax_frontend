@@ -78,13 +78,12 @@ const capabilities: ApiCapabilities = {
   arrivedStep: true,
   cancelBooking: true,
   tripChat: false,
-  // Trip has final_price and commission, but no commission % or bonus.
+  // Trip has final_price and commission, but no commission %.
   tripSummary: false,
   history: true,
   // GET /trips/history has only cursor/limit and no total.
   historyFilters: false,
   profileMatching: false,
-  bonus: false,
   help: false,
   // The contract's capabilities are wishes (removed 2026-11-22); the cargo sizes endpoint isn't there yet.
   driverCapabilities: false,
@@ -391,7 +390,6 @@ async function homeSummary(): Promise<HomeSummary> {
     // Not in the contract; not shown in http mode.
     todayEarnings: 0,
     todayTrips: 0,
-    bonusActive: false,
     newRequests: 0,
     // Unread on the first page (the contract has no unread count).
     unreadNotifications: notifications.data.filter((n) => !n.read).length,
@@ -822,7 +820,6 @@ export const httpAdapter: ApiAdapter = {
   },
 
   // ---------- profile ----------
-  getBonus: notSupported,
 
   async requestProfileChange(field, value) {
     if (field !== "name") return notSupported();

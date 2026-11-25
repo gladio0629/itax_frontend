@@ -105,12 +105,9 @@ export default function FinishedScreen() {
             {s && (
               <div className="flex min-h-[48px] items-center justify-between border-b border-line">
                 <dt className="text-sm font-semibold text-muted">{s.commissionPct >= 0 ? t("price.commission", { pct: s.commissionPct }) : t("price.commissionNoPct")}</dt>
-                <dd className={cn("tabular text-15 font-bold", s.commissionWaived ? "text-muted line-through" : "text-danger")}>
-                  {formatAmount(-(s.commissionWaived ? s.baseCommission : s.commission), { signed: true })}
-                </dd>
+                <dd className="tabular text-15 font-bold text-danger">{formatAmount(-s.commission, { signed: true })}</dd>
               </div>
             )}
-            {s?.commissionWaived && <p className="py-2 text-13 font-bold text-brand-ink">{t("done.waived")}</p>}
             {net != null && (
               <div className="flex min-h-[48px] items-center justify-between">
                 <dt className="text-15 font-bold text-ink">{t("price.net")}</dt>
@@ -178,9 +175,6 @@ async function loadSummary(id: string): Promise<TripSummary | null> {
     gross: d.breakdown.base,
     commissionPct: d.breakdown.commissionPct ?? -1,
     commission: d.breakdown.commission,
-    baseCommissionPct: d.breakdown.commissionPct ?? -1,
-    baseCommission: d.breakdown.commission,
-    commissionWaived: false,
     net: d.breakdown.net,
     ratingReceived: d.ratingReceived,
     payment: d.payment,

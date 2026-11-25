@@ -1,13 +1,13 @@
 // Mock adapter: the only place with business rules (commission, debt limit,
-// which requests a driver sees, seats, first-accept-wins, trip stages, bonus
-// levels, filtering, pagination). Screens never compute any of this.
+// which requests a driver sees, seats, first-accept-wins, trip stages,
+// filtering, pagination). Screens never compute any of this.
 import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
 import { getTestNetwork } from "@/stores/testControlsStore";
 import {
-  BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_BRANDS, CAR_COLORS, DEBT_LIMIT, DEBT_NEAR_RATIO, LICENSE_CATEGORIES, REVIEW_ETA_MIN,
+  BASE_COMMISSION_PCT, CAR_BRANDS, CAR_COLORS, DEBT_LIMIT, DEBT_NEAR_RATIO, LICENSE_CATEGORIES, REVIEW_ETA_MIN,
   BODY_SIZES, CARGO_BODIES, DEFAULT_CAPABILITIES, TIP_AMOUNTS, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor,
-  levelFor, LOADER_FEE, OFFER_WINDOW_SEC, passengers, persist, WAIT_FREE_MIN, WAIT_PRICE_PER_MIN, presetState, pushNotification, replaceState, state, weekTrips,
+  LOADER_FEE, OFFER_WINDOW_SEC, passengers, persist, WAIT_FREE_MIN, WAIT_PRICE_PER_MIN, presetState, pushNotification, replaceState, state,
   type BookingRecord, type DetailsRecord, type DriverState, type RequestRecord, type StopRecord, type TripRecord, type WhenRecord,
 } from "@/mockDb/driverDb";
 import { makeRng } from "@/lib/prng";
@@ -16,7 +16,7 @@ import { groupDigits } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
   DocSlot, HistorySummary, RegistrationReview, SeatPosition,
-  AcceptBlock, AcceptedPage, BonusInfo, Booking, BookingDay, CapabilitiesInput, DebtState, TestOrderVariant, TestPreset, Direction,
+  AcceptBlock, AcceptedPage, Booking, BookingDay, CapabilitiesInput, DebtState, TestOrderVariant, TestPreset, Direction,
   DriverCapabilities, DriverProfile, FeedPage, FeedQuery, HistoryItem, HistoryPage, HomeSummary, LedgerPage, OfferPlace,
   OrderExtras, OrderKind, PassengerInfo, Place, RequestAlert, ReviewKind, ReviewRequest, RideRequest, RoutesPage,
   TopupOptions, TripChat, TripDetail, TripPlace, TripStage, TripStep, TripSummary, TripWhen, WalletSummary,
@@ -75,10 +75,6 @@ const FEED_DAYS = 7;
 const rand = makeRng(Date.now() % 1_000_000);
 
 // ---------- derived values ----------
-
-function commissionPctNow(s: DriverState) {
-  return levelFor(weekTrips(s)).commissionPct;
-}
 
 function debtState(s: DriverState): DebtState {
   const debtAmount = Math.max(0, -s.balance);
@@ -144,7 +140,6 @@ function homeSummary(s: DriverState): HomeSummary {
     unreadNotifications: s.notifications.filter((n) => !n.read).length,
     debt,
     canAcceptOrders: debt.level !== "blocked",
-    bonusActive: commissionPctNow(s) < BASE_COMMISSION_PCT,
     // Muting "Yangi buyurtmalar" silences the badge too.
     newRequests: s.prefs.master && s.prefs.newOrders ? s.requests.filter((r) => r.postedAt > s.feedSeenAt && isVisible(s, r, now) && !isTaken(r, now)).length : 0,
     ...(lean()
@@ -240,7 +235,7 @@ function toWhen(w: WhenRecord): TripWhen {
 }
 
 function earningsOf(s: DriverState, price: number) {
-  const pct = commissionPctNow(s);
+  const pct = BASE_COMMISSION_PCT;
   return { net: price - Math.round((price * pct) / 100), commissionPct: pct };
 }
 
@@ -753,18 +748,17 @@ function tripRecordOf(b: BookingRecord, patch: Partial<TripRecord>): TripRecord 
     id: b.id, createdAt: b.acceptedAt, fromCityId: b.fromCityId, toCityId: b.toCityId, pickupAddr: b.pickupAddr,
     dropoffAddr: b.dropoffAddr, distanceKm: b.distanceKm, durationMin: b.durationMin, passengerId: b.passengerId,
     kind: b.kind, passengers: b.kind === "passengers" ? b.seats : undefined, cargo: b.cargo, payment: b.payment,
-    gross: 0, commissionPct: 0, commission: 0, bonusDiscount: 0, net: 0, ratingReceived: null, status: "completed",
+    gross: 0, commissionPct: 0, commission: 0, net: 0, ratingReceived: null, status: "completed",
     timeline: b.timeline, ...patch,
   };
 }
 
 function finishBooking(s: DriverState, b: BookingRecord): TripSummary {
-  const pct = commissionPctNow(s);
+  const pct = BASE_COMMISSION_PCT;
   const commission = Math.round((b.price * pct) / 100);
-  const baseCommission = Math.round((b.price * BASE_COMMISSION_PCT) / 100);
   const rating = rand.bool(0.8) ? 5 : 4;
   const record = tripRecordOf(b, {
-    gross: b.price, commissionPct: pct, commission, bonusDiscount: baseCommission - commission, net: b.price - commission,
+    gross: b.price, commissionPct: pct, commission, net: b.price - commission,
     ratingReceived: rating, status: "completed", timeline: [...b.timeline, { stage: "completed", at: Date.now() }],
   });
   s.trips.unshift(record);
@@ -775,10 +769,7 @@ function finishBooking(s: DriverState, b: BookingRecord): TripSummary {
     tripId: b.id,
     gross: b.price,
     commissionPct: pct,
-    baseCommissionPct: BASE_COMMISSION_PCT,
     commission,
-    baseCommission,
-    commissionWaived: pct < BASE_COMMISSION_PCT,
     net: record.net,
     ratingReceived: rating,
     payment: b.payment,
@@ -983,7 +974,6 @@ export const mockAdapter: ApiAdapter = {
     history: true,
     historyFilters: true,
     profileMatching: true,
-    bonus: true,
     help: true,
     driverCapabilities: true,
     profileChangePhone: true,
@@ -1430,7 +1420,7 @@ export const mockAdapter: ApiAdapter = {
         passengers: t.passengers,
         cargo: t.cargo,
         timeline: t.timeline,
-        breakdown: { base: t.gross, commission: t.commission + t.bonusDiscount, commissionPct: BASE_COMMISSION_PCT, bonusDiscount: t.bonusDiscount, net: t.net },
+        breakdown: { base: t.gross, commission: t.commission, commissionPct: t.commissionPct, net: t.net },
         cancelReasonKey: t.cancelReasonKey,
       };
     }),
@@ -1441,12 +1431,11 @@ export const mockAdapter: ApiAdapter = {
       settleReviews(s);
       const today = todayTrips(s);
       const earnings = today.reduce((sum, t) => sum + t.net, 0);
-      const pct = commissionPctNow(s);
       const full: WalletSummary = {
         balance: s.balance,
         debt: debtState(s),
         today: { earnings, trips: today.length, avgPerTrip: today.length ? Math.round(earnings / today.length) : 0 },
-        commission: { pct: BASE_COMMISSION_PCT, bonusPct: pct, bonusActive: pct < BASE_COMMISSION_PCT, levelKey: levelFor(weekTrips(s)).key },
+        commission: { pct: BASE_COMMISSION_PCT },
         cards: [...s.cards],
         week: weekEarnings(s),
       };
@@ -1484,38 +1473,6 @@ export const mockAdapter: ApiAdapter = {
     }, { minMs: 300, maxMs: 600 }),
 
   linkCard: (provider) => withLatency(() => submitForReview("card_link", { provider }), { minMs: 300, maxMs: 600 }),
-
-  getBonus: () =>
-    withLatency<BonusInfo>(() => {
-      const s = state();
-      const wt = weekTrips(s);
-      const current = levelFor(wt);
-      const idx = BONUS_LEVELS.findIndex((l) => l.key === current.key);
-      const next = BONUS_LEVELS[idx + 1] ?? null;
-      const top = BONUS_LEVELS[BONUS_LEVELS.length - 1];
-      const weekStart = Date.now() - 7 * 86_400_000;
-      const saved = s.trips.filter((t) => t.createdAt >= weekStart).reduce((sum, t) => sum + t.bonusDiscount, 0);
-      const cancels = s.trips.filter((t) => t.createdAt >= weekStart && t.status === "cancelled").length;
-      return {
-        active: current.commissionPct < BASE_COMMISSION_PCT,
-        currentLevel: { ...current, position: current.tripsRequired / top.tripsRequired, reached: true },
-        nextLevel: next ? { ...next, position: next.tripsRequired / top.tripsRequired, reached: false } : null,
-        levels: BONUS_LEVELS.map((l) => ({ ...l, position: l.tripsRequired / top.tripsRequired, reached: wt >= l.tripsRequired })),
-        weekTrips: wt,
-        progressRatio: Math.min(1, wt / top.tripsRequired),
-        tripsToNext: next ? next.tripsRequired - wt : 0,
-        commissionPct: current.commissionPct,
-        baseCommissionPct: BASE_COMMISSION_PCT,
-        rules: [
-          // Toward the next level (the top one when already there).
-          { key: "bonus.rule.trips", progress: Math.min(wt, (next ?? top).tripsRequired), target: (next ?? top).tripsRequired, done: wt >= (next ?? top).tripsRequired, ratio: Math.min(1, wt / (next ?? top).tripsRequired) },
-          { key: "bonus.rule.rating", progress: s.profile.rating, target: 4.8, done: s.profile.rating >= 4.8, ratio: Math.min(1, s.profile.rating / 4.8) },
-          { key: "bonus.rule.cancels", progress: cancels, target: 2, done: cancels < 2, ratio: cancels < 2 ? 1 : 0 },
-        ],
-        savedThisWeek: saved,
-        resetsInDays: 7 - new Date().getDay() || 7,
-      };
-    }),
 
   requestProfileChange: (field, value) =>
     withLatency(() => {
@@ -1645,7 +1602,7 @@ export const testControls = {
       if (s.balance > DEBT_LIMIT) {
         const d = directionsOf(s)[0];
         appendLedger("commission", DEBT_LIMIT - s.balance, "ledger.desc.commission", {
-          pct: commissionPctNow(s),
+          pct: BASE_COMMISSION_PCT,
           route: d ? `${d.from.name} – ${d.to.name}` : cityName(s.profile.cityId),
         });
       }

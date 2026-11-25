@@ -18,7 +18,6 @@ const CardsScreen = lazy(() => import("@/features/wallet/CardsScreen"));
 const CardLinkScreen = lazy(() => import("@/features/wallet/CardLinkScreen"));
 const ProfileScreen = lazy(() => import("@/features/profile/ProfileScreen"));
 const PersonalScreen = lazy(() => import("@/features/profile/PersonalScreen"));
-const LevelScreen = lazy(() => import("@/features/profile/LevelScreen"));
 const SettingsScreen = lazy(() => import("@/features/profile/SettingsScreen"));
 const NotificationsScreen = lazy(() => import("@/features/profile/NotificationsScreen"));
 const RoutesScreen = lazy(() => import("@/features/profile/RoutesScreen"));
@@ -67,9 +66,6 @@ export function AppRoutes() {
         <Route path="/wallet/cards/link" element={<CardLinkScreen />} />
         <Route path="/profile" element={<ProfileScreen />} />
         <Route path="/profile/personal" element={<PersonalScreen />} />
-        <Route path="/profile/level" element={when(c.bonus, <LevelScreen />, "level.title", "/profile")} />
-        {/* Old link (Hamyon's commission tile and earlier builds). */}
-        <Route path="/profile/bonus" element={<Navigate to="/profile/level" replace />} />
         <Route path="/profile/settings" element={<SettingsScreen />} />
         <Route path="/notifications" element={<NotificationsScreen />} />
         <Route path="/profile/capabilities" element={when(c.driverCapabilities, <CapabilitiesScreen />, "profile.capabilities", "/profile")} />

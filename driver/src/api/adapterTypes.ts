@@ -1,5 +1,5 @@
 import type {
-  AcceptedPage, BonusInfo, CancelReason, CapabilitiesInput, ChatSend, DriverCapabilities,
+  AcceptedPage, CancelReason, CapabilitiesInput, ChatSend, DriverCapabilities,
   DriverProfile, FeedPage, FeedQuery, HelpRequest, HelpTopic, HistoryFilter, HistoryPage, HomeSummary, LedgerPage, LedgerQuery,
   NotificationItem, NotificationPrefs, PayProvider, RegistrationOptions, RequestAlert, ReviewRequest, RoutesPage, Session,
   TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, DocSlot, Booking, RideRequest,
@@ -29,7 +29,6 @@ export type ApiCapabilities = {
   /** Requests are matched against Yo'nalishlarim / Imkoniyatlarim (the screens may
    * promise it). The real backend stores both but doesn't match on them yet. */
   profileMatching: boolean;
-  bonus: boolean;
   help: boolean;
   /** "Imkoniyatlarim". */
   driverCapabilities: boolean;
@@ -151,7 +150,6 @@ export interface ApiAdapter {
   linkCard(provider: PayProvider): Promise<ReviewRequest>;
 
   // Profile
-  getBonus(): Promise<BonusInfo>;
   requestProfileChange(field: "name" | "phone" | "car", value: string): Promise<ReviewRequest>;
   getNotifications(): Promise<NotificationItem[]>;
   markAllNotificationsRead(): Promise<void>;

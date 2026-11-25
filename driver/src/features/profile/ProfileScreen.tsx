@@ -1,9 +1,8 @@
-import { Link } from "react-router-dom";
 import { api } from "@/api/client";
 import type { DriverDocument } from "@/api/types";
 import { useT, type TranslationKey } from "@/lib/i18n/provider";
 import { useQuery } from "@/lib/useQuery";
-import { Bell, ChevronRight, FileText, HelpCircle, Route, Settings2, SlidersHorizontal, Star, Trophy } from "@/lib/icons";
+import { Bell, FileText, HelpCircle, Route, Settings2, SlidersHorizontal, Star } from "@/lib/icons";
 import { Screen, HeaderButton } from "@/components/Screen";
 import { SettingsRow } from "@/components/SettingsRow";
 import { Skeleton } from "@/components/Skeleton";
@@ -23,7 +22,7 @@ function docsStatus(docs: DriverDocument[]): TranslationKey | null {
 
 /**
  * Profil (design v2): who the driver is (rating, trips, acceptance), the
- * level and commission, the car, then Imkoniyatlarim, documents, routes,
+ * car, then Imkoniyatlarim, documents, routes,
  * notifications and help. Settings (theme, language, sign out, delete
  * account) are behind the top-right button.
  */
@@ -31,10 +30,8 @@ export default function ProfileScreen() {
   const { t } = useT();
   const navigate = useNavigate();
   const profile = useQuery(() => api.getProfile(), []);
-  const bonus = useQuery(() => (api.capabilities.bonus ? api.getBonus() : Promise.resolve(null)), []);
   const caps = useQuery(() => (api.capabilities.driverCapabilities ? api.getCapabilities() : Promise.resolve(null)), []);
   const p = profile.data;
-  const b = bonus.data;
   const c = caps.data;
   const years = p?.memberSinceYear != null ? new Date().getFullYear() - p.memberSinceYear : null;
   const docs = p ? docsStatus(p.documents) : null;
@@ -51,13 +48,8 @@ export default function ProfileScreen() {
         p ? (
           <div className="flex flex-col gap-[18px]">
             <div className="flex items-center gap-4">
-              <span className="relative shrink-0">
+              <span className="shrink-0">
                 <Monogram name={p.name} size={72} tone="brand" />
-                {b && (
-                  <span className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-night bg-night-2 text-white" aria-hidden="true">
-                    <Trophy className="h-3.5 w-3.5" />
-                  </span>
-                )}
               </span>
               <span className="flex min-w-0 flex-col gap-1">
                 <span className="truncate text-[22px] font-extrabold leading-7 text-white">{p.name}</span>
@@ -82,27 +74,6 @@ export default function ProfileScreen() {
         <ErrorState error={profile.error} onRetry={() => profile.reload()} />
       ) : (
         <div className="flex flex-col gap-4">
-          {b && (
-            <Link to="/profile/level" className="press flex flex-col gap-3 rounded-card bg-raised p-4">
-              <span className="flex items-center gap-3.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile bg-surface text-ink" aria-hidden="true">
-                  <Trophy className="h-5 w-5" />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-17 font-extrabold text-ink">{t("profile.levelName", { level: t(`bonus.level.${b.currentLevel.key}`) })}</span>
-                  <span className="text-13 font-semibold text-muted">{t("profile.levelCommission", { pct: b.commissionPct })}</span>
-                </span>
-                <ChevronRight className="h-[18px] w-[18px] shrink-0 text-muted" />
-              </span>
-              <span className="relative block h-2 overflow-hidden rounded-full bg-line" aria-hidden="true">
-                <span className="absolute inset-y-0 left-0 rounded-full bg-brand" style={{ width: `${Math.round(b.progressRatio * 100)}%` }} />
-              </span>
-              <span className="text-13 font-semibold text-muted">
-                {b.nextLevel ? t("profile.toNext", { level: t(`bonus.level.${b.nextLevel.key}`), n: b.tripsToNext }) : t("profile.topLevel")}
-              </span>
-            </Link>
-          )}
-
           {p?.car && (
             <div className="flex items-center gap-3 rounded-card border border-line p-3 pr-4">
               <img src={carSedan} alt="" width={132} height={56} className="h-14 w-[132px] shrink-0 object-contain" />

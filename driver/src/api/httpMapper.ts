@@ -359,7 +359,7 @@ export function tripToDetail(t: Api.TripWithOrder, cities: CityNames): TripDetai
     passenger: undefined,
     passengers: o.type === "passenger" ? o.seats ?? o.seat_ids?.length : undefined,
     timeline,
-    breakdown: { base: gross, commission, bonusDiscount: 0, net: t.final_price == null ? 0 : toSom(t.final_price - (t.commission ?? 0)) },
+    breakdown: { base: gross, commission, net: t.final_price == null ? 0 : toSom(t.final_price - (t.commission ?? 0)) },
     // Admin cancels use the admin reason list: shown as "cancelled by an operator".
     cancelReasonKey: t.cancelled_by === "admin" ? "cancel.byAdmin" : t.cancel_reason ? CANCEL_KEY_OF[t.cancel_reason] : undefined,
   };

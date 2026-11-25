@@ -39,7 +39,6 @@ export default function WalletScreen() {
   const w = wallet.data;
   const balance = useCountUp(w?.balance);
   const st = STATUS_STYLE[w?.debt.level ?? "ok"];
-  const levelKey = w?.commission?.levelKey;
 
   return (
     <Screen
@@ -125,14 +124,10 @@ export default function WalletScreen() {
                 </div>
               )}
               {w.commission && (
-                <CommissionCard linked={api.capabilities.bonus}>
+                <div className="flex flex-col gap-1 rounded-field bg-raised p-4">
                   <span className="label-caps text-muted">{t("wallet.commissionLabel")}</span>
-                  <span className="tabular text-xl font-extrabold text-ink">
-                    {w.commission.bonusActive && <s className="mr-1.5 text-15 font-bold text-muted">{w.commission.pct}%</s>}
-                    {w.commission.bonusActive ? w.commission.bonusPct : w.commission.pct}%
-                  </span>
-                  {levelKey && <span className="text-xs font-semibold text-muted">{t("wallet.levelName", { level: t(`bonus.level.${levelKey}`) })}</span>}
-                </CommissionCard>
+                  <span className="tabular text-xl font-extrabold text-ink">{w.commission.pct}%</span>
+                </div>
               )}
             </div>
           )}
@@ -168,18 +163,6 @@ function TodayCard({ today }: { today: NonNullable<WalletSummary["today"]> }) {
         </span>
       </dl>
     </section>
-  );
-}
-
-/** The commission tile opens the level screen when the backend has it. */
-function CommissionCard({ linked, children }: { linked: boolean; children: React.ReactNode }) {
-  const cls = "flex flex-col gap-1 rounded-field bg-raised p-4";
-  return linked ? (
-    <Link to="/profile/level" className={cn(cls, "press")}>
-      {children}
-    </Link>
-  ) : (
-    <div className={cls}>{children}</div>
   );
 }
 
