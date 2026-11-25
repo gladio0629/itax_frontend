@@ -16,7 +16,7 @@ import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
 import { DRIVER_STATUS, driverBadge, driverChipStatuses } from "./driverLabels";
 import { DriversTable } from "./DriversTable";
 import { useDriverActions } from "./useDriverActions";
-import { opPath } from "@/features/opCards/labels";
+import { opPath } from "@/features/ops/paths";
 import type { ArchivableStatusFilter, DriverLevel, DriverQuery, DriverStatus, ListCounts } from "@/api/types";
 
 const caps = api.capabilities;

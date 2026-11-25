@@ -12,9 +12,9 @@ export const opPath = {
   orders: `${OP_BASE}/orders`,
   order: (id: string) => `${OP_BASE}/orders/${encodeURIComponent(id)}`,
   drivers: `${OP_BASE}/drivers`,
-  driver: (id: string) => `${OP_BASE}/drivers/${encodeURIComponent(id)}`,
+  driver: (id: string, tab?: string) => `${OP_BASE}/drivers/${encodeURIComponent(id)}${tab ? `/${tab}` : ""}`,
   passengers: `${OP_BASE}/passengers`,
-  passenger: (id: string) => `${OP_BASE}/passengers/${encodeURIComponent(id)}`,
+  passenger: (id: string, tab?: string) => `${OP_BASE}/passengers/${encodeURIComponent(id)}${tab ? `/${tab}` : ""}`,
   tasks: `${OP_BASE}/tasks`,
 };
 

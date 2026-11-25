@@ -28,8 +28,6 @@ import type {
   OpPaymentStatus,
   OpPaymentType,
   OpPromoCode,
-  OpRequestStatus,
-  OpRequestType,
   OpSearchResult,
   OpSmsInfo,
   OpSmsResult,
@@ -37,6 +35,7 @@ import type {
   OpSubject,
   OpTimelineItem,
 } from "../opCards/types";
+import type { ManagerRequestStatus, ManagerRequestType } from "../ops/types";
 import type { CargoBodySize, DriverStatus, OrderKind, OrderStatus, PassengerStatus, PaymentMethod, TariffCarClass, WalletEntryType } from "../types";
 
 const ms = (iso: string | null | undefined) => (iso ? Date.parse(iso) : null);
@@ -223,7 +222,7 @@ type ApiNote = { id: string; author_name: string; category: OpNoteCategory; text
 const note = (n: ApiNote): OpNote => ({ id: n.id, authorName: n.author_name, category: n.category, text: n.text, at: msReq(n.at) });
 type ApiNotes = {
   notes: ApiNote[];
-  requests: { id: string; display_id: string; type: OpRequestType; amount: number | null; status: OpRequestStatus }[];
+  requests: { id: string; display_id: string; type: ManagerRequestType; amount: number | null; status: ManagerRequestStatus }[];
   actions: OpCardAction[];
 };
 

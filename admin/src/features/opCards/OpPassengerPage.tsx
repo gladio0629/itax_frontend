@@ -9,7 +9,8 @@ import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { formatNumber, formatShortDateTime } from "@/lib/format";
 import { CardTabs, Crumbs, KvRows, Notice, OpStat, OrderLink, ProfileHeader, Section, StatRow, Timeline, opDate, opDateTime } from "./cardParts";
-import { PASSENGER_STATUS, PAYMENT_LABEL, opPath, orderNo, requestParam } from "./labels";
+import { opPath } from "@/features/ops/paths";
+import { PASSENGER_STATUS, PAYMENT_LABEL, orderNo, requestParam } from "./labels";
 import { PassengerBonusTab, PassengerOrdersTab, PassengerPayTab } from "./passengerTabs";
 import { SmsTab } from "./SmsTab";
 import { NotesTab } from "./NotesTab";
@@ -82,11 +83,11 @@ function PassengerCard({ passengerId }: { passengerId: string }) {
         label="Karta bo'limlari"
         items={[
           { to: base, label: "Umumiy", end: true },
-          { to: `${base}/orders`, label: TABS.orders, count: card.tabs.orders },
-          { to: `${base}/pay`, label: TABS.pay, count: card.tabs.payments },
-          { to: `${base}/bonus`, label: TABS.bonus },
-          { to: `${base}/sms`, label: TABS.sms, dot: card.tabs.smsAlert },
-          { to: `${base}/notes`, label: TABS.notes, count: card.tabs.notes },
+          { to: opPath.passenger(card.id, "orders"), label: TABS.orders, count: card.tabs.orders },
+          { to: opPath.passenger(card.id, "pay"), label: TABS.pay, count: card.tabs.payments },
+          { to: opPath.passenger(card.id, "bonus"), label: TABS.bonus },
+          { to: opPath.passenger(card.id, "sms"), label: TABS.sms, dot: card.tabs.smsAlert },
+          { to: opPath.passenger(card.id, "notes"), label: TABS.notes, count: card.tabs.notes },
         ]}
       />
       {tab === "orders" ? (

@@ -4,6 +4,7 @@
 //
 // Every number, status and allowed action comes from the server. The
 // screens only choose labels and colours for the codes below.
+import type { ManagerRequestStatus, ManagerRequestType } from "../ops/types";
 import type { CargoBodySize, DriverStatus, ListPeriod, OrderKind, OrderStatus, PassengerStatus, PaymentMethod, TariffCarClass, WalletEntryType } from "../types";
 
 /** One server page. `page` is 1-based. */
@@ -180,10 +181,9 @@ export type OpSmsInfo = {
 
 export type OpNoteCategory = "complaint" | "login" | "info" | "payment";
 export type OpNote = { id: string; authorName: string; category: OpNoteCategory; text: string; at: number };
-export type OpRequestType = "refund" | "sms_unlock" | "ledger_fix" | "compensation" | "penalty_cancel" | "block" | "unblock" | "phone_change" | "deletion_cancel";
-export type OpRequestStatus = "pending" | "approved" | "rejected";
-/** A "Menejerga so'rov" about this person. `amount` is signed for ledger fixes. */
-export type OpSubjectRequest = { id: string; displayId: string; type: OpRequestType; amount: number | null; status: OpRequestStatus };
+/** A "Menejerga so'rov" about this person (same types as the manager's
+ * "So'rovlar" list). */
+export type OpSubjectRequest = { id: string; displayId: string; type: ManagerRequestType; amount: number | null; status: ManagerRequestStatus };
 export type OpNotes = { notes: OpNote[]; requests: OpSubjectRequest[]; actions: OpCardAction[] };
 
 // ------------------------------------------------------------- driver card

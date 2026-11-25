@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { FormEvent } from "react";
 import { api } from "@/api/client";
 import { Avatar } from "@/components/Avatar";
@@ -8,8 +9,10 @@ import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/Skeleton";
 import { formatNumber, formatShortDateTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import { Section, signedNumber } from "./cardParts";
-import { NOTE_CATEGORY, REQUEST_STATUS, REQUEST_TYPE } from "./labels";
+import { Section } from "./cardParts";
+import { REQUEST_STATUS, REQUEST_TYPE } from "@/features/ops/requestLabels";
+import { REQUEST_PARAM } from "@/features/ops/requestParam";
+import { NOTE_CATEGORY } from "./labels";
 import { OpTable } from "./OpTable";
 import { useOpData } from "./useOpData";
 import type { OpSubject } from "@/api/opCards/types";
@@ -18,7 +21,10 @@ import type { OpSubject } from "@/api/opCards/types";
  * OpDriverNotes): notes with "add a note", and the manager requests about
  * this person. */
 export function NotesTab({ subject, onChanged }: { subject: OpSubject; onChanged?: () => void }) {
-  const { data, error, loading, reload, setData } = useOpData(() => api.getOpNotes(subject), `${subject.kind}:${subject.id}`);
+  // Refetched when "Menejerga so'rov" closes, so a request just sent shows here.
+  const [params] = useSearchParams();
+  const requestOpen = params.has(REQUEST_PARAM);
+  const { data, error, loading, reload, setData } = useOpData(() => api.getOpNotes(subject), `${subject.kind}:${subject.id}:${requestOpen}`);
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -108,7 +114,7 @@ export function NotesTab({ subject, onChanged }: { subject: OpSubject; onChanged
           columns={[
             { key: "id", header: "So'rov", render: (r) => <span className="font-extrabold">{r.displayId}</span> },
             { key: "type", header: "Turi", render: (r) => REQUEST_TYPE[r.type] },
-            { key: "amount", header: "Summa", align: "right", render: (r) => (r.amount === null ? "—" : r.type === "ledger_fix" ? signedNumber(r.amount) : formatNumber(r.amount)) },
+            { key: "amount", header: "Summa", align: "right", render: (r) => (r.amount === null ? "—" : formatNumber(r.amount)) },
             { key: "status", header: "Holat", render: (r) => <Badge tone={REQUEST_STATUS[r.status].tone}>{REQUEST_STATUS[r.status].label}</Badge> },
           ]}
           rows={data.requests}

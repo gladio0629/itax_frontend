@@ -11,7 +11,8 @@ import { formatAgo, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { driverBadge } from "@/features/drivers/driverLabels";
 import { CardTabs, Crumbs, KvRows, Notice, OpStat, OrderLink, ProfileHeader, Section, StatRow, Timeline, opDate } from "./cardParts";
-import { opPath, orderNo, requestParam } from "./labels";
+import { opPath } from "@/features/ops/paths";
+import { orderNo, requestParam } from "./labels";
 import { DriverCancelsTab, DriverDocsTab, DriverReviewsTab, DriverTripsTab, DriverWalletTab, monthIn } from "./driverTabs";
 import { SmsTab } from "./SmsTab";
 import { NotesTab } from "./NotesTab";
@@ -112,13 +113,13 @@ function DriverCard({ driverId }: { driverId: string }) {
         label="Karta bo'limlari"
         items={[
           { to: base, label: "Umumiy", end: true },
-          { to: `${base}/docs`, label: TABS.docs, count: card.tabs.docs },
-          { to: `${base}/wallet`, label: TABS.wallet },
-          { to: `${base}/trips`, label: TABS.trips, count: card.tabs.trips },
-          { to: `${base}/cancels`, label: TABS.cancels, count: card.tabs.cancels },
-          { to: `${base}/reviews`, label: TABS.reviews, count: card.tabs.complaints },
-          { to: `${base}/sms`, label: TABS.sms },
-          { to: `${base}/notes`, label: TABS.notes, count: card.tabs.notes },
+          { to: opPath.driver(card.id, "docs"), label: TABS.docs, count: card.tabs.docs },
+          { to: opPath.driver(card.id, "wallet"), label: TABS.wallet },
+          { to: opPath.driver(card.id, "trips"), label: TABS.trips, count: card.tabs.trips },
+          { to: opPath.driver(card.id, "cancels"), label: TABS.cancels, count: card.tabs.cancels },
+          { to: opPath.driver(card.id, "reviews"), label: TABS.reviews, count: card.tabs.complaints },
+          { to: opPath.driver(card.id, "sms"), label: TABS.sms },
+          { to: opPath.driver(card.id, "notes"), label: TABS.notes, count: card.tabs.notes },
         ]}
       />
       {tab === "docs" ? (
