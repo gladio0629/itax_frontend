@@ -66,7 +66,7 @@ function DriverCard({ driverId }: { driverId: string }) {
   if (!card) {
     return (
       <>
-        <PageHeader subtitle={crumbs()} title="Haydovchi" />
+        <PageHeader back={opPath.drivers} subtitle={crumbs()} title="Haydovchi" />
         {error === "not_found" ? (
           <EmptyState icon={<Car />} title="Haydovchi topilmadi" description="Havola eskirgan yoki haydovchi o'chirilgan." />
         ) : error ? (
@@ -87,7 +87,7 @@ function DriverCard({ driverId }: { driverId: string }) {
   const subject = { kind: "driver" as const, id: card.id };
   return (
     <>
-      <PageHeader subtitle={crumbs(card.displayId)} title={card.name} />
+      <PageHeader back={opPath.drivers} subtitle={crumbs(card.displayId)} title={card.name} />
       <ProfileHeader
         name={card.name}
         avatarTone="green"

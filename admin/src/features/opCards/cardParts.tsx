@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import type { ReactNode } from "react";
 import { Link, NavLink, useSearchParams } from "react-router-dom";
+import { overlayFromList } from "@/hooks/useCloseOverlay";
 import { CheckCheck, Phone } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
@@ -30,13 +31,16 @@ export const signedNumber = (v: number) => (v > 0 ? `+${formatNumber(v)}` : form
 /** Opens the "Menejerga so'rov" modal (built by the other terminal) by
  * setting ?request=<kind>:<id> on the current page. */
 export function useOpenRequest() {
-  const [, setParams] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   return (value: string) =>
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set("request", value);
-      return next;
-    });
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("request", value);
+        return next;
+      },
+      { state: overlayFromList(params) }
+    );
 }
 
 /** "Yo'lovchilar / P-20931 / Umumiy": the first crumb goes back to the list. */

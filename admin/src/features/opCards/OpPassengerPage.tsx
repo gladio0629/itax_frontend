@@ -48,7 +48,7 @@ function PassengerCard({ passengerId }: { passengerId: string }) {
   if (!card) {
     return (
       <>
-        <PageHeader subtitle={crumbs()} title="Yo'lovchi" />
+        <PageHeader back={opPath.passengers} subtitle={crumbs()} title="Yo'lovchi" />
         {error === "not_found" ? (
           <EmptyState icon={<UserRound />} title="Yo'lovchi topilmadi" description="Havola eskirgan yoki yo'lovchi o'chirilgan." />
         ) : error ? (
@@ -69,7 +69,7 @@ function PassengerCard({ passengerId }: { passengerId: string }) {
   const subject = { kind: "passenger" as const, id: card.id };
   return (
     <>
-      <PageHeader subtitle={crumbs(card.displayId)} title={card.name} />
+      <PageHeader back={opPath.passengers} subtitle={crumbs(card.displayId)} title={card.name} />
       <ProfileHeader
         name={card.name}
         badge={<Badge tone={st.tone}>{st.label}</Badge>}
