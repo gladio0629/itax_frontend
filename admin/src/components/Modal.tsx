@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { IconButton } from "./Button";
+import { BackButton, type BackTarget } from "./BackButton";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -24,6 +25,7 @@ export function Modal({
   busy,
   width = 560,
   role = "dialog",
+  back,
 }: {
   open: boolean;
   onClose: () => void;
@@ -37,6 +39,8 @@ export function Modal({
   busy?: boolean;
   width?: number;
   role?: "dialog" | "alertdialog";
+  /** "← Orqaga" above the header (see BackButton). */
+  back?: BackTarget;
 }) {
   const titleId = useId();
   const descId = useId();
@@ -115,7 +119,12 @@ export function Modal({
         style={{ maxWidth: width }}
         className="relative my-auto flex w-full flex-col overflow-hidden rounded-sheet bg-white shadow-pop outline-none animate-scale-in"
       >
-        <div className="flex items-start gap-3.5 px-6 pt-6 sm:px-7">
+        {back !== undefined && (
+          <div className="flex px-6 pt-6 sm:px-7">
+            <BackButton to={back} disabled={busy} />
+          </div>
+        )}
+        <div className={cn("flex items-start gap-3.5 px-6 sm:px-7", back !== undefined ? "pt-4" : "pt-6")}>
           {icon && <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl", tiles[iconTone])}>{icon}</span>}
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <h2 id={titleId} className="text-22 font-extrabold text-ink">

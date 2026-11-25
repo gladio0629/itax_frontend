@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { overlayFromList } from "@/hooks/useCloseOverlay";
 import { Ban, CreditCard, MapPin, MessageSquareText, Phone, RotateCcw, Send, Wallet, Banknote } from "lucide-react";
 import { api } from "@/api/client";
 import { PageHeader } from "@/layouts/PageHeader";
@@ -80,7 +81,7 @@ export function OpOrderPage() {
     if (!order) return;
     const next = new URLSearchParams(params);
     next.set("request", requestParam("order", order.id));
-    setParams(next);
+    setParams(next, { state: overlayFromList(params) });
   }
 
   const no = orderNo(orderId);
@@ -97,7 +98,7 @@ export function OpOrderPage() {
   if (error && !order) {
     return (
       <>
-        <PageHeader subtitle={crumb} title={`Buyurtma ${no}`} />
+        <PageHeader back={opPath.orders} subtitle={crumb} title={`Buyurtma ${no}`} />
         <ErrorState onRetry={load} retrying={loading} />
       </>
     );
@@ -105,7 +106,7 @@ export function OpOrderPage() {
   if (!order) {
     return (
       <>
-        <PageHeader subtitle={crumb} title={`Buyurtma ${no}`} />
+        <PageHeader back={opPath.orders} subtitle={crumb} title={`Buyurtma ${no}`} />
         <div className="flex flex-col gap-4" aria-busy>
           <Skeleton className="h-[132px] rounded-card" />
           <div className="grid gap-4 xl:grid-cols-[1.15fr_1fr]">
@@ -132,7 +133,7 @@ export function OpOrderPage() {
 
   return (
     <>
-      <PageHeader subtitle={crumb} title={`Buyurtma ${no}`} />
+      <PageHeader back={opPath.orders} subtitle={crumb} title={`Buyurtma ${no}`} />
 
       <Card className="flex flex-col gap-4 px-[22px]">
         <div className="flex flex-col gap-1">

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { useCloseOverlay } from "@/hooks/useCloseOverlay";
 import { ArrowRight, Send } from "lucide-react";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -22,15 +23,19 @@ const ROLE_LABEL = { passenger: "Yo'lovchi", driver: "Haydovchi", sender: "Jo'na
  * only that query param. */
 export function OpRequestHost() {
   const { me } = usePermissions();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const location = useLocation();
+  const closeOverlay = useCloseOverlay();
   const [toast, setToast] = useState<string | null>(null);
   const subject = parseRequestParam(params.get(REQUEST_PARAM));
   const canRequest = !!me?.actions.includes("operatorWork");
 
+  // Opened by a push from the same page: close steps back, so "Orqaga"
+  // on that page does not land on a duplicate entry.
   const close = () => {
     const next = new URLSearchParams(params);
     next.delete(REQUEST_PARAM);
-    setParams(next, { replace: true });
+    closeOverlay({ pathname: location.pathname, search: next.toString() }, { replace: true });
   };
 
   return (

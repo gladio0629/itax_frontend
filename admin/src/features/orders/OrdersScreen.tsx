@@ -17,6 +17,7 @@ import { RowMenu } from "@/components/RowMenu";
 import { KindLine, PersonCell, RouteText } from "@/components/Cells";
 import { useAdapterList } from "@/hooks/useAdapterList";
 import { useSearchFromUrl } from "@/hooks/useSearchFromUrl";
+import { overlayFromList } from "@/hooks/useCloseOverlay";
 import { formatNumber, formatShortDateTime } from "@/lib/format";
 import { KIND_LABEL, ORDER_STATUS, PAYMENT_LABEL, orderNo } from "./labels";
 import { OrderDetailPanel } from "./OrderDetailPanel";
@@ -85,7 +86,7 @@ export function OrdersScreen({ readOnly = false, onOpen }: { readOnly?: boolean;
   const open = (o: OrderWithNames, extra?: "edit" | "cancel") => {
     const next = new URLSearchParams(params);
     if (extra) next.set(extra, "1");
-    navigate({ pathname: `/orders/${o.id}`, search: next.toString() });
+    navigate({ pathname: `/orders/${o.id}`, search: next.toString() }, { state: overlayFromList(params) });
   };
   const selectedId = location.pathname.split("/")[2];
 
@@ -161,6 +162,7 @@ export function OrdersScreen({ readOnly = false, onOpen }: { readOnly?: boolean;
   return (
     <>
       {!readOnly && <PageHeader
+        back={passengerId ? "/passengers" : undefined}
         subtitle="Hamma buyurtmalar"
         title="Buyurtmalar"
         actions={

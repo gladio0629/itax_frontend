@@ -352,6 +352,7 @@ function StaffFormModal({
     <Modal
       open={open}
       onClose={onClose}
+      back={onClose}
       busy={saving}
       width={600}
       title={user ? "Xodimni tahrirlash" : "Xodim qo'shish"}

@@ -63,7 +63,7 @@ export function DriverPage() {
   if (error && !driver) {
     return (
       <>
-        <PageHeader subtitle={<Crumbs />} title="Haydovchi" />
+        <PageHeader back="/drivers" subtitle={<Crumbs />} title="Haydovchi" />
         {notFound ? (
           <EmptyState icon={<FileCheck2 />} title="Haydovchi topilmadi" description="Havola eskirgan yoki haydovchi o'chirilgan." />
         ) : (
@@ -75,7 +75,7 @@ export function DriverPage() {
   if (!driver) {
     return (
       <>
-        <PageHeader subtitle={<Crumbs />} title="Haydovchi" />
+        <PageHeader back="/drivers" subtitle={<Crumbs />} title="Haydovchi" />
         <Skeleton className="h-[170px] rounded-card" />
         <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -98,7 +98,7 @@ export function DriverPage() {
 
   return (
     <>
-      <PageHeader subtitle={<Crumbs id={shortDriverId(driver.id)} />} title={driver.name} />
+      <PageHeader back="/drivers" subtitle={<Crumbs id={shortDriverId(driver.id)} />} title={driver.name} />
 
       <Card className="flex flex-col gap-[18px]">
         <div className="flex flex-wrap items-center gap-[18px]">

@@ -273,6 +273,7 @@ export function PassengersScreen() {
       <Drawer
         open={!!selected && drawer !== "edit"}
         onClose={() => setSelected(null)}
+        back={() => setSelected(null)}
         title={selected?.name ?? ""}
         titleAddon={selected && <Badge tone={badgeOf(selected).tone}>{badgeOf(selected).label}</Badge>}
         subtitle={selected?.phone}
