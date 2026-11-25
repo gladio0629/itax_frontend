@@ -3,6 +3,42 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-25, update v3: `redesign-v2` after the A/B/C merges, client-van merged
+
+Scope: `redesign-v2` at `9ec2529` (terminals merged B `3ca14ee`, A `ed9eb09`, C `9ec2529` themselves), then client-van `74d96a9` merged by the reviewer as `0eb2cde`.
+
+Checks (admin, client, driver, at `9ec2529` and again at `0eb2cde`): typecheck, build with `VITE_DEMO_MODE=true` and `false`, and `check:no-network` in both modes all pass. The test panel is only in the demo bundles. No "demo" text in the UI.
+
+### admin (A + B + C): YELLOW, fixes for terminal A
+
+OK
+- Routes: the contract's tails live under the existing `/operators` prefix, and `/op/*` redirects there (contract rule "keep the existing prefix"). No route is defined twice.
+- Sidebar: no duplicate items. The operator gets Navbat, Qidiruv, Buyurtmalar, Haydovchilar, Yo'lovchilar and Tarix. The manager gets So'rovlar with a badge.
+- Adapter: `ApiAdapter extends OpsAdapter, OpCardsApi`. No method name overlaps the base adapter or the other domain.
+- Action buttons come from server lists: `allowedActions` on the order page, `actions` on the cards, SMS and notes, and `allowedActions` on requests. Money, counts and statuses come from the server. The manager's money confirm shows the server's old → new preview (`getManagerRequestPreview`) and then calls approve.
+- The operator Buyurtmalar and Haydovchilar pages have no "Faqat ko'rish" banner. The operator drivers list shows no level, trips, balance, export or row menu. There is no level and no SOS in the operator screens. Phones are shown in full.
+- "Orqaga": `PageHeader back` on DriverPage, OpDriver, OpPassenger, OpOrder, Ledger (opened from a driver), Orders (opened from a passenger) and an Audit entry. It is also on the Drawers and FormDrawers: order detail, passenger detail, ledger fix, tariff edit, staff add/edit, driver and order edit. No top-level sidebar page has it.
+- Failed shell command in A's session: `pkill -f "vite --port 5237"` (and `"port 5238"` at the merge) matched the shell that was running it, which then exited with 144. Both times this happened after `git commit` had already finished. Commits `c46ac52` and `ed9eb09` are intact, both trees are clean, and no dev server is left running. It does not matter.
+
+Fix (terminal A)
+1. Two `opPath` objects: `admin/src/features/opCards/labels.ts:15` (hard-coded `/operators`) and `admin/src/features/ops/paths.ts:9` (`OP_BASE`). `DriversScreen.tsx:19` and the opCards screens use A's copy. Keep only `features/ops/paths.ts` (add the optional `tab` argument there).
+2. Request types are defined twice: `OpRequestType`, `REQUEST_TYPE` and `REQUEST_STATUS` in `api/opCards/types.ts:183` and `features/opCards/labels.ts:72-88`, next to B's `ManagerRequestType` and `features/ops/requestLabels.ts`. A's list adds `sms_unlock`, but that is not a request type in doc 2.5: SMS unlock is the operator's own action. Use B's types. Remove `sms_unlock` from `opCardsMock.ts:326` and from the notes `requests.type` list in `docs/backend-gaps.md`.
+3. The notes tab "So'rovlar" comes from its own random mock (`opCardsMock.ts:314 requestsFor`), not from B's request store (`mockOps.ts`, `op_requests_v1`). A request sent through "Menejerga so'rov" therefore never shows on the card. Read it from the mockOps store.
+
+Nit
+- The sidebar "Yo'lovchilar" item is gated by section `operators` (`Sidebar.tsx:50`), but its route checks `passengers_view`. Gate the item by `passengers_view`.
+- The wallet bar colour thresholds (`driverTabs.tsx:156`, <20 / <50) are a UI colour only. They are fine unless the server sends a tone.
+
+### client-van `74d96a9` (3 commits): GREEN, merged `0eb2cde`
+- The seat layout per class (rows, ids, taken, `passengerSeats`, `wholeCarAvailable`) comes from `getSeatLayouts`. The minivan cabin is driver + 1, then 3, then 3. Switching class drops seats the new cabin lacks. "Butun mashina" follows the server flag, and the price is still the server quote.
+- The new strings are in uz, ru and en.
+- The "Holatni to'xtatish" test switch exists only in the test panel.
+- The merge conflict in `docs/backend-gaps.md` was resolved by keeping both sections. The reviewer also removed the duplicate `passengers_view` paragraph from B's block, so it is described once in A's.
+- The http fallback to `seat-map` (no minivan layout until the endpoint exists) is mock/http-gap only and is not flagged.
+
+### Not checked
+- The iOS simulator for the minivan map. Pixel comparison with `TripVan.dc.html`.
+
 ## 2026-11-22, round 8: admin `342e67e` and client `df8296f`, both GREEN, merged
 
 ### redesign-admin `1928d19..342e67e` (1 commit): GREEN
