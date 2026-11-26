@@ -14,7 +14,8 @@ Live backend check (no browser could run here: the Chrome sandbox refuses to sta
 
 Hidden in http mode for the release (mock mode keeps all of it):
 - Client, new capabilities:
-  - `appPayment`: Payme / Click on the Payment screen. No order payment page on the server; only cash and card are offered.
+  - `appPayment`: Payme / Click on the Payment screen. No order payment page on the server.
+  - `cardPayment` (owner, 2026-11-26): "Karta" is hidden as well, on the Payment screen and in O'zgartirish. There is no saved card and no charge path on the server. **1.1 takes cash only.** O'zgartirish still shows an order's own card, Payme or Click, and hides the payment row when cash is the only choice.
   - `seatLayouts`: `GET /orders/seat-layouts` is not called; the sedan seat map is used. The adapter's fallback only handles 404, and the path may be matched as `/orders/{id}` on the server and answer with another 4xx (not verified live).
   - `clearTime`: in O'zgartirish, a scheduled order is no longer offered "Hozir". `OrderUpdate` can't clear the time, so Save used to fail.
 - Client, by field: Call and "Haydovchiga yozish" on the live order show only when the order carries `driverPhone`. Before, they toasted "hozircha mavjud emas".

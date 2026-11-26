@@ -160,7 +160,13 @@ export function EditOrderScreen({
     );
   }
 
-  const payOptions: PayMethod[] = firstPay === "payme" || firstPay === "click" ? ["cash", "card", firstPay] : ["cash", "card"];
+  // Cash, card where the server can charge one (or the order already has it),
+  // and the order's own Payme / Click.
+  const payOptions: PayMethod[] = [
+    "cash",
+    ...(api.capabilities.cardPayment || firstPay === "card" ? (["card"] as const) : []),
+    ...(firstPay === "payme" || firstPay === "click" ? [firstPay] : []),
+  ];
   const payName: Record<PayMethod, TranslationKey> = { cash: "order.cash", card: "order.card", payme: "pay.payme", click: "pay.click" };
 
   return (
@@ -252,6 +258,8 @@ export function EditOrderScreen({
               <span className="text-[13px] font-extrabold text-iz-green-text">{t("pay.change")}</span>
             </button>
 
+            {/* Nothing to choose with cash as the only method (http mode, 1.1). */}
+            {payOptions.length > 1 && (
             <section className="flex flex-col gap-2" aria-label={t("pay.method")}>
               <SectionLabel as="h2">{t("pay.method")}</SectionLabel>
               <Segmented
@@ -292,6 +300,7 @@ export function EditOrderScreen({
                 </div>
               )}
             </section>
+            )}
             <p className="px-1 text-[12px] text-iz-muted">{t("live.editNote")}</p>
           </>
         )}

@@ -96,7 +96,7 @@ On: `ordering`, `orderDetails`, `repeatOrder`, `popularRoutes`.
 Off (backend still lacks them, `docs/backend-gaps.md` §0): `stops`, `orderOptions`, `rider`, `addressDetails`, `cargoExtras`,
 `mapPick`, `pickupEta`, `editPickup`, `historyStatusFilter`, `tips`, `safety`, `promo`, `bonuses`, `help`, `savedCards`,
 `accounts`, `phoneChange`, `accountDeletion`, `notificationTopics`, `appPayment` (Payme / Click need a payment page on the
-order), `seatLayouts` (`GET /orders/seat-layouts`), `recentRoutes`, `ratingNote`, `historySearch`. Store release 1.1 (2026-11-26).
+order), `cardPayment` (card needs saved cards and a charge path; owner 2026-11-26: cash only in 1.1), `seatLayouts` (`GET /orders/seat-layouts`), `recentRoutes`, `ratingNote`, `historySearch`. Store release 1.1 (2026-11-26).
 
 ## Still needed from the backend (client)
 

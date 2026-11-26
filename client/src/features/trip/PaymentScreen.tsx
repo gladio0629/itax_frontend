@@ -146,7 +146,10 @@ export function PaymentScreen({
   const card = cards[0];
   const methods: { id: PayMethod; title: string; subtitle: string; icon?: IconName; letter?: string }[] = [
     { id: "cash", title: t("order.cash"), subtitle: t("pay.cashHint"), icon: "cash" },
-    { id: "card", title: t("order.card"), subtitle: card ? t("pay.cardSaved", { last4: card.last4 }) : t("pay.cardHint"), icon: "card" },
+    // Karta only where the server can charge a card for the order.
+    ...(api.capabilities.cardPayment
+      ? [{ id: "card" as const, title: t("order.card"), subtitle: card ? t("pay.cardSaved", { last4: card.last4 }) : t("pay.cardHint"), icon: "card" as const }]
+      : []),
     // Payme / Click only where the server gives the order a payment page.
     ...(api.capabilities.appPayment
       ? [

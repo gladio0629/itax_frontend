@@ -497,6 +497,9 @@ export type ClientCapabilities = {
   seatLayouts: boolean;
   /** A live order's pickup time can go back to "Hozir" (OrderUpdate can't clear it yet). */
   clearTime: boolean;
+  /** "Karta" as the order's payment: needs a saved card and a way to charge
+   * it on the server. Off: cash only (owner, 2026-11-26, release 1.1). */
+  cardPayment: boolean;
 };
 
 /** A live order change pushed by the server (WebSocket) — screens refetch. */

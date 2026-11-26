@@ -102,6 +102,9 @@ const capabilities: ClientCapabilities = {
   seatLayouts: false,
   // OrderUpdate sets scheduled_* but can't clear them (updateOrder rejects "now").
   clearTime: false,
+  // No saved cards and no charge path for an order yet: cash only in 1.1
+  // (owner, 2026-11-26).
+  cardPayment: false,
 };
 
 function unsupported(): Promise<never> {
