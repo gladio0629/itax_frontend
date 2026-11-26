@@ -15,17 +15,20 @@ Live backend check (no browser could run here: the Chrome sandbox refuses to sta
 Hidden in http mode for the release (mock mode keeps all of it):
 - Client, new capabilities:
   - `appPayment`: Payme / Click on the Payment screen. No order payment page on the server; only cash and card are offered.
-  - `seatLayouts`: `GET /orders/seat-layouts` is not called (the server would read it as `/orders/{id}`); the sedan seat map is used.
+  - `seatLayouts`: `GET /orders/seat-layouts` is not called; the sedan seat map is used. The adapter's fallback only handles 404, and the path may be matched as `/orders/{id}` on the server and answer with another 4xx (not verified live).
+  - `clearTime`: in O'zgartirish, a scheduled order is no longer offered "Hozir". `OrderUpdate` can't clear the time, so Save used to fail.
 - Client, by field: Call and "Haydovchiga yozish" on the live order show only when the order carries `driverPhone`. Before, they toasted "hozircha mavjud emas".
 - Client, account deletion: with `accountDeletion` off, "Akkauntni o'chirish" now opens a sheet that links to `https://xasanow.uz/delete-account`, as the driver app does. Before, http mode had no way to delete. The stores need this.
 - Driver, new capability `registrationDetails`: the referral code, licence number / dates / categories and service types are hidden in registration. The licence photos stay, since they go with step 3.
 - Driver: `optionalEndpoint` no longer calls the missing endpoints at all (`OPTIONAL_ENDPOINTS_LIVE = false`). The review screen shows the four sections without a status, and TopUp shows no presets or limits.
 - Driver Home: "Bugungi daromad" and the trip count are hidden when the server doesn't send them. Before, every driver saw "0 so'm · 0 safar".
-- Already hidden by existing capabilities (checked call site by call site):
+- Already hidden by existing capabilities. Checked: every client method that always rejects, the conditional rejections in `getQuote` / `createOrder` / `updateOrder`, the driver `notSupported` methods (summary, passenger rating, SOS, chat, help, phone / car change, top-up with a saved card), and a reference count for every capability key outside `src/api/`:
   - Client: bonus, help, saved cards, other accounts, phone change, promo, tips, SOS / trip share, recent routes, pickup ETA, map pick, stops, luggage, "Boshqa odam uchun", address details, Kargo extras (tabs, contacts, terms, loaders, insurance, ride-along), history search / filter, rating comment beyond 5 stars.
   - Driver: trip chat, trip summary, passenger rating, SOS signal, help, Imkoniyatlarim (cargo), feed filters, history / ledger filters, request alerts, phone / car change, in-app account deletion (the site link stays).
 
 Versions: iOS `MARKETING_VERSION` 1.0 → 1.1 and `CURRENT_PROJECT_VERSION` 1 → 2 (Debug and Release), Android `versionName` "1.1" and `versionCode` 1 → 2, both apps. Every branch was at 1 / 1. The driver `package.json` is now 1.1.0, so About shows 1.1.0 like the client. Bundle IDs and signing are unchanged.
+
+Also checked: `https://xasanow.uz/delete-account`, `/terms` and `/privacy` answer 200.
 
 Checks: typecheck, http build, `check:no-network` (API origin `https://api.xasanow.uz`), no "Sinov paneli" in either `dist`, mock builds pass, `npx cap sync` for both apps. `.env.local` (gitignored) holds `VITE_API_URL` and `VITE_DEMO_MODE=false`. There is no `VITE_MAPBOX_TOKEN` on this machine, so the synced builds use the drawn map.
 

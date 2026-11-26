@@ -100,6 +100,8 @@ const capabilities: ClientCapabilities = {
   appPayment: false,
   // GET /orders/seat-layouts isn't on the server (backend-gaps.md, miniven).
   seatLayouts: false,
+  // OrderUpdate sets scheduled_* but can't clear them (updateOrder rejects "now").
+  clearTime: false,
 };
 
 function unsupported(): Promise<never> {

@@ -148,6 +148,8 @@ export function EditOrderScreen({
         value={timing}
         rules={scheduling.data}
         onBack={() => onSub(null)}
+        // A scheduled order can go back to "Hozir" only where the server can clear its time.
+        allowNow={api.capabilities.clearTime || (order.extras?.timing ?? { timeMode: "now" }).timeMode === "now"}
         onDone={(next) => {
           setTiming(next);
           setTimingTouched(true);

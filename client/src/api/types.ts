@@ -495,6 +495,8 @@ export type ClientCapabilities = {
   /** Seat layouts per car class, incl. the minivan cabin
    * (GET /orders/seat-layouts). Off: the sedan layout from the seat map. */
   seatLayouts: boolean;
+  /** A live order's pickup time can go back to "Hozir" (OrderUpdate can't clear it yet). */
+  clearTime: boolean;
 };
 
 /** A live order change pushed by the server (WebSocket) — screens refetch. */

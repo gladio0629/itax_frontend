@@ -79,11 +79,14 @@ export function TimeScreen({
   rules,
   onDone,
   onBack,
+  allowNow = true,
 }: {
   value: OrderTiming;
   rules: SchedulingRules;
   onDone: (timing: OrderTiming) => void;
   onBack: () => void;
+  /** Offer "Hozir" (off when a live order's time can't be cleared). */
+  allowNow?: boolean;
 }) {
   const { t, intlTag } = useT();
   const now = useMemo(() => new Date(), []);
@@ -220,7 +223,7 @@ export function TimeScreen({
             value={mode}
             onChange={setMode}
             options={[
-              { value: "now", label: t("time.now") },
+              ...(allowNow ? [{ value: "now" as const, label: t("time.now") }] : []),
               { value: "exact", label: t("time.exact") },
               { value: "range", label: t("time.range") },
             ]}

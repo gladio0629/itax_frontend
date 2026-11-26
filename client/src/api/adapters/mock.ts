@@ -787,6 +787,7 @@ export const mockAdapter: ApiAdapter = {
     historySearch: true,
     appPayment: true,
     seatLayouts: true,
+    clearTime: true,
   },
 
   // The sample data keeps no server session: the auth store's own flag
