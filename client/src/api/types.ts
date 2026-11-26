@@ -488,6 +488,13 @@ export type ClientCapabilities = {
   /** A comment with any rating, next to the reasons. Off: only with 5 stars,
    * sent in place of a reason (the contract keeps one reason). */
   ratingNote: boolean;
+  /** Payme / Click as the order's payment: the server must hand back a
+   * payment page for the order (docs/backend-gaps/client.md, "Payment link
+   * after ordering"). Off: only cash and card are offered. */
+  appPayment: boolean;
+  /** Seat layouts per car class, incl. the minivan cabin
+   * (GET /orders/seat-layouts). Off: the sedan layout from the seat map. */
+  seatLayouts: boolean;
 };
 
 /** A live order change pushed by the server (WebSocket) — screens refetch. */

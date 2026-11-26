@@ -291,6 +291,8 @@ export const en: Dictionary = {
   "account.deleteSelfFullWarning": "This will permanently delete your account, order history, and bonuses. Continue?",
   "account.deleteRequestedTitle": "Request received",
   "account.deleteRequestedDesc": "Your account deletion request is being reviewed.",
+  "account.deleteWeb": "Send the account deletion request on the website. The page opens in your browser.",
+  "account.deleteWebOpen": "Open the website",
 
   "notifPrefs.title": "Notifications",
   "notifPrefs.master": "All",

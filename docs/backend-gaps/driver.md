@@ -77,6 +77,9 @@ cards, per-topic notification switches, `unread_count` / read-all (one PUT per u
 Driver app redesign (design v2, 2026-11-22). Money in tiyin on the wire as before. Error envelope `{ error: { key, params } }`.
 Until an endpoint exists the http adapter treats **only** 404 / 405 / 501 as "not there yet" and carries on
 (`optionalEndpoint` in `driver/src/api/adapters/http.ts`); 422, 5xx and network errors are shown to the driver.
+Store release 1.1 (2026-11-26): `OPTIONAL_ENDPOINTS_LIVE = false` skips these calls altogether, and the new capability
+`registrationDetails` hides the referral code, licence number / dates / categories and service types until the
+endpoints below exist.
 
 ### Registration (screens: personal → licence → car → selfie → automatic check)
 

@@ -292,6 +292,8 @@ export const uz = {
   "account.deleteSelfFullWarning": "Bu amal akkauntingiz, buyurtmalar tarixi va bonuslaringizni butunlay o'chiradi. Davom etasizmi?",
   "account.deleteRequestedTitle": "So'rov qabul qilindi",
   "account.deleteRequestedDesc": "Akkauntni o'chirish so'rovi ko'rib chiqilmoqda.",
+  "account.deleteWeb": "Akkauntni o'chirish so'rovini saytda yuboring. Sahifa brauzerda ochiladi.",
+  "account.deleteWebOpen": "Saytda ochish",
 
   "notifPrefs.title": "Bildirishnomalar",
   "notifPrefs.master": "Hammasi",

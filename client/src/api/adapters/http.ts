@@ -95,6 +95,11 @@ const capabilities: ClientCapabilities = {
   // RatingInput carries one reason; a comment goes as the "custom" reason (5 stars).
   ratingNote: false,
   historySearch: false,
+  // No payment page for an order yet: Payme / Click would end in "payment
+  // comes later" with nothing after it (store release 1.1, 2026-11-26).
+  appPayment: false,
+  // GET /orders/seat-layouts isn't on the server (backend-gaps.md, miniven).
+  seatLayouts: false,
 };
 
 function unsupported(): Promise<never> {
@@ -513,6 +518,9 @@ export const httpAdapter: ApiAdapter = {
     return res.seats.map(toUiSeat);
   },
   getSeatLayouts: async (route) => {
+    // Not on the server yet, and the path would be read as /orders/{id}
+    // there (a 4xx that isn't 404): use the seat map until it ships.
+    if (!capabilities.seatLayouts) return sedanLayoutsFromSeatMap(await httpAdapter.getSeatMap(route));
     try {
       return await fetchSeatLayouts(geoPoint(route.fromAddressId), geoPoint(route.toAddressId));
     } catch (err) {

@@ -144,8 +144,9 @@ export type DebtState = {
 };
 
 export type HomeSummary = {
-  todayEarnings: number;
-  todayTrips: number;
+  /** Today's earnings and trips from the server; null = not sent (the block is hidden). */
+  todayEarnings: number | null;
+  todayTrips: number | null;
   unreadNotifications: number;
   debt: DebtState;
   canAcceptOrders: boolean;

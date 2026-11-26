@@ -986,6 +986,7 @@ export const mockAdapter: ApiAdapter = {
     ratePassenger: true,
     sos: true,
     deleteAccount: true,
+    registrationDetails: true,
   },
   subscribe: () => noop,
   onSessionEnd: () => noop,

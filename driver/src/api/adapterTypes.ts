@@ -49,6 +49,10 @@ export type ApiCapabilities = {
   sos: boolean;
   /** Delete the account from the app (otherwise the public site's page). */
   deleteAccount: boolean;
+  /** Registration extras the server doesn't store yet: the referral code,
+   * licence number / dates / categories and the service types. Off: those
+   * inputs are hidden (the licence photos stay, they go with step 3). */
+  registrationDetails: boolean;
 };
 
 /** Server-pushed events (WebSocket), already reduced to what screens refresh on.

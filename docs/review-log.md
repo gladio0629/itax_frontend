@@ -3,6 +3,32 @@
 Reviewer terminal (branch `redesign-v2`). One entry per review round, newest first.
 Verdict per branch: **GREEN** = can be merged, **YELLOW** = can be merged, fix items in the next group, **RED** = must be fixed before merging.
 
+## 2026-11-26, store release 1.1 (client 1.1 (2), driver 1.1 (2)) against `https://api.xasanow.uz`
+
+Base: `redesign-v2` fast-forwarded to `fix-1125` `a819c40` (owner, 2026-11-26): iOS safe areas for client and driver, driver levels removed (decision 2026-11-25), driver tab transitions.
+
+Live backend check (no browser could run here: the Chrome sandbox refuses to start, and there is no Playwright install):
+- `POST /api/v1/auth/otp/request` for both review phones (+998900000001 client, +998900000002 driver) with `Origin: capacitor://localhost` and `X-App`: 202, `code_length: 6`.
+- CORS preflight allows `capacitor://localhost`, `https://localhost` and the local preview ports.
+- **Not checked live:** OTP verify and every signed-in flow. The review code lives only in the server's secrets. The signed-in flows were checked against the contract (`api/openapi.yml`, the same 100 operations as `onlyback/api/openapi.yml`).
+
+Hidden in http mode for the release (mock mode keeps all of it):
+- Client, new capabilities:
+  - `appPayment`: Payme / Click on the Payment screen. No order payment page on the server; only cash and card are offered.
+  - `seatLayouts`: `GET /orders/seat-layouts` is not called (the server would read it as `/orders/{id}`); the sedan seat map is used.
+- Client, by field: Call and "Haydovchiga yozish" on the live order show only when the order carries `driverPhone`. Before, they toasted "hozircha mavjud emas".
+- Client, account deletion: with `accountDeletion` off, "Akkauntni o'chirish" now opens a sheet that links to `https://xasanow.uz/delete-account`, as the driver app does. Before, http mode had no way to delete. The stores need this.
+- Driver, new capability `registrationDetails`: the referral code, licence number / dates / categories and service types are hidden in registration. The licence photos stay, since they go with step 3.
+- Driver: `optionalEndpoint` no longer calls the missing endpoints at all (`OPTIONAL_ENDPOINTS_LIVE = false`). The review screen shows the four sections without a status, and TopUp shows no presets or limits.
+- Driver Home: "Bugungi daromad" and the trip count are hidden when the server doesn't send them. Before, every driver saw "0 so'm · 0 safar".
+- Already hidden by existing capabilities (checked call site by call site):
+  - Client: bonus, help, saved cards, other accounts, phone change, promo, tips, SOS / trip share, recent routes, pickup ETA, map pick, stops, luggage, "Boshqa odam uchun", address details, Kargo extras (tabs, contacts, terms, loaders, insurance, ride-along), history search / filter, rating comment beyond 5 stars.
+  - Driver: trip chat, trip summary, passenger rating, SOS signal, help, Imkoniyatlarim (cargo), feed filters, history / ledger filters, request alerts, phone / car change, in-app account deletion (the site link stays).
+
+Versions: iOS `MARKETING_VERSION` 1.0 → 1.1 and `CURRENT_PROJECT_VERSION` 1 → 2 (Debug and Release), Android `versionName` "1.1" and `versionCode` 1 → 2, both apps. Every branch was at 1 / 1. The driver `package.json` is now 1.1.0, so About shows 1.1.0 like the client. Bundle IDs and signing are unchanged.
+
+Checks: typecheck, http build, `check:no-network` (API origin `https://api.xasanow.uz`), no "Sinov paneli" in either `dist`, mock builds pass, `npx cap sync` for both apps. `.env.local` (gitignored) holds `VITE_API_URL` and `VITE_DEMO_MODE=false`. There is no `VITE_MAPBOX_TOKEN` on this machine, so the synced builds use the drawn map.
+
 ## 2026-11-25, update v3 round 2: admin-ops-cards `2547589`: GREEN, merged `62ec22d`
 
 All 4 items from round 1 are fixed:

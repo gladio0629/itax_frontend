@@ -98,6 +98,8 @@ const capabilities: ApiCapabilities = {
   sos: false,
   // No account-deletion endpoint yet: Sozlamalar links to the site's page instead.
   deleteAccount: false,
+  // Referral, licence details and service types have no endpoint yet.
+  registrationDetails: false,
 };
 
 // ------------------------------------------------------ settled "reviews"
@@ -354,6 +356,10 @@ const pendingDocs = new Map<DocSlot, string>();
  * gives `fallback`; validation errors, 5xx and network errors still throw.
  */
 async function optionalEndpoint<T>(call: () => Promise<T>, fallback: T): Promise<T> {
+  // None of these is on the server yet, and a path it doesn't know may come
+  // back as something other than 404 there. Store release 1.1 (2026-11-26):
+  // don't call them at all; flip this when the endpoints ship.
+  if (!OPTIONAL_ENDPOINTS_LIVE) return fallback;
   try {
     return await call();
   } catch (err) {
@@ -361,6 +367,7 @@ async function optionalEndpoint<T>(call: () => Promise<T>, fallback: T): Promise
     throw mapFieldError(err);
   }
 }
+const OPTIONAL_ENDPOINTS_LIVE = false;
 const OPT = {
   referral: "/api/v1/drivers/registration/referral",
   license: "/api/v1/drivers/registration/license",
@@ -387,9 +394,9 @@ async function homeSummary(): Promise<HomeSummary> {
     readActiveTrips().catch(() => null),
   ]);
   const value: HomeSummary = {
-    // Not in the contract; not shown in http mode.
-    todayEarnings: 0,
-    todayTrips: 0,
+    // Not in the contract: null hides the block (never a made-up 0).
+    todayEarnings: null,
+    todayTrips: null,
     newRequests: 0,
     // Unread on the first page (the contract has no unread count).
     unreadNotifications: notifications.data.filter((n) => !n.read).length,

@@ -147,8 +147,13 @@ export function PaymentScreen({
   const methods: { id: PayMethod; title: string; subtitle: string; icon?: IconName; letter?: string }[] = [
     { id: "cash", title: t("order.cash"), subtitle: t("pay.cashHint"), icon: "cash" },
     { id: "card", title: t("order.card"), subtitle: card ? t("pay.cardSaved", { last4: card.last4 }) : t("pay.cardHint"), icon: "card" },
-    { id: "payme", title: t("pay.payme"), subtitle: t("pay.appHint"), letter: "P" },
-    { id: "click", title: t("pay.click"), subtitle: t("pay.appHint"), letter: "C" },
+    // Payme / Click only where the server gives the order a payment page.
+    ...(api.capabilities.appPayment
+      ? [
+          { id: "payme" as const, title: t("pay.payme"), subtitle: t("pay.appHint"), letter: "P" },
+          { id: "click" as const, title: t("pay.click"), subtitle: t("pay.appHint"), letter: "C" },
+        ]
+      : []),
   ];
   const current = methods.find((m) => m.id === method) ?? methods[0];
 

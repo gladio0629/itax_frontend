@@ -167,8 +167,9 @@ export function DriverCardDark({ driver, order, onCall, onMessage }: { driver: D
             </span>
           )}
         </div>
-        <MessageButton phone={order.driverPhone} onUnavailable={onMessage} tone="dark" />
-        <CallButton phone={order.driverPhone} onUnavailable={onCall} />
+        {/* No dialable number from the server (http mode today): no buttons, not a dead tap. */}
+        {order.driverPhone && <MessageButton phone={order.driverPhone} onUnavailable={onMessage} tone="dark" />}
+        {order.driverPhone && <CallButton phone={order.driverPhone} onUnavailable={onCall} />}
       </div>
       <div className="flex items-center justify-between gap-3">
         {driver.plate ? <Plate plate={driver.plate} /> : <span />}
@@ -195,8 +196,8 @@ export function DriverRow({ driver, phone, tone, sub, onCall, onMessage }: { dri
         </span>
         {sub && <span className={cn("truncate text-[13px]", tone === "light" ? "font-bold tracking-[0.5px] text-iz-ink" : "text-iz-muted")}>{sub}</span>}
       </div>
-      <MessageButton phone={phone} onUnavailable={onMessage} tone="light" />
-      <CallButton phone={phone} onUnavailable={onCall} outline={tone === "dark"} />
+      {phone && <MessageButton phone={phone} onUnavailable={onMessage} tone="light" />}
+      {phone && <CallButton phone={phone} onUnavailable={onCall} outline={tone === "dark"} />}
     </div>
   );
 }

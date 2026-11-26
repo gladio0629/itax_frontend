@@ -95,7 +95,8 @@ Updated 2026-11-15: the order flow runs against the contract in http mode.
 On: `ordering`, `orderDetails`, `repeatOrder`, `popularRoutes`.
 Off (backend still lacks them, `docs/backend-gaps.md` §0): `stops`, `orderOptions`, `rider`, `addressDetails`, `cargoExtras`,
 `mapPick`, `pickupEta`, `editPickup`, `historyStatusFilter`, `tips`, `safety`, `promo`, `bonuses`, `help`, `savedCards`,
-`accounts`, `phoneChange`, `accountDeletion`, `notificationTopics`.
+`accounts`, `phoneChange`, `accountDeletion`, `notificationTopics`, `appPayment` (Payme / Click need a payment page on the
+order), `seatLayouts` (`GET /orders/seat-layouts`), `recentRoutes`, `ratingNote`, `historySearch`. Store release 1.1 (2026-11-26).
 
 ## Still needed from the backend (client)
 

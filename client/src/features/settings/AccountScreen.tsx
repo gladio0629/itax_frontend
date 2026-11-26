@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
+import { SITE_URL } from "@/config";
 import type { AccountSummary, Profile } from "@/api/types";
 import { ReviewStatus } from "@/components/ReviewStatus";
 import { useAuthStore } from "@/stores/authStore";
@@ -11,7 +12,7 @@ import { serverErrorKey } from "@/lib/apiError";
 import { BottomSheet, DangerButton, Field, Icon, IconButton, Initials, PrimaryButton, Screen, SectionLabel, StateError, StateLoading, TextButton } from "@/ui";
 import { PhoneChangeSheet } from "./PhoneChangeSheet";
 
-type Sheet = { kind: "add" } | { kind: "phone" } | { kind: "remove"; account: AccountSummary } | { kind: "deleteSelf" } | null;
+type Sheet = { kind: "add" } | { kind: "phone" } | { kind: "remove"; account: AccountSummary } | { kind: "deleteSelf" } | { kind: "deleteWeb" } | null;
 
 /**
  * Akkaunt (design v2: Account / KbAccount): first and last name, the phone
@@ -161,8 +162,10 @@ export function AccountScreen() {
           <PrimaryButton loading={saving} disabled={!changed || !firstName.trim()} onClick={saveName}>
             {t("common.save")}
           </PrimaryButton>
-          {caps.accountDeletion && (
-            <TextButton tone="danger" className="kb:hidden" onClick={() => setSheet({ kind: "deleteSelf" })}>
+          {/* No deletion endpoint yet (http mode): the site's /delete-account
+              page, as in the driver app. The stores need it reachable in-app. */}
+          {(caps.accountDeletion || SITE_URL) && (
+            <TextButton tone="danger" className="kb:hidden" onClick={() => setSheet({ kind: caps.accountDeletion ? "deleteSelf" : "deleteWeb" })}>
               {t("account.deleteAccount")}
             </TextButton>
           )}
@@ -302,6 +305,31 @@ export function AccountScreen() {
               />
             </>
           )}
+        </BottomSheet>
+      )}
+
+      {sheet?.kind === "deleteWeb" && (
+        <BottomSheet
+          open
+          onClose={closeSheet}
+          title={t("account.deleteAccount")}
+          closeLabel={t("common.close")}
+          footer={
+            <>
+              <a
+                href={`${SITE_URL}/delete-account`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeSheet}
+                className="flex h-14 w-full shrink-0 items-center justify-center gap-2.5 rounded-full bg-iz-danger-soft text-[15px] font-extrabold text-iz-danger active:opacity-80"
+              >
+                {t("account.deleteWebOpen")}
+              </a>
+              <TextButton onClick={closeSheet}>{t("common.cancel")}</TextButton>
+            </>
+          }
+        >
+          <p className="text-[15px] leading-[22px] text-iz-ink">{t("account.deleteWeb")}</p>
         </BottomSheet>
       )}
 

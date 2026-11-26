@@ -291,6 +291,8 @@ export const ru: Dictionary = {
   "account.deleteSelfFullWarning": "Это действие полностью удалит ваш аккаунт, историю заказов и бонусы. Продолжить?",
   "account.deleteRequestedTitle": "Запрос принят",
   "account.deleteRequestedDesc": "Запрос на удаление аккаунта рассматривается.",
+  "account.deleteWeb": "Отправьте запрос на удаление аккаунта на сайте. Страница откроется в браузере.",
+  "account.deleteWebOpen": "Открыть на сайте",
 
   "notifPrefs.title": "Уведомления",
   "notifPrefs.master": "Все",

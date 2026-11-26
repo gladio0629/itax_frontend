@@ -172,19 +172,21 @@ export default function HomeScreen() {
               {!!s?.unreadNotifications && <span className="absolute right-[9px] top-[9px] h-[9px] w-[9px] rounded-full border-2 border-night bg-brand" />}
             </HeaderButton>
           </div>
+          {/* Today's figures only when the server sends them (not in http mode yet). */}
+          {(!s || s.todayEarnings != null) && (
           <Link to="/history" aria-label={t("home.openHistory")} className="press flex items-end justify-between gap-3">
             <span className="flex min-w-0 flex-col gap-1.5">
               <span className="label-caps text-night-muted">{t("home.todayEarnings")}</span>
               {s ? (
                 <span className="tabular whitespace-nowrap text-4xl font-extrabold leading-[1.1] tracking-[-0.5px] text-white">
-                  {formatAmount(s.todayEarnings)} <span className="text-15 font-bold tracking-normal text-night-muted">{t("common.som")}</span>
+                  {formatAmount(s.todayEarnings ?? 0)} <span className="text-15 font-bold tracking-normal text-night-muted">{t("common.som")}</span>
                 </span>
               ) : (
                 <Skeleton className="h-10 w-48 bg-night-2" />
               )}
               {s && (
                 <span className="text-13 font-semibold text-night-muted">
-                  {t("home.todayTrips", { n: s.todayTrips })}
+                  {t("home.todayTrips", { n: s.todayTrips ?? 0 })}
                   {s.todayWorkMin != null && s.todayWorkMin > 0 && ` · ${formatDuration(s.todayWorkMin, t)}`}
                 </span>
               )}
@@ -201,6 +203,7 @@ export default function HomeScreen() {
               </span>
             )}
           </Link>
+          )}
         </div>
       }
     >

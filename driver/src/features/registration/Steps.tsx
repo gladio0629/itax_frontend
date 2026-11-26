@@ -12,6 +12,9 @@ import { Chip } from "@/components/Chip";
 import { Sheet } from "@/components/Sheet";
 import { DateField, FieldLabel, FormNotice, LegalSentence, PhotoTile, PickerField, RegShell, useDocUploads, useLegalLinks, type Upload } from "./parts";
 
+/** Referral, licence details and service types: only where the server stores them. */
+const details = api.capabilities.registrationDetails;
+
 /** What the driver typed, kept while moving back and forth between steps. */
 export type RegDraft = {
   personal?: Partial<PersonalInput>;
@@ -102,6 +105,7 @@ export function PersonalStep({ options, draft, setDraft, onSaved, onBack, notice
           error={fieldMsg(error, "CITY_REQUIRED")}
         />
       </div>
+      {details && (
       <TextField
         label={t("reg.referral")}
         placeholder={t("reg.referralPlaceholder")}
@@ -113,6 +117,7 @@ export function PersonalStep({ options, draft, setDraft, onSaved, onBack, notice
         trailing={<Gift className="h-[18px] w-[18px] text-muted" />}
         error={fieldMsg(error, "REFERRAL_INVALID")}
       />
+      )}
       {error && !shown.includes(error.code ?? "") && <FormNotice>{error.msg}</FormNotice>}
     </RegShell>
   );
@@ -145,7 +150,8 @@ export function LicenseStep({ options, draft, setDraft, onSaved, onBack }: StepP
     });
 
   const toggle = (c: string) => setCategories((xs) => (xs.includes(c) ? xs.filter((x) => x !== c) : [...xs, c]));
-  const ready = !!front && !!back && !!number.trim() && !!issuedAt && !!expiresAt && categories.length > 0;
+  // Without the licence endpoint only the photos are asked (registrationDetails).
+  const ready = !!front && !!back && (!details || (!!number.trim() && !!issuedAt && !!expiresAt && categories.length > 0));
 
   return (
     <RegShell
@@ -166,6 +172,8 @@ export function LicenseStep({ options, draft, setDraft, onSaved, onBack }: StepP
       </div>
       {uploads.fileInputs}
       {uploads.error && <FormNotice>{uploads.error}</FormNotice>}
+      {details && (
+      <>
       <TextField
         label={t("reg.licenseNumber")}
         autoCapitalize="characters"
@@ -191,6 +199,8 @@ export function LicenseStep({ options, draft, setDraft, onSaved, onBack }: StepP
         </div>
         {fieldMsg(error, "LICENSE_CATEGORY_REQUIRED") && <p role="alert" className="text-13 font-semibold text-danger">{error?.msg}</p>}
       </div>
+      </>
+      )}
       {error && !shown.includes(error.code ?? "") && <FormNotice>{error.msg}</FormNotice>}
     </RegShell>
   );
@@ -294,7 +304,7 @@ export function CarStep({ options, draft, setDraft, onSaved, onBack }: StepProps
       );
     });
 
-  const ready = !!brand && !!model && !!plate.region && !!plate.rest.trim() && !!year && !!seats && !!colorKey && !!carClass && serviceTypes.length > 0 && tpCount === 2 && !!photo.upload;
+  const ready = !!brand && !!model && !!plate.region && !!plate.rest.trim() && !!year && !!seats && !!colorKey && !!carClass && (!details || serviceTypes.length > 0) && tpCount === 2 && !!photo.upload;
   const colorName = colorKey ? t(`color.${colorKey}` as TranslationKey) : "";
 
   return (
@@ -364,6 +374,7 @@ export function CarStep({ options, draft, setDraft, onSaved, onBack }: StepProps
         {fieldMsg(error, "COLOR_REQUIRED") && <p role="alert" className="text-13 font-semibold text-danger">{error?.msg}</p>}
       </div>
 
+      {details && (
       <div className="flex flex-col gap-2.5" role="group" aria-labelledby="car-service">
         <FieldLabel id="car-service">{t("reg.serviceType")}</FieldLabel>
         <div className="flex flex-wrap gap-2">
@@ -380,6 +391,7 @@ export function CarStep({ options, draft, setDraft, onSaved, onBack }: StepProps
         </div>
         {fieldMsg(error, "SERVICE_TYPE_REQUIRED") && <p role="alert" className="text-13 font-semibold text-danger">{error?.msg}</p>}
       </div>
+      )}
 
       <div className="flex flex-col gap-2.5" role="radiogroup" aria-labelledby="car-class">
         <FieldLabel id="car-class">{t("reg.carClass")}</FieldLabel>
