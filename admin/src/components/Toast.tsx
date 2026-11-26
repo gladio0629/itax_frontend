@@ -11,8 +11,8 @@ export function Toast({ message, onDone }: { message: string; onDone: () => void
 
   return (
     <div role="status" aria-live="polite" className="pointer-events-none fixed right-6 top-20 z-[60] !m-0 flex justify-end animate-slide-in-right">
-      <div className="flex max-w-sm items-center gap-2 rounded-button bg-ink px-4 py-3 text-sm text-white shadow-soft">
-        <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-yellow" aria-hidden />
+      <div className="flex max-w-sm items-center gap-2.5 rounded-field bg-ink px-4 py-3 text-sm font-semibold text-white shadow-pop">
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-green" aria-hidden />
         {message}
       </div>
     </div>

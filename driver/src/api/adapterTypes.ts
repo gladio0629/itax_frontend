@@ -1,8 +1,9 @@
 import type {
-  AcceptedPage, BonusInfo, CancelReason, CapabilitiesInput, ChatSend, DriverCapabilities,
+  AcceptedPage, CancelReason, CapabilitiesInput, ChatSend, DriverCapabilities,
   DriverProfile, FeedPage, FeedQuery, HelpRequest, HelpTopic, HistoryFilter, HistoryPage, HomeSummary, LedgerPage, LedgerQuery,
   NotificationItem, NotificationPrefs, PayProvider, RegistrationOptions, RequestAlert, ReviewRequest, RoutesPage, Session,
-  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, CarClass, DocSlot,
+  TopupOptions, TripChat, TripDetail, TripSummary, WalletSummary, Car, DocSlot, Booking, RideRequest,
+  CarInput, LicenseInput, PersonalInput, RegistrationReview, SelfieInput,
 } from "./types";
 
 /**
@@ -28,7 +29,6 @@ export type ApiCapabilities = {
   /** Requests are matched against Yo'nalishlarim / Imkoniyatlarim (the screens may
    * promise it). The real backend stores both but doesn't match on them yet. */
   profileMatching: boolean;
-  bonus: boolean;
   help: boolean;
   /** "Imkoniyatlarim". */
   driverCapabilities: boolean;
@@ -43,6 +43,16 @@ export type ApiCapabilities = {
   notificationCategories: boolean;
   /** GPS reporting while the feed is open or a trip is active. */
   locationReporting: boolean;
+  /** The driver rates the passenger after the trip. */
+  ratePassenger: boolean;
+  /** SOS signal to IZGO from a trip. */
+  sos: boolean;
+  /** Delete the account from the app (otherwise the public site's page). */
+  deleteAccount: boolean;
+  /** Registration extras the server doesn't store yet: the referral code,
+   * licence number / dates / categories and the service types. Off: those
+   * inputs are hidden (the licence photos stay, they go with step 3). */
+  registrationDetails: boolean;
 };
 
 /** Server-pushed events (WebSocket), already reduced to what screens refresh on.
@@ -70,13 +80,22 @@ export interface ApiAdapter {
   /** `codeLength`: digits in the code just sent, when the server says (overrides otpLength). */
   requestOtp(phone: string): Promise<{ requestId: string; testCode?: string; resendInSec: number; codeLength?: number }>;
   verifyOtp(requestId: string, code: string): Promise<ReviewRequest>;
-  savePersonal(input: { name: string; cityId: string; birthDate?: string }): Promise<Session>;
-  saveCar(input: { model: string; colorKey: string; plate: string; year: number; carClass?: CarClass; seats?: number }): Promise<Session>;
+  /** Registration step 1 → stage "license". */
+  savePersonal(input: PersonalInput): Promise<Session>;
+  /** Step 2 → stage "car". */
+  saveLicense(input: LicenseInput): Promise<Session>;
+  /** Step 3 → stage "selfie". */
+  saveCar(input: CarInput): Promise<Session>;
   /** Uploads one document photo; `file` is null for the sample-data adapter's simulated picker.
-   * Returns the reference to pass to submitDocuments and a name to show. */
+   * Returns the reference to pass to the step and a name to show. */
   uploadDocument(slot: DocSlot, file: File | null): Promise<{ ref: string; name: string }>;
-  submitDocuments(input: { licenseFile: string; registrationFile: string; selfieFile?: string; acceptTerms?: boolean }): Promise<ReviewRequest>;
+  /** Step 4: selfie + terms → automatic check (stage "review"). */
+  submitRegistration(input: SelfieInput): Promise<ReviewRequest>;
+  /** Per-section progress while under review; null when the server doesn't report it. */
+  getRegistrationReview(): Promise<RegistrationReview | null>;
   logout(): Promise<Session>;
+  /** Deletes the driver's account (irreversible); ends the session. */
+  deleteAccount(): Promise<Session>;
   /** GPS fix while the feed is open or a trip is active (the caller throttles to ≥10 s). */
   reportLocation(lat: number, lng: number): Promise<void>;
   /** The driver's position when the adapter has one without GPS (sample data: mock coordinates
@@ -107,6 +126,14 @@ export interface ApiAdapter {
 
   // Accepted requests (bookings) and their trip steps
   getAccepted(): Promise<AcceptedPage>;
+  /** One request (Request / OrderDetail screens). Rejects with REQUEST_NOT_FOUND when it is gone. */
+  getRequest(requestId: string): Promise<RideRequest>;
+  /** One accepted booking (trip screens). Rejects with TRIP_NOT_FOUND when it is no longer active. */
+  getBooking(bookingId: string): Promise<Booking>;
+  /** After the trip: the driver's 1–5 rating of the passenger. */
+  ratePassenger(bookingId: string, stars: number): Promise<void>;
+  /** SOS from a trip: IZGO operators are alerted. */
+  sendSos(bookingId: string): Promise<void>;
   advanceBooking(bookingId: string): Promise<ReviewRequest>;
   getCancelReasons(): Promise<CancelReason[]>;
   cancelBooking(bookingId: string, reasonKey: string): Promise<void>;
@@ -122,11 +149,11 @@ export interface ApiAdapter {
   getWallet(): Promise<WalletSummary>;
   getLedger(query: LedgerQuery): Promise<LedgerPage>;
   getTopupOptions(): Promise<TopupOptions>;
-  requestTopup(amount: number, provider: PayProvider): Promise<ReviewRequest>;
+  /** `cardId`: pay with a saved card instead of the provider's page. */
+  requestTopup(amount: number, provider: PayProvider, cardId?: string): Promise<ReviewRequest>;
   linkCard(provider: PayProvider): Promise<ReviewRequest>;
 
   // Profile
-  getBonus(): Promise<BonusInfo>;
   requestProfileChange(field: "name" | "phone" | "car", value: string): Promise<ReviewRequest>;
   getNotifications(): Promise<NotificationItem[]>;
   markAllNotificationsRead(): Promise<void>;

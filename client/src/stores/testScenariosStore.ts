@@ -10,7 +10,11 @@ export type TestScenarios = {
   forceErrors: boolean;
   walletLimit: boolean;
   fastForward: boolean;
+  /** A live order stays in its current status (no auto-advance). */
+  holdStatus: boolean;
   bonusBelowMin: boolean;
+  /** No saved places and no trips yet (Home's new-user layout). */
+  newPassenger: boolean;
 };
 
 const SCENARIOS_KEY = "izgo_client_test_scenarios";
@@ -21,7 +25,9 @@ const defaultScenarios: TestScenarios = {
   forceErrors: false,
   walletLimit: false,
   fastForward: false,
+  holdStatus: false,
   bonusBelowMin: false,
+  newPassenger: false,
 };
 
 function loadScenarios(): TestScenarios {

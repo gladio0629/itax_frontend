@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
 import type { RequestAlert } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
 import { formatAmount } from "@/lib/format";
 import { notifyInBackground } from "@/lib/systemNotify";
+import { getDevicePrefs } from "@/lib/devicePrefs";
+import { playChime } from "@/lib/sound";
 import { useFeedSignal } from "@/stores/feedSignal";
 import { useToast } from "@/lib/toast";
 import { BellRing, X } from "@/lib/icons";
@@ -21,6 +23,7 @@ const SHOW_MS = 7000;
 export function RequestBanner() {
   const { t } = useT();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const bump = useFeedSignal((s) => s.bump);
   const [alert, setAlert] = useState<RequestAlert | null>(null);
   // Toasts share the top slot: the banner sits below any that are showing.
@@ -42,6 +45,8 @@ export function RequestBanner() {
         clearTimeout(hideTimer.current);
         hideTimer.current = setTimeout(() => setAlert(null), SHOW_MS);
         notifyInBackground(t("banner.request.title"), lineFor(a), a.id, () => open(a));
+        // Sozlamalar → So'rov ovozi (this phone only).
+        if (getDevicePrefs().requestSound && document.visibilityState === "visible") playChime();
       }
       timer = setTimeout(tick, POLL_MS);
     };
@@ -55,36 +60,42 @@ export function RequestBanner() {
   }, []);
 
   function detailFor(a: RequestAlert) {
-    const what = a.kind === "delivery" ? t("feed.kind.cargo") : a.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: a.seats });
+    const what = a.kind === "delivery" ? t("feed.kind.delivery") : a.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: a.seats });
     return `${what} · ${formatAmount(a.price)} ${t("common.som")}`;
   }
   const lineFor = (a: RequestAlert) => `${a.from} → ${a.to} · ${detailFor(a)}`;
 
+  // Opens the request itself ("Yangi so'rov" with the countdown / "Dostavka so'rovi").
   function open(a: RequestAlert) {
     setAlert(null);
-    const date = a.dayOffset === 0 ? "today" : a.dayOffset === 1 ? "tomorrow" : a.date;
-    const p = new URLSearchParams({ request: a.requestId });
-    if (date !== "today") p.set("date", date);
-    navigate(`/?${p.toString()}`);
+    navigate(`/request/${a.requestId}`);
   }
 
+  // On a request screen the driver is already deciding: no banner over its buttons.
+  if (pathname.startsWith("/request/")) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-3 z-[55]" style={{ top: `calc(var(--safe-top) + ${8 + toasts * 68}px)`, transition: "top 200ms" }} role="status" aria-live="polite">
+    // Under the 44–52 px header row (back / bell stay tappable), toasts above it.
+    <div
+      className="pointer-events-none absolute inset-x-5 z-[55]"
+      style={{ top: `calc(max(calc(var(--safe-top) + 12px), 56px) + ${60 + toasts * 64}px)`, transition: "top 200ms" }}
+      role="status"
+      aria-live="polite"
+    >
       {alert && (
-        <div key={alert.id} className="pointer-events-auto flex animate-fade-up items-stretch overflow-hidden rounded-card bg-surface shadow-2 ring-1 ring-yellow/40">
-          <button type="button" onClick={() => open(alert)} className="press focus-inset flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-button bg-yellow text-on-yellow">
+        <div key={alert.id} className="on-night pointer-events-auto flex animate-fade-up items-stretch overflow-hidden rounded-card bg-night text-white shadow-float">
+          <button type="button" onClick={() => open(alert)} className="press focus-inset flex min-w-0 flex-1 items-center gap-3.5 py-3.5 pl-4 text-left">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-tile bg-brand text-on-brand">
               <BellRing className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-bold text-ink">{t("banner.request.title")}</span>
-              <span className="block truncate text-sm font-medium text-ink">
+              <span className="block text-15 font-extrabold">{t("banner.request.title")}</span>
+              <span className="block truncate text-13 font-semibold">
                 {alert.from} → {alert.to}
               </span>
-              <span className="tabular block truncate text-sm text-muted">{detailFor(alert)}</span>
+              <span className="tabular block truncate text-13 text-night-muted">{detailFor(alert)}</span>
             </span>
           </button>
-          <button type="button" onClick={() => setAlert(null)} aria-label={t("common.close")} className="press flex w-12 shrink-0 items-center justify-center text-muted">
+          <button type="button" onClick={() => setAlert(null)} aria-label={t("common.close")} className="press flex w-12 shrink-0 items-center justify-center text-night-muted">
             <X className="h-5 w-5" />
           </button>
         </div>

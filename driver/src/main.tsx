@@ -6,6 +6,9 @@ import { ThemeProvider } from "@/lib/theme";
 import { LanguageProvider } from "@/lib/i18n/provider";
 import { ServerGate } from "@/components/ServerGate";
 import "./index.css";
+import { installBackButton } from "@/lib/backButton";
+
+installBackButton().catch(() => {});
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

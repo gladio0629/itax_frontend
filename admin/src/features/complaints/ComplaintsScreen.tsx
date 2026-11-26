@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { Check, MessageSquareWarning, MessagesSquare, UserPlus, X } from "lucide-react";
+import { Check, MessageSquareWarning, MessagesSquare, Search, UserPlus, X } from "lucide-react";
 import { Card } from "@/components/Card";
+import { PageHeader } from "@/layouts/PageHeader";
+import { SearchInput } from "@/components/Input";
+import { FilterChips } from "@/components/FilterChips";
 import { Badge, type BadgeTone } from "@/components/Badge";
 import { Button } from "@/components/Button";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
-import { ErrorState } from "@/components/ErrorState";
-import { SkeletonCard } from "@/components/Skeleton";
+import { ErrorState, StaleNotice } from "@/components/ErrorState";
+import { Skeleton } from "@/components/Skeleton";
 import { ExportButton } from "@/components/ExportButton";
-import { ListToolbar } from "@/components/ListToolbar";
 import { FilterSelect } from "@/components/FilterSelect";
 import { api } from "@/api/client";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -55,23 +57,23 @@ const STATUS_LABEL: Record<ComplaintStatus, string> = {
   resolved: "Hal qilindi",
   dismissed: "Rad etildi",
 };
-const STATUS_OPTIONS: { value: ComplaintStatus | "all"; label: string }[] = [
-  { value: "all", label: "Barcha holatlar" },
-  ...(Object.keys(STATUS_LABEL) as ComplaintStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+const STATUS_CHIPS: { key: ComplaintStatus | "all"; label: string }[] = [
+  { key: "all", label: "Hammasi" },
+  ...(Object.keys(STATUS_LABEL) as ComplaintStatus[]).map((s) => ({ key: s, label: STATUS_LABEL[s] })),
 ];
 const CATEGORY_OPTIONS: { value: ComplaintCategoryFilter; label: string }[] = [
-  { value: "all", label: "Barcha turlar" },
+  { value: "all", label: "Hammasi" },
   { value: "fraud", label: "Firibgarlik/xavf" },
   { value: "service", label: "Xizmat/to'lov" },
 ];
 const SUBJECT_LABEL: Record<ComplaintSubjectType, string> = { passenger: "Yo'lovchi", driver: "Haydovchi", order: "Buyurtma" };
 const SUBJECT_OPTIONS: { value: ComplaintSubjectType | "all"; label: string }[] = [
-  { value: "all", label: "Barcha obyektlar" },
+  { value: "all", label: "Hammasi" },
   ...(Object.keys(SUBJECT_LABEL) as ComplaintSubjectType[]).map((s) => ({ value: s, label: SUBJECT_LABEL[s] })),
 ];
 type AssigneeFilter = "all" | "me";
 const ASSIGNEE_OPTIONS: { value: AssigneeFilter; label: string }[] = [
-  { value: "all", label: "Barcha xodimlar" },
+  { value: "all", label: "Hammasi" },
   { value: "me", label: "Menga biriktirilgan" },
 ];
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Xatolik yuz berdi");
@@ -158,17 +160,6 @@ export function ComplaintsScreen() {
     if (ok) setNoteDrafts((d) => ({ ...d, [id]: "" }));
   }
 
-  if (error) return <ErrorState onRetry={reload} />;
-  if (!items) {
-    return (
-      <div className="grid grid-cols-2 gap-5">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
-    );
-  }
-
   const hasActiveFilters = status !== "all" || category !== "all" || subjectType !== "all" || assignee !== "all";
   function clearFilters() {
     setStatus("all");
@@ -178,43 +169,55 @@ export function ComplaintsScreen() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <ListToolbar
-          search={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Tavsif bo'yicha qidirish…"
-          searchEnabled={caps.complaintSearch}
-          resultCount={items.length}
-          hasActiveFilters={hasActiveFilters}
-          onClear={clearFilters}
-        >
-          <FilterSelect value={status} onChange={setStatus} options={STATUS_OPTIONS} aria-label="Holat bo'yicha filtr" />
-          {caps.complaintCategoryFilter && (
-            <FilterSelect value={category} onChange={setCategory} options={CATEGORY_OPTIONS} aria-label="Turi bo'yicha filtr" />
-          )}
-          {caps.complaintSubjectFilter && (
-            <FilterSelect value={subjectType} onChange={setSubjectType} options={SUBJECT_OPTIONS} aria-label="Obyekt bo'yicha filtr" />
-          )}
-          {caps.complaintAssigneeFilter && (
-            <FilterSelect value={assignee} onChange={setAssignee} options={ASSIGNEE_OPTIONS} aria-label="Biriktirilgan xodim bo'yicha filtr" />
-          )}
-        </ListToolbar>
-        <ExportButton
-          section="complaints"
-          rows={items}
-          filenamePrefix="shikoyatlar"
-          buildRow={(c) => ({ Turi: TYPE_LABEL[c.type] ?? c.type, Holat: c.status, Tasvir: c.description })}
-        />
+    <>
+      <PageHeader
+        subtitle="Yo'lovchi va haydovchilardan"
+        title="Shikoyatlar"
+        actions={
+          <ExportButton
+            section="complaints"
+            rows={items ?? []}
+            filenamePrefix="shikoyatlar"
+            buildRow={(c) => ({ Turi: TYPE_LABEL[c.type] ?? c.type, Holat: STATUS_LABEL[c.status], Tasvir: c.description })}
+          />
+        }
+      />
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        {caps.complaintSearch && (
+          <SearchInput
+            className="w-[260px] max-w-full"
+            label="Tavsif bo'yicha"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            icon={<Search className="h-4 w-4" aria-hidden />}
+          />
+        )}
+        <FilterChips label="Holat bo'yicha" items={STATUS_CHIPS} value={status} onChange={setStatus} />
+        <span className="flex-1" />
+        {caps.complaintCategoryFilter && <FilterSelect label="Turi" aria-label="Turi" value={category} onChange={setCategory} options={CATEGORY_OPTIONS} />}
+        {caps.complaintSubjectFilter && <FilterSelect label="Obyekt" aria-label="Obyekt" value={subjectType} onChange={setSubjectType} options={SUBJECT_OPTIONS} />}
+        {caps.complaintAssigneeFilter && (
+          <FilterSelect label="Biriktirilgan" aria-label="Biriktirilgan xodim" value={assignee} onChange={setAssignee} options={ASSIGNEE_OPTIONS} />
+        )}
       </div>
 
       {actionError && (
-        <p role="alert" className="text-sm font-semibold text-danger">
+        <p role="alert" className="text-13 font-semibold text-error">
           {actionError}
         </p>
       )}
 
-      {items.length === 0 ? (
+      {error && items && <StaleNotice onRetry={reload} />}
+      {error && !items ? (
+        <ErrorState onRetry={reload} />
+      ) : !items ? (
+        <div className="grid gap-4 lg:grid-cols-2" aria-busy>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[220px] rounded-card" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
         <EmptyState
           icon={<MessageSquareWarning className="h-6 w-6" />}
           title="Hech narsa topilmadi"
@@ -223,7 +226,7 @@ export function ComplaintsScreen() {
           onAction={hasActiveFilters ? clearFilters : undefined}
         />
       ) : (
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           {items.map((row: Complaint) => {
             // Status/assignee always from the (fresher) list row; only the notes
             // come from the one-by-one fetch when the list has none.
@@ -231,41 +234,41 @@ export function ComplaintsScreen() {
             const c = caps.complaintNotesInList || !detail ? row : { ...row, notes: detail.notes };
             const notesKnown = caps.complaintNotesInList || !!detail;
             return (
-              <Card key={c.id} className="space-y-3">
-                <div className="flex items-center justify-between">
+              <Card key={c.id} className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
                   <Badge tone={DANGER_TYPES.includes(c.type) ? "danger" : "info"} dot={false}>
                     {TYPE_LABEL[c.type] ?? c.type}
                   </Badge>
                   <Badge tone={STATUS_TONE[c.status]}>{STATUS_LABEL[c.status]}</Badge>
                 </div>
-                <p className="text-sm text-ink">{c.description}</p>
-                <p className="text-xs text-ink/50">
+                <p className="text-15 font-semibold leading-[22px] text-ink">{c.description}</p>
+                <p className="text-xs font-semibold text-muted">
                   {formatDateTime(c.createdAt)}
                   {c.subjectType && c.subjectId && ` · ${SUBJECT_LABEL[c.subjectType]} ${shortRef(c.subjectId)}`}
                   {c.orderId && c.subjectType !== "order" && ` · Buyurtma ${shortRef(c.orderId)}`}
                 </p>
-                {c.assignedToName && <p className="text-xs text-ink/60">Biriktirilgan: {c.assignedToName}</p>}
+                {c.assignedToName && <p className="text-13 font-semibold text-muted">Biriktirilgan: <span className="text-ink">{c.assignedToName}</span></p>}
                 {c.resolution && (
-                  <p className="rounded-button bg-ink/5 p-3 text-xs text-ink/70">
+                  <p className="rounded-box bg-surface px-3.5 py-3 text-13 text-muted">
                     <span className="font-semibold text-ink">Yakuniy izoh:</span> {c.resolution}
                   </p>
                 )}
 
                 {notesKnown ? (
                   c.notes.length > 0 ? (
-                    <div className="space-y-2 rounded-button bg-ink/5 p-3">
+                    <div className="flex flex-col gap-2 rounded-box bg-surface px-3.5 py-3">
                       {c.notes.map((n) => (
-                        <p key={n.id} className="text-xs text-ink/70">
+                        <p key={n.id} className="text-13 text-muted">
                           <span className="font-semibold text-ink">{n.authorName}:</span> {n.text}
                         </p>
                       ))}
                     </div>
                   ) : (
-                    !caps.complaintNotesInList && <p className="text-xs text-ink/50">Izohlar yo'q.</p>
+                    !caps.complaintNotesInList && <p className="text-13 font-semibold text-muted">Izohlar yo'q.</p>
                   )
                 ) : (
-                  <Button size="sm" variant="ghost" loading={busyId === c.id} onClick={() => loadNotes(c.id)}>
-                    <MessagesSquare className="h-4 w-4" /> Izohlarni ko'rish
+                  <Button variant="ghost" className="self-start" loading={busyId === c.id} onClick={() => loadNotes(c.id)}>
+                    <MessagesSquare className="h-4 w-4" aria-hidden /> Izohlarni ko'rish
                   </Button>
                 )}
 
@@ -278,23 +281,24 @@ export function ComplaintsScreen() {
                         placeholder="Izoh qo'shish…"
                         aria-label="Izoh matni"
                         maxLength={1000}
-                        className="h-8 flex-1 rounded-button border border-border bg-card px-3 text-xs text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+                        className="h-11 min-w-0 flex-1 rounded-box bg-surface px-3.5 text-sm font-medium text-ink outline-none placeholder:text-muted focus:bg-white focus:shadow-[inset_0_0_0_2px_var(--ink),0_0_0_4px_var(--green-soft)]"
                       />
-                      <Button size="sm" variant="secondary" disabled={!noteDrafts[c.id]?.trim()} loading={busyId === c.id} onClick={() => addNote(c.id)}>
+                      <Button variant="secondary" disabled={!noteDrafts[c.id]?.trim()} loading={busyId === c.id} onClick={() => addNote(c.id)}>
                         Qo'shish
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {!c.assignedToId && (
-                        <Button size="sm" variant="secondary" loading={busyId === c.id} onClick={() => assignToMe(c.id)}>
-                          <UserPlus className="h-4 w-4" /> O'zimga biriktirish
+                        <Button variant="soft" loading={busyId === c.id} onClick={() => assignToMe(c.id)}>
+                          <UserPlus className="h-4 w-4" aria-hidden /> O'zimga biriktirish
                         </Button>
                       )}
-                      <Button size="sm" loading={busyId === c.id} onClick={() => close(c.id, "resolved")}>
-                        <Check className="h-4 w-4" /> Hal qilish
+                      <span className="flex-1" />
+                      <Button variant="ghost" onClick={() => close(c.id, "dismissed")}>
+                        <X className="h-4 w-4" aria-hidden /> Rad etish
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => close(c.id, "dismissed")}>
-                        <X className="h-4 w-4" /> Rad etish
+                      <Button loading={busyId === c.id} onClick={() => close(c.id, "resolved")}>
+                        <Check className="h-4 w-4" aria-hidden /> Hal qilish
                       </Button>
                     </div>
                   </>
@@ -318,6 +322,6 @@ export function ComplaintsScreen() {
         onConfirm={confirmClose}
         onCancel={() => setClosing(null)}
       />
-    </div>
+    </>
   );
 }

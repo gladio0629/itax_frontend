@@ -1,24 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { Star, Lock, HelpCircle } from "@/lib/icons";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/client";
-import type { OrderWithDetails } from "@/api/types";
-import { ScreenHeader } from "@/components/ScreenHeader";
-import { Card } from "@/components/Card";
-import { Badge } from "@/components/Badge";
-import { Avatar } from "@/components/Avatar";
-import { StaticMap } from "@/components/StaticMap";
-import { TrackMap } from "@/features/order/TrackMap";
-import { SkeletonList } from "@/components/Skeleton";
-import { ErrorState } from "@/components/ErrorState";
-import { formatSom, formatKm, formatRelativeDay, formatTime } from "@/lib/format";
+import type { OrderWithDetails, TipOptions } from "@/api/types";
+import { formatKm, formatLongDate, formatSom } from "@/lib/format";
 import { useT } from "@/lib/i18n/provider";
 import type { TranslationKey } from "@/lib/i18n/uz";
-import { serverErrorKey } from "@/lib/apiError";
-import { RatingReasonsSheet } from "./RatingReasonsSheet";
-import { TipCard } from "@/features/order/TipCard";
+import { cn } from "@/lib/cn";
+import { Icon, PrimaryButton, Screen, SectionLabel, StateError, StateLoading } from "@/ui";
+import { MapCanvas } from "@/components/MapCanvas";
+import { TrackMap } from "@/features/order/TrackMap";
+import { DriverAvatar, payLabel, shortName } from "@/features/live/LiveParts";
 
-const STATUS_LABEL_KEY: Record<string, TranslationKey> = {
+const LIVE = new Set(["searching", "accepted", "in_progress"]);
+const STATUS_KEY: Record<string, TranslationKey> = {
   completed: "history.status.completed",
   cancelled: "history.status.cancelled",
   no_driver: "history.status.noDriver",
@@ -27,159 +21,206 @@ const STATUS_LABEL_KEY: Record<string, TranslationKey> = {
   searching: "history.status.searching",
 };
 
-export function HistoryDetailScreen() {
-  const { orderId = "" } = useParams();
-  const { t, intlTag } = useT();
-  const [order, setOrder] = useState<OrderWithDetails | null>(null);
-  const [pendingFive, setPendingFive] = useState(false);
-  const [ratingError, setRatingError] = useState<string | false>(false);
+const hhmm = (ts: number) => new Date(ts).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
-  const [loadError, setLoadError] = useState(false);
-
-  function load() {
-    setLoadError(false);
-    api.getOrder(orderId).then(setOrder).catch(() => setLoadError(true));
-  }
-
-  useEffect(load, [orderId]);
-
-  async function rate(value: number, reasons?: string[], note?: string) {
-    if (!order) return;
-    setRatingError(false);
-    try {
-      const updated = await api.rateOrder(orderId, value, reasons, note);
-      setOrder(updated);
-    } catch (e) {
-      setRatingError(serverErrorKey(e) ?? "order.submitError");
-    }
-  }
-
-  function onStarClick(value: number) {
-    if (!order?.ratingEditable) return;
-    if (value === 5) setPendingFive(true);
-    else rate(value);
-  }
-
-  if (!order) {
-    return (
-      <div className="flex h-full flex-col bg-bg">
-        <ScreenHeader title={t("history.detailTitle")} />
-        {loadError ? <ErrorState onRetry={load} /> : <div className="px-4 pt-4"><SkeletonList count={2} /></div>}
-      </div>
-    );
-  }
-
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="relative flex h-full flex-col bg-bg">
-      <ScreenHeader title={t("history.detailTitle")} />
-      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
-        <div className="relative mb-4 h-40 overflow-hidden rounded-2xl">
-          <TrackMap order={order} interactive={false} fallback={<StaticMap />} />
-        </div>
-
-        <Card className="mb-4 p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-ink">
-              {order.fromCity.name} &rarr; {order.toCity.name}
-            </p>
-            <Badge tone={order.status === "completed" ? "accent" : order.status === "cancelled" ? "danger" : "neutral"}>
-              {t(STATUS_LABEL_KEY[order.status] ?? "history.status.searching")}
-            </Badge>
-          </div>
-          <p className="text-xs text-ink/60">
-            {formatRelativeDay(order.createdAt, intlTag)} &middot; {formatTime(order.createdAt)} &middot;{" "}
-            {formatKm(order.distanceKm, intlTag)}
-          </p>
-        </Card>
-
-        {order.driver && (
-          <Card className="mb-4 flex items-center gap-3 p-4">
-            <Avatar seed={order.driver.avatarSeed} name={order.driver.name || t("driver.unnamed")} size={44} />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-ink">{order.driver.name || t("driver.unnamed")}</p>
-              {(order.driver.carModel || order.driver.plate) && (
-                <p className="text-xs text-ink/60">
-                  {[order.driver.carModel, order.driver.plate].filter(Boolean).join(" · ")}
-                </p>
-              )}
-            </div>
-          </Card>
-        )}
-
-        <Card className="space-y-3 p-5">
-          <p className="text-xs font-semibold text-ink/60">{t("history.paymentTitle")}</p>
-          <Row label={t("history.serviceType")} value={order.mode === "car" ? t("order.wholeCar") : t("order.perSeat")} />
-          <Row label={t("history.paymentMethod")} value={order.paymentMethod === "cash" ? t("order.cash") : t("order.card")} />
-          {order.cancelReason && (
-            <Row label={t("history.cancelReason")} value={t(order.cancelReason as TranslationKey)} />
-          )}
-          <div className="h-px bg-border" />
-          {/* The server's breakdown (sums to the total), when it sends one. */}
-          {order.priceLines?.map((line, i) => (
-            <Row key={i} label={t(line.key as TranslationKey, line.params)} value={formatSom(line.amount, intlTag)} />
-          ))}
-          <Row label={t("order.total")} value={formatSom(order.price, intlTag)} bold />
-        </Card>
-
-        {order.status === "completed" && order.driver && (
-          <Card className="mt-4 p-5">
-            <p className="mb-3 text-center text-sm font-semibold text-ink">{t("history.rateTitle")}</p>
-            <div className="flex justify-center gap-2">
-              {[1, 2, 3, 4, 5].map((v) => (
-                <button
-                  key={v}
-                  disabled={!order.ratingEditable}
-                  onClick={() => onStarClick(v)}
-                  aria-label={`${v} ★`}
-                  className="flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-40"
-                >
-                  <Star
-                    className={`h-8 w-8 transition-colors ${
-                      order.rating && v <= order.rating ? "fill-brand-yellow text-brand-yellow" : "text-ink/20"
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-            {!order.ratingEditable && (
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-normal text-ink/60">
-                <Lock className="h-3.5 w-3.5" /> {t("history.rating.lockedReason")}
-              </p>
-            )}
-            {ratingError && <p className="mt-3 text-center text-xs font-normal text-danger">{t(ratingError as TranslationKey)}</p>}
-          </Card>
-        )}
-
-        {api.capabilities.tips && order.status === "completed" && order.driver && <TipCard orderId={orderId} className="mt-4" />}
-
-        {api.capabilities.help && (
-          <Link
-            to="/help"
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-ink/5 py-3.5 text-sm font-semibold text-ink/80"
-          >
-            <HelpCircle className="h-4 w-4" /> {t("history.help")}
-          </Link>
-        )}
-      </div>
-
-      {pendingFive && (
-        <RatingReasonsSheet
-          onClose={() => setPendingFive(false)}
-          onSubmit={(reasons, note) => {
-            setPendingFive(false);
-            rate(5, reasons, note);
-          }}
-        />
-      )}
+    <div className="flex justify-between gap-3 text-[14px]">
+      <span className="text-iz-muted">{label}</span>
+      <span className="text-right font-bold text-iz-ink">{value}</span>
     </div>
   );
 }
 
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+/** Small plate, as on the detail card (design HistoryDetail). */
+function SmallPlate({ plate }: { plate: string }) {
+  const m = /^\s*(\d{2})\s*(.+?)\s*$/.exec(plate);
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-ink/60">{label}</span>
-      <span className={`text-sm tabular ${bold ? "font-semibold text-ink" : "text-ink/80"}`}>{value}</span>
-    </div>
+    <span className="flex h-[34px] shrink-0 items-center rounded-[9px] border-2 border-iz-plate-ink bg-iz-plate text-[13px] font-extrabold tracking-[0.5px] text-iz-plate-ink">
+      {m ? (
+        <>
+          <span className="flex h-full items-center border-r-2 border-iz-plate-ink px-[7px]">{m[1]}</span>
+          <span className="whitespace-nowrap px-2">{m[2]}</span>
+        </>
+      ) : (
+        <span className="whitespace-nowrap px-2">{plate}</span>
+      )}
+    </span>
+  );
+}
+
+/**
+ * One past order (design v2: HistoryDetail): the trip's times and places,
+ * the driver, your rating (changed on the Rate screen), the route on the
+ * map, the server's price lines and total, the tip, and help.
+ */
+export function HistoryDetailScreen() {
+  const { orderId = "" } = useParams();
+  const { t, intlTag } = useT();
+  const navigate = useNavigate();
+  const [order, setOrder] = useState<OrderWithDetails | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [tips, setTips] = useState<TipOptions | null>(null);
+
+  function load() {
+    setLoadError(false);
+    api.getOrder(orderId).then(setOrder).catch(() => setLoadError(true));
+    if (api.capabilities.tips) api.getTipOptions(orderId).then(setTips).catch(() => setTips(null));
+  }
+  useEffect(load, [orderId]);
+
+  if (!order) {
+    return (
+      <Screen title={t("history.detailTitle")}>
+        {loadError ? <StateError onRetry={load} /> : <StateLoading rows={3} />}
+      </Screen>
+    );
+  }
+
+  const d = new Date(order.createdAt);
+  const title = `${formatLongDate(d, intlTag)}, ${d.getFullYear()}`;
+  const delivery = order.extras?.serviceType === "delivery";
+  const fromLabel = order.extras?.fromAddressId ? api.addressById(order.extras.fromAddressId)?.label : undefined;
+  const toLabel = order.extras?.toAddressId ? api.addressById(order.extras.toAddressId)?.label : undefined;
+  // "Toshkent — Avtovokzal" → the place part under the city.
+  const place = (label: string | undefined, city: string) => (label?.startsWith(city) ? label.slice(city.length).replace(/^\s*[—-]\s*/, "") : label ?? "");
+  const driver = order.driver;
+  const rated = !!order.rating;
+  const canRate = order.status === "completed" && !!driver && order.ratingEditable;
+  const canTip = !!tips?.allowed && !tips.sent;
+  const live = LIVE.has(order.status);
+
+  const end = (side: "from" | "to") => {
+    const ts = side === "from" ? order.startedAt : order.finishedAt;
+    const city = side === "from" ? order.fromCity.name : order.toCity.name;
+    const sub = place(side === "from" ? fromLabel : toLabel, city);
+    return (
+      <span className={cn("flex min-w-0 flex-col gap-[3px]", side === "to" && "items-end text-right")}>
+        <span className="text-[26px] font-extrabold leading-[30px] tabular-nums text-iz-head-text">{ts ? hhmm(ts) : "—"}</span>
+        <span className="max-w-full truncate text-[15px] font-extrabold text-iz-head-text">{city}</span>
+        {sub && <span className="max-w-full truncate text-[12px] text-iz-head-muted">{sub}</span>}
+      </span>
+    );
+  };
+
+  return (
+    <Screen
+      title={title}
+      top={
+        <div className="flex items-center gap-3 rounded-iz-card bg-iz-head-card p-[18px]">
+          {end("from")}
+          <span aria-hidden className="flex min-w-9 flex-1 items-center gap-1.5">
+            <span className="h-0 flex-1 border-t-2 border-dashed border-iz-head-border-strong" />
+            <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-iz-green text-iz-on-green">
+              <Icon name={delivery ? "box" : "car"} size={16} />
+            </span>
+            <span className="h-0 flex-1 border-t-2 border-dashed border-iz-head-border-strong" />
+          </span>
+          {end("to")}
+        </div>
+      }
+      bodyClassName="gap-3.5 pt-6"
+    >
+      {order.status !== "completed" && (
+        <div className={cn("flex flex-col gap-1 rounded-[22px] px-4 py-3.5", order.status === "cancelled" ? "bg-iz-danger-soft" : "bg-iz-field")}>
+          <span className={cn("text-[15px] font-extrabold", order.status === "cancelled" ? "text-iz-danger" : "text-iz-ink")}>{t(STATUS_KEY[order.status] ?? "history.status.searching")}</span>
+          {order.cancelReason && <span className="text-[13px] text-iz-ink">{t(order.cancelReason as TranslationKey)}</span>}
+        </div>
+      )}
+      {live && (
+        <PrimaryButton icon="map" onClick={() => navigate(`/order/track/${order.id}`)}>
+          {t("history.track")}
+        </PrimaryButton>
+      )}
+
+      {driver && (
+        <div className="flex items-center gap-3.5 rounded-[22px] bg-iz-field p-3.5">
+          <DriverAvatar name={driver.name || t("driver.unnamed")} size={52} tone="dark" />
+          <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+            <span className="truncate text-[16px] font-extrabold text-iz-ink">{driver.name ? shortName(driver.name) : t("driver.unnamed")}</span>
+            {(driver.carModel || driver.carColor) && (
+              <span className="truncate text-[13px] font-semibold text-iz-muted">{[driver.carModel, driver.carColor].filter(Boolean).join(", ")}</span>
+            )}
+          </div>
+          {driver.plate && <SmallPlate plate={driver.plate} />}
+        </div>
+      )}
+
+      {order.status === "completed" && driver && (
+        <div className="flex items-center justify-between gap-3 rounded-[22px] border border-iz-border py-3.5 pl-4 pr-3.5">
+          <span className="flex min-w-0 flex-col gap-1.5">
+            <SectionLabel>{t("history.yourRating")}</SectionLabel>
+            {rated ? (
+              <span className="flex min-w-0 items-center gap-2">
+                <span role="img" aria-label={t("rate.star", { n: order.rating ?? 0 })} className="flex shrink-0 gap-0.5">
+                  {[1, 2, 3, 4, 5].map((v) => (
+                    <Icon key={v} name="star" size={16} filled className={v <= (order.rating ?? 0) ? "text-iz-ink" : "text-iz-chip-border"} />
+                  ))}
+                </span>
+                {order.ratingReasons?.[0] && <span className="truncate text-[13px] font-bold text-iz-ink">{t(order.ratingReasons[0] as TranslationKey)}</span>}
+              </span>
+            ) : (
+              <span className="text-[13px] font-semibold text-iz-muted">{canRate ? t("history.notRated") : "—"}</span>
+            )}
+            {order.ratingComment && <span className="line-clamp-2 text-[13px] text-iz-muted">{order.ratingComment}</span>}
+            {!order.ratingEditable && (
+              <span className="flex items-center gap-1.5 text-[12px] text-iz-muted">
+                <Icon name="lock" size={14} />
+                {t("history.rating.lockedReason")}
+              </span>
+            )}
+          </span>
+          {/* The rating has its own time limit; a tip is the server's call
+              (tips.allowed), on the same screen, at any age. */}
+          {(canRate || canTip) && (
+            <Link
+              to={`/order/finished/${order.id}?from=history`}
+              className="flex h-11 shrink-0 items-center rounded-full bg-iz-selected px-4 text-[13px] font-extrabold text-iz-on-selected active:opacity-80"
+            >
+              {canRate ? (rated ? t("live.edit") : t("history.rate")) : t("history.tip")}
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* The route on the map (current app); the drawn map without Mapbox. */}
+      <div className="relative h-[140px] shrink-0 overflow-hidden rounded-[22px] bg-iz-map">
+        <TrackMap order={order} interactive={false} fallback={<MapCanvas route className="absolute inset-0" />} />
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-[22px] bg-iz-field p-4">
+        {delivery ? (
+          <Row label={t("history.body")} value={order.cargoSize ?? "—"} />
+        ) : (
+          <Row label={t("history.seat")} value={order.mode === "car" ? t("live.wholeCar") : t("live.people", { n: Math.max(1, order.seatIds.length) })} />
+        )}
+        {order.distanceKm > 0 && <Row label={t("history.distance")} value={formatKm(order.distanceKm, intlTag)} />}
+        <Row label={t("history.paymentMethod")} value={payLabel(order, t)} />
+        {tips?.sent && <Row label={t("tip.title")} value={`${formatSom(tips.sent.amount, intlTag)} · ${t(`tip.status.${tips.sent.status}` as TranslationKey)}`} />}
+        {order.priceLines && order.priceLines.length > 0 && (
+          <>
+            <span aria-hidden className="h-0 border-t-2 border-dashed border-iz-divider-in-field" />
+            {order.priceLines.map((line, i) => (
+              <Row key={i} label={t(line.key as TranslationKey, line.params)} value={formatSom(line.amount, intlTag)} />
+            ))}
+          </>
+        )}
+        <span aria-hidden className="h-0 border-t-2 border-dashed border-iz-divider-in-field" />
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[15px] font-extrabold text-iz-ink">{t("pay.total")}</span>
+          <span className="text-[24px] font-extrabold tabular-nums text-iz-ink">{formatSom(order.price, intlTag)}</span>
+        </div>
+      </div>
+
+      {api.capabilities.help && (
+        <Link
+          to="/help?topic=trip"
+          className="mt-auto flex h-14 shrink-0 items-center justify-center gap-2.5 rounded-full border border-iz-chip-border text-[15px] font-extrabold text-iz-ink active:bg-iz-field"
+        >
+          <Icon name="support" size={18} />
+          {t("history.helpTrip")}
+        </Link>
+      )}
+    </Screen>
   );
 }

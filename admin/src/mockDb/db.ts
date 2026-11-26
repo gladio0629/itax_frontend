@@ -7,10 +7,10 @@ import {
   type Order,
   type Complaint,
   type ComplaintNote,
-  type Tariff,
   type WalletEntry,
 } from "@/seed/generate";
 import { makeRng } from "@/lib/prng";
+import type { CargoBodySize, FuelKind, TariffCarClass, TariffExtraKey, TariffMarkup, TariffSettings } from "@/api/types";
 import { readJSON, writeJSON, clearAppStorage, readSessionJSON, writeSessionJSON, clearSessionStorage } from "./storage";
 
 let cache: SeedData | null = null;
@@ -25,7 +25,7 @@ function load(): SeedData {
   if (stored) {
     // Persisted data is from an older shape of the mock "server" — rather
     // than crash on missing/renamed fields, wipe this app's storage and
-    // reseed everything (staff, audit log, proposals included).
+    // reseed everything (staff, audit log and tariff settings included).
     clearAppStorage();
   }
   const fresh = generateSeed();
@@ -94,19 +94,6 @@ export const db = {
     persist();
   },
 
-  getTariff(id: string) {
-    return load().tariffs.find((t) => t.id === id);
-  },
-  updateTariff(id: string, patch: Partial<Tariff>) {
-    const t = load().tariffs.find((x) => x.id === id);
-    if (t) Object.assign(t, patch);
-    persist();
-  },
-  addTariff(tariff: Tariff) {
-    load().tariffs.push(tariff);
-    persist();
-  },
-
   addWalletEntry(entry: WalletEntry) {
     load().walletEntries.push(entry);
     persist();
@@ -155,7 +142,17 @@ export type Section =
   | "complaints"
   | "staff"
   | "operators"
-  | "audit";
+  | "audit"
+  /** Operator windows (v2): read-only orders and drivers, no actions, no
+   * balances. Separate from "orders"/"drivers" so they open nothing else. */
+  | "orders_view"
+  | "drivers_view"
+  /** Operator "Yo'lovchilar" window and passenger card (2026-11-24). */
+  | "passengers_view"
+  /** Marketolog's "Umumiy statistika" (design Marketing). */
+  | "marketing"
+  /** Manager "So'rovlar": operators' requests to approve or reject (2026-11-24). */
+  | "requests";
 
 /** "export" gates the CSV buttons. "operatorWork" is the one operator
  * action (start/finish/reject a call task) — the adapter rejects the
@@ -170,6 +167,8 @@ export const ALL_ROLES: AdminRole[] = ["superadmin", "owner", "menejer", "market
 
 const ALL_SECTIONS: Section[] = [
   "stats",
+  // Marketing page is open to these roles too (owner, 2026-11-22).
+  "marketing",
   "drivers",
   "passengers",
   "orders",
@@ -178,6 +177,7 @@ const ALL_SECTIONS: Section[] = [
   "complaints",
   "staff",
   "operators",
+  "requests",
   "audit",
 ];
 
@@ -185,8 +185,8 @@ export const ROLE_SECTIONS: Record<AdminRole, Section[]> = {
   superadmin: ALL_SECTIONS,
   owner: ALL_SECTIONS,
   menejer: ALL_SECTIONS,
-  marketolog: ["stats"],
-  operator: ["operators"],
+  marketolog: ["marketing"],
+  operator: ["operators", "orders_view", "drivers_view", "passengers_view"],
 };
 
 export const ROLE_ACTIONS: Record<AdminRole, Action[]> = {
@@ -209,8 +209,8 @@ export const ROLE_LANDING: Record<AdminRole, string> = {
   superadmin: "/dashboard",
   owner: "/dashboard",
   menejer: "/dashboard",
-  marketolog: "/dashboard",
-  operator: "/operators",
+  marketolog: "/marketing",
+  operator: "/operators/queue",
 };
 
 export function canCreateRole(actorRole: AdminRole, targetRole: AdminRole): boolean {
@@ -344,16 +344,12 @@ export type AuditAction =
   | "passenger_unblock"
   | "passenger_archive"
   | "passenger_restore"
-  | "phone_reveal"
   | "order_create"
   | "order_edit"
   | "order_cancel"
-  | "wallet_adjust_propose"
-  | "wallet_adjust_approve"
-  | "wallet_adjust_reject"
-  | "tariff_propose"
-  | "tariff_second_approve"
-  | "tariff_reject"
+  | "order_to_operator"
+  | "wallet_correction"
+  | "tariff_update"
   | "complaint_assign"
   | "complaint_status"
   | "complaint_note"
@@ -367,6 +363,10 @@ export type AuditAction =
   | "operator_task_start"
   | "operator_task_result"
   | "operator_history_edit"
+  | "order_restart_search"
+  | "request_create"
+  | "request_approve"
+  | "request_reject"
   | "export";
 
 export type AuditEntry = {
@@ -395,72 +395,64 @@ export function addAuditEntry(entry: Omit<AuditEntry, "id" | "createdAt">): Audi
   return full;
 }
 
-export type ReviewKind = "login_2fa" | "tariff_second_approve" | "wallet_adjust_second_approve";
-export type ReviewRequest = {
-  id: string;
-  kind: ReviewKind;
-  status: "pending" | "approved" | "rejected";
-  createdAt: number;
-  resolvesAt: number;
-  payload?: Record<string, unknown>;
+// --- Tariff settings (v2 model), one record per city; "all" = default. ---
+// Stored inputs only; the mock adapter (playing the server) computes the
+// examples from them. ---
+export type StoredTariffSettings = {
+  fuel: { kind: FuelKind; pricePerLitre: number; updatedAt: number }[];
+  classes: ({ key: TariffCarClass } & TariffMarkup)[];
+  bodies: ({ size: CargoBodySize } & TariffMarkup)[];
+  extras: { key: TariffExtraKey; value: number }[];
+  levels: TariffSettings["levels"];
 };
+const TARIFF_SETTINGS_KEY = "tariff_settings_v2";
 
-const REVIEW_KEY = "review_requests";
-export function getReviewRequests(): ReviewRequest[] {
-  return readJSON<ReviewRequest[]>(REVIEW_KEY, []);
-}
-export function saveReviewRequest(req: ReviewRequest) {
-  const all = getReviewRequests().filter((r) => r.id !== req.id);
-  all.unshift(req);
-  writeJSON(REVIEW_KEY, all);
-}
-export function getReviewRequest(id: string): ReviewRequest | undefined {
-  return getReviewRequests().find((r) => r.id === id);
+function defaultTariffSettings(): StoredTariffSettings {
+  // Sample values (design-v2 Tariffs). Fuel "updated" 2 days before the
+  // sample data's day, so the dashboard has a stale-fuel card to show.
+  const updatedAt = load().generatedAt - 2 * 86_400_000;
+  return {
+    fuel: [
+      { kind: "gas", pricePerLitre: 2_500, updatedAt },
+      { kind: "petrol", pricePerLitre: 10_600, updatedAt },
+    ],
+    classes: [
+      { key: "economy", fuel: "gas", markupKind: "sum", markupValue: 50_000 },
+      { key: "comfort", fuel: "gas", markupKind: "percent", markupValue: 60 },
+      { key: "business", fuel: "gas", markupKind: "percent", markupValue: 100 },
+      { key: "minivan", fuel: "gas", markupKind: "sum", markupValue: 70_000 },
+    ],
+    bodies: [
+      { size: "S", fuel: "gas", markupKind: "sum", markupValue: 50_000 },
+      { size: "M", fuel: "gas", markupKind: "percent", markupValue: 100 },
+      { size: "L", fuel: "petrol", markupKind: "sum", markupValue: 80_000 },
+      { size: "XL", fuel: "petrol", markupKind: "percent", markupValue: 30 },
+      { size: "XXL", fuel: "petrol", markupKind: "percent", markupValue: 50 },
+      { size: "3XL", fuel: "petrol", markupKind: "sum", markupValue: 300_000 },
+    ],
+    extras: [
+      { key: "free_wait_min", value: 5 },
+      { key: "wait_per_min", value: 500 },
+      { key: "stop", value: 10_000 },
+      { key: "loader", value: 30_000 },
+      { key: "cancel_fee", value: 5_000 },
+    ],
+    levels: [
+      { level: "bronze", commissionPct: 10, minTripsWeek: null, minRating: null, maxCancelsWeek: null },
+      { level: "silver", commissionPct: 5, minTripsWeek: 18, minRating: 4.8, maxCancelsWeek: 3 },
+      { level: "gold", commissionPct: 0, minTripsWeek: 25, minRating: 4.9, maxCancelsWeek: 2 },
+    ],
+  };
 }
 
-export type TariffProposalType = "create" | "edit" | "archive";
-export type TariffProposal = {
-  id: string;
-  type: TariffProposalType;
-  tariffId?: string;
-  patch: Partial<Tariff>;
-  proposedById: string;
-  proposedByName: string;
-  status: "pending_second" | "approved" | "rejected";
-  reviewRequestId?: string;
-  createdAt: number;
-  resolvedAt?: number;
-};
-const TARIFF_PROPOSALS_KEY = "tariff_proposals";
-export function getTariffProposals(): TariffProposal[] {
-  return readJSON<TariffProposal[]>(TARIFF_PROPOSALS_KEY, []);
+export function getTariffSettingsRecord(cityKey: string): StoredTariffSettings {
+  const all = readJSON<Record<string, StoredTariffSettings>>(TARIFF_SETTINGS_KEY, {});
+  return all[cityKey] ?? all.all ?? defaultTariffSettings();
 }
-export function saveTariffProposal(p: TariffProposal) {
-  const all = getTariffProposals().filter((x) => x.id !== p.id);
-  all.unshift(p);
-  writeJSON(TARIFF_PROPOSALS_KEY, all);
-}
-
-export type AdjustmentProposal = {
-  id: string;
-  driverId: string;
-  amount: number;
-  reason: string;
-  proposedById: string;
-  proposedByName: string;
-  status: "pending_second" | "approved" | "rejected";
-  reviewRequestId?: string;
-  createdAt: number;
-  resolvedAt?: number;
-};
-const ADJUSTMENT_KEY = "wallet_adjustment_proposals";
-export function getAdjustmentProposals(): AdjustmentProposal[] {
-  return readJSON<AdjustmentProposal[]>(ADJUSTMENT_KEY, []);
-}
-export function saveAdjustmentProposal(p: AdjustmentProposal) {
-  const all = getAdjustmentProposals().filter((x) => x.id !== p.id);
-  all.unshift(p);
-  writeJSON(ADJUSTMENT_KEY, all);
+export function saveTariffSettingsRecord(cityKey: string, rec: StoredTariffSettings) {
+  const all = readJSON<Record<string, StoredTariffSettings>>(TARIFF_SETTINGS_KEY, {});
+  all[cityKey] = rec;
+  writeJSON(TARIFF_SETTINGS_KEY, all);
 }
 
 // --- Session lives in sessionStorage only: cleared on tab close, never
@@ -476,16 +468,16 @@ export function setSession(session: Session | null) {
 }
 
 // ---------------------------------------------------------------------
-// Operator windows ("Navbat" / "Tarix"). Masking and unmasking happen only
-// here — screens only ever see what the adapter decides to hand them.
+// Operator windows ("Navbat" / "Tarix"). Phone numbers are full for every
+// role (decision 2026-11-22); screens only see what the adapter hands them.
 // ---------------------------------------------------------------------
 
-export type QueueReason = "login_issue" | "info_needed" | "complaint";
+export type QueueReason = "login_issue" | "info_needed" | "complaint" | "document_update";
 export type QueueStatus = "waiting" | "in_progress" | "done" | "rejected";
 export type QueueItem = {
   id: string;
-  phoneMasked: string;
-  phoneFull: string;
+  /** Full number (decision 2026-11-22: no masking in admin). */
+  phone: string;
   reason: QueueReason;
   waitingSinceAt: number;
   status: QueueStatus;
@@ -494,15 +486,22 @@ export type QueueItem = {
   /** Set when startTask() moves this to "in_progress" — the supervisor
    * view's running timer counts from this, not from the client's clock. */
   startedAt?: number;
+  /** v2: who the call is about and what they asked (server data). */
+  subjectKind?: "passenger" | "driver" | null;
+  subjectName?: string | null;
+  orderId?: string | null;
+  requestText?: string | null;
 };
 
-export type HistoryResult = "resolved" | "callback" | "rejected";
+/** "Hal qilindi", "Qayta qo'ng'iroq", "Rad etildi" (old app) plus the
+ * design's "Javob bermadi" and "Menejerga yuborildi" (owner, 2026-11-22). */
+export type HistoryResult = "resolved" | "no_answer" | "callback" | "escalated" | "rejected";
 export type HistoryEntry = {
   id: string;
   queueItemId: string;
   operatorId: string;
   operatorName: string;
-  phoneMasked: string;
+  phone: string;
   reason: QueueReason;
   result: HistoryResult;
   note: string;
@@ -510,18 +509,42 @@ export type HistoryEntry = {
   createdAt: number;
   resolvedAt: number;
   edited: boolean;
+  subjectKind?: "passenger" | "driver" | null;
+  subjectName?: string | null;
+  requestText?: string | null;
 };
 
+/** Sample number only: the "003" block keeps it obviously fake. The
+ * discarded draw keeps the seeded sequence (and the sample data) stable. */
 function randomPhone(rng: ReturnType<typeof makeRng>): string {
-  return `+998 9${rng.int(0, 9)} ${rng.int(100, 999)} ${rng.int(10, 99)} ${rng.int(10, 99)}`;
-}
-function maskLast2(full: string): string {
-  return full.replace(/(\d{3}) (\d{2}) (\d{2})$/, "*** ** $3");
+  const op = rng.int(0, 9);
+  rng.int(100, 999);
+  return `+998 9${op} 003 ${rng.int(10, 99)} ${rng.int(10, 99)}`;
 }
 
 function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } {
   const rng = makeRng(90_210);
   const reasons: QueueReason[] = ["login_issue", "info_needed", "complaint"];
+  // v2 details drawn from a separate RNG so the old sample values stay put.
+  const extra = makeRng(90_211);
+  const REQUESTS: Record<QueueReason, string[]> = {
+    complaint: ["Haydovchi kech qoldi, pul qaytarishni so'rayapti.", "Haydovchi qo'pol gapirgan.", "Narx kelishilganidan ko'p olindi."],
+    login_issue: ["SMS kod kelmayapti.", "Telefon raqami almashgan.", "Ilovaga kira olmayapman."],
+    info_needed: ["Dostavka kuzovi qaysi biri mos?", "Narx qanday hisoblanadi?", "Toshkentdan Samarqandga ertalab mashina bormi?"],
+    document_update: ["Avtomatik tekshiruv 2 kundan beri tugamayapti.", "Guvohnoma muddati yangilandi."],
+    driver_application: [],
+  } as Record<QueueReason, string[]>;
+  const NAMES = ["Dilnoza R.", "Akmal T.", "Nodira S.", "Bekzod Q.", "Madina U.", "Sherzod N.", "Rustam A."];
+  const details = (reason: QueueReason) => {
+    const kind: "passenger" | "driver" = reason === "document_update" ? "driver" : extra.bool(0.6) ? "passenger" : "driver";
+    return {
+      subjectKind: kind,
+      subjectName: extra.pick(NAMES),
+      orderId: reason === "complaint" ? `ord_${String(extra.int(1, 170)).padStart(3, "0")}` : null,
+      requestText: extra.pick(REQUESTS[reason]),
+    };
+  };
+  const pickReason = () => (extra.bool(0.15) ? ("document_update" as const) : rng.pick(reasons));
   const now = Date.now();
   const dayMs = 86_400_000;
   const operators = [
@@ -533,9 +556,11 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
     const full = randomPhone(rng);
     return {
       id: `q_${i + 1}`,
-      phoneMasked: maskLast2(full),
-      phoneFull: full,
-      reason: rng.pick(reasons),
+      phone: full,
+      ...(() => {
+        const reason = pickReason();
+        return { reason, ...details(reason) };
+      })(),
       waitingSinceAt: now - rng.int(1, 45) * 60_000,
       status: "waiting" as const,
     };
@@ -548,9 +573,11 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
     const startedAt = now - rng.int(1, 8) * 60_000;
     return {
       id: `q_active_${i + 1}`,
-      phoneMasked: maskLast2(full),
-      phoneFull: full,
-      reason: rng.pick(reasons),
+      phone: full,
+      ...(() => {
+        const reason = pickReason();
+        return { reason, ...details(reason) };
+      })(),
       waitingSinceAt: startedAt - rng.int(2, 10) * 60_000,
       status: "in_progress" as const,
       assignedOperatorId: op.id,
@@ -559,7 +586,7 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
     };
   });
 
-  const results: HistoryResult[] = ["resolved", "resolved", "resolved", "callback", "rejected"];
+  const results: HistoryResult[] = ["resolved", "resolved", "resolved", "callback", "rejected", "no_answer", "escalated"];
   // Most history resolved today, so "Bugungi tasdiqlanganlar" isn't empty by
   // default; the rest spread over the past month so date/result filters have
   // something to narrow down.
@@ -573,10 +600,21 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
       queueItemId: `qh_${i + 1}`,
       operatorId: op.id,
       operatorName: op.name,
-      phoneMasked: maskLast2(full),
-      reason: rng.pick(reasons),
+      phone: full,
+      ...(() => {
+        const reason = pickReason();
+        const d = details(reason);
+        return { reason, subjectKind: d.subjectKind, subjectName: d.subjectName, requestText: d.requestText };
+      })(),
       result,
-      note: result === "rejected" ? "Mijoz javob bermadi" : "Muammo hal qilindi, mijozga tushuntirildi.",
+      note:
+        result === "rejected"
+          ? "Mijoz javob bermadi"
+          : result === "no_answer"
+            ? "Javob bermadi, 2 marta urinildi."
+            : result === "escalated"
+              ? "Pul qaytarish menejerga yuborildi."
+              : "Muammo hal qilindi, mijozga tushuntirildi.",
       rejectReason: result === "rejected" ? "Mijoz javob bermadi" : undefined,
       createdAt: resolvedAt - 5 * 60_000,
       resolvedAt,
@@ -590,7 +628,7 @@ function seedOperatorWindows(): { queue: QueueItem[]; history: HistoryEntry[] } 
 const QUEUE_KEY = "operator_queue";
 const HISTORY_KEY = "operator_history";
 const OPERATOR_SCHEMA_KEY = "operator_windows_version";
-const OPERATOR_SCHEMA_VERSION = 2;
+const OPERATOR_SCHEMA_VERSION = 4;
 
 export function getQueue(): QueueItem[] {
   const version = readJSON<number>(OPERATOR_SCHEMA_KEY, 0);

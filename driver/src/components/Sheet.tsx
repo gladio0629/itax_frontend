@@ -2,11 +2,12 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useT } from "@/lib/i18n/provider";
 import { X } from "@/lib/icons";
+import { pushBackHandler } from "@/lib/backButton";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
- * Modal bottom sheet (radius 16). Fits content up to 88%; drag the handle
+ * Modal bottom sheet (radius 32, the page colour). Fits content up to 88%; drag the handle
  * down, tap the backdrop or press Escape to close. Focus is trapped while
  * open and restored on close.
  */
@@ -28,6 +29,9 @@ export function Sheet({
   const dragY = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // The phone's back button closes the sheet first.
+  useEffect(() => (open ? pushBackHandler(() => onCloseRef.current()) : undefined), [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,11 +64,13 @@ export function Sheet({
 
   const node = (
     <div className="absolute inset-0 z-50" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="absolute inset-0 animate-fade-in bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 animate-fade-in bg-night/60" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
-        className="absolute inset-x-0 bottom-0 flex max-h-[88%] animate-sheet-up flex-col rounded-t-sheet bg-surface shadow-2"
-        style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
+        className="absolute inset-x-0 bottom-0 flex animate-sheet-up flex-col rounded-t-sheet bg-bg shadow-2"
+        // 88% tall at most, and never up under the status bar (a web view
+        // shrunk by the keyboard).
+        style={{ maxHeight: "min(88%, calc(100% - var(--safe-top) - 8px))", paddingBottom: "calc(var(--safe-bottom) + 16px)" }}
       >
         <div
           className="flex h-6 shrink-0 cursor-grab touch-none items-center justify-center"
@@ -85,15 +91,15 @@ export function Sheet({
             if (dy > 90) onClose();
           }}
         >
-          <span className="h-1 w-10 rounded-full bg-ink/20" />
+          <span className="h-1 w-10 rounded-full bg-line" />
         </div>
-        <div className="flex shrink-0 items-center justify-between gap-3 pl-5 pr-2">
-          <h2 className={hideTitle ? "sr-only" : "text-lg font-bold text-ink"}>{title}</h2>
+        <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-2">
+          <h2 className={hideTitle ? "sr-only" : "text-xl font-extrabold text-ink"}>{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label={t("common.close")}
-            className="press ml-auto flex h-12 w-12 items-center justify-center rounded-button text-muted"
+            className="press ml-auto flex h-11 w-11 items-center justify-center rounded-full bg-raised text-ink"
           >
             <X className="h-5 w-5" />
           </button>

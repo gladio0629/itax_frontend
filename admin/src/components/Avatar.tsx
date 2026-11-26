@@ -1,18 +1,4 @@
-function hashSeed(seed: string): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-// Brand-derived avatar fills (navy, blue, teal, slate, gold, indigo) — calm, no rainbow.
-const PALETTES: [string, string][] = [
-  ["#264A9F", "#1B3577"],
-  ["#3B6FD4", "#2A55AE"],
-  ["#0F766E", "#0B5953"],
-  ["#475569", "#334155"],
-  ["#B7791F", "#946016"],
-  ["#4F46A5", "#3D3684"],
-];
+import { cn } from "@/lib/cn";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -22,41 +8,33 @@ function initials(name: string): string {
     .join("");
 }
 
+/** v2 avatar: initials in a circle. "light" = list rows (surface bg, Ink text),
+ * "green" = the signed-in staff card in the sidebar. `seed` is kept for the
+ * old call sites; v2 avatars are not colour-coded. */
 export function Avatar({
-  seed,
   name,
   size = 36,
+  tone = "light",
   className,
 }: {
-  seed: string;
+  seed?: string;
   name: string;
   size?: number;
+  tone?: "light" | "green";
   className?: string;
 }) {
-  const h = hashSeed(seed);
-  const [c1, c2] = PALETTES[h % PALETTES.length];
-  const gradId = `grad_${seed.replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
-    <svg width={size} height={size} viewBox="0 0 44 44" className={className} role="img" aria-label={name}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={c1} />
-          <stop offset="100%" stopColor={c2} />
-        </linearGradient>
-      </defs>
-      <circle cx="22" cy="22" r="22" fill={`url(#${gradId})`} />
-      <text
-        x="22"
-        y="22"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize="16"
-        fontWeight="600"
-        fill="white"
-        fontFamily="InterVariable, Inter, system-ui, sans-serif"
-      >
-        {initials(name)}
-      </text>
-    </svg>
+    <span
+      role="img"
+      aria-label={name}
+      style={{ width: size, height: size, fontSize: size >= 64 ? 25 : size >= 40 ? 14 : 12 }}
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-full font-extrabold text-ink",
+        tone === "green" ? "bg-green" : "bg-surface",
+        className
+      )}
+    >
+      <span aria-hidden>{initials(name)}</span>
+    </span>
   );
 }

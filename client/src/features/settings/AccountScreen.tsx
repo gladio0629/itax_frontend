@@ -1,432 +1,386 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Pencil, Plus, Trash2, AlertTriangle } from "@/lib/icons";
 import { api } from "@/api/client";
+import { SITE_URL } from "@/config";
 import type { AccountSummary, Profile } from "@/api/types";
-import { ScreenHeader } from "@/components/ScreenHeader";
-import { Card } from "@/components/Card";
-import { Avatar } from "@/components/Avatar";
-import { Button } from "@/components/Button";
-import { Input } from "@/components/Input";
-import { Sheet } from "@/components/Sheet";
 import { ReviewStatus } from "@/components/ReviewStatus";
-import { SkeletonCard } from "@/components/Skeleton";
-import { ErrorState } from "@/components/ErrorState";
 import { useAuthStore } from "@/stores/authStore";
 import { useT } from "@/lib/i18n/provider";
+import type { TranslationKey } from "@/lib/i18n/uz";
+import { formatPhoneInput } from "@/lib/phone";
+import { serverErrorKey } from "@/lib/apiError";
+import { BottomSheet, DangerButton, Field, Icon, IconButton, Initials, PrimaryButton, Screen, SectionLabel, StateError, StateLoading, TextButton } from "@/ui";
 import { PhoneChangeSheet } from "./PhoneChangeSheet";
-import { useIsIOS } from "@/lib/platform";
-import { IconTile, ListRow, ListSection } from "@/components/ios/List";
-import { Alert } from "@/components/ios/Alert";
 
-function formatPhoneInput(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 9);
-  const parts = [digits.slice(0, 2), digits.slice(2, 5), digits.slice(5, 7), digits.slice(7, 9)];
-  return parts.filter(Boolean).join(" ");
-}
+type Sheet = { kind: "add" } | { kind: "phone" } | { kind: "remove"; account: AccountSummary } | { kind: "deleteSelf" } | { kind: "deleteWeb" } | null;
 
+/**
+ * Akkaunt (design v2: Account / KbAccount): first and last name, the phone
+ * (changed by SMS), other accounts on this device (switch, remove, add) and
+ * deleting the account. With the keyboard up the big avatar moves into the
+ * header and the sheet starts with the fields.
+ */
 export function AccountScreen() {
   const { t } = useT();
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
+  const caps = api.capabilities;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
-  const [editing, setEditing] = useState(false);
+  const [accountsError, setAccountsError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [savingName, setSavingName] = useState(false);
-  const [phoneSheetOpen, setPhoneSheetOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [sheetError, setSheetError] = useState<string | null>(null);
   const [addName, setAddName] = useState("");
   const [addPhone, setAddPhone] = useState("");
-  const [addReviewId, setAddReviewId] = useState<string | null>(null);
-  const [addSubmitting, setAddSubmitting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<AccountSummary | null>(null);
-  const [deleteReviewId, setDeleteReviewId] = useState<string | null>(null);
-  const [selfDeleteOpen, setSelfDeleteOpen] = useState(false);
-  const [selfDeleteReviewId, setSelfDeleteReviewId] = useState<string | null>(null);
 
-  const [loadError, setLoadError] = useState(false);
-  const ios = useIsIOS();
-  const caps = api.capabilities;
+  function names(p: Profile) {
+    if (p.firstName !== undefined || p.lastName !== undefined) return [p.firstName ?? "", p.lastName ?? ""];
+    const [f, ...rest] = p.name.split(" ");
+    return [f ?? "", rest.join(" ")];
+  }
 
   function load() {
     setLoadError(false);
-    api.getProfile().then((p) => {
-      setProfile(p);
-      if (p.firstName !== undefined || p.lastName !== undefined) {
-        setFirstName(p.firstName ?? "");
-        setLastName(p.lastName ?? "");
-      } else {
-        const [f, ...rest] = p.name.split(" ");
-        setFirstName(f ?? "");
-        setLastName(rest.join(" "));
-      }
-    }).catch(() => setLoadError(true));
-    // Several accounts on one device: only where the adapter supports it.
-    if (caps.accounts) api.getAccounts().then(setAccounts).catch(() => setLoadError(true));
+    api
+      .getProfile()
+      .then((p) => {
+        setProfile(p);
+        const [f, l] = names(p);
+        setFirstName(f);
+        setLastName(l);
+      })
+      .catch(() => setLoadError(true));
+    if (caps.accounts) {
+      setAccountsError(false);
+      api
+        .getAccounts()
+        .then(setAccounts)
+        .catch(() => setAccountsError(true));
+    }
   }
-
   useEffect(load, []);
 
+  const [origFirst, origLast] = profile ? names(profile) : ["", ""];
+  const changed = firstName.trim() !== origFirst || lastName.trim() !== origLast;
+
   async function saveName() {
-    setSavingName(true);
+    setSaving(true);
+    setSaveError(null);
     try {
-      const p = await api.updateProfileName(firstName, lastName);
+      const p = await api.updateProfileName(firstName.trim(), lastName.trim());
       setProfile(p);
-      setEditing(false);
-      load();
+      setSaved(true);
+    } catch (e) {
+      setSaveError(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey));
     } finally {
-      setSavingName(false);
+      setSaving(false);
     }
   }
 
-  async function switchAccount(id: string) {
-    const next = await api.switchAccount(id);
-    setAccounts(next);
+  function closeSheet() {
+    // Closed while a change was under review: it may still go through.
+    if (reviewId) load();
+    setSheet(null);
+    setReviewId(null);
+    setSheetError(null);
+    setAddName("");
+    setAddPhone("");
   }
 
-  async function submitAddAccount() {
-    if (!addName.trim() || addPhone.replace(/\D/g, "").length !== 9) return;
-    setAddSubmitting(true);
+  async function run(action: () => Promise<{ id: string }>) {
+    setBusy(true);
+    setSheetError(null);
     try {
-      const review = await api.addAccount({ name: addName.trim(), phone: `+998 ${addPhone}` });
-      setAddReviewId(review.id);
+      setReviewId((await action()).id);
+    } catch (e) {
+      setSheetError(t((serverErrorKey(e) ?? "common.errorMessage") as TranslationKey));
     } finally {
-      setAddSubmitting(false);
+      setBusy(false);
     }
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    const review = await api.deleteAccount(deleteTarget.id);
-    setDeleteReviewId(review.id);
+  async function switchTo(id: string) {
+    try {
+      setAccounts(await api.switchAccount(id));
+      load();
+    } catch {
+      setSaveError(t("common.errorMessage"));
+    }
   }
-
-  async function confirmSelfDelete() {
-    const review = await api.requestAccountDeletion();
-    setSelfDeleteReviewId(review.id);
-  }
-
-  const nameFields = (
-    <>
-      <Input label={t("account.firstName")} name="given-name" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-      <Input label={t("account.lastName")} name="family-name" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-      {caps.phoneChange && (
-        <button
-          onClick={() => setPhoneSheetOpen(true)}
-          className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-dashed border-accent/40 px-4 py-3 text-xs font-semibold text-accent"
-        >
-          {t("account.changePhone")}
-        </button>
-      )}
-      <div className="flex gap-2 pt-1">
-        <Button variant="secondary" fullWidth onClick={() => setEditing(false)}>
-          {t("common.cancel")}
-        </Button>
-        <Button fullWidth loading={savingName} onClick={saveName}>
-          {t("common.save")}
-        </Button>
-      </div>
-    </>
-  );
 
   if (!profile) {
     return (
-      <div className="flex h-full flex-col bg-bg">
-        <ScreenHeader title={t("settings.account")} />
-        {loadError ? <ErrorState onRetry={load} /> : <div className="px-4 pt-4"><SkeletonCard /></div>}
-      </div>
+      <Screen title={t("settings.account")}>{loadError ? <StateError onRetry={load} /> : <StateLoading rows={3} />}</Screen>
     );
   }
 
+  const others = accounts.filter((a) => !a.active);
+  const addValid = addName.trim() !== "" && addPhone.replace(/\D/g, "").length === 9;
+
   return (
-    <div className="relative flex h-full flex-col bg-bg">
-      <ScreenHeader title={t("settings.account")} />
-      {ios ? (
-        <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain pt-2">
-          <ListSection>
-            <ListRow
-              large
-              leading={<Avatar seed={profile.avatarSeed} name={profile.name} size={60} />}
-              title={profile.name}
-              subtitle={profile.phoneMasked}
-              accessory={
-                !editing && (
-                  <button type="button" onClick={() => setEditing(true)} className="ios-body -mr-2 min-h-[44px] px-2 text-accent active:opacity-60">
-                    {t("account.edit")}
-                  </button>
-                )
-              }
-            />
-            {editing && (
-              <div className="space-y-3 bg-card p-4">
-                {nameFields}
-              </div>
-            )}
-          </ListSection>
-
-          {accounts.some((a) => !a.active) && (
-            <ListSection header={t("account.accountsTitle")}>
-              {accounts
-                .filter((a) => !a.active)
-                .map((a) => (
-                  <div
-                    key={a.id}
-                    className="ios-sep relative flex min-h-[60px] items-center bg-card"
-                    style={{ ["--sep-inset" as string]: "71px" }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => switchAccount(a.id)}
-                      className="flex min-h-[60px] min-w-0 flex-1 items-center gap-[15px] py-2 pl-4 text-left transition-colors duration-100 active:bg-[var(--ios-row-pressed)]"
-                    >
-                      <Avatar seed={a.avatarSeed} name={a.name} size={40} />
-                      <span className="min-w-0">
-                        <span className="ios-body block truncate text-ink">{a.name}</span>
-                        <span className="ios-subheadline block text-[color:var(--ios-label-secondary)]">{a.phoneMasked}</span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(a)}
-                      aria-label={t("account.deleteAccount")}
-                      className="mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-danger active:opacity-60"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </div>
-                ))}
-            </ListSection>
-          )}
-
-          {caps.accounts && (
-            <ListSection>
-              <ListRow action leading={<IconTile icon={Plus} />} title={t("account.addAccount")} onClick={() => setAddOpen(true)} />
-            </ListSection>
-          )}
-
-          {caps.accountDeletion && (
-            <ListSection header={t("account.dangerZone")} headerTone="danger" footer={t("account.deleteSelfWarning")}>
-              <ListRow centered destructive title={t("account.deleteSelfAction")} onClick={() => setSelfDeleteOpen(true)} />
-            </ListSection>
-          )}
+    <Screen
+      title={t("settings.account")}
+      headerRight={
+        <>
+          {/* Keyboard up (KbAccount): the avatar sits here instead. */}
+          <span className="hidden kb:inline-flex">
+            <Initials name={profile.name} size={44} />
+          </span>
+          <span className="kb:hidden">
+            {caps.accounts ? <IconButton icon="userPlus" label={t("account.addAccount")} onClick={() => setSheet({ kind: "add" })} /> : <span className="block h-11 w-11" aria-hidden />}
+          </span>
+        </>
+      }
+      // Room for the avatar over the sheet edge (design: 60px under the header).
+      top={<span aria-hidden className="block h-4" />}
+      sheetOverlap={
+        <div className="pointer-events-none absolute left-1/2 top-[-44px] -ml-[46px] rounded-full border-[5px] border-iz-sheet kb:hidden">
+          <Initials name={profile.name} size={82} />
         </div>
-      ) : (
-      <div className="scroll-pb flex-1 overflow-y-auto overscroll-contain px-4">
-        <Card className="mb-5 p-5">
-          <div className={`flex items-center gap-4 ${editing ? "mb-4" : ""}`}>
-            <Avatar seed={profile.avatarSeed} name={profile.name} size={56} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-semibold text-ink">{profile.name}</p>
-              <p className="text-xs text-ink/60">{profile.phoneMasked}</p>
-            </div>
-            {!editing && (
-              <button
-                onClick={() => setEditing(true)}
-                aria-label={t("account.edit")}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-5 text-accent"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          {editing && (
-            <div className="space-y-3 border-t border-border pt-4">
-              {nameFields}
-            </div>
+      }
+      bodyClassName="gap-3 !pt-16 kb:!pt-5"
+      footer={
+        <>
+          {saveError && (
+            <p role="alert" className="pb-1 text-[13px] font-semibold text-iz-danger">
+              {saveError}
+            </p>
           )}
-        </Card>
+          {saved && !changed && (
+            <p role="status" className="pb-1 text-[13px] font-semibold text-iz-green-text">
+              {t("account.saved")}
+            </p>
+          )}
+          <PrimaryButton loading={saving} disabled={!changed || !firstName.trim()} onClick={saveName}>
+            {t("common.save")}
+          </PrimaryButton>
+          {/* No deletion endpoint yet (http mode): the site's /delete-account
+              page, as in the driver app. The stores need it reachable in-app. */}
+          {(caps.accountDeletion || SITE_URL) && (
+            <TextButton tone="danger" className="kb:hidden" onClick={() => setSheet({ kind: caps.accountDeletion ? "deleteSelf" : "deleteWeb" })}>
+              {t("account.deleteAccount")}
+            </TextButton>
+          )}
+        </>
+      }
+    >
+      <Field
+        label={t("account.firstName")}
+        icon="user"
+        name="given-name"
+        autoComplete="given-name"
+        value={firstName}
+        onChange={(e) => {
+          setFirstName(e.target.value);
+          setSaved(false);
+          setSaveError(null);
+        }}
+      />
+      <Field
+        label={t("account.lastName")}
+        icon="user"
+        name="family-name"
+        autoComplete="family-name"
+        value={lastName}
+        onChange={(e) => {
+          setLastName(e.target.value);
+          setSaved(false);
+          setSaveError(null);
+        }}
+      />
+      <Field
+        label={t("account.phone")}
+        icon="phone"
+        type="tel"
+        readOnly
+        value={profile.phoneMasked}
+        trailing={
+          caps.phoneChange ? (
+            <button
+              type="button"
+              onClick={() => setSheet({ kind: "phone" })}
+              className="flex h-11 shrink-0 items-center px-1 text-[13px] font-extrabold text-iz-green-text"
+            >
+              {t("pay.change")}
+            </button>
+          ) : undefined
+        }
+      />
 
-        {/* The active account is the card above — this list is the other
-            accounts only, so nothing here duplicates it. */}
-        {accounts.some((a) => !a.active) && (
-          <>
-            <p className="mb-2 px-1 text-xs font-semibold text-ink/60">{t("account.accountsTitle")}</p>
-            <Card className="mb-5 divide-y divide-border" padded={false}>
-              {accounts
-                .filter((a) => !a.active)
-                .map((a) => (
-                  <div key={a.id} className="flex items-center gap-3 p-4">
-                    <Avatar seed={a.avatarSeed} name={a.name} size={40} />
-                    <button onClick={() => switchAccount(a.id)} className="min-w-0 flex-1 text-left">
-                      <p className="truncate text-sm font-semibold text-ink">{a.name}</p>
-                      <p className="text-xs text-ink/60">{a.phoneMasked}</p>
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(a)}
-                      aria-label={t("account.deleteAccount")}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-danger/10 text-danger"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-            </Card>
-          </>
-        )}
-        {caps.accounts && (
-          <button
-            onClick={() => setAddOpen(true)}
-            className="mb-5 flex w-full items-center gap-3 rounded-xl bg-card p-4 text-left text-accent shadow-softer"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-5">
-              <Plus className="h-4 w-4" />
-            </span>
-            <span className="text-sm font-semibold">{t("account.addAccount")}</span>
-          </button>
-        )}
-
-        {caps.accountDeletion && (
-          <>
-            <p className="mb-2 px-1 text-xs font-semibold text-danger">{t("account.dangerZone")}</p>
-            <Card className="p-4">
-              <p className="mb-3 text-xs text-ink/60">{t("account.deleteSelfWarning")}</p>
-              <Button variant="danger" fullWidth onClick={() => setSelfDeleteOpen(true)}>
-                {t("account.deleteSelfAction")}
-              </Button>
-            </Card>
-          </>
-        )}
-      </div>
+      {accountsError && (
+        <button type="button" onClick={load} className="flex h-11 items-center gap-2 self-start text-[14px] font-bold text-iz-danger kb:hidden">
+          <Icon name="refresh" size={18} />
+          {t("account.accountsTitle")} · {t("common.loadFailedRetry")}
+        </button>
+      )}
+      {others.length > 0 && (
+        <section className="mt-2 flex flex-col kb:hidden" aria-labelledby="acc-others">
+          <SectionLabel id="acc-others" as="h2">
+            {t("account.accountsTitle")}
+          </SectionLabel>
+          {others.map((a, i) => (
+            <div key={a.id} className={i < others.length - 1 ? "flex items-center gap-2 border-b border-iz-border" : "flex items-center gap-2"}>
+              <button type="button" onClick={() => switchTo(a.id)} className="flex min-h-[68px] min-w-0 flex-1 items-center gap-3.5 text-left active:opacity-70" aria-label={t("account.switchTo", { name: a.name })}>
+                <Initials name={a.name} size={44} />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-[15px] font-bold text-iz-ink">{a.name}</span>
+                  <span className="text-[13px] text-iz-muted">{a.phoneMasked}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSheet({ kind: "remove", account: a })}
+                aria-label={t("account.removeNamed", { name: a.name })}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-iz-danger active:bg-iz-danger-soft"
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+          ))}
+        </section>
       )}
 
-      {phoneSheetOpen && (
+      {sheet?.kind === "phone" && (
         <PhoneChangeSheet
-          onClose={() => setPhoneSheetOpen(false)}
+          onClose={closeSheet}
           onDone={() => {
-            setPhoneSheetOpen(false);
+            closeSheet();
             load();
           }}
         />
       )}
 
-      {addOpen && (
-        <Sheet open onClose={() => setAddOpen(false)} ariaLabel={t("account.addAccount")}>
-          <div className="px-5 pb-6 pt-3">
-            {addReviewId ? (
-              <ReviewStatus
-                reviewId={addReviewId}
-                onApproved={() => {
-                  setAddOpen(false);
-                  setAddReviewId(null);
-                  setAddName("");
-                  setAddPhone("");
-                  load();
-                }}
-              />
-            ) : (
-              <>
-                <h2 className="mb-4 text-sm font-semibold text-ink">{t("account.addAccount")}</h2>
-                <div className="space-y-3">
-                  <Input label={t("account.firstName")} name="name" autoComplete="name" value={addName} onChange={(e) => setAddName(e.target.value)} />
-                  <Input
-                    label={t("account.newPhone")}
-                    type="tel"
-                    name="phone"
-                    autoComplete="tel-national"
-                    inputMode="numeric"
-                    placeholder="90 123 45 67"
-                    value={addPhone}
-                    onChange={(e) => setAddPhone(formatPhoneInput(e.target.value))}
-                    leftIcon={<span className="text-sm font-normal text-ink/80">+998</span>}
-                  />
-                </div>
-                <div className="mt-5">
-                  <Button fullWidth loading={addSubmitting} onClick={submitAddAccount}>
-                    {t("common.confirm")}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </Sheet>
-      )}
-
-      {/* iOS: the destructive confirmation is an alert; the review status that
-          follows still appears in a sheet. */}
-      {ios && deleteTarget && !deleteReviewId && (
-        <Alert
+      {sheet?.kind === "add" && (
+        <BottomSheet
           open
-          title={t("account.deleteAccount")}
-          message={t("account.deleteAccountConfirm", { name: deleteTarget.name })}
-          onCancel={() => setDeleteTarget(null)}
-          actions={[
-            { label: t("common.cancel"), style: "cancel", onPress: () => setDeleteTarget(null) },
-            { label: t("account.deleteConfirmButton"), style: "destructive", onPress: confirmDelete },
-          ]}
-        />
-      )}
-      {ios && selfDeleteOpen && !selfDeleteReviewId && (
-        <Alert
-          open
-          title={t("account.deleteSelfAction")}
-          message={t("account.deleteSelfFullWarning")}
-          onCancel={() => setSelfDeleteOpen(false)}
-          actions={[
-            { label: t("common.cancel"), style: "cancel", onPress: () => setSelfDeleteOpen(false) },
-            { label: t("account.deleteConfirmButton"), style: "destructive", onPress: confirmSelfDelete },
-          ]}
-        />
-      )}
-
-      {deleteTarget && (!ios || deleteReviewId) && (
-        <Sheet open onClose={() => { setDeleteTarget(null); setDeleteReviewId(null); }} ariaLabel={t("account.deleteAccount")}>
-          <div className="px-5 pb-6 pt-3">
-            {deleteReviewId ? (
-              <ReviewStatus
-                reviewId={deleteReviewId}
-                onApproved={() => {
-                  setDeleteTarget(null);
-                  setDeleteReviewId(null);
-                  load();
-                }}
-              />
-            ) : (
+          onClose={closeSheet}
+          title={t("account.addAccount")}
+          closeLabel={t("common.close")}
+          footer={
+            reviewId ? undefined : (
               <>
-                <div className="mb-3 flex items-center gap-2 text-danger">
-                  <AlertTriangle className="h-5 w-5" />
-                  <h2 className="text-sm font-semibold">{t("account.deleteAccount")}</h2>
-                </div>
-                <p className="mb-5 text-sm text-ink/70">{t("account.deleteAccountConfirm", { name: deleteTarget.name })}</p>
-                <Button variant="danger" fullWidth onClick={confirmDelete}>
+                {sheetError && (
+                  <p role="alert" className="pb-1 text-[13px] font-semibold text-iz-danger">
+                    {sheetError}
+                  </p>
+                )}
+                <PrimaryButton loading={busy} disabled={!addValid} onClick={() => run(() => api.addAccount({ name: addName.trim(), phone: `+998 ${addPhone}` }))}>
                   {t("common.confirm")}
-                </Button>
+                </PrimaryButton>
               </>
-            )}
-          </div>
-        </Sheet>
+            )
+          }
+        >
+          {reviewId ? (
+            <ReviewStatus
+              reviewId={reviewId}
+              onApproved={() => {
+                closeSheet();
+                load();
+              }}
+              onRejected={() => setReviewId(null)}
+            />
+          ) : (
+            <>
+              <Field label={t("account.firstName")} icon="user" name="name" autoComplete="name" value={addName} onChange={(e) => setAddName(e.target.value)} />
+              <Field
+                label={t("account.newPhone")}
+                icon="phone"
+                type="tel"
+                name="phone"
+                autoComplete="tel-national"
+                inputMode="numeric"
+                placeholder="90 123 45 67"
+                prefix="+998"
+                value={addPhone}
+                onChange={(e) => setAddPhone(formatPhoneInput(e.target.value))}
+              />
+            </>
+          )}
+        </BottomSheet>
       )}
 
-      {selfDeleteOpen && (!ios || selfDeleteReviewId) && (
-        <Sheet open onClose={() => { setSelfDeleteOpen(false); setSelfDeleteReviewId(null); }} ariaLabel={t("account.deleteSelfAction")}>
-          <div className="px-5 pb-6 pt-3">
-            {selfDeleteReviewId ? (
-              <ReviewStatus
-                reviewId={selfDeleteReviewId}
-                title={t("account.deleteRequestedTitle")}
-                description={t("account.deleteRequestedDesc")}
-                onApproved={() => {
+      {sheet?.kind === "deleteWeb" && (
+        <BottomSheet
+          open
+          onClose={closeSheet}
+          title={t("account.deleteAccount")}
+          closeLabel={t("common.close")}
+          footer={
+            <>
+              <a
+                href={`${SITE_URL}/delete-account`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeSheet}
+                className="flex h-14 w-full shrink-0 items-center justify-center gap-2.5 rounded-full bg-iz-danger-soft text-[15px] font-extrabold text-iz-danger active:opacity-80"
+              >
+                {t("account.deleteWebOpen")}
+              </a>
+              <TextButton onClick={closeSheet}>{t("common.cancel")}</TextButton>
+            </>
+          }
+        >
+          <p className="text-[15px] leading-[22px] text-iz-ink">{t("account.deleteWeb")}</p>
+        </BottomSheet>
+      )}
+
+      {(sheet?.kind === "remove" || sheet?.kind === "deleteSelf") && (
+        <BottomSheet
+          open
+          onClose={closeSheet}
+          title={sheet.kind === "remove" ? t("account.deleteAccount") : t("account.deleteSelfAction")}
+          closeLabel={t("common.close")}
+          footer={
+            reviewId ? undefined : (
+              <>
+                {sheetError && (
+                  <p role="alert" className="pb-1 text-[13px] font-semibold text-iz-danger">
+                    {sheetError}
+                  </p>
+                )}
+                <DangerButton
+                  loading={busy}
+                  onClick={() => run(() => (sheet.kind === "remove" ? api.deleteAccount(sheet.account.id) : api.requestAccountDeletion()))}
+                >
+                  {t("account.deleteConfirmButton")}
+                </DangerButton>
+                <TextButton onClick={closeSheet}>{t("common.cancel")}</TextButton>
+              </>
+            )
+          }
+        >
+          {reviewId ? (
+            <ReviewStatus
+              reviewId={reviewId}
+              title={sheet.kind === "deleteSelf" ? t("account.deleteRequestedTitle") : undefined}
+              description={sheet.kind === "deleteSelf" ? t("account.deleteRequestedDesc") : undefined}
+              onApproved={() => {
+                if (sheet.kind === "deleteSelf") {
                   logout();
                   navigate("/auth/phone", { replace: true });
-                }}
-              />
-            ) : (
-              <>
-                <div className="mb-3 flex items-center gap-2 text-danger">
-                  <AlertTriangle className="h-5 w-5" />
-                  <h2 className="text-sm font-semibold">{t("account.deleteSelfAction")}</h2>
-                </div>
-                <p className="mb-5 text-sm text-ink/70">{t("account.deleteSelfFullWarning")}</p>
-                <Button variant="danger" fullWidth onClick={confirmSelfDelete}>
-                  {t("common.confirm")}
-                </Button>
-              </>
-            )}
-          </div>
-        </Sheet>
+                  return;
+                }
+                closeSheet();
+                load();
+              }}
+              onRejected={() => setReviewId(null)}
+            />
+          ) : (
+            <p className="text-[15px] leading-[22px] text-iz-ink">
+              {sheet.kind === "remove" ? t("account.deleteAccountConfirm", { name: sheet.account.name }) : t("account.deleteSelfFullWarning")}
+            </p>
+          )}
+        </BottomSheet>
       )}
-    </div>
+    </Screen>
   );
 }

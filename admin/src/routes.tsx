@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { AdminLayout } from "@/layouts/AdminLayout";
@@ -8,16 +8,20 @@ import { AccountScreen } from "@/features/account/AccountScreen";
 import { RequireSection } from "@/components/RequireSection";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Skeleton } from "@/components/Skeleton";
+import { OP_BASE } from "@/features/ops/paths";
 
-const StatsScreen = lazy(() => import("@/features/dashboard/StatsScreen").then((m) => ({ default: m.StatsScreen })));
+const DashboardScreen = lazy(() => import("@/features/dashboard/DashboardScreen").then((m) => ({ default: m.DashboardScreen })));
 const DriversScreen = lazy(() => import("@/features/drivers/DriversScreen").then((m) => ({ default: m.DriversScreen })));
+const DriverPage = lazy(() => import("@/features/drivers/DriverPage").then((m) => ({ default: m.DriverPage })));
 const PassengersScreen = lazy(() => import("@/features/passengers/PassengersScreen").then((m) => ({ default: m.PassengersScreen })));
 const OrdersScreen = lazy(() => import("@/features/orders/OrdersScreen").then((m) => ({ default: m.OrdersScreen })));
-const WalletScreen = lazy(() => import("@/features/wallet/WalletScreen").then((m) => ({ default: m.WalletScreen })));
+const LedgerScreen = lazy(() => import("@/features/wallet/LedgerScreen").then((m) => ({ default: m.LedgerScreen })));
 const TariffsScreen = lazy(() => import("@/features/tariffs/TariffsScreen").then((m) => ({ default: m.TariffsScreen })));
 const ComplaintsScreen = lazy(() => import("@/features/complaints/ComplaintsScreen").then((m) => ({ default: m.ComplaintsScreen })));
 const StaffScreen = lazy(() => import("@/features/staff/StaffScreen").then((m) => ({ default: m.StaffScreen })));
 const OperatorsScreen = lazy(() => import("@/features/operators/OperatorsScreen").then((m) => ({ default: m.OperatorsScreen })));
+const MarketingScreen = lazy(() => import("@/features/marketing/MarketingScreen").then((m) => ({ default: m.MarketingScreen })));
+const ManagerRequestsPage = lazy(() => import("@/features/ops/ManagerRequestsPage").then((m) => ({ default: m.ManagerRequestsPage })));
 const AuditScreen = lazy(() => import("@/features/audit/AuditScreen").then((m) => ({ default: m.AuditScreen })));
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -38,6 +42,13 @@ function RouteFallback() {
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
+}
+
+/** Route contract links of the form /op/<tail> land on the operator
+ * windows under /operators/<tail>, query (?request=...) included. */
+function OpAlias() {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate to={`${OP_BASE}${pathname.slice("/op".length)}${search}${hash}`} replace />;
 }
 
 function RootRedirect() {
@@ -64,7 +75,7 @@ export function AppRoutes() {
           element={
             <RequireSection section="stats">
               <Lazy>
-                <StatsScreen />
+                <DashboardScreen />
               </Lazy>
             </RequireSection>
           }
@@ -80,6 +91,16 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/drivers/:driverId/*"
+          element={
+            <RequireSection section="drivers">
+              <Lazy>
+                <DriverPage />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
           path="/passengers"
           element={
             <RequireSection section="passengers">
@@ -90,7 +111,7 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/orders"
+          path="/orders/*"
           element={
             <RequireSection section="orders">
               <Lazy>
@@ -100,11 +121,11 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/wallet"
+          path="/wallet/*"
           element={
             <RequireSection section="wallet">
               <Lazy>
-                <WalletScreen />
+                <LedgerScreen />
               </Lazy>
             </RequireSection>
           }
@@ -130,7 +151,7 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/staff"
+          path="/staff/*"
           element={
             <RequireSection section="staff">
               <Lazy>
@@ -140,11 +161,21 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/operators"
+          path="/operators/*"
           element={
             <RequireSection section="operators">
               <Lazy>
                 <OperatorsScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route
+          path="/requests"
+          element={
+            <RequireSection section="requests">
+              <Lazy>
+                <ManagerRequestsPage />
               </Lazy>
             </RequireSection>
           }
@@ -159,6 +190,17 @@ export function AppRoutes() {
             </RequireSection>
           }
         />
+        <Route
+          path="/marketing"
+          element={
+            <RequireSection section="marketing">
+              <Lazy>
+                <MarketingScreen />
+              </Lazy>
+            </RequireSection>
+          }
+        />
+        <Route path="/op/*" element={<OpAlias />} />
         <Route path="/account" element={<AccountScreen />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

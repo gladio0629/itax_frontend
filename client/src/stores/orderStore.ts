@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { OrderMode, PaymentMethod } from "@/seed/generate";
-import type { AddressDetails, CargoContact, CargoInput, CarClassId, OptionVariants, OrderOptionId, OrderTiming, Rider, ServiceType } from "@/api/types";
+import type { OrderMode } from "@/seed/generate";
+import type { PayMethod, AddressDetails, CargoContact, CargoInput, CarClassId, OrderTiming, Rider, ServiceType } from "@/api/types";
 
 // The pickup a new draft starts from. The ordering flow sets it when it
 // loads (from its address book), so this store doesn't pull address data
@@ -25,8 +25,6 @@ export type OrderDraft = {
   toDetails: AddressDetails;
   stops: DraftStop[];
   comment: string;
-  optionIds: OrderOptionId[];
-  optionVariants: OptionVariants;
   carClass: CarClassId;
   luggage: number;
   rider: Rider;
@@ -36,7 +34,7 @@ export type OrderDraft = {
   mode: OrderMode;
   seatIds: string[];
   cargo: CargoInput;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PayMethod;
   timing: OrderTiming;
   promoCode: string;
 };
@@ -57,8 +55,6 @@ const initialDraft: OrderDraft = {
   toDetails: {},
   stops: [],
   comment: "",
-  optionIds: [],
-  optionVariants: {},
   carClass: "standart",
   luggage: 0,
   rider: { kind: "me" },
@@ -67,7 +63,8 @@ const initialDraft: OrderDraft = {
   mode: "car",
   seatIds: [],
   // Kargo starts on Shaharlararo: step 1's route is always between cities.
-  cargo: { vehicle: "spark", tab: "intercity", loaders: 0, pricingMode: "route", rideAlong: false },
+  // Body M first (design v2: "Boshlang'ich: M"); the sizes are the server's.
+  cargo: { vehicle: "damas", tab: "intercity", loaders: 0, pricingMode: "route", rideAlong: false, insurance: false },
   paymentMethod: "cash",
   timing: { timeMode: "now" },
   promoCode: "",

@@ -23,7 +23,7 @@ export function LanguageSheet({ open, onClose }: { open: boolean; onClose: () =>
             <span className="text-base text-ink" lang={l}>
               {t(`settings.languageName.${l}` as TranslationKey)}
             </span>
-            {locale === l && <Check className="h-5 w-5 text-gold" />}
+            {locale === l && <Check className="h-5 w-5 text-brand-ink" />}
           </button>
         ))}
       </div>

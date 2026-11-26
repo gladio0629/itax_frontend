@@ -8,7 +8,9 @@ export function Toast({ message, onDone }: { message: string; onDone: () => void
   }, [onDone]);
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-28 z-[60] flex justify-center px-6 animate-slide-up">
+    // 112 px above the bottom edge plus the home indicator, so it stays clear
+    // of the footer (price + main button), which moves up by the same inset.
+    <div className="pointer-events-none absolute inset-x-0 z-[60] flex justify-center px-6 animate-slide-up" style={{ bottom: "calc(var(--safe-bottom) + 112px)" }}>
       <div role="status" aria-live="polite" className="rounded-xl bg-ink px-4 py-2.5 text-xs font-semibold text-bg shadow-soft">
         {message}
       </div>

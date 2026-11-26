@@ -11,6 +11,7 @@ import type {
   CityRef,
   DebtLevel,
   DebtState,
+  Direction,
   DriverCapabilities,
   DriverProfile,
   HistoryItem,
@@ -19,6 +20,7 @@ import type {
   NotificationItem,
   NotificationKind,
   OfferPlace,
+  PassengerInfo,
   PaymentType,
   RideRequest,
   RideTime,
@@ -66,17 +68,23 @@ export const REG_CITIES: CityRef[] = [
   "Toshkent", "Samarqand", "Buxoro", "Andijon", "Namangan", "Farg'ona", "Qarshi", "Nukus", "Xiva",
   "Jizzax", "Navoiy", "Termiz", "Guliston", "Urganch",
 ].map((name) => ({ id: name, name }));
-export const REG_CAR_MODELS = [
-  "Chevrolet Cobalt", "Chevrolet Nexia 3", "Chevrolet Gentra", "Chevrolet Malibu 2",
-  "Chevrolet Onix", "Chevrolet Tracker", "Kia K5", "Hyundai Sonata",
+export const REG_CAR_BRANDS = [
+  { brand: "Chevrolet", models: ["Cobalt", "Nexia 3", "Gentra", "Malibu 2", "Onix", "Tracker", "Damas", "Labo"] },
+  { brand: "Kia", models: ["K5", "Sportage"] },
+  { brand: "Hyundai", models: ["Sonata", "Elantra"] },
+  { brand: "BYD", models: ["Chazor", "Song Plus"] },
 ];
 export const REG_CAR_COLORS = [
-  { key: "white", hex: "#F4F6F5" },
-  { key: "silver", hex: "#C9CFCD" },
-  { key: "black", hex: "#1C2420" },
-  { key: "blue", hex: "#3B6FA0" },
+  { key: "white", hex: "#FFFFFF" },
+  { key: "black", hex: "#1B1F27" },
+  { key: "silver", hex: "#B9C1CB" },
+  { key: "blue", hex: "#2F5DA8" },
+  { key: "red", hex: "#8C1D24" },
+  { key: "beige", hex: "#E9E1CF" },
   { key: "gray", hex: "#6B7280" },
 ];
+/** Driving-licence categories under "Toifa" (no endpoint yet). */
+export const REG_LICENSE_CATEGORIES = ["A", "B", "BE", "C", "D"];
 export const REG_CAR_CLASSES: CarClass[] = ["economy", "comfort", "business", "minivan"];
 /** Car.seats: 1–8 in the contract. */
 export const REG_SEAT_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -203,10 +211,8 @@ function orderFields(o: Api.Offer | Api.Order, cities: CityNames) {
     seatIds: seatIdsOf(o.seat_ids),
     stops: [],
     comment: o.comment?.trim() || null,
-    options: [],
     luggageCount: 0,
     forOther: null,
-    contactMode: "call" as const,
     freight: null,
   };
 }
@@ -214,13 +220,14 @@ function orderFields(o: Api.Offer | Api.Order, cities: CityNames) {
 // ----------------------------------------------------------------- offers
 export function offerToRequest(o: Api.Offer, cities: CityNames): RideRequest {
   const price = toSom(o.price);
-  const net = o.commission == null ? price : toSom(o.price - o.commission);
+  // No commission from the server: no "after commission" figure (never the price instead).
+  const earnings = o.commission == null ? undefined : { net: toSom(o.price - o.commission) };
   return {
     ...orderFields(o, cities),
     id: o.id,
     directionId: "",
     price,
-    earnings: { net },
+    earnings,
     distanceKm: km(o.distance_m),
     durationMin: 0,
     pickupEtaMin: o.pickup_eta_s == null ? undefined : Math.max(1, Math.round(o.pickup_eta_s / 60)),
@@ -265,6 +272,17 @@ function stageOf(t: Api.Trip): TripStage {
   return t.arrived_at ? "waiting" : "to_pickup";
 }
 
+/** Not in the contract yet (docs/backend-gaps/driver.md, Trip `passenger`): used when the server sends it.
+ * `call_number` is the dialable number (e.g. a masked-call proxy); without it there is no call button. */
+type ApiTripPassenger = { name?: string | null; rating?: number | null; call_number?: string | null };
+
+function tripPassenger(t: Api.TripWithOrder): PassengerInfo | undefined {
+  const p = (t as Api.TripWithOrder & { passenger?: ApiTripPassenger | null }).passenger;
+  const name = p?.name?.trim();
+  if (!p || !name) return undefined;
+  return { name, rating: p.rating ?? 0, phoneMasked: "", avatarSeed: t.id, callNumber: p.call_number?.trim() || undefined };
+}
+
 /** A trip with its order. The step button is the first step the server lists in
  * `next_actions` (in its order); cancel only when the server lists it. */
 export function tripToBooking(t: Api.TripWithOrder, cities: CityNames): Booking {
@@ -284,8 +302,8 @@ export function tripToBooking(t: Api.TripWithOrder, cities: CityNames): Booking 
     nextAction: step,
     canCancel: actions.includes("cancel"),
     pendingReviewId: null,
-    // Not in the contract: no passenger row, no call button.
-    passenger: undefined,
+    // Not in the contract yet: no passenger row and no call button until the server sends `passenger`.
+    passenger: tripPassenger(t),
     price,
     // The order carries no commission; the server gives it on completion.
     earnings: t.final_price != null && t.commission != null ? { net: toSom(t.final_price - t.commission) } : undefined,
@@ -341,7 +359,7 @@ export function tripToDetail(t: Api.TripWithOrder, cities: CityNames): TripDetai
     passenger: undefined,
     passengers: o.type === "passenger" ? o.seats ?? o.seat_ids?.length : undefined,
     timeline,
-    breakdown: { base: gross, commission, bonusDiscount: 0, net: t.final_price == null ? 0 : toSom(t.final_price - (t.commission ?? 0)) },
+    breakdown: { base: gross, commission, net: t.final_price == null ? 0 : toSom(t.final_price - (t.commission ?? 0)) },
     // Admin cancels use the admin reason list: shown as "cancelled by an operator".
     cancelReasonKey: t.cancelled_by === "admin" ? "cancel.byAdmin" : t.cancel_reason ? CANCEL_KEY_OF[t.cancel_reason] : undefined,
   };
@@ -356,6 +374,13 @@ export function toRoutesPage(r: Api.DriverRoutes, cities: CityRef[]): RoutesPage
     cities,
   };
 }
+
+/** The directions the driver serves (Home's "Mening yo'nalishim"): A→B, plus B→A when "both ways" is on. */
+export const routesToDirections = (routes: RoutesPage["routes"]): Direction[] =>
+  routes.flatMap((r) => [
+    { id: `${r.a.id}-${r.b.id}`, from: r.a, to: r.b },
+    ...(r.bothWays ? [{ id: `${r.b.id}-${r.a.id}`, from: r.b, to: r.a }] : []),
+  ]);
 
 export const toRoutesInput = (routes: RoutesPage["routes"]): Api.DriverRoutesInput => ({
   routes: routes.map((r) => ({ a_city_id: r.a.id, b_city_id: r.b.id, both_ways: r.bothWays })),
@@ -377,25 +402,22 @@ export function mapRoutesError(err: unknown): unknown {
 
 // ----------------------------------------------------------- capabilities
 /** The contract's child-seat age groups, in its enum order. */
-export const API_CHILD_SEAT_AGES: Api.ChildSeatAge[] = ["0-1", "1-3", "3-7", "7-12"];
+/** Expected cargo-capabilities body (docs/backend-gaps/driver.md, "Redesign v2"). */
+export type ApiCargoCapabilities = { body_sizes: string[]; available_body_sizes?: string[]; loader_help: boolean };
+const BODY_SIZE_ORDER = ["S", "M", "L", "XL", "XXL", "3XL"];
 
-export function toCapabilities(c: Api.DriverCapabilities, car: Api.Car | undefined): DriverCapabilities {
+export function toCapabilities(c: ApiCargoCapabilities, car: Api.Car | undefined): DriverCapabilities {
   return {
-    childSeat: c.child_seat,
-    childSeatAges: API_CHILD_SEAT_AGES.filter((a) => c.child_seat_ages.includes(a)),
-    ageGroups: [...API_CHILD_SEAT_AGES],
-    pets: c.pets,
-    bigLuggage: c.big_luggage,
+    bodySizes: c.body_sizes,
+    availableBodySizes: c.available_body_sizes?.length ? c.available_body_sizes : BODY_SIZE_ORDER,
+    loaderHelp: c.loader_help,
     carModel: car ? `${car.brand} ${car.model}`.trim() : undefined,
     carClass: car?.car_class,
-    cargoBody: undefined,
   };
 }
 
-/** Ages must be empty while child_seat is off (`requires_child_seat`). */
-export function toApiCapabilities(input: CapabilitiesInput): Api.DriverCapabilities {
-  const ages = API_CHILD_SEAT_AGES.filter((a) => (input.childSeatAges as string[]).includes(a));
-  return { child_seat: input.childSeat, child_seat_ages: input.childSeat ? ages : [], pets: input.pets, big_luggage: input.bigLuggage };
+export function toApiCapabilities(input: CapabilitiesInput): ApiCargoCapabilities {
+  return { body_sizes: input.bodySizes, loader_help: input.loaderHelp };
 }
 
 // ----------------------------------------------------------------- driver

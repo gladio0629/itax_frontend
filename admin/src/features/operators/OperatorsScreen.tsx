@@ -1,68 +1,39 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { api } from "@/api/client";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Tabs } from "@/components/Tabs";
-import type { OperatorCounts } from "@/api/types";
-import { QueueTab } from "./QueueTab";
-import { InProgressTab } from "./InProgressTab";
-import { HistoryTab } from "./HistoryTab";
+import { DriversScreen } from "@/features/drivers/DriversScreen";
+import { OpOrdersPage } from "@/features/ops/OpOrdersPage";
+import { OpOrderPage } from "@/features/ops/OpOrderPage";
+import { OpTasksPage } from "@/features/ops/OpTasksPage";
+import { opPath } from "@/features/ops/paths";
+import { OperatorsBoard } from "./OperatorsBoard";
+import { OperatorQueueView } from "./OperatorQueueView";
+import { opCardRoutes } from "@/features/opCards/routes";
 
-type TabKey = "queue" | "inProgress" | "history";
-
-/** One "operators" section, two different shapes: an operator gets Navbat
- * (with the buttons to work it) + Tarix; a supervisor (superadmin/owner/
- * menejer) gets a read-only Navbat + Jarayonda + Bugungi tasdiqlanganlar.
- * Which is which is decided entirely by Me.actions — never a role check. */
+/** `/operators/*`. Which window opens is decided by Me (actions and
+ * sections), never by a role name: "operatorWork" gets the operator's own
+ * windows (route contract 2026-11-24: queue, orders, tasks, ...),
+ * "operatorSupervise" gets the three-column board at the index. */
 export function OperatorsScreen() {
   const { me } = usePermissions();
-  const canWork = !!me?.actions.includes("operatorWork");
-  const canSupervise = !!me?.actions.includes("operatorSupervise");
-  // Active window lives in the URL (?tab=) so it survives reloads and can be linked.
-  const [params, setParams] = useSearchParams();
-  const tabParam = params.get("tab");
-  const tab: TabKey = tabParam === "inProgress" || tabParam === "history" ? tabParam : "queue";
-  const setTab = (t: TabKey) => setParams(t === "queue" ? {} : { tab: t }, { replace: true });
-  const [counts, setCounts] = useState<OperatorCounts | null>(null);
-
-  async function loadCounts() {
-    if (!api.capabilities.operatorCounts) return;
-    try {
-      setCounts(await api.getOperatorCounts());
-    } catch {
-      /* badges are best-effort */
-    }
-  }
-  useEffect(() => {
-    loadCounts();
-  }, [tab]);
-
   if (!me) return null;
-  if (tab === "inProgress" && !canSupervise) return <OperatorsRedirect onReset={() => setTab("queue")} />;
-
-  const tabs: { key: TabKey; label: string; count?: number }[] = canSupervise
-    ? [
-        { key: "queue", label: "Navbat", count: counts?.queue },
-        { key: "inProgress", label: "Jarayonda", count: counts?.inProgress },
-        { key: "history", label: "Bugungi tasdiqlanganlar", count: counts?.approvedToday },
-      ]
-    : [
-        { key: "queue", label: "Navbat", count: counts?.queue },
-        { key: "history", label: "Tarix" },
-      ];
+  const canWork = me.actions.includes("operatorWork");
+  const canSupervise = me.actions.includes("operatorSupervise");
+  const canDrivers = me.sections.includes("drivers_view");
+  const canOrders = canWork && me.sections.includes("orders_view");
+  const work = (el: JSX.Element, allowed = canWork) => (allowed ? el : <Navigate to="/operators" replace />);
 
   return (
-    <div className="space-y-5">
-      <Tabs label="Operator oynalari" items={tabs} value={tab} onChange={setTab} />
-
-      {tab === "queue" && <QueueTab canWork={canWork} onChanged={loadCounts} />}
-      {tab === "inProgress" && canSupervise && <InProgressTab />}
-      {tab === "history" && <HistoryTab canSupervise={canSupervise} onChanged={loadCounts} />}
-    </div>
+    <Routes>
+      <Route index element={canWork ? <Navigate to={opPath.queue} replace /> : canSupervise ? <OperatorsBoard /> : <Navigate to="/" replace />} />
+      <Route path="queue" element={work(<OperatorQueueView />)} />
+      <Route path="orders" element={work(<OpOrdersPage />, canOrders)} />
+      <Route path="orders/:orderId" element={work(<OpOrderPage />, canOrders)} />
+      <Route path="tasks" element={work(<OpTasksPage />)} />
+      {/* Old link of the operator's "Tarix". */}
+      <Route path="history" element={<Navigate to={opPath.tasks} replace />} />
+      <Route path="drivers" element={canDrivers ? <DriversScreen readOnly /> : <Navigate to="/operators" replace />} />
+      {opCardRoutes(me)}
+      <Route path="*" element={<Navigate to="/operators" replace />} />
+    </Routes>
   );
-}
-
-function OperatorsRedirect({ onReset }: { onReset: () => void }) {
-  useEffect(onReset, [onReset]);
-  return null;
 }

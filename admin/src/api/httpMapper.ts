@@ -7,7 +7,6 @@ import type * as Api from "@shared/api/openapi";
 import { formatDayShort } from "@/lib/format";
 import type {
   ActiveTask,
-  AdjustmentProposal,
   AdminRole,
   AuditEntry,
   Complaint,
@@ -21,14 +20,27 @@ import type {
   Me,
   OrderFieldsPatch,
   OrderWithNames,
+  OrderDetail,
+  Dashboard,
+  DashboardPeriod,
+  ListPeriod,
+  DriverTrips,
+  Marketing,
+  MarketingPeriod,
+  TariffSettings,
+  TariffSettingsPatch,
+  CargoBodySize,
+  DriverLevel,
+  FuelKind,
+  MarkupKind,
+  TariffCarClass,
+  TariffExtraKey,
   Passenger,
   QueueReason,
   QueueStatus,
   Section,
   StaffRow,
   StatsPeriod,
-  Tariff,
-  TariffProposal,
   WalletEntryType,
   WalletLedgerRow,
 } from "./types";
@@ -47,24 +59,8 @@ export function normalizePhone(input: string): string | null {
   return null;
 }
 
-/** +998901234567 → "+998 90 123 45 67" (display only). */
-export function formatPhone(phone: string): string {
-  const m = /^\+998(\d{2})(\d{3})(\d{2})(\d{2})$/.exec(phone);
-  return m ? `+998 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone;
-}
-
-/** +998901234567 → "+998 90 *** ** 67". */
-export function maskPhone(phone: string): string {
-  const m = /^\+998(\d{2})\d{3}\d{2}(\d{2})$/.exec(phone);
-  return m ? `+998 ${m[1]} *** ** ${m[2]}` : "+998 ** *** ** **";
-}
-
-/** "kamola@izgo.uz" → "k***@izgo.uz". */
-export function maskEmail(email: string): string {
-  const [user, domain] = email.split("@");
-  if (!user || !domain) return "***";
-  return `${user[0]}***@${domain}`;
-}
+import { formatPhone } from "@/lib/format";
+export { formatPhone };
 
 /** The UI edits one "Ism" field; the API stores first and last name. */
 export function splitName(full: string): { first_name: string; last_name: string } | null {
@@ -111,6 +107,9 @@ const SECTION_FROM_API: Record<Api.AdminSection, Section> = {
   complaints: "complaints",
   audit: "audit",
 };
+/** Sections the contract doesn't list yet (docs/backend-gaps.md,
+ * "## admin (operator, 2026-11-24)"); mapped once the server sends them. */
+const EXTRA_SECTIONS: Partial<Record<string, Section>> = { requests: "requests" };
 /** Route of each section, in sidebar order (first allowed = landing page). */
 const SECTION_PATH: [Section, string][] = [
   ["stats", "/dashboard"],
@@ -126,7 +125,7 @@ const SECTION_PATH: [Section, string][] = [
 ];
 
 export function meFromApi(me: Api.AdminMe): Me {
-  const sections = me.sections.map((s) => SECTION_FROM_API[s]).filter(Boolean);
+  const sections = me.sections.map((s) => SECTION_FROM_API[s] ?? EXTRA_SECTIONS[s]).filter((s): s is Section => !!s);
   return {
     id: me.id,
     name: me.full_name || me.email,
@@ -173,7 +172,7 @@ export function driverFromApi(d: Api.AdminDriver): Driver {
   return {
     id: d.id,
     name: joinName(d.first_name, d.last_name),
-    phoneMasked: maskPhone(d.phone),
+    phone: formatPhone(d.phone),
     cityId: "",
     carModel: d.car ? `${d.car.brand} ${d.car.model}`.trim() : "—",
     carColor: d.car?.color ?? "",
@@ -188,6 +187,19 @@ export function driverFromApi(d: Api.AdminDriver): Driver {
     archived: d.state === "archived",
     avatarSeed: d.id,
     joinedAt: toMs(d.created_at),
+    // v2 fields the contract doesn't carry yet (docs/backend-gaps/admin.md):
+    route: null,
+    level: null,
+    atDebtLimit: null,
+    commissionPct: null,
+    carYear: d.car?.year ?? null,
+    seats: d.car?.seats ?? null,
+    acceptRate30d: null,
+    cancelsThisWeek: null,
+    cancelLimitWeek: null,
+    cargoBodies: null,
+    loaderHelp: null,
+    documents: null,
   };
 }
 
@@ -195,7 +207,7 @@ export function passengerFromApi(p: Api.AdminPassenger): Passenger {
   return {
     id: p.id,
     name: joinName(p.first_name, p.last_name),
-    phoneMasked: maskPhone(p.phone),
+    phone: formatPhone(p.phone),
     rating: p.rating ?? 0,
     totalTrips: p.orders_count ?? 0,
     avatarSeed: p.id,
@@ -203,6 +215,8 @@ export function passengerFromApi(p: Api.AdminPassenger): Passenger {
     status: p.state === "blocked" ? "blocked" : "active",
     archived: p.state === "archived",
     joinedAt: toMs(p.created_at),
+    lastTripAt: null,
+    lastPayment: null,
   };
 }
 
@@ -228,6 +242,17 @@ export function orderFromApi(o: Api.AdminOrder): OrderWithNames {
     scheduledRange: o.scheduled_from && o.scheduled_to ? { from: toMs(o.scheduled_from), to: toMs(o.scheduled_to) } : undefined,
     note: o.comment ?? undefined,
     cancelReason: o.cancel_reason ?? undefined,
+    kind: o.type === "delivery" ? "delivery" : "passenger",
+    // The order's vehicle_type is a car name (spark, labo…), never shown;
+    // the S–3XL size label is not on the order yet (gap).
+    bodySize: null,
+    luggageCount: null,
+    pickupAddress: o.from.address?.trim() || null,
+    dropoffAddress: o.to.address?.trim() || null,
+    durationMin: o.duration_s ? Math.round(o.duration_s / 60) : null,
+    commission: null,
+    driverPayout: null,
+    cancelledBy: null,
     // Only passenger_id, no name (capabilities.orderPassenger = false).
     passengerName: "—",
     driverName: o.driver?.first_name ?? null,
@@ -236,6 +261,40 @@ export function orderFromApi(o: Api.AdminOrder): OrderWithNames {
     // Order.can_cancel is the passenger's verdict; there is none for admins,
     // so the action is offered and the server's 403 decides.
     canCancel: true,
+  };
+}
+
+const CAR_CLASS_LABEL: Record<Api.CarClass, string> = { economy: "Standart", comfort: "Komfort", business: "Biznes", minivan: "Miniven" };
+/** PriceLine.key (a client i18n key) → admin label. Unknown keys show as "Boshqa". */
+const PRICE_LINE_LABEL: Record<string, string> = {
+  "quote.seatFare": "O'rindiq narxi",
+  "quote.carFare": "Butun mashina",
+  "quote.class.komfort": "Komfort klass",
+  "quote.class.biznes": "Biznes klass",
+  "quote.class.miniven": "Miniven klass",
+  "quote.cargoBase": "Dostavka, asosiy narx",
+  "quote.cargoDistance": "Dostavka, masofa",
+};
+
+/** GET /admin/v1/orders/{id}. Timeline, commission and the driver's share
+ * are not in the contract yet: null (hidden). */
+export function orderDetailFromApi(o: Api.AdminOrder): OrderDetail {
+  const base = orderFromApi(o);
+  const car = o.driver?.car;
+  return {
+    ...base,
+    // Order.can_cancel / editable are the passenger's verdicts; there is none
+    // for admins, so both actions are offered and the server's 403 decides.
+    canCancel: true,
+    passengerRating: null,
+    driverRating: o.driver?.rating ?? null,
+    driverCar: car ? [`${car.brand} ${car.model}`.trim(), car.plate_number].filter(Boolean).join(" · ") : null,
+    carClassLabel: o.car_class ? CAR_CLASS_LABEL[o.car_class] : null,
+    steps: null,
+    priceLines: o.price_lines?.length
+      ? o.price_lines.map((l) => ({ label: PRICE_LINE_LABEL[l.key] ?? "Boshqa", amount: toSom(l.amount), kind: "line" as const }))
+      : null,
+    canEdit: true,
   };
 }
 
@@ -263,10 +322,10 @@ const LEDGER_KIND: Record<Api.LedgerKind, WalletEntryType> = {
   bonus: "bonus",
 };
 
-export function ledgerFromApi(e: Api.LedgerEntry): WalletLedgerRow {
+export function ledgerFromApi(e: Api.LedgerEntry, driverId?: string): WalletLedgerRow {
   return {
     id: e.id,
-    driverId: "",
+    driverId: driverId ?? "",
     type: LEDGER_KIND[e.kind] ?? "adjustment",
     amount: toSom(e.amount),
     orderId: e.reference_id ?? undefined,
@@ -275,33 +334,6 @@ export function ledgerFromApi(e: Api.LedgerEntry): WalletLedgerRow {
     // LedgerEntry carries only wallet_id (capabilities.walletDriverName = false).
     driverName: `Hamyon #${shortId(e.wallet_id)}`,
   };
-}
-
-const APPROVAL: Record<Api.ApprovalStatus, AdjustmentProposal["status"]> = {
-  pending_approval: "pending_second",
-  approved: "approved",
-  rejected: "rejected",
-};
-
-export function correctionFromApi(c: Api.CorrectionListItem, driverId: string, me: Me | null): AdjustmentProposal {
-  return {
-    id: c.id,
-    driverId,
-    // The correction names a wallet, not a driver.
-    subjectLabel: `Hamyon #${shortId(c.wallet_id)}`,
-    amount: toSom(c.amount),
-    reason: c.reason,
-    proposedById: c.created_by,
-    proposedByName: c.created_by_name?.trim() || (me && c.created_by === me.id ? me.name : `#${shortId(c.created_by)}`),
-    status: APPROVAL[c.approval_status],
-    createdAt: toMs(c.created_at),
-  };
-}
-
-export function approvalToApi(status: AdjustmentProposal["status"] | "all" | undefined): Api.ApprovalStatus | undefined {
-  if (status === "pending_second") return "pending_approval";
-  if (status === "approved" || status === "rejected") return status;
-  return undefined;
 }
 
 // ----------------------------------------------------------- complaints
@@ -381,59 +413,6 @@ export function auditFromApi(e: Api.AuditEntry, nameOf: StaffNameOf): AuditEntry
   };
 }
 
-// -------------------------------------------------------------- tariffs
-export function tariffFromApi(t: Api.Tariff): Tariff {
-  return {
-    id: t.id,
-    name: t.name,
-    baseFare: toSom(t.base_fare),
-    perKmCar: toSom(t.per_km),
-    perMin: toSom(t.per_min),
-    minFare: toSom(t.min_fare),
-    commissionPct: t.commission_percent,
-    carClass: t.car_class,
-    // UI-only fields the contract doesn't have (hidden via tariffFields).
-    perKmSeat: 0,
-    frontSeatSurcharge: 0,
-    fuelAdjustmentPct: 0,
-    archived: !t.active,
-  };
-}
-
-/** A pending create still shows up in the list as inactive; it belongs to
- * the proposals, not to "archived". */
-export const isPendingCreate = (t: Api.Tariff) => t.pending_change?.action === "create";
-
-export function tariffToInput(t: Pick<Tariff, "name" | "baseFare" | "perKmCar" | "commissionPct"> & Partial<Tariff>): Api.TariffInput {
-  return {
-    name: t.name,
-    car_class: t.carClass ?? "economy",
-    base_fare: toTiyin(t.baseFare),
-    per_km: toTiyin(t.perKmCar),
-    per_min: toTiyin(t.perMin ?? 0),
-    min_fare: toTiyin(t.minFare ?? 0),
-    commission_percent: t.commissionPct,
-  };
-}
-
-const PROPOSAL_TYPE = { create: "create", update: "edit", delete: "archive" } as const;
-
-export function tariffProposalFromApi(t: Api.Tariff, me: Me | null): TariffProposal | null {
-  const pc = t.pending_change;
-  if (!pc || t.approval_status !== "pending_approval") return null;
-  return {
-    id: t.id,
-    type: PROPOSAL_TYPE[pc.action ?? "update"],
-    tariffId: t.id,
-    // pending_change has no proposed values (gap): show the action only.
-    patch: { name: t.name },
-    proposedById: pc.requested_by ?? "",
-    proposedByName: me && pc.requested_by === me.id ? me.name : pc.requested_by ? `#${shortId(pc.requested_by)}` : "—",
-    status: "pending_second",
-    createdAt: toMs(pc.requested_at),
-  };
-}
-
 // ------------------------------------------------------------- operator
 const QUEUE_REASON: Record<Api.QueueKind, QueueReason> = {
   driver_application: "driver_application",
@@ -448,12 +427,11 @@ const QUEUE_STATUS: Record<Api.QueueStatus, QueueStatus> = {
 };
 
 export function queueFromApi(q: Api.QueueItem): ActiveTask {
-  // QueueItem has no phone: the row shows the subject's id instead.
-  const subject = `#${shortId(q.subject_id)}`;
+  // QueueItem has no phone yet (gap): the row shows the subject's id instead.
   return {
     id: q.id,
-    phoneMasked: subject,
-    phoneFull: subject,
+    phone: null,
+    subjectLabel: `#${shortId(q.subject_id)}`,
     reason: QUEUE_REASON[q.kind] ?? "complaint",
     waitingSinceAt: toMs(q.created_at),
     status: QUEUE_STATUS[q.status] ?? "waiting",
@@ -463,7 +441,9 @@ export function queueFromApi(q: Api.QueueItem): ActiveTask {
 
 function historyResult(q: Api.QueueItem): HistoryResult {
   if (q.status === "rejected") return "rejected";
-  return q.result === "unresolved" ? "callback" : "resolved";
+  // The API can't tell "Javob bermadi" / "Qayta qo'ng'iroq" / "Menejerga
+  // yuborildi" apart (the label is in the comment): neutral "unresolved".
+  return q.result === "unresolved" ? "unresolved" : "resolved";
 }
 
 export function historyFromApi(q: Api.QueueItem, me: Me | null): HistoryEntry {
@@ -472,7 +452,8 @@ export function historyFromApi(q: Api.QueueItem, me: Me | null): HistoryEntry {
     queueItemId: q.id,
     operatorId: q.assigned_to ?? "",
     operatorName: me && q.assigned_to === me.id ? me.name : q.assigned_to ? `#${shortId(q.assigned_to)}` : "—",
-    phoneMasked: `#${shortId(q.subject_id)}`,
+    phone: null,
+    subjectLabel: `#${shortId(q.subject_id)}`,
     reason: QUEUE_REASON[q.kind] ?? "complaint",
     result: historyResult(q),
     note: q.comment ?? q.reject_reason ?? "",
@@ -484,7 +465,7 @@ export function historyFromApi(q: Api.QueueItem, me: Me | null): HistoryEntry {
 }
 
 // ---------------------------------------------------------------- stats
-const PERIOD_DAYS: Record<StatsPeriod, number> = { "7d": 7, "30d": 30, "90d": 90 };
+const PERIOD_DAYS: Record<StatsPeriod, number> = { today: 1, "7d": 7, "30d": 30, "90d": 90 };
 const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 /** Query range for a period: the last N days including today (local dates). */
@@ -547,5 +528,265 @@ export function statsFromApi(s: Api.Stats, period: StatsPeriod, range: Api.Stats
     registrations: null,
     incomeByRoute: null,
     incomeByCity: null,
+  };
+}
+
+// ------------------------------------------------------- v2 dashboard
+/** Relative list period → contract dates (local days, inclusive). */
+export function listPeriodRange(period: ListPeriod | undefined, now = new Date()): Api.StatsQuery {
+  if (!period || period === "all") return {};
+  const day = (offset: number) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - offset);
+    return isoDate(d);
+  };
+  switch (period) {
+    case "today":
+      return { from_date: day(0), to_date: day(0) };
+    case "yesterday":
+      return { from_date: day(1), to_date: day(1) };
+    case "7d":
+      return { from_date: day(6), to_date: day(0) };
+    case "30d":
+      return { from_date: day(29), to_date: day(0) };
+    case "90d":
+      return { from_date: day(89), to_date: day(0) };
+  }
+}
+
+export const dashboardRange = (period: DashboardPeriod): Api.StatsQuery => listPeriodRange(period);
+/** The dashboard chart: the last 14 days including today. */
+export function last14Days(now = new Date()): Api.StatsQuery {
+  const from = new Date(now);
+  from.setDate(from.getDate() - 13);
+  return { from_date: isoDate(from), to_date: isoDate(now) };
+}
+
+/** Dashboard from the existing stats endpoint. Deltas, sparklines, the
+ * passenger/delivery split and most attention items are not in the
+ * contract yet: null (hidden). */
+export function dashboardFromApi(
+  period: DashboardPeriod,
+  kpi: Api.Stats,
+  chart: Api.Stats,
+  chartRange: Api.StatsQuery,
+  recentOrders: OrderWithNames[] | null,
+  sections: Section[]
+): Dashboard {
+  const k = (value: number) => ({ value, deltaPct: null, spark: null });
+  let ordersByDay: Dashboard["ordersByDay"] = null;
+  if (chart.daily && chartRange.from_date && chartRange.to_date) {
+    // The contract lists only days that had orders, so a missing day is a
+    // real zero (not "unknown"); see statsFromApi.
+    const byDate = new Map(chart.daily.map((d) => [d.date, d.orders]));
+    ordersByDay = datesBetween(chartRange.from_date, chartRange.to_date).map((date) => {
+      const [y, m, dd] = date.split("-").map(Number);
+      return { date: new Date(y, m - 1, dd).getTime(), total: byDate.get(date) ?? 0, passenger: null, delivery: null };
+    });
+  }
+  const overLimit = kpi.drivers_over_limit;
+  const debtSection: Section | null = sections.includes("wallet") ? "wallet" : sections.includes("drivers") ? "drivers" : null;
+  return {
+    period,
+    orders: k(kpi.orders_total),
+    activeDrivers: k(kpi.active_drivers),
+    newPassengers: k(kpi.new_passengers),
+    commission: k(toSom(kpi.commission)),
+    ordersByDay,
+    topRoutes: kpi.top_routes ? kpi.top_routes.map((r) => ({ from: r.from_name, to: r.to_name, count: r.orders })) : null,
+    recentOrders,
+    attention:
+      overLimit === undefined || !debtSection
+        ? null
+        : overLimit > 0
+          ? [{ id: "debt", tone: "danger", title: `${overLimit} haydovchi qarz chegarasida`, detail: "Yangi so'rovlar ular uchun to'xtatilgan", section: debtSection }]
+          : [],
+  };
+}
+
+// ------------------------------------------------------ v2 driver trips
+/** Expected GET /admin/v1/drivers/{id}/trips (not in openapi.yml yet; see
+ * docs/backend-gaps/admin.md). Money in tiyin like the rest of the API. */
+export type ApiDriverTrips = {
+  month: string;
+  months: string[];
+  summary: {
+    trips: number;
+    trips_total: number;
+    income: Api.Money;
+    commission: Api.Money;
+    commission_avg_pct: number | null;
+    cancelled: number;
+    cancelled_pct: number | null;
+  } | null;
+  counts: { all?: number; passenger?: number; delivery?: number; cancelled?: number } | null;
+  rows: {
+    order_id: string;
+    kind: Api.OrderType;
+    at: string;
+    from_name: string;
+    to_name: string;
+    subject: string;
+    price: Api.Money;
+    payment_method: Api.PaymentMethod;
+    commission: Api.Money | null;
+    payout: Api.Money | null;
+    status: Api.OrderStatus;
+    cancelled_by: "passenger" | "driver" | "admin" | null;
+  }[];
+};
+
+export function driverTripsFromApi(t: ApiDriverTrips): DriverTrips {
+  return {
+    month: t.month,
+    months: t.months,
+    summary: t.summary
+      ? {
+          trips: t.summary.trips,
+          tripsTotal: t.summary.trips_total,
+          income: toSom(t.summary.income),
+          commission: toSom(t.summary.commission),
+          commissionAvgPct: t.summary.commission_avg_pct,
+          cancelled: t.summary.cancelled,
+          cancelledPct: t.summary.cancelled_pct,
+        }
+      : null,
+    counts: t.counts,
+    rows: t.rows.map((r) => ({
+      orderId: r.order_id,
+      kind: r.kind === "delivery" ? "delivery" : "passenger",
+      at: toMs(r.at),
+      fromName: r.from_name,
+      toName: r.to_name,
+      subject: r.subject,
+      price: toSom(r.price),
+      paymentMethod: r.payment_method,
+      commission: r.commission === null ? null : toSom(r.commission),
+      payout: r.payout === null ? null : toSom(r.payout),
+      status: r.status,
+      cancelledBy: r.cancelled_by,
+    })),
+  };
+}
+
+// ---------------------------------------------------- v2 tariff settings
+/** Expected GET/PATCH /admin/v1/tariff-settings (not in openapi.yml yet;
+ * docs/backend-gaps/admin.md). Money in tiyin; labels come from the server. */
+type ApiMarkup = { fuel: FuelKind; markup_kind: MarkupKind; markup_value: number };
+export type ApiTariffSettings = {
+  city_id: string | null;
+  fuel: { kind: FuelKind; label: string; price_per_litre: Api.Money; updated_at: string | null }[];
+  classes: ({ key: TariffCarClass; label: string; seats: number | null; example_price: Api.Money | null } & ApiMarkup)[];
+  bodies: ({ size: CargoBodySize; example_base: Api.Money | null; example_price: Api.Money | null } & ApiMarkup)[];
+  extras: { key: TariffExtraKey; label: string; unit: "min" | "som"; value: number }[];
+  levels: { level: DriverLevel; commission_pct: number; min_trips_week: number | null; min_rating: number | null; max_cancels_week: number | null }[];
+  example_distance_km: number | null;
+  example: {
+    title: string;
+    distance_km: number;
+    fuel_label: string;
+    fuel_price: Api.Money;
+    base: Api.Money;
+    markup_label: string;
+    markup: Api.Money;
+    total: Api.Money;
+  } | null;
+};
+
+const markupFromApi = (m: ApiMarkup) => ({
+  fuel: m.fuel,
+  markupKind: m.markup_kind,
+  // Percent stays a number; a fixed sum is money (tiyin → so'm).
+  markupValue: m.markup_kind === "sum" ? toSom(m.markup_value) : m.markup_value,
+});
+const markupToApi = (m: { fuel: FuelKind; markupKind: MarkupKind; markupValue: number }): ApiMarkup => ({
+  fuel: m.fuel,
+  markup_kind: m.markupKind,
+  markup_value: m.markupKind === "sum" ? toTiyin(m.markupValue) : m.markupValue,
+});
+const moneyOrNull = (v: Api.Money | null) => (v === null ? null : toSom(v));
+/** Extras: "som" values are money, "min" values are minutes. */
+const extraFromApi = (unit: "min" | "som", v: number) => (unit === "som" ? toSom(v) : v);
+
+export function tariffSettingsFromApi(t: ApiTariffSettings): TariffSettings {
+  return {
+    cityId: t.city_id,
+    fuel: t.fuel.map((f) => ({ kind: f.kind, label: f.label, pricePerLitre: toSom(f.price_per_litre), updatedAt: f.updated_at ? toMs(f.updated_at) : null })),
+    classes: t.classes.map((c) => ({ key: c.key, label: c.label, seats: c.seats, examplePrice: moneyOrNull(c.example_price), ...markupFromApi(c) })),
+    bodies: t.bodies.map((b) => ({ size: b.size, exampleBase: moneyOrNull(b.example_base), examplePrice: moneyOrNull(b.example_price), ...markupFromApi(b) })),
+    extras: t.extras.map((e) => ({ key: e.key, label: e.label, unit: e.unit, value: extraFromApi(e.unit, e.value) })),
+    levels: t.levels.map((l) => ({
+      level: l.level,
+      commissionPct: l.commission_pct,
+      minTripsWeek: l.min_trips_week,
+      minRating: l.min_rating,
+      maxCancelsWeek: l.max_cancels_week,
+    })),
+    exampleDistanceKm: t.example_distance_km,
+    example: t.example
+      ? {
+          title: t.example.title,
+          distanceKm: t.example.distance_km,
+          fuelLabel: t.example.fuel_label,
+          fuelPrice: toSom(t.example.fuel_price),
+          base: toSom(t.example.base),
+          markupLabel: t.example.markup_label,
+          markup: toSom(t.example.markup),
+          total: toSom(t.example.total),
+        }
+      : null,
+  };
+}
+
+/** One section per PATCH. Extras need their unit to convert money. */
+export function tariffPatchToApi(cityId: string | null, p: TariffSettingsPatch) {
+  const base = { city_id: cityId };
+  switch (p.section) {
+    case "fuel":
+      return { ...base, fuel: p.fuel.map((f) => ({ kind: f.kind, price_per_litre: toTiyin(f.pricePerLitre) })) };
+    case "classes":
+      return { ...base, classes: p.classes.map((c) => ({ key: c.key, ...markupToApi(c) })) };
+    case "bodies":
+      return { ...base, bodies: p.bodies.map((b) => ({ size: b.size, ...markupToApi(b) })) };
+    case "extras":
+      return { ...base, extras: p.extras.map((e) => ({ key: e.key, value: e.unit === "min" ? e.value : toTiyin(e.value) })) };
+    case "levels":
+      return {
+        ...base,
+        levels: p.levels.map((l) => ({
+          level: l.level,
+          commission_pct: l.commissionPct,
+          min_trips_week: l.minTripsWeek,
+          min_rating: l.minRating,
+          max_cancels_week: l.maxCancelsWeek,
+        })),
+      };
+  }
+}
+
+// ------------------------------------------------------------ marketing
+/** Expected GET /admin/v1/marketing?period= (not in openapi.yml yet). */
+type ApiKpi = { value: number; delta_pct: number | null; spark: number[] | null } | null;
+export type ApiMarketing = {
+  monthly_orders: ApiKpi;
+  active_passengers: ApiKpi;
+  active_drivers: ApiKpi;
+  average_check: ApiKpi;
+  commission_by_month: { month: string; value: Api.Money }[] | null;
+  funnel: { title: string; steps: { label: string; count: number; pct: number }[] } | null;
+  order_types: { passenger_pct: number; delivery_pct: number } | null;
+};
+const kpiFromApi = (k: ApiKpi, money = false) =>
+  k ? { value: money ? toSom(k.value) : k.value, deltaPct: k.delta_pct, spark: k.spark } : null;
+export function marketingFromApi(m: ApiMarketing, period: MarketingPeriod): Marketing {
+  return {
+    period,
+    monthlyOrders: kpiFromApi(m.monthly_orders),
+    activePassengers: kpiFromApi(m.active_passengers),
+    activeDrivers: kpiFromApi(m.active_drivers),
+    averageCheck: kpiFromApi(m.average_check, true),
+    commissionByMonth: m.commission_by_month ? m.commission_by_month.map((c) => ({ month: c.month, value: toSom(c.value) })) : null,
+    funnel: m.funnel,
+    orderTypes: m.order_types ? { passengerPct: m.order_types.passenger_pct, deliveryPct: m.order_types.delivery_pct } : null,
   };
 }

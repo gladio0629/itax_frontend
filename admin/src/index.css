@@ -19,12 +19,11 @@
   }
   html,
   body {
-    background: var(--color-bg);
-    color: rgb(var(--color-text-rgb));
+    background: var(--surface);
+    color: rgb(var(--ink-rgb));
   }
   body {
-    font-family: "InterVariable", "Inter", system-ui, sans-serif;
-    font-feature-settings: "cv11", "tnum" 0;
+    font-family: "IZGO Sans", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   .tabular {
@@ -32,8 +31,15 @@
     font-variant-numeric: tabular-nums;
   }
   :focus-visible {
-    outline: 2px solid rgb(var(--color-accent-rgb));
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--green-soft);
+  }
+  /* Text fields draw focus on their own box (v2 field / pill styles). */
+  input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
   }
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -48,6 +54,14 @@
 }
 
 @layer utilities {
+  /* Small caps label: 11px, 700, uppercase, 0.8px tracking (v2). */
+  .label-caps {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -58,9 +72,9 @@
   .shimmer-bg {
     background: linear-gradient(
       90deg,
-      var(--color-border) 25%,
-      rgb(var(--color-text-rgb) / 0.04) 37%,
-      var(--color-border) 63%
+      var(--line) 25%,
+      rgb(var(--ink-rgb) / 0.04) 37%,
+      var(--line) 63%
     );
     background-size: 400% 100%;
   }

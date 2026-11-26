@@ -13,6 +13,10 @@
 //    mode) or a known non-network string (XML namespaces, React's error
 //    docs); index.html and _headers allow connect-src 'self' + the API
 //    origin only, and match the current env (else: rebuild).
+//    One more host may appear as a plain link: https://xasanow.uz, bare or
+//    with /terms, /privacy or /delete-account (LEGAL_LINK_ORIGIN below). In
+//    sources it may appear only as the bare origin in src/config.ts (the
+//    SITE_URL default).
 //
 // The interactive map (client and driver, `mapbox: true`) is the one
 // exception, and only when the build has VITE_MAPBOX_TOKEN:
@@ -60,6 +64,16 @@ const MAPBOX_CHUNK = /(?:^|\/)(?:mapboxRuntime|mapbox-gl)-[\w-]+\.js$/;
 // Absolute URLs that occur in third-party bundles as plain text (XML
 // namespaces, React/router error links). They are never requested.
 const INERT_HOSTS = ["www.w3.org", "reactjs.org", "react.dev", "fb.me", "github.com", "localhost", "127.0.0.1", "example.com"];
+// The public site, as a plain link opened in the system browser (owner
+// decisions 2026-11-22: terms, privacy and account deletion only). Sources:
+// only the bare origin, only in the app's src/config.ts (SITE_URL default,
+// VITE_SITE_URL overrides it). Exact origin: no subdomain (api.xasanow.uz is
+// the API and needs VITE_API_URL), no http, no ws. Never added to
+// connect-src (the CSP check below stays exact).
+const LEGAL_LINK_ORIGIN = "https://xasanow.uz";
+// What may follow the origin in the bundle: nothing (the app appends the path
+// at runtime), or one of the allowed pages.
+const LEGAL_LINK_PATH = /^(?:\/(?:terms|privacy|delete-account)\/?)?(?![\w./-])/;
 const SRC_EXT = /\.(ts|tsx|js|jsx|mjs|css|html)$/;
 
 function apiOrigins(raw) {
@@ -106,6 +120,8 @@ export function checkNoNetwork({ loadEnv, appDir = process.cwd(), mapbox = false
   const mapRuntime = join(sharedDir, "map", "mapboxRuntime.ts");
   // (provider.types.ts: type-only imports, erased at build time.)
   const mapTransport = new Set(["mapboxRuntime.ts", "provider.mapbox.ts", "provider.types.ts", "directions.ts"].map((f) => join(sharedDir, "map", f)));
+  // The one source file that may name the public site (bare origin only).
+  const siteConfig = join(appDir, "src", "config.ts");
   const violations = [];
   const rel = (p) => relative(appDir, p).split(sep).join("/");
 
@@ -117,6 +133,7 @@ export function checkNoNetwork({ loadEnv, appDir = process.cwd(), mapbox = false
     for (const [re, label] of THIRD_PARTY) if (re.test(text)) violations.push(`${rel(path)}: contains "${label}"`);
     for (const m of text.matchAll(EXTERNAL_URL)) {
       if (inMap && isMapboxHost(hostOf(m[0]))) continue;
+      if (path === siteConfig && m[0].toLowerCase() === LEGAL_LINK_ORIGIN && !/^[\w./:-]/.test(text.slice(m.index + m[0].length))) continue;
       violations.push(`${rel(path)}: contains "hardcoded external URL" (${m[0]})`);
     }
     if (!inMap && MAPBOX_IMPORT.test(text)) violations.push(`${rel(path)}: imports mapbox-gl outside the map transport (shared/map/mapboxRuntime.ts)`);
@@ -149,6 +166,7 @@ export function checkNoNetwork({ loadEnv, appDir = process.cwd(), mapbox = false
         const url = m[0];
         const host = hostOf(url);
         if (allowedOrigins.includes(url.toLowerCase()) || inert(host)) continue;
+        if (url.toLowerCase() === LEGAL_LINK_ORIGIN && LEGAL_LINK_PATH.test(text.slice(m.index + url.length))) continue;
         if (mapHostsAllowed && isMapboxHost(host)) continue;
         if (mapChunk && MAPBOX_CHUNK_INERT_HOSTS.includes(host)) continue;
         violations.push(`${rel(path)}: reaches "${url}" (allowed: ${allowedOrigins.join(", ") || "none"})`);

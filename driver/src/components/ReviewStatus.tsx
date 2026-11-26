@@ -65,14 +65,14 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
       <div className="relative flex h-24 w-24 items-center justify-center">
         {!settled && (
           <>
-            <span className="absolute inset-2 animate-pulse-ring rounded-full bg-yellow/25" />
-            <span className="absolute inset-2 animate-pulse-ring rounded-full bg-yellow/25 [animation-delay:0.9s]" />
+            <span className="absolute inset-2 animate-pulse-ring rounded-full bg-brand/25" />
+            <span className="absolute inset-2 animate-pulse-ring rounded-full bg-brand/25 [animation-delay:0.9s]" />
           </>
         )}
         <span
           className={cn(
             "relative flex h-20 w-20 items-center justify-center rounded-full",
-            settled ? (status === "approved" ? "animate-check-pop bg-success text-bg" : "animate-check-pop bg-danger-fill text-white") : "bg-raised text-gold"
+            settled ? (status === "approved" ? "animate-check-pop bg-success text-bg" : "animate-check-pop bg-danger-fill text-white") : "bg-raised text-brand-ink"
           )}
         >
           {settled ? status === "approved" ? <Check className="h-9 w-9" /> : <X className="h-9 w-9" /> : <Clock className="h-8 w-8" />}
@@ -96,16 +96,16 @@ export function ReviewStatus({ reviewId, title, description, onApproved, onRejec
           return (
             <li key={s.key} className="flex flex-1 flex-col items-center gap-2" aria-current={current ? "step" : undefined}>
               <div className="flex w-full items-center">
-                <span className={cn("h-0.5 flex-1", i === 0 ? "opacity-0" : done || current ? "bg-yellow" : "bg-ink/10")} />
+                <span className={cn("h-0.5 flex-1", i === 0 ? "opacity-0" : done || current ? "bg-brand" : "bg-ink/10")} />
                 <span
                   className={cn(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                    done ? "bg-yellow text-on-yellow" : current ? "bg-raised text-gold ring-2 ring-yellow" : "bg-raised text-muted"
+                    done ? "bg-brand text-on-brand" : current ? "bg-raised text-brand-ink ring-2 ring-brand" : "bg-raised text-muted"
                   )}
                 >
                   <Icon className="h-4 w-4" />
                 </span>
-                <span className={cn("h-0.5 flex-1", i === STEPS.length - 1 ? "opacity-0" : i < active ? "bg-yellow" : "bg-ink/10")} />
+                <span className={cn("h-0.5 flex-1", i === STEPS.length - 1 ? "opacity-0" : i < active ? "bg-brand" : "bg-ink/10")} />
               </div>
               <span className="text-xs text-muted">{t(s.key)}</span>
             </li>

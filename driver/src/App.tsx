@@ -4,6 +4,7 @@ import { PhoneFrame } from "@/components/PhoneFrame";
 import { Toaster } from "@/components/Toaster";
 import { DEMO_MODE } from "@/config";
 import { RouteFallback } from "@/components/RouteFallback";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { ErrorState } from "@/components/ErrorState";
 import { useSession } from "@/stores/sessionStore";
 import { AppRoutes } from "./routes";
@@ -62,6 +63,7 @@ export default function App() {
           ) : (
             <RouteFallback />
           )}
+          <OfflineBanner />
           <div id="overlay-root" />
           <Toaster />
         </div>

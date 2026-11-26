@@ -10,7 +10,6 @@ const uz = {
   "preset.active": "Faol haydovchi",
   "preset.near_debt": "Qarz chegarasiga yaqin",
   "preset.debt": "Qarz chegarasida",
-  "preset.bonus": "Bonus faol (0%)",
   events: "Hodisalar",
   emitRequest: "Yangi so'rov yuborish",
   emitFull: "Yangi so'rov: barcha tafsilotlar",
@@ -27,6 +26,10 @@ const uz = {
   resetTitle: "Hammasini tiklaysizmi?",
   resetDesc: "Barcha namunaviy ma'lumotlar boshlang'ich holatga qaytadi.",
   applied: "Holat qo'llandi",
+  minimal: "Minimal server ma'lumoti",
+  minimalHint: "Haqiqiy backend hozir yubormaydigan maydonlarsiz (vaqt, yo'lovchi, ETA, kutish, xulosa)",
+  uiGallery: "UI namunalari",
+  uiGalleryHint: "Yangi dizayn komponentlari va holatlar",
 };
 
 export type TestPanelKey = keyof typeof uz;
@@ -39,7 +42,6 @@ const ru: Record<TestPanelKey, string> = {
   "preset.active": "Активный водитель",
   "preset.near_debt": "Близко к лимиту долга",
   "preset.debt": "На лимите долга",
-  "preset.bonus": "Бонус активен (0%)",
   events: "События",
   emitRequest: "Отправить новый запрос",
   emitFull: "Новый запрос: все детали",
@@ -56,6 +58,10 @@ const ru: Record<TestPanelKey, string> = {
   resetTitle: "Сбросить всё?",
   resetDesc: "Все примерные данные вернутся к исходному состоянию.",
   applied: "Состояние применено",
+  minimal: "Минимум данных с сервера",
+  minimalHint: "Без полей, которых реальный бэкенд пока не присылает (время, пассажир, ETA, ожидание, итог)",
+  uiGallery: "Образцы UI",
+  uiGalleryHint: "Компоненты нового дизайна и состояния",
 };
 
 const en: Record<TestPanelKey, string> = {
@@ -66,7 +72,6 @@ const en: Record<TestPanelKey, string> = {
   "preset.active": "Active driver",
   "preset.near_debt": "Close to debt limit",
   "preset.debt": "At debt limit",
-  "preset.bonus": "Bonus active (0%)",
   events: "Events",
   emitRequest: "Send a new request",
   emitFull: "New request: all details",
@@ -83,6 +88,10 @@ const en: Record<TestPanelKey, string> = {
   resetTitle: "Reset everything?",
   resetDesc: "All sample data returns to its starting state.",
   applied: "State applied",
+  minimal: "Minimal server data",
+  minimalHint: "Without the fields the real backend doesn't send yet (time, passenger, ETA, waiting, summary)",
+  uiGallery: "UI samples",
+  uiGalleryHint: "New design components and states",
 };
 
 const TEXT: Record<Locale, Record<TestPanelKey, string>> = { uz, ru, en };

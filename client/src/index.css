@@ -1,5 +1,6 @@
 @import "./design/fonts.css";
 @import "./design/tokens.css";
+@import "./design/tokens-v2.css";
 @import "./design/ios.css";
 
 @tailwind base;
@@ -28,7 +29,6 @@
   }
   body {
     font-family: var(--font-sans);
-    font-feature-settings: "cv11", "tnum" 0;
     -webkit-font-smoothing: antialiased;
   }
   h1,
@@ -74,6 +74,16 @@
      for the home indicator). */
   .scroll-pb-bar {
     padding-bottom: calc(16px + var(--fab-clearance-bar, 0px));
+  }
+  /* Keyboard open (design v2 Kb* screens): a block marked kb-collapse
+     steps aside unless the focused field is inside it, so the field being
+     typed in and the main button stay visible above the keyboard. */
+  html[data-kb="open"] .kb-collapse:not(:focus-within) {
+    display: none;
+  }
+  /* Textareas that grow with their text (where supported). */
+  .field-sizing-content {
+    field-sizing: content;
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;

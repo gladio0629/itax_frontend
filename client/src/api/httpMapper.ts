@@ -17,6 +17,7 @@ import type {
   OrderWithDetails,
   PassengerWalletEntry,
   PaymentMethod,
+  PayMethod,
   Profile,
   Quote,
   QuoteLine,
@@ -195,7 +196,7 @@ export function toUiTiming(o: Pick<Api.Order, "scheduled_at" | "scheduled_from" 
 
 /** The UI knows cash and card; wallet / Payme / Click are card-like. */
 export const toUiPayment = (p: Api.PaymentMethod): PaymentMethod => (p === "cash" ? "cash" : "card");
-export const toApiPayment = (p: PaymentMethod): Api.PaymentMethod => p;
+export const toApiPayment = (p: PayMethod): Api.PaymentMethod => p;
 
 /** A GeoPoint shown where the UI expects a city: its address text. */
 export function placeAsCity(point: Api.GeoPoint): City {
@@ -241,6 +242,16 @@ const CANCEL_REASON_KEY: Record<string, string> = {
 };
 
 /** `points`: the adapter's ids for the order's from/to (its address book). */
+/** Only an https link is opened in the browser. */
+function httpsUrl(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  try {
+    return new URL(v).protocol === "https:" ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function toUiOrder(o: Api.Order, extra: { rating?: number; fromAddressId?: string; toAddressId?: string } = {}): OrderWithDetails {
   const seatIds = o.seat_ids?.length ? [...o.seat_ids] : Array.from({ length: o.seats ?? 0 }, (_, i) => `seat-${i + 1}`);
   const perSeat = o.type === "passenger" && (o.seat_ids?.length || o.seats);
@@ -270,6 +281,8 @@ export function toUiOrder(o: Api.Order, extra: { rating?: number; fromAddressId?
     canCancel: o.can_cancel === true,
     driverArrived: o.status === "arrived",
     priceLines: o.price_lines?.length ? o.price_lines.map(toUiLine) : undefined,
+    // Not in the contract yet (backend-gaps/client.md, Payme / Click): used if present.
+    paymentUrl: httpsUrl((o as { payment?: { redirect_url?: unknown } }).payment?.redirect_url),
     extras: {
       fromAddressId: extra.fromAddressId ?? "",
       toAddressId: extra.toAddressId ?? "",
@@ -317,13 +330,13 @@ const RATING_REASON: Record<string, Api.RatingReasonKind> = {
   "history.reason.comfort": "comfort",
   "history.reason.simple": "just_because",
 };
+/** RatingInput keeps one reason, and only with 5 stars. A comment goes as
+ * the "custom" reason (it says the most); otherwise the first known chip. */
 export function toApiRating(stars: number, reasons: string[] = [], note?: string): Api.RatingInput {
   if (stars !== 5) return { stars };
-  for (const r of reasons) {
-    if (RATING_REASON[r]) return { stars, reason: { kind: RATING_REASON[r] } };
-    const text = note?.trim();
-    if (r === "other" && text) return { stars, reason: { kind: "custom", custom_text: text.slice(0, 200) } };
-  }
+  const text = note?.trim();
+  if (text) return { stars, reason: { kind: "custom", custom_text: text.slice(0, 200) } };
+  for (const r of reasons) if (RATING_REASON[r]) return { stars, reason: { kind: RATING_REASON[r] } };
   return { stars, reason: { kind: "just_because" } };
 }
 

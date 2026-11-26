@@ -1,12 +1,13 @@
 // Mock adapter: the only place with business rules (commission, debt limit,
-// which requests a driver sees, seats, first-accept-wins, trip stages, bonus
-// levels, filtering, pagination). Screens never compute any of this.
+// which requests a driver sees, seats, first-accept-wins, trip stages,
+// filtering, pagination). Screens never compute any of this.
 import { CITIES, computePrice, roadDistanceKm } from "@/seed/generate";
 import { withLatency, ApiError } from "@/mockDb/latency";
+import { getTestNetwork } from "@/stores/testControlsStore";
 import {
-  BASE_COMMISSION_PCT, BONUS_LEVELS, CAR_COLORS, CAR_MODELS, DEBT_LIMIT, DEBT_NEAR_RATIO,
-  CHILD_SEAT_AGES, DEFAULT_CAPABILITIES, TIP_AMOUNTS, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor,
-  levelFor, passengers, persist, presetState, pushNotification, replaceState, state, weekTrips,
+  BASE_COMMISSION_PCT, CAR_BRANDS, CAR_COLORS, DEBT_LIMIT, DEBT_NEAR_RATIO, LICENSE_CATEGORIES, REVIEW_ETA_MIN,
+  BODY_SIZES, CARGO_BODIES, DEFAULT_CAPABILITIES, TIP_AMOUNTS, appendLedger, carClassFor, cargoBodyFor, cityName, cityRef, genId, ledgerFor,
+  LOADER_FEE, OFFER_WINDOW_SEC, passengers, persist, WAIT_FREE_MIN, WAIT_PRICE_PER_MIN, presetState, pushNotification, replaceState, state,
   type BookingRecord, type DetailsRecord, type DriverState, type RequestRecord, type StopRecord, type TripRecord, type WhenRecord,
 } from "@/mockDb/driverDb";
 import { makeRng } from "@/lib/prng";
@@ -14,13 +15,22 @@ import { offsetPoint } from "@shared/map/geo";
 import { groupDigits } from "@/lib/format";
 import type { ApiAdapter } from "../adapterTypes";
 import type {
-  AcceptBlock, AcceptedPage, BonusInfo, Booking, BookingDay, CapabilitiesInput, DebtState, TestOrderVariant, TestPreset, Direction,
+  DocSlot, HistorySummary, RegistrationReview, SeatPosition,
+  AcceptBlock, AcceptedPage, Booking, BookingDay, CapabilitiesInput, DebtState, TestOrderVariant, TestPreset, Direction,
   DriverCapabilities, DriverProfile, FeedPage, FeedQuery, HistoryItem, HistoryPage, HomeSummary, LedgerPage, OfferPlace,
-  OrderExtras, OrderKind, OrderOption, PassengerInfo, Place, RequestAlert, ReviewKind, ReviewRequest, RideRequest, RoutesPage,
+  OrderExtras, OrderKind, PassengerInfo, Place, RequestAlert, ReviewKind, ReviewRequest, RideRequest, RoutesPage,
   TopupOptions, TripChat, TripDetail, TripPlace, TripStage, TripStep, TripSummary, TripWhen, WalletSummary,
 } from "../types";
 
 const TEST_OTP = "0000";
+const DOC_FILE_NAME: Record<DocSlot, string> = {
+  license_front: "guvohnoma_old",
+  license_back: "guvohnoma_orqa",
+  tech_passport_front: "texpasport_old",
+  tech_passport_back: "texpasport_orqa",
+  car_photo: "mashina",
+  selfie: "selfi",
+};
 const LEDGER_PAGE_SIZE = 12;
 const STAGES: TripStage[] = ["to_pickup", "waiting", "in_progress", "completed"];
 const CANCEL_REASONS = ["cancel.reason.passengerNoShow", "cancel.reason.wrongAddress", "cancel.reason.carIssue", "cancel.reason.passengerAsked", "cancel.reason.other"];
@@ -41,7 +51,7 @@ const ADDR: Record<string, string[]> = {
 const COMMENTS = [
   "Darvoza oldida kutib turing, iltimos.",
   "Yo'lda dorixonaga 5 daqiqaga to'xtaymiz.",
-  "Konditsionerni yoqib qo'ying, iltimos.",
+  "Darvoza oldida kutib turaman.",
   "Telefonim o'chib qolishi mumkin, podyezd oldida turaman.",
   "Ertalab erta chiqsak yaxshi bo'lardi.",
 ];
@@ -66,15 +76,30 @@ const rand = makeRng(Date.now() % 1_000_000);
 
 // ---------- derived values ----------
 
-function commissionPctNow(s: DriverState) {
-  return levelFor(weekTrips(s)).commissionPct;
-}
-
 function debtState(s: DriverState): DebtState {
   const debtAmount = Math.max(0, -s.balance);
   const usedRatio = Math.min(1, debtAmount / -DEBT_LIMIT);
   const level = s.balance <= DEBT_LIMIT ? "blocked" : usedRatio >= DEBT_NEAR_RATIO ? "near" : "ok";
-  return { level, balance: s.balance, limit: DEBT_LIMIT, debtAmount, usedRatio };
+  return {
+    level,
+    balance: s.balance,
+    limit: DEBT_LIMIT,
+    debtAmount,
+    usedRatio,
+    // Sample server figures: room left, and what to pay when blocked.
+    headroom: Math.max(0, s.balance - DEBT_LIMIT),
+    minToUnblock: level === "blocked" ? DEBT_LIMIT - s.balance + 1_000 : undefined,
+    recommendedTopup: level === "ok" ? undefined : 100_000,
+  };
+}
+
+/** Sample: net earnings of the last 7 days and the change against the 7 days before. */
+function weekEarnings(s: DriverState) {
+  const now = Date.now();
+  const sum = (from: number, to: number) => s.trips.filter((t) => t.status === "completed" && endedAt(t) >= from && endedAt(t) < to).reduce((a, t) => a + t.net, 0);
+  const cur = sum(now - 7 * DAY, now + 1);
+  const prev = sum(now - 14 * DAY, now - 7 * DAY);
+  return { earnings: cur, changePct: prev > 0 ? Math.round(((cur - prev) / prev) * 100) : undefined };
 }
 
 function startOfToday() {
@@ -115,16 +140,28 @@ function homeSummary(s: DriverState): HomeSummary {
     unreadNotifications: s.notifications.filter((n) => !n.read).length,
     debt,
     canAcceptOrders: debt.level !== "blocked",
-    bonusActive: commissionPctNow(s) < BASE_COMMISSION_PCT,
     // Muting "Yangi buyurtmalar" silences the badge too.
     newRequests: s.prefs.master && s.prefs.newOrders ? s.requests.filter((r) => r.postedAt > s.feedSeenAt && isVisible(s, r, now) && !isTaken(r, now)).length : 0,
+    ...(lean()
+      ? {}
+      : {
+          // Sample: time on today's trips, and the last seven days' earnings.
+          todayWorkMin: Math.min(today.reduce((sum, t) => sum + t.durationMin, 0), Math.floor((now - startOfToday()) / 60_000)),
+          week: Array.from({ length: 7 }, (_, i) => {
+            const start = dayStartAt(i - 6);
+            const end = start + DAY;
+            const amount = s.trips.filter((t) => t.status === "completed" && endedAt(t) >= start && endedAt(t) < end).reduce((sum, t) => sum + t.net, 0);
+            return { date: isoDate(start), amount };
+          }),
+        }),
   };
 }
 
 function passengerInfo(id: string): PassengerInfo {
   const p = passengers.find((x) => x.id === id) ?? passengers[0];
   const tail = p.phoneMasked.slice(-2);
-  return { name: p.name, rating: p.rating, phoneMasked: `+998 ** *** ** ${tail}`, avatarSeed: p.avatarSeed };
+  // Sample data: a placeholder dialable number (the real one would be a masked-call proxy from the server).
+  return { name: p.name, rating: p.rating, phoneMasked: `+998 ** *** ** ${tail}`, avatarSeed: p.avatarSeed, callNumber: "+998000000000" };
 }
 
 /** Before acceptance the intercom code is withheld — only its existence is shown. */
@@ -180,16 +217,14 @@ function extras<P extends Place>(o: RequestRecord, place: (cityId: string, addre
     carClass: o.carClass,
     stops: o.stops.map((st) => place(st.cityId, st.address, st.details)),
     comment: o.comment,
-    options: o.options.map((x) => ({ ...x })),
     luggageCount: o.luggageCount,
     forOther: o.forOtherName ? { name: accepted ? o.forOtherName : o.forOtherName.split(" ")[0] } : null,
-    contactMode: o.options.some((x) => x.kind === "text_only") ? "text" : "call",
     freight: f
       ? {
           ...f,
           body: { ...f.body },
-          sender: accepted ? { ...f.sender } : { name: f.sender.name.split(" ")[0], phoneMasked: "" },
-          receiver: accepted ? { ...f.receiver } : { name: f.receiver.name.split(" ")[0], phoneMasked: "" },
+          sender: accepted ? { ...f.sender, callNumber: "+998000000000" } : { name: f.sender.name.split(" ")[0], phoneMasked: "" },
+          receiver: accepted ? { ...f.receiver, callNumber: "+998000000000" } : { name: f.receiver.name.split(" ")[0], phoneMasked: "" },
         }
       : null,
   };
@@ -200,7 +235,7 @@ function toWhen(w: WhenRecord): TripWhen {
 }
 
 function earningsOf(s: DriverState, price: number) {
-  const pct = commissionPctNow(s);
+  const pct = BASE_COMMISSION_PCT;
   return { net: price - Math.round((price * pct) / 100), commissionPct: pct };
 }
 
@@ -263,46 +298,30 @@ function routesPage(s: DriverState): RoutesPage {
 // ---------- capabilities ----------
 
 function capsOf(s: DriverState): CapabilitiesInput {
-  s.capabilities ??= { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
+  s.capabilities ??= { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
   return s.capabilities;
 }
 
 function toCapabilities(s: DriverState): DriverCapabilities {
   const c = capsOf(s);
   return {
-    childSeat: c.childSeat,
-    childSeatAges: [...c.childSeatAges],
-    ageGroups: [...CHILD_SEAT_AGES],
-    pets: c.pets,
-    bigLuggage: c.bigLuggage,
+    bodySizes: [...c.bodySizes],
+    availableBodySizes: [...BODY_SIZES],
+    loaderHelp: c.loaderHelp,
     carModel: s.profile.car.model,
     carClass: carClassFor(s.profile.car.model),
-    cargoBody: { ...cargoBodyFor(s.profile.car.model) },
   };
 }
 
-/**
- * Age groups and the child-seat switch stay consistent: turning the seat on
- * with no group picks 1–4 (the most common seat); clearing the last group
- * turns the seat off. Groups are kept in display order.
- */
-function normalizeCapabilities(prev: CapabilitiesInput, input: CapabilitiesInput): CapabilitiesInput {
-  let ages = CHILD_SEAT_AGES.filter((a) => input.childSeatAges.includes(a));
-  let childSeat = !!input.childSeat;
-  if (childSeat && !ages.length) {
-    if (prev.childSeat) childSeat = false; // the last group was just cleared
-    else ages = ["toddler"];
-  }
-  return { childSeat, childSeatAges: ages, pets: !!input.pets, bigLuggage: !!input.bigLuggage };
+/** Sizes kept in display order; unknown sizes dropped. */
+function normalizeCapabilities(input: CapabilitiesInput): CapabilitiesInput {
+  return { bodySizes: BODY_SIZES.filter((x) => input.bodySizes.includes(x)), loaderHelp: !!input.loaderHelp };
 }
 
-/** A request reaches the driver only if their car can serve it (Imkoniyatlarim). */
+/** A request reaches the driver only if their car can serve it: passengers by car class, cargo by body size (Imkoniyatlarim). */
 function capsAllow(s: DriverState, r: RequestRecord) {
-  const c = capsOf(s);
-  if (r.carClass !== carClassFor(s.profile.car.model)) return false;
-  return r.options.every((o) =>
-    o.kind === "child_seat" ? c.childSeat && c.childSeatAges.includes(o.ageGroup) : o.kind === "pet" ? c.pets : o.kind === "big_luggage" ? c.bigLuggage : true
-  );
+  if (r.freight) return capsOf(s).bodySizes.includes(r.freight.body.sizeLabel);
+  return r.carClass === carClassFor(s.profile.car.model);
 }
 
 // ---------- the request market ----------
@@ -354,6 +373,10 @@ function acceptBlockFor(s: DriverState, r: RequestRecord, exceptReviewId?: strin
 }
 
 function toRequest(s: DriverState, r: RequestRecord, now: number): RideRequest {
+  return leanRequest(fullRequest(s, r, now));
+}
+
+function fullRequest(s: DriverState, r: RequestRecord, now: number): RideRequest {
   const pending = pendingAccepts(s).some((rv) => rv.payload?.requestId === r.id);
   return {
     ...extras(r, offerPlace, false),
@@ -365,6 +388,7 @@ function toRequest(s: DriverState, r: RequestRecord, now: number): RideRequest {
     kind: r.kind,
     seats: r.seats,
     wholeCar: r.wholeCar,
+    seatIds: sampleSeatIds(r),
     cargo: r.cargo,
     price: r.price,
     earnings: earningsOf(s, r.price),
@@ -376,7 +400,44 @@ function toRequest(s: DriverState, r: RequestRecord, now: number): RideRequest {
     status: isTaken(r, now) ? "taken" : "open",
     // While this driver's own accept is under review the card shows progress, not a block.
     acceptBlock: pending ? null : acceptBlockFor(s, r),
+    // A fresh offer has a short window to answer; older ones stay in the feed without a countdown.
+    expiresAt: r.postedAt + OFFER_WINDOW_SEC * 1000 > now ? r.postedAt + OFFER_WINDOW_SEC * 1000 : undefined,
+    requester: requesterOf(r.passengerId),
+    carSeats: SEATS_TOTAL,
+    priceLines: priceLinesOf(s, r),
   };
+}
+
+// ---------- "minimal server data" (test panel): what the real backend sends today ----------
+
+const lean = () => getTestNetwork().minimalData;
+function leanRequest(r: RideRequest): RideRequest {
+  if (!lean()) return r;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { expiresAt, requester, carSeats, priceLines, when, pickupDistanceKm, ...rest } = r;
+  return { ...rest, earnings: r.earnings && { net: r.earnings.net } };
+}
+function leanBooking(b: Booking): Booking {
+  if (!lean()) return b;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { passenger, when, earnings, eta, waiting, progress, ...rest } = b;
+  return rest;
+}
+
+function requesterOf(id: string) {
+  const p = passengers.find((x) => x.id === id) ?? passengers[0];
+  return { name: p.name.split(" ")[0], tripsCount: p.totalTrips, rating: p.rating };
+}
+
+/** Sample server breakdown: trip (+ loaders for cargo), then commission. */
+function priceLinesOf(s: DriverState, r: { price: number; freight: RequestRecord["freight"] }) {
+  const { net, commissionPct } = earningsOf(s, r.price);
+  const loaders = r.freight ? r.freight.loaders * LOADER_FEE : 0;
+  return [
+    { key: "trip", amount: r.price - loaders },
+    ...(loaders ? [{ key: "loaders", amount: loaders }] : []),
+    { key: "commission", amount: net - r.price, pct: commissionPct },
+  ];
 }
 
 function flatDetails(withIntercom: boolean): DetailsRecord {
@@ -407,17 +468,10 @@ function makeWhen(dayOffset: number, now: number): WhenRecord {
   return { dayStart, time: { kind: "any" } };
 }
 
-/** Options only from what the driver's car offers (plus the universal ones). */
-function passengerOptions(s: DriverState, full: boolean): OrderOption[] {
-  const c = capsOf(s);
-  const out: OrderOption[] = [];
-  if (c.childSeat && c.childSeatAges.length && (full || rand.bool(0.15))) out.push({ kind: "child_seat", ageGroup: full ? c.childSeatAges[0] : rand.pick(c.childSeatAges) });
-  if (c.pets && (full || rand.bool(0.1))) out.push({ kind: "pet" });
-  if (c.bigLuggage && (full || rand.bool(0.2))) out.push({ kind: "big_luggage" });
-  if (full || rand.bool(0.05)) out.push({ kind: "wheelchair" });
-  if (full || rand.bool(0.08)) out.push({ kind: "text_only" });
-  return out;
-}
+const SAMPLE_SEATS: SeatPosition[] = ["back-left", "back-right", "front", "back-mid"];
+/** Sample: which seats a passenger booked (the server's `seat_ids`). */
+const sampleSeatIds = (r: { kind: OrderKind; wholeCar: boolean; seats: number }): SeatPosition[] | undefined =>
+  r.kind === "passengers" && !r.wholeCar && r.seats > 0 ? SAMPLE_SEATS.slice(0, r.seats) : undefined;
 
 type MakeOpts = { variant?: TestOrderVariant; dayOffset?: number; direction?: Direction; postedAt?: number; seats?: number; neverTaken?: boolean };
 
@@ -469,7 +523,6 @@ function makeRequest(s: DriverState, opts: MakeOpts = {}): RequestRecord | null 
       pickupDetails: full || rand.bool(0.6) ? flatDetails(full || rand.bool(0.7)) : undefined,
       stops: (full || rand.bool(0.2)) && stopAddr.length ? [{ cityId: to, address: rand.pick(stopAddr) }] : [],
       comment: full ? "Bolam bilan chiqaman, 5 daqiqa kutib turing, iltimos." : rand.bool(0.4) ? rand.pick(COMMENTS) : null,
-      options: passengerOptions(s, full),
       luggageCount: full ? 2 : rand.int(0, 3),
       forOtherName: full || rand.bool(0.15) ? rand.pick(others).name : null,
       freight: null,
@@ -487,17 +540,18 @@ function makeRequest(s: DriverState, opts: MakeOpts = {}): RequestRecord | null 
     dropoffDetails: demo || rand.bool(0.5) ? flatDetails(false) : undefined,
     stops,
     comment: demo ? "Qutilarda idish-tovoq bor, ehtiyot bo'ling. Lift ishlamaydi." : rand.bool(0.3) ? "Qutilar og'ir emas, lekin sinadigan narsalar bor." : null,
-    options: [],
     luggageCount: 0,
     forOtherName: null,
     freight: {
       tab: demo ? "kargo" : rand.pick(["dostavka", "kargo"] as const),
-      body: cargoBodyFor(s.profile.car.model),
+      // Sample: a body the driver takes (any size when none is picked).
+      body: { ...CARGO_BODIES[rand.pick(capsOf(s).bodySizes.length ? capsOf(s).bodySizes : BODY_SIZES)] },
       loaders: demo ? 2 : rand.int(0, 2),
       billing: hourly ? { mode: "hourly", hours: demo ? 3 : rand.int(2, 4) } : { mode: "route" },
       sender: { name: sender.name, phoneMasked: passengerInfo(sender.id).phoneMasked },
       receiver: { name: receiver.name, phoneMasked: passengerInfo(receiver.id).phoneMasked },
       rideAlong: demo || rand.bool(0.3),
+      insured: demo || rand.bool(0.5),
     },
   };
 }
@@ -605,6 +659,10 @@ function feedPage(s: DriverState, q: FeedQuery): FeedPage {
 // ---------- bookings (accepted requests) ----------
 
 function toBooking(s: DriverState, b: BookingRecord): Booking {
+  return leanBooking(fullBooking(s, b));
+}
+
+function fullBooking(s: DriverState, b: BookingRecord): Booking {
   return {
     ...extras(b, tripPlace, true),
     id: b.id,
@@ -620,12 +678,40 @@ function toBooking(s: DriverState, b: BookingRecord): Booking {
     kind: b.kind,
     seats: b.seats,
     wholeCar: b.wholeCar,
+    seatIds: sampleSeatIds(b),
     cargo: b.cargo,
     price: b.price,
     earnings: earningsOf(s, b.price),
     payment: b.payment,
     acceptedAt: b.acceptedAt,
+    ...liveOf(b, Date.now()),
   };
+}
+
+/** Sample server trip data: ETA to the pickup, the waiting clock and charge, progress on the way. */
+function liveOf(b: BookingRecord, now: number): Pick<Booking, "eta" | "waiting" | "progress"> {
+  if (b.stage === "to_pickup") {
+    const km = b.pickupDistanceKm ?? 3;
+    return { eta: { minutes: Math.max(1, Math.round(km * 2.4)), distanceKm: km } };
+  }
+  if (b.stage === "waiting") {
+    const over = Math.max(0, Math.ceil((now - b.stageStartedAt) / 60_000) - WAIT_FREE_MIN);
+    return { waiting: { arrivedAt: b.stageStartedAt, freeMinutes: WAIT_FREE_MIN, pricePerMinute: WAIT_PRICE_PER_MIN, charge: over * WAIT_PRICE_PER_MIN, passengerNotified: true } };
+  }
+  const total = Math.max(1, b.durationMin) * 60_000;
+  const ratio = Math.min(1, Math.max(0, (now - b.stageStartedAt) / total));
+  const next = b.stops[0] ? tripPlace(b.stops[0].cityId, b.stops[0].address, b.stops[0].details) : tripPlace(b.toCityId, b.dropoffAddr, b.dropoffDetails);
+  return {
+    progress: { startedAt: b.stageStartedAt, nextStop: next, arriveAt: b.stageStartedAt + total, remainingKm: Math.round(b.distanceKm * (1 - ratio)), ratio },
+    eta: { minutes: Math.round((total * (1 - ratio)) / 60_000), distanceKm: Math.round(b.distanceKm * (1 - ratio)) },
+  };
+}
+
+const ACTIVE_RANK = { waiting: 0, to_pickup: 1, in_progress: 2 } as const;
+/** Sample server order: the earliest day first, then whoever waits, then the next pickup, then the drop-offs. */
+function activeBookingOf(s: DriverState): string | undefined {
+  const sorted = [...s.bookings].sort((a, b) => a.when.dayStart - b.when.dayStart || ACTIVE_RANK[a.stage] - ACTIVE_RANK[b.stage] || startOf(a) - startOf(b));
+  return sorted[0]?.id;
 }
 
 function bookingFrom(r: RequestRecord, now: number): BookingRecord {
@@ -654,7 +740,7 @@ function acceptedPage(s: DriverState): AcceptedPage {
     }
     trip.bookings.push(toBooking(s, b));
   }
-  return { days: [...days.values()], count: s.bookings.length };
+  return { days: [...days.values()], count: s.bookings.length, activeBookingId: activeBookingOf(s) };
 }
 
 function tripRecordOf(b: BookingRecord, patch: Partial<TripRecord>): TripRecord {
@@ -662,18 +748,17 @@ function tripRecordOf(b: BookingRecord, patch: Partial<TripRecord>): TripRecord 
     id: b.id, createdAt: b.acceptedAt, fromCityId: b.fromCityId, toCityId: b.toCityId, pickupAddr: b.pickupAddr,
     dropoffAddr: b.dropoffAddr, distanceKm: b.distanceKm, durationMin: b.durationMin, passengerId: b.passengerId,
     kind: b.kind, passengers: b.kind === "passengers" ? b.seats : undefined, cargo: b.cargo, payment: b.payment,
-    gross: 0, commissionPct: 0, commission: 0, bonusDiscount: 0, net: 0, ratingReceived: null, status: "completed",
+    gross: 0, commissionPct: 0, commission: 0, net: 0, ratingReceived: null, status: "completed",
     timeline: b.timeline, ...patch,
   };
 }
 
 function finishBooking(s: DriverState, b: BookingRecord): TripSummary {
-  const pct = commissionPctNow(s);
+  const pct = BASE_COMMISSION_PCT;
   const commission = Math.round((b.price * pct) / 100);
-  const baseCommission = Math.round((b.price * BASE_COMMISSION_PCT) / 100);
   const rating = rand.bool(0.8) ? 5 : 4;
   const record = tripRecordOf(b, {
-    gross: b.price, commissionPct: pct, commission, bonusDiscount: baseCommission - commission, net: b.price - commission,
+    gross: b.price, commissionPct: pct, commission, net: b.price - commission,
     ratingReceived: rating, status: "completed", timeline: [...b.timeline, { stage: "completed", at: Date.now() }],
   });
   s.trips.unshift(record);
@@ -684,13 +769,14 @@ function finishBooking(s: DriverState, b: BookingRecord): TripSummary {
     tripId: b.id,
     gross: b.price,
     commissionPct: pct,
-    baseCommissionPct: BASE_COMMISSION_PCT,
     commission,
-    baseCommission,
-    commissionWaived: pct < BASE_COMMISSION_PCT,
     net: record.net,
     ratingReceived: rating,
     payment: b.payment,
+    cashToCollect: b.payment === "cash" ? b.price : undefined,
+    passengerName: passengerInfo(b.passengerId).name.split(" ")[0],
+    destination: cityName(b.toCityId),
+    passengerRating: null,
   };
   s.summaries = { ...Object.fromEntries(Object.entries(s.summaries).slice(-4)), [b.id]: summary };
   s.bookings = s.bookings.filter((x) => x.id !== b.id);
@@ -701,8 +787,7 @@ function finishBooking(s: DriverState, b: BookingRecord): TripSummary {
 
 function chatOf(b: BookingRecord) {
   if (!b.chat) {
-    const textOnly = b.options.some((o) => o.kind === "text_only");
-    b.chat = textOnly ? [{ id: genId("msg"), from: "passenger", at: b.acceptedAt + 15_000, textKey: "chat.pax.hello" }] : [];
+    b.chat = [];
   }
   return b.chat;
 }
@@ -712,7 +797,7 @@ function toChat(b: BookingRecord): TripChat {
   return {
     tripId: b.id,
     peerName: passengerInfo(b.passengerId).name,
-    textOnly: b.options.some((o) => o.kind === "text_only"),
+    textOnly: false,
     // A scheduled reply stays hidden until its time comes.
     messages: chatOf(b).filter((m) => m.at <= now).map((m) => ({ ...m })),
     quickReplies: QUICK_REPLIES[b.stage],
@@ -889,7 +974,6 @@ export const mockAdapter: ApiAdapter = {
     history: true,
     historyFilters: true,
     profileMatching: true,
-    bonus: true,
     help: true,
     driverCapabilities: true,
     profileChangePhone: true,
@@ -899,6 +983,10 @@ export const mockAdapter: ApiAdapter = {
     notificationCategories: true,
     // Sample data has no server to report GPS to.
     locationReporting: false,
+    ratePassenger: true,
+    sos: true,
+    deleteAccount: true,
+    registrationDetails: true,
   },
   subscribe: () => noop,
   onSessionEnd: () => noop,
@@ -913,7 +1001,7 @@ export const mockAdapter: ApiAdapter = {
   // Simulated picker: no real file, a local name "uploads" in under a second.
   uploadDocument: (slot) =>
     withLatency(() => {
-      const name = `${slot === "license" ? "guvohnoma" : slot === "registration" ? "texpasport" : "selfi"}_${Math.floor(1000 + Math.random() * 9000)}.jpg`;
+      const name = `${DOC_FILE_NAME[slot]}_${Math.floor(1000 + Math.random() * 9000)}.jpg`;
       return { ref: name, name };
     }, { minMs: 500, maxMs: 800, noFail: true }),
 
@@ -926,9 +1014,13 @@ export const mockAdapter: ApiAdapter = {
   getRegistrationOptions: () =>
     withLatency(() => ({
       cities: CITIES.map((c) => ({ id: c.id, name: c.name })),
-      carModels: CAR_MODELS,
+      carBrands: CAR_BRANDS.map((b) => ({ brand: b.brand, models: [...b.models] })),
       carColors: CAR_COLORS,
       years: Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - i),
+      seatCounts: [1, 2, 3, 4, 5, 6, 7],
+      carClasses: ["economy", "comfort", "business", "minivan"],
+      serviceTypes: ["passengers", "delivery"],
+      licenseCategories: [...LICENSE_CATEGORIES],
       platePattern: "01 A 123 BC",
     })),
 
@@ -945,44 +1037,78 @@ export const mockAdapter: ApiAdapter = {
       return submitForReview("otp_verify", { phone: requestId.split(":")[1] ?? "" }, [900, 1400]);
     }),
 
-  savePersonal: ({ name, cityId }) =>
+  savePersonal: ({ firstName, lastName, birthDate, cityId, referralCode }) =>
     withLatency(() => {
       const s = state();
-      if (name.trim().split(/\s+/).length < 2 || name.trim().length < 5) throw new ApiError("NAME_INVALID");
+      if (firstName.trim().length < 2 || lastName.trim().length < 2) throw new ApiError("NAME_INVALID");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) throw new ApiError("BIRTH_DATE_INVALID");
       if (!CITIES.some((c) => c.id === cityId)) throw new ApiError("CITY_REQUIRED");
-      s.draft = { ...s.draft, name: name.trim(), cityId };
+      const code = referralCode?.trim().toUpperCase();
+      if (code && !/^[A-Z0-9]{4,8}$/.test(code)) throw new ApiError("REFERRAL_INVALID");
+      s.draft = { ...s.draft, name: `${firstName.trim()} ${lastName.trim()}`, cityId, birthDate, referralCode: code || undefined };
+      s.session = { ...s.session, stage: "license" };
+      persist();
+      return { ...s.session };
+    }),
+
+  saveLicense: ({ number, issuedAt, expiresAt, categories, frontRef, backRef }) =>
+    withLatency(() => {
+      const s = state();
+      if (!frontRef || !backRef) throw new ApiError("DOCS_REQUIRED");
+      if (number.replace(/\s/g, "").length < 6) throw new ApiError("LICENSE_NUMBER_INVALID");
+      if (!issuedAt || !expiresAt) throw new ApiError("LICENSE_DATES_REQUIRED");
+      if (!categories.length) throw new ApiError("LICENSE_CATEGORY_REQUIRED");
+      s.draft = { ...s.draft, license: { number: number.trim().toUpperCase(), issuedAt, expiresAt, categories, frontRef, backRef } };
       s.session = { ...s.session, stage: "car" };
       persist();
       return { ...s.session };
     }),
 
-  saveCar: ({ model, colorKey, plate, year }) =>
+  saveCar: ({ brand, model, plate, year, seats, colorKey, carClass, serviceTypes, techPassportFrontRef, techPassportBackRef, carPhotoRef }) =>
     withLatency(() => {
       const s = state();
       const normalized = plate.toUpperCase().replace(/\s+/g, " ").trim();
+      if (!brand || !model) throw new ApiError("MODEL_REQUIRED");
       // Uzbek plates: "01 A 123 BC" (private) or "01 123 ABC" (company).
-      if (!model) throw new ApiError("MODEL_REQUIRED");
-      if (!CAR_COLORS.some((c) => c.key === colorKey)) throw new ApiError("COLOR_REQUIRED");
       if (!/^\d{2} ([A-Z] \d{3} [A-Z]{2}|\d{3} [A-Z]{3})$/.test(normalized)) throw new ApiError("PLATE_INVALID");
-      s.draft = { ...s.draft, car: { model, colorKey, plate: normalized, year } };
-      s.session = { ...s.session, stage: "documents" };
+      if (!CAR_COLORS.some((c) => c.key === colorKey)) throw new ApiError("COLOR_REQUIRED");
+      if (!serviceTypes.length) throw new ApiError("SERVICE_TYPE_REQUIRED");
+      if (!techPassportFrontRef || !techPassportBackRef || !carPhotoRef) throw new ApiError("DOCS_REQUIRED");
+      s.draft = { ...s.draft, car: { model: `${brand} ${model}`, colorKey, plate: normalized, year, seats, carClass, serviceTypes } };
+      s.session = { ...s.session, stage: "selfie" };
       persist();
       return { ...s.session };
     }),
 
-  submitDocuments: ({ licenseFile, registrationFile }) =>
+  submitRegistration: ({ selfieRef, acceptTerms }) =>
     withLatency(() => {
       const s = state();
-      if (!licenseFile || !registrationFile) throw new ApiError("DOCS_REQUIRED");
+      if (!acceptTerms) throw new ApiError("TERMS_REQUIRED");
+      if (!selfieRef) throw new ApiError("SELFIE_REQUIRED");
       s.profile.documents = [
-        { kind: "license", status: "auto_review", fileName: licenseFile },
-        { kind: "registration", status: "auto_review", fileName: registrationFile },
+        { kind: "license", status: "auto_review", fileName: s.draft.license?.frontRef },
+        { kind: "registration", status: "auto_review" },
       ];
-      const review = submitForReview("driver_registration", {}, [3000, 4000]);
+      const review = submitForReview("driver_registration", {}, [6000, 8000]);
       s.session = { ...s.session, stage: "review", documentsReviewId: review.id };
       persist();
       return review;
     }, { minMs: 400, maxMs: 700 }),
+
+  // Sample progress: the four sections pass one after another over the review's lifetime.
+  getRegistrationReview: () =>
+    withLatency(() => {
+      const s = state();
+      settleReviews(s);
+      const keys = ["personal", "license", "car", "selfie"] as const;
+      const r = s.reviews.find((x) => x.id === s.session.documentsReviewId);
+      const done = s.registered || !r ? 1 : Math.min(1, (Date.now() - r.createdAt) / Math.max(1, r.resolvesAt - r.createdAt));
+      const passed = done >= 1 ? 4 : Math.floor(done * 4);
+      return {
+        sections: keys.map((key, i) => ({ key, status: i < passed ? "approved" : i === passed ? "checking" : "queued" })),
+        etaMinutes: REVIEW_ETA_MIN,
+      } satisfies RegistrationReview;
+    }, { noFail: true }),
 
   logout: () =>
     withLatency(() => {
@@ -992,13 +1118,21 @@ export const mockAdapter: ApiAdapter = {
       return { ...s.session };
     }, { noFail: true }),
 
+  // Sample data: back to a fresh, unregistered driver.
+  deleteAccount: () =>
+    withLatency(() => {
+      replaceState(presetState("new"));
+      persist();
+      return { stage: "signed_out" as const };
+    }, { minMs: 500, maxMs: 800 }),
+
   getProfile: () =>
     withLatency<DriverProfile>(() => {
       const s = state();
       settleReviews(s);
       const p = s.profile;
       const color = CAR_COLORS.find((c) => c.key === p.car.colorKey) ?? CAR_COLORS[0];
-      return {
+      const out: DriverProfile = {
         id: p.id,
         name: p.name,
         phoneMasked: p.phoneMasked,
@@ -1010,7 +1144,13 @@ export const mockAdapter: ApiAdapter = {
         car: { model: p.car.model, color: color.key, colorHex: color.hex, plate: p.car.plate, year: p.car.year },
         documents: p.documents,
         memberSinceYear: p.memberSinceYear,
+        acceptancePct: 96,
       };
+      if (lean()) {
+        // GET /drivers/me today: no rating count, city, member-since, acceptance or document status.
+        return { ...out, ratingCount: undefined, city: undefined, memberSinceYear: undefined, acceptancePct: undefined, documents: [] };
+      }
+      return out;
     }),
 
   getHomeSummary: () => withLatency(() => {
@@ -1169,8 +1309,40 @@ export const mockAdapter: ApiAdapter = {
     withLatency(() => {
       const sum = state().summaries[bookingId];
       if (!sum) throw new ApiError("TRIP_NOT_FOUND");
+      if (lean()) throw new ApiError("NOT_SUPPORTED");
       return sum;
     }, { noFail: true }),
+
+  getRequest: (requestId) =>
+    withLatency(() => {
+      const s = state();
+      requireActive(s);
+      const now = Date.now();
+      const r = s.requests.find((x) => x.id === requestId);
+      if (!r || !isVisible(s, r, now)) throw new ApiError("REQUEST_NOT_FOUND");
+      return toRequest(s, r, now);
+    }, { minMs: 80, maxMs: 200 }),
+
+  getBooking: (bookingId) =>
+    withLatency(() => {
+      const s = state();
+      requireActive(s);
+      settleReviews(s);
+      const b = s.bookings.find((x) => x.id === bookingId);
+      if (!b) throw new ApiError("TRIP_NOT_FOUND");
+      return toBooking(s, b);
+    }, { minMs: 80, maxMs: 200 }),
+
+  ratePassenger: (bookingId, stars) =>
+    withLatency(() => {
+      const s = state();
+      if (!Number.isInteger(stars) || stars < 1 || stars > 5) throw new ApiError("VALUE_REQUIRED");
+      const sum = s.summaries[bookingId];
+      if (sum) s.summaries[bookingId] = { ...sum, passengerRating: stars };
+      persist();
+    }),
+
+  sendSos: () => withLatency(() => undefined, { minMs: 300, maxMs: 600, noFail: true }),
 
   getTripChat: (bookingId) =>
     withLatency(() => {
@@ -1211,9 +1383,28 @@ export const mockAdapter: ApiAdapter = {
         .filter((t) => inRange(endedAt(t), filter.range))
         .filter((t) => t.net >= filter.minEarnings)
         .filter((t) => !q || cityName(t.fromCityId).toLocaleLowerCase().includes(q) || cityName(t.toCityId).toLocaleLowerCase().includes(q))
+        .filter((t) => !filter.kind || t.kind === filter.kind)
         .sort((a, b) => b.createdAt - a.createdAt)
         .map(toHistoryItem);
-      return { items, total: items.length, filterOptions: { minEarnings: [0, 100_000, 200_000, 300_000], ranges: ["all", "today", "week", "month"] } };
+      // Sample server summary of the listed period; a bar per day for "7 kun".
+      const done = items.filter((x) => x.status === "completed");
+      const times = items.map((x) => x.createdAt);
+      const summary: HistorySummary | undefined = items.length
+        ? {
+            from: filter.range === "week" ? dayStartAt(-6) : filter.range === "today" ? dayStartAt(0) : filter.range === "month" ? dayStartAt(-29) : Math.min(...times),
+            to: Date.now(),
+            total: done.reduce((sum, x) => sum + x.earnings, 0),
+            trips: done.length,
+            days:
+              filter.range === "week"
+                ? Array.from({ length: 7 }, (_, i) => {
+                    const start = dayStartAt(i - 6);
+                    return { date: isoDate(start), amount: done.filter((x) => x.createdAt >= start && x.createdAt < start + DAY).reduce((sum, x) => sum + x.earnings, 0) };
+                  })
+                : undefined,
+          }
+        : undefined;
+      return { items, total: items.length, summary: lean() ? undefined : summary, filterOptions: { minEarnings: [0, 100_000, 200_000, 300_000], ranges: ["all", "today", "week", "month"] } };
     }),
 
   getTripDetail: (id) =>
@@ -1230,7 +1421,7 @@ export const mockAdapter: ApiAdapter = {
         passengers: t.passengers,
         cargo: t.cargo,
         timeline: t.timeline,
-        breakdown: { base: t.gross, commission: t.commission + t.bonusDiscount, commissionPct: BASE_COMMISSION_PCT, bonusDiscount: t.bonusDiscount, net: t.net },
+        breakdown: { base: t.gross, commission: t.commission, commissionPct: t.commissionPct, net: t.net },
         cancelReasonKey: t.cancelReasonKey,
       };
     }),
@@ -1241,14 +1432,20 @@ export const mockAdapter: ApiAdapter = {
       settleReviews(s);
       const today = todayTrips(s);
       const earnings = today.reduce((sum, t) => sum + t.net, 0);
-      const pct = commissionPctNow(s);
-      return {
+      const full: WalletSummary = {
         balance: s.balance,
         debt: debtState(s),
         today: { earnings, trips: today.length, avgPerTrip: today.length ? Math.round(earnings / today.length) : 0 },
-        commission: { pct: BASE_COMMISSION_PCT, bonusPct: pct, bonusActive: pct < BASE_COMMISSION_PCT },
+        commission: { pct: BASE_COMMISSION_PCT },
         cards: [...s.cards],
+        week: weekEarnings(s),
       };
+      if (lean()) {
+        // What GET /wallet/balance carries today: balance and the debt state only.
+        const d = debtState(s);
+        return { balance: s.balance, debt: { level: d.level, balance: d.balance, limit: d.limit, debtAmount: d.debtAmount, usedRatio: d.usedRatio } };
+      }
+      return full;
     }),
 
   getLedger: ({ type, range, page }) =>
@@ -1261,47 +1458,22 @@ export const mockAdapter: ApiAdapter = {
     }),
 
   getTopupOptions: () =>
-    withLatency<TopupOptions>(() => ({ presets: [10_000, 25_000, 50_000, 100_000], min: 5_000, max: 5_000_000, providers: ["payme", "click"] })),
+    withLatency<TopupOptions>(() =>
+      lean()
+        ? { presets: [], providers: ["payme", "click"] }
+        : { presets: [50_000, 100_000, 200_000, 500_000], min: 5_000, max: 5_000_000, providers: ["payme", "click"], savedCards: [...state().cards] }
+    ),
 
-  requestTopup: (amount, provider) =>
+  requestTopup: (amount, provider, cardId) =>
     withLatency(() => {
       if (!Number.isFinite(amount) || amount < 5_000) throw new ApiError("AMOUNT_TOO_SMALL");
       if (amount > 5_000_000) throw new ApiError("AMOUNT_TOO_LARGE");
-      return submitForReview("wallet_topup", { amount, provider });
+      const card = cardId ? state().cards.find((c) => c.id === cardId) : undefined;
+      if (cardId && !card) throw new ApiError("CARD_NOT_FOUND");
+      return submitForReview("wallet_topup", { amount, provider: card?.provider ?? provider });
     }, { minMs: 300, maxMs: 600 }),
 
   linkCard: (provider) => withLatency(() => submitForReview("card_link", { provider }), { minMs: 300, maxMs: 600 }),
-
-  getBonus: () =>
-    withLatency<BonusInfo>(() => {
-      const s = state();
-      const wt = weekTrips(s);
-      const current = levelFor(wt);
-      const idx = BONUS_LEVELS.findIndex((l) => l.key === current.key);
-      const next = BONUS_LEVELS[idx + 1] ?? null;
-      const top = BONUS_LEVELS[BONUS_LEVELS.length - 1];
-      const weekStart = Date.now() - 7 * 86_400_000;
-      const saved = s.trips.filter((t) => t.createdAt >= weekStart).reduce((sum, t) => sum + t.bonusDiscount, 0);
-      const cancels = s.trips.filter((t) => t.createdAt >= weekStart && t.status === "cancelled").length;
-      return {
-        active: current.commissionPct < BASE_COMMISSION_PCT,
-        currentLevel: { ...current, position: current.tripsRequired / top.tripsRequired, reached: true },
-        nextLevel: next ? { ...next, position: next.tripsRequired / top.tripsRequired, reached: false } : null,
-        levels: BONUS_LEVELS.map((l) => ({ ...l, position: l.tripsRequired / top.tripsRequired, reached: wt >= l.tripsRequired })),
-        weekTrips: wt,
-        progressRatio: Math.min(1, wt / top.tripsRequired),
-        tripsToNext: next ? next.tripsRequired - wt : 0,
-        commissionPct: current.commissionPct,
-        baseCommissionPct: BASE_COMMISSION_PCT,
-        rules: [
-          { key: "bonus.rule.trips", progress: Math.min(wt, top.tripsRequired), target: top.tripsRequired, done: wt >= top.tripsRequired, ratio: Math.min(1, wt / top.tripsRequired) },
-          { key: "bonus.rule.rating", progress: s.profile.rating, target: 4.8, done: s.profile.rating >= 4.8, ratio: Math.min(1, s.profile.rating / 4.8) },
-          { key: "bonus.rule.cancels", progress: cancels, target: 2, done: cancels < 2, ratio: cancels < 2 ? 1 : 0 },
-        ],
-        savedThisWeek: saved,
-        resetsInDays: 7 - new Date().getDay() || 7,
-      };
-    }),
 
   requestProfileChange: (field, value) =>
     withLatency(() => {
@@ -1347,8 +1519,7 @@ export const mockAdapter: ApiAdapter = {
   setCapabilities: (input) =>
     withLatency(() => {
       const s = state();
-      const prev = toCapabilities(s);
-      s.capabilities = normalizeCapabilities(prev, input);
+      s.capabilities = normalizeCapabilities(input);
       persist();
       return toCapabilities(s);
     }, { minMs: 120, maxMs: 260 }),
@@ -1432,7 +1603,7 @@ export const testControls = {
       if (s.balance > DEBT_LIMIT) {
         const d = directionsOf(s)[0];
         appendLedger("commission", DEBT_LIMIT - s.balance, "ledger.desc.commission", {
-          pct: commissionPctNow(s),
+          pct: BASE_COMMISSION_PCT,
           route: d ? `${d.from.name} – ${d.to.name}` : cityName(s.profile.cityId),
         });
       }

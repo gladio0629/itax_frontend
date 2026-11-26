@@ -18,6 +18,8 @@ import {
 import { makeRng } from "@/lib/prng";
 import { offsetPoint } from "@shared/map/geo";
 import type { ApiAdapter } from "../adapterTypes";
+import type { SeatLayout } from "../seatLayout";
+import { mockPassengerSeats, mockSeatIds, mockSeatLayouts } from "./seatLayouts.mock";
 import type {
   AddressDetails,
   AddressSearchResult,
@@ -29,19 +31,13 @@ import type {
   Warehouse,
   CarClass,
   CarClassId,
-  EmergencyContact,
-  EmergencyContacts,
   LuggageRules,
-  OptionVariants,
   PromoResult,
   Rider,
   TipOptions,
   TripShare,
-  CommentHint,
   OrderDetailsRules,
   OrderMode,
-  OrderOption,
-  OrderOptionId,
   RouteStop,
   ServiceType,
   CargoInput,
@@ -68,6 +64,7 @@ import type {
   QuoteLine,
   RouteSuggestion,
   SavedAddressInfo,
+  SavedPlaceKind,
   SavedCard,
   Seat,
   SeatPosition,
@@ -142,7 +139,10 @@ const CARGO_RULES: CargoRules = {
     { id: "body", labelKey: "kargo.info.body.chip" },
     { id: "insurance", labelKey: "kargo.info.insurance.chip" },
   ],
+  insurance: { available: true },
 };
+/** Sample insurance fee (the real one is the backend's, backend-gaps/client.md). */
+const CARGO_INSURANCE_FEE = 25_000;
 
 function rideAlongFor(vehicle: DeliveryVehicle, loaders: number): RideAlong {
   const seats = CARGO_VEHICLE[vehicle]?.cabSeats ?? 0;
@@ -175,7 +175,7 @@ function normalizeCargo(cargo: CargoInput | undefined): Required<Omit<CargoInput
     const r = rideAlongFor(c.vehicle, loaders);
     if (!r.available) throw new ApiError("CARGO_RIDE_ALONG", r.reasonKey ?? "order.quoteError");
   }
-  return { vehicle: c.vehicle, note: c.note, tab, loaders, pricingMode, hours, rideAlong };
+  return { vehicle: c.vehicle, note: c.note, tab, loaders, pricingMode, hours, rideAlong, insurance: !!c.insurance };
 }
 
 /** Distance between two points of the same city, from their map positions. */
@@ -223,6 +223,7 @@ function priceCargo(input: { fromAddressId: string; toAddressId: string; stops: 
   if (cargo.loaders > 0) {
     lines.push({ key: "quote.loaders", params: { n: cargo.loaders }, amount: cargo.loaders * CARGO_RULES.loaders.pricePerLoader });
   }
+  if (cargo.insurance) lines.push({ key: "quote.insurance", amount: CARGO_INSURANCE_FEE });
   return { cargo, directKm, routeKm, lines };
 }
 
@@ -246,47 +247,18 @@ const ORDER_DETAILS_RULES: OrderDetailsRules = {
   riderNameMaxLength: 40,
 };
 const STOP_FEE = 5_000;
-type OptionDef = Omit<OrderOption, "available" | "reasonKey"> & {
-  /** Classes that can't offer it, with the reason shown on the disabled row. */
-  notIn?: { classes: CarClassId[]; reasonKey: string };
-};
-const CHILD_SEAT_AGES = [
-  { id: "0_9m", labelKey: "option.child_seat.age.0_9m" },
-  { id: "9m_4y", labelKey: "option.child_seat.age.9m_4y" },
-  { id: "4_12y", labelKey: "option.child_seat.age.4_12y" },
-];
-const OPTION_DEFS: Record<ServiceType, OptionDef[]> = {
-  passenger: [
-    { id: "child_seat", titleKey: "option.child_seat", descKey: "option.child_seat.desc", price: 15_000, variants: CHILD_SEAT_AGES, defaultVariant: "9m_4y" },
-    { id: "pet", titleKey: "option.pet", descKey: "option.pet.desc", price: 20_000, notIn: { classes: ["biznes"], reasonKey: "option.reason.notInBiznes" } },
-    { id: "big_luggage", titleKey: "option.big_luggage", descKey: "option.big_luggage.desc", price: 10_000 },
-    { id: "find_car", titleKey: "option.find_car", descKey: "option.find_car.desc", price: 0 },
-    { id: "wheelchair", titleKey: "option.wheelchair", descKey: "option.wheelchair.desc", price: 0, notIn: { classes: ["standart", "komfort", "biznes"], reasonKey: "option.reason.minivenOnly" } },
-    { id: "text_only", titleKey: "option.text_only", descKey: "option.text_only.desc", price: 0 },
-  ],
-  delivery: [],
-};
-
-function orderOptions(serviceType: ServiceType, carClass: CarClassId = "standart"): OrderOption[] {
-  return OPTION_DEFS[serviceType].map(({ notIn, ...o }) => {
-    const blocked = !!notIn && notIn.classes.includes(carClass);
-    return { ...o, variants: o.variants?.map((v) => ({ ...v })), available: !blocked, reasonKey: blocked ? notIn!.reasonKey : undefined };
-  });
-}
-
 /** Car classes: a surcharge on the base fare, and when each can't be booked. */
 const CAR_CLASSES: Record<CarClassId, { nameKey: string; seats: number; surchargePct: number }> = {
   standart: { nameKey: "class.standart", seats: 4, surchargePct: 0 },
   komfort: { nameKey: "class.komfort", seats: 4, surchargePct: 25 },
   biznes: { nameKey: "class.biznes", seats: 4, surchargePct: 70 },
-  miniven: { nameKey: "class.miniven", seats: 6, surchargePct: 40 },
+  miniven: { nameKey: "class.miniven", seats: 7, surchargePct: 40 },
 };
 const CAR_CLASS_IDS = Object.keys(CAR_CLASSES) as CarClassId[];
 const BIZNES_MAX_KM = 700;
 
-function classAvailability(id: CarClassId, mode: OrderMode, directKm: number): string | undefined {
-  // The seat map has 4 seats; a 6-seat minivan is booked whole.
-  if (id === "miniven" && mode === "seat") return "class.reason.wholeCarOnly";
+function classAvailability(id: CarClassId, _mode: OrderMode, directKm: number): string | undefined {
+  // The minivan has its own seat map (getSeatLayouts), so it is booked per seat too.
   if (id === "biznes" && directKm > BIZNES_MAX_KM) return "class.reason.longRoute";
   return undefined;
 }
@@ -304,12 +276,8 @@ function loadTips() {
   return readJSON<Record<string, StoredTip>>(TIPS_KEY, {});
 }
 
-const EMERGENCY_KEY = "emergency_contacts";
-const EMERGENCY_MAX = 3;
-const SUPPORT_PHONE = "+998 71 200 00 00";
-function loadEmergency() {
-  return readJSON<EmergencyContact[]>(EMERGENCY_KEY, []);
-}
+/** Obviously fake sample numbers (owner, 2026-11-22): support is 01, drivers 02 and up. */
+const SUPPORT_PHONE = "+998 90 000 00 01";
 const LUGGAGE_MAX = 4;
 const PHONE_DIGITS = 9;
 /** "+998 90 123 45 67" → "901234567"; the country code is fixed. */
@@ -341,18 +309,6 @@ function luggageRules(route: { fromAddressId: string; toAddressId: string }) {
   return addressOf(route.fromAddressId).cityId !== addressOf(route.toAddressId).cityId ? { min: 0, max: LUGGAGE_MAX } : null;
 }
 
-/** Word-start stems per add-on, uz/ru/en. Matched against whole words so
- * "bolalar" and "ребёнком" hit but a stem in the middle of a word doesn't. */
-const HINT_STEMS: Partial<Record<OrderOptionId, { stems: string[]; messageKey: string }>> = {
-  child_seat: {
-    stems: ["bola", "farzand", "chaqaloq", "ребён", "ребен", "дети", "детей", "детьми", "детск", "малыш", "child", "kid", "baby", "toddler"],
-    messageKey: "hint.childSeat",
-  },
-  big_luggage: {
-    stems: ["velosiped", "velik", "chamadon", "sumka", "bagaj", "yuk", "велосипед", "велик", "чемодан", "сумк", "багаж", "bicycle", "bike", "suitcase", "luggage", "bag"],
-    messageKey: "hint.bigLuggage",
-  },
-};
 const SAVED_DETAILS_KEY = "saved_address_details";
 const SEEDED_SAVED_DETAILS: Record<string, AddressDetails> = {
   "smq-1": { entrance: "2", floor: "5", apartment: "18", intercom: "18K4927", note: "Sariq darvoza, bekat ro'parasida" },
@@ -361,6 +317,12 @@ const SEEDED_SAVED_DETAILS: Record<string, AddressDetails> = {
 /** The seeded saved addresses plus/minus what saveAddress /
  * removeSavedAddress changed (nothing, until a screen calls them). */
 const SAVED_CHANGES_KEY = "saved_address_changes";
+/** Name and kind the passenger gave a saved place (design v2). */
+const SAVED_META_KEY = "saved_address_meta";
+type SavedMeta = { name?: string; kind?: SavedPlaceKind };
+function savedMeta(): Record<string, SavedMeta> {
+  return readJSON<Record<string, SavedMeta>>(SAVED_META_KEY, {});
+}
 type SavedChanges = { added: string[]; removed: string[] };
 function savedChanges(): SavedChanges {
   return readJSON<SavedChanges>(SAVED_CHANGES_KEY, { added: [], removed: [] });
@@ -408,28 +370,6 @@ function validateStopsCount(count: number) {
   if (count > ORDER_DETAILS_RULES.maxStops) throw new ApiError("TOO_MANY_STOPS", "stops.tooMany");
 }
 
-function validateOptions(
-  serviceType: ServiceType,
-  carClass: CarClassId,
-  optionIds: OrderOptionId[] | undefined,
-  variants: OptionVariants | undefined
-): { optionIds: OrderOptionId[]; optionVariants: OptionVariants } {
-  const options = orderOptions(serviceType, carClass);
-  const ids = [...new Set(optionIds ?? [])];
-  const optionVariants: OptionVariants = {};
-  for (const id of ids) {
-    const o = options.find((x) => x.id === id);
-    if (!o) throw new ApiError("INVALID_OPTION", "order.quoteError");
-    if (!o.available) throw new ApiError("OPTION_UNAVAILABLE", o.reasonKey ?? "order.quoteError");
-    if (o.variants) {
-      const v = variants?.[id] ?? o.defaultVariant;
-      if (!o.variants.some((x) => x.id === v)) throw new ApiError("INVALID_OPTION", "order.quoteError");
-      optionVariants[id] = v;
-    }
-  }
-  return { optionIds: ids, optionVariants };
-}
-
 type PriceInput = {
   serviceType: ServiceType;
   fromAddressId: string;
@@ -438,8 +378,6 @@ type PriceInput = {
   mode: OrderMode;
   seatIds: string[];
   cargo?: CargoInput;
-  optionIds: OrderOptionId[];
-  optionVariants?: OptionVariants;
   carClass?: CarClassId;
   promoCode?: string;
 };
@@ -450,7 +388,6 @@ type PriceInput = {
 function priceOrder(input: PriceInput) {
   const carClass: CarClassId = input.serviceType === "passenger" ? input.carClass ?? "standart" : "standart";
   if (!CAR_CLASSES[carClass]) throw new ApiError("INVALID_CLASS", "order.quoteError");
-  const { optionIds, optionVariants } = validateOptions(input.serviceType, carClass, input.optionIds, input.optionVariants);
 
   let lines: QuoteLine[];
   let directKm: number;
@@ -490,9 +427,6 @@ function priceOrder(input: PriceInput) {
     if (detourKm > 0) {
       lines.push({ key: "quote.detour", params: { km: detourKm }, amount: Math.round((detourPerKm * detourKm) / 1000) * 1000 });
     }
-    for (const option of OPTION_DEFS[input.serviceType]) {
-      if (optionIds.includes(option.id) && option.price > 0) lines.push({ key: `quote.option.${option.id}`, amount: option.price });
-    }
   }
   let promoCode: string | undefined;
   if (input.promoCode) {
@@ -503,7 +437,7 @@ function priceOrder(input: PriceInput) {
     lines.push({ key: "quote.promo", params: { code: promoCode, pct }, amount: -Math.round((subtotal * pct) / 100 / 1000) * 1000 });
   }
   const total = lines.reduce((sum, l) => sum + l.amount, 0);
-  return { directKm, routeKm, lines, total, optionIds, optionVariants, carClass, promoCode, cargo };
+  return { directKm, routeKm, lines, total, carClass, promoCode, cargo };
 }
 
 const SEAT_POSITIONS: SeatPosition[] = ["front", "back-left", "back-mid", "back-right"];
@@ -657,21 +591,110 @@ function currentPassengerId(): string {
 }
 
 const RATING_EDIT_WINDOW_MS = 7 * 86_400_000;
+/** Sample-data waiting terms once the driver has arrived. */
+const FREE_WAIT_MS = 5 * 60_000;
+const WAIT_PRICE_PER_MINUTE = 500;
+
+/** A driver's sample number: drv_01 → "+998 90 000 00 02", drv_02 → "… 03" (fake on purpose). */
+function sampleDriverPhone(driverId: string) {
+  const n = Number(driverId.replace(/\D/g, "")) || 0;
+  return `+998 90 000 00 ${String(n + 1).padStart(2, "0")}`;
+}
+
+/** Share (0–1) of the way from `from` to `to` at this moment. */
+function shareOf(from: number, to: number) {
+  return Math.min(1, Math.max(0, (Date.now() - from) / Math.max(1, to - from)));
+}
+
+/**
+ * What the server would say about a live order: the driver's ETA to the
+ * pickup, the waiting terms after arrival, and how far the trip has come.
+ * The sample drive takes seconds, so the minutes and kilometres are scaled
+ * to the real route.
+ */
+function liveInfo(order: Order): Pick<OrderWithDetails, "driverArrived" | "driverEtaMinutes" | "waiting" | "tripProgress"> {
+  const t = order.timeline;
+  if (!t?.acceptedAt || !t.tripStartsAt || !t.tripEndsAt) return {};
+  const arrivesAt = t.arrivesAt ?? t.tripStartsAt;
+  if (order.status === "accepted") {
+    if (Date.now() < arrivesAt) {
+      const approachMinutes = 6 + (hashSeed(order.id) % 10);
+      return { driverEtaMinutes: Math.max(1, Math.ceil(approachMinutes * (1 - shareOf(t.acceptedAt, arrivesAt)))) };
+    }
+    return { driverArrived: true, waiting: { startedAt: arrivesAt, freeUntil: arrivesAt + FREE_WAIT_MS, pricePerMinute: WAIT_PRICE_PER_MINUTE } };
+  }
+  if (order.status === "in_progress") {
+    const share = shareOf(t.tripStartsAt, t.tripEndsAt);
+    const doneKm = Math.round(order.distanceKm * share);
+    const durationMinutes = Math.round((order.distanceKm / 70) * 60);
+    return {
+      tripProgress: {
+        doneKm,
+        leftKm: Math.max(0, order.distanceKm - doneKm),
+        arrivalAt: Date.now() + Math.round(durationMinutes * (1 - share)) * 60_000,
+      },
+    };
+  }
+  return {};
+}
+
+/**
+ * The sample orders seeded before this session have no stored extras: give
+ * them realistic ones (points in their cities; about one in five a delivery
+ * with a body size), derived from the id so they stay the same.
+ */
+function seededExtras(order: Order): OrderExtras {
+  const h = hashSeed(order.id);
+  const froms = defaultAddressesForCity(order.fromCityId);
+  const tos = defaultAddressesForCity(order.toCityId);
+  const delivery = h % 5 === 0;
+  return {
+    fromAddressId: froms[h % Math.max(1, froms.length)]?.id ?? "",
+    toAddressId: tos[Math.floor(h / 8) % Math.max(1, tos.length)]?.id ?? "",
+    timing: { timeMode: "now" },
+    serviceType: delivery ? "delivery" : "passenger",
+    cargo: delivery ? { vehicle: DELIVERY_VEHICLES[h % DELIVERY_VEHICLES.length] } : undefined,
+  };
+}
+
+/** Trip start and end: the live timeline, or (seeded trips) from the route length. */
+function tripTimes(order: Order): { startedAt?: number; finishedAt?: number } {
+  const t = order.timeline;
+  if (t?.tripStartsAt && (order.status === "in_progress" || order.status === "completed")) {
+    return { startedAt: t.tripStartsAt, finishedAt: order.status === "completed" ? t.tripEndsAt : undefined };
+  }
+  if (order.status !== "completed") return {};
+  const startedAt = order.createdAt + (10 + (hashSeed(order.id) % 25)) * 60_000;
+  return { startedAt, finishedAt: startedAt + Math.round((order.distanceKm / 70) * 60) * 60_000 };
+}
 
 function toDetails(order: Order): OrderWithDetails {
   const driver = order.driverId ? db.drivers().find((d) => d.id === order.driverId) : undefined;
   const ratingEditable =
     order.status === "completed" && (!order.rating || Date.now() - order.createdAt < RATING_EDIT_WINDOW_MS);
-  return {
+  const details: OrderWithDetails = {
     ...order,
     driver,
     fromCity: cityOf(order.fromCityId),
     toCity: cityOf(order.toCityId),
     ratingEditable,
     lockedReasonKey: order.status === "completed" && !ratingEditable ? "history.rating.lockedReason" : undefined,
-    extras: loadOrderExtras()[order.id],
+    extras: loadOrderExtras()[order.id] ?? seededExtras(order),
     editable: order.status === "accepted",
+    ...tripTimes(order),
+    driverPhone: driver && (order.status === "accepted" || order.status === "in_progress") ? sampleDriverPhone(driver.id) : undefined,
+    ...liveInfo(order),
   };
+  if (order.rating) {
+    const stored = readJSON<Record<string, { reasons: string[]; note?: string }>>(RATING_REASONS_KEY, {})[order.id];
+    // Seeded 5-star trips get one of the usual reasons, so they read like real ones.
+    const seeded = ["history.reason.polite", "history.reason.conversation", "history.reason.comfort", "history.reason.simple"];
+    details.ratingReasons = stored?.reasons ?? (order.rating === 5 ? [seeded[hashSeed(order.id) % seeded.length]] : []);
+    details.ratingComment = stored?.note;
+  }
+  const vehicle = details.extras?.serviceType === "delivery" ? details.extras.cargo?.vehicle : undefined;
+  if (vehicle) details.cargoSize = VEHICLES[vehicle].sizeLabel;
+  return details;
 }
 
 function genId(prefix: string) {
@@ -681,6 +704,8 @@ function genId(prefix: string) {
 /** Pure function of time: resolves a live order's transient status. */
 function resolveLiveStatus(order: Order): Order {
   if (!order.timeline) return order;
+  // Test panel: the order stays where it is (e.g. to try "O'zgartirish").
+  if (getTestScenarios().holdStatus) return order;
   const now = Date.now();
   const t = order.timeline;
 
@@ -694,7 +719,9 @@ function resolveLiveStatus(order: Order): Order {
       order.status = "accepted";
       const pickupMs = 15_000 + Math.random() * 15_000;
       t.acceptedAt = now;
-      t.tripStartsAt = now + pickupMs;
+      t.arrivesAt = now + pickupMs;
+      // The driver waits at the pickup a little before the trip starts.
+      t.tripStartsAt = t.arrivesAt + 15_000;
       const tripMs = Math.min(60_000, Math.max(20_000, order.distanceKm * 150));
       t.tripEndsAt = t.tripStartsAt + tripMs;
     }
@@ -739,6 +766,7 @@ export const mockAdapter: ApiAdapter = {
     tips: true,
     safety: true,
     popularRoutes: true,
+    recentRoutes: true,
     promo: true,
     bonuses: true,
     help: true,
@@ -755,6 +783,12 @@ export const mockAdapter: ApiAdapter = {
     mapPick: true,
     pickupEta: true,
     editPickup: true,
+    ratingNote: true,
+    historySearch: true,
+    appPayment: true,
+    seatLayouts: true,
+    clearTime: true,
+    cardPayment: true,
   },
 
   // The sample data keeps no server session: the auth store's own flag
@@ -773,17 +807,17 @@ export const mockAdapter: ApiAdapter = {
       const order = db.getOrder(orderId);
       const t = order?.timeline;
       if (!order || !t?.acceptedAt || !t.tripStartsAt || !t.tripEndsAt) return;
-      const share = (from: number, to: number) => Math.min(1, Math.max(0, (Date.now() - from) / Math.max(1, to - from)));
       const start = driverStartPoint(order);
-      if (order.status === "accepted") listener({ orderId, kind: "progress", leg: "to_pickup", fraction: share(t.acceptedAt, t.tripStartsAt), start });
-      else if (order.status === "in_progress") listener({ orderId, kind: "progress", leg: "trip", fraction: share(t.tripStartsAt, t.tripEndsAt), start });
+      // After "arrived" the car stands at the pickup until the trip starts.
+      if (order.status === "accepted") listener({ orderId, kind: "progress", leg: "to_pickup", fraction: shareOf(t.acceptedAt, t.arrivesAt ?? t.tripStartsAt), start });
+      else if (order.status === "in_progress") listener({ orderId, kind: "progress", leg: "trip", fraction: shareOf(t.tripStartsAt, t.tripEndsAt), start });
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   },
 
-  repeatOrder: async (orderId, fallback) => {
+  repeatOrder: async (orderId, fallback, changes) => {
     // Re-order exactly what was ordered: the order's extras hold the route,
     // stops, details, class, options and promo (the draft was reset on submit).
     const order = await mockAdapter.getOrder(orderId);
@@ -797,13 +831,11 @@ export const mockAdapter: ApiAdapter = {
       seatIds: order.seatIds ?? fallback.seatIds,
       cargo: x?.cargo ?? (serviceType === "delivery" ? fallback.cargo : undefined),
       paymentMethod: order.paymentMethod ?? fallback.paymentMethod,
-      timing: x?.timing ?? fallback.timing,
+      timing: changes?.timing ?? x?.timing ?? fallback.timing,
       fromDetails: x?.fromDetails,
       toDetails: x?.toDetails,
       stops: x?.stops,
       comment: x?.comment,
-      optionIds: x?.optionIds,
-      optionVariants: x?.optionVariants,
       carClass: x?.carClass,
       luggage: x?.luggage,
       rider: x?.rider,
@@ -828,6 +860,7 @@ export const mockAdapter: ApiAdapter = {
 
   getRecentRoutes: () =>
     withLatency(() => {
+      if (getTestScenarios().newPassenger) return [];
       const mine = db
         .orders()
         .filter((o) => o.passengerId === currentPassengerId())
@@ -891,15 +924,22 @@ export const mockAdapter: ApiAdapter = {
       // No pickup yet: distances come out as 0 (roadDistanceKm of an unknown city).
       const fromCityId = fromAddressId ? addressOf(fromAddressId).cityId : "";
       const details = savedAddressDetails();
-      return mySavedAddresses().map((address) => {
+      // "Yangi yo'lovchi": only what the passenger saves in this session.
+      const list = getTestScenarios().newPassenger ? mySavedAddresses().filter((a) => savedChanges().added.includes(a.id)) : mySavedAddresses();
+      return list.map((address) => {
         const distanceKm = roadDistanceKm(fromCityId, address.cityId);
-        return { address, area: cityOf(address.cityId).region, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
+        const meta = savedMeta()[address.id] ?? {};
+        return { address, ...meta, area: cityOf(address.cityId).region, details: details[address.id], distanceKm, etaMinutes: Math.round((distanceKm / 70) * 60) };
       });
     }, { minMs: 150, maxMs: 350 }),
 
-  saveAddress: ({ addressId, details }) =>
+  saveAddress: ({ addressId, name, kind, details }) =>
     withLatency<SavedAddressInfo>(() => {
       const address = addressOf(addressId);
+      const metaAll = savedMeta();
+      const meta: SavedMeta = { ...(name?.trim() ? { name: name.trim().slice(0, 40) } : {}), ...(kind ? { kind } : {}) };
+      metaAll[addressId] = meta;
+      writeJSON(SAVED_META_KEY, metaAll);
       const c = savedChanges();
       writeJSON(SAVED_CHANGES_KEY, { added: [...c.added.filter((id) => id !== addressId), addressId], removed: c.removed.filter((id) => id !== addressId) });
       const normalized = normalizeDetails(details);
@@ -907,7 +947,7 @@ export const mockAdapter: ApiAdapter = {
       if (normalized) all[addressId] = normalized;
       else delete all[addressId];
       writeJSON(SAVED_DETAILS_KEY, all);
-      return { address, area: cityOf(address.cityId).region, details: normalized };
+      return { address, ...meta, area: cityOf(address.cityId).region, details: normalized };
     }),
 
   removeSavedAddress: (addressId) =>
@@ -935,25 +975,17 @@ export const mockAdapter: ApiAdapter = {
       }));
     }, { minMs: 200, maxMs: 450 }),
 
+  getSeatLayouts: ({ fromAddressId, toAddressId }) =>
+    withLatency<SeatLayout[]>(() => {
+      addressOf(fromAddressId);
+      addressOf(toAddressId);
+      return mockSeatLayouts(fromAddressId, toAddressId);
+    }, { minMs: 200, maxMs: 450 }),
+
   getSchedulingRules: () => withLatency<SchedulingRules>(() => ({ ...SCHEDULING_RULES }), { minMs: 100, maxMs: 250 }),
 
   getOrderDetailsRules: () =>
     withLatency<OrderDetailsRules>(() => ({ ...ORDER_DETAILS_RULES }), { minMs: 100, maxMs: 250 }),
-
-  getOrderOptions: ({ serviceType, carClass }) =>
-    withLatency<OrderOption[]>(() => orderOptions(serviceType, carClass), { minMs: 100, maxMs: 250 }),
-
-  getCommentHints: ({ text, serviceType, carClass, selectedOptionIds }) =>
-    withLatency<CommentHint[]>(() => {
-      const words = text.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-      // Never suggest something already on, or that this class can't offer.
-      return orderOptions(serviceType, carClass)
-        .filter((o) => o.available && !selectedOptionIds.includes(o.id))
-        .flatMap((o) => {
-          const h = HINT_STEMS[o.id];
-          return h && words.some((w) => h.stems.some((stem) => w.startsWith(stem))) ? [{ optionId: o.id, messageKey: h.messageKey }] : [];
-        });
-    }, { minMs: 80, maxMs: 180 }),
 
   getCarClasses: (input) =>
     withLatency<CarClass[]>(() => {
@@ -963,25 +995,23 @@ export const mockAdapter: ApiAdapter = {
         const reasonKey = classAvailability(id, input.mode, directKm);
         let price = 0;
         if (!reasonKey) {
-          // Same price the quote would give with this class; options this
-          // class can't offer are left out rather than failing the card.
-          const offered = new Set(orderOptions("passenger", id).filter((o) => o.available).map((o) => o.id));
+          // Same price the quote would give with this class (only the
+          // picked seats this class's cabin has).
+          const classSeats = mockSeatIds(id);
           price = priceOrder({
             serviceType: "passenger",
             fromAddressId: input.fromAddressId,
             toAddressId: input.toAddressId,
             stops: input.stops ?? [],
             mode: input.mode,
-            seatIds: input.seatIds,
-            optionIds: (input.optionIds ?? []).filter((o) => offered.has(o)),
-            optionVariants: input.optionVariants,
+            seatIds: input.seatIds.filter((s) => classSeats.includes(s)),
             carClass: id,
             promoCode: input.promoCode,
           }).total;
         }
         // A deterministic "nearest car" per class and route.
         const etaMinutes = 3 + (hashSeed(`${input.fromAddressId}|${id}`) % 9);
-        return { id, nameKey: c.nameKey, seats: c.seats, price, available: !reasonKey, reasonKey, etaMinutes };
+        return { id, nameKey: c.nameKey, seats: mockPassengerSeats(id), price, available: !reasonKey, reasonKey, etaMinutes };
       });
     }, { minMs: 250, maxMs: 500 }),
 
@@ -1028,8 +1058,6 @@ export const mockAdapter: ApiAdapter = {
         mode: input.mode,
         seatIds: input.seatIds,
         cargo: input.serviceType === "delivery" ? input.cargo : undefined,
-        optionIds: input.optionIds ?? [],
-        optionVariants: input.optionVariants,
         carClass: input.carClass,
         promoCode: input.promoCode,
       });
@@ -1081,7 +1109,7 @@ export const mockAdapter: ApiAdapter = {
       const sender = input.serviceType === "delivery" ? normalizeRider(input.sender) : undefined;
       const receiver = input.serviceType === "delivery" ? normalizeReceiver(input.receiver) : undefined;
       const luggage = normalizeLuggage(input, input.luggage);
-      const { routeKm: distanceKm, total: price, optionIds, optionVariants, carClass, promoCode, cargo: pricedCargo } = priceOrder({
+      const { routeKm: distanceKm, total: price, carClass, promoCode, cargo: pricedCargo } = priceOrder({
         serviceType: input.serviceType,
         fromAddressId: input.fromAddressId,
         toAddressId: input.toAddressId,
@@ -1089,8 +1117,6 @@ export const mockAdapter: ApiAdapter = {
         mode: input.mode,
         seatIds: input.seatIds,
         cargo,
-        optionIds: input.optionIds ?? [],
-        optionVariants: input.optionVariants,
         carClass: input.carClass,
         promoCode: input.promoCode,
       });
@@ -1108,7 +1134,8 @@ export const mockAdapter: ApiAdapter = {
         mode: input.mode,
         seatIds: input.seatIds,
         price,
-        paymentMethod: input.paymentMethod,
+        // The stored order keeps cash | card; Payme / Click go in the extras.
+        paymentMethod: input.paymentMethod === "cash" ? "cash" : "card",
         status: "searching",
         createdAt: now,
         timeline: {
@@ -1118,6 +1145,7 @@ export const mockAdapter: ApiAdapter = {
       };
       db.addOrder(order);
       saveOrderExtra(order.id, {
+        payMethod: input.paymentMethod,
         fromAddressId: input.fromAddressId,
         toAddressId: input.toAddressId,
         timing: input.timing,
@@ -1127,8 +1155,6 @@ export const mockAdapter: ApiAdapter = {
         toDetails: toPointDetails,
         stops,
         comment,
-        optionIds,
-        optionVariants,
         carClass: input.serviceType === "passenger" ? carClass : undefined,
         luggage,
         rider: rider.kind === "other" ? rider : undefined,
@@ -1137,6 +1163,17 @@ export const mockAdapter: ApiAdapter = {
       });
       return toDetails(order);
     }, { minMs: 400, maxMs: 800 }),
+
+  getActiveOrder: () =>
+    withLatency<OrderWithDetails | null>(() => {
+      const live = db
+        .orders()
+        .filter((o) => o.passengerId === currentPassengerId())
+        .map((o) => resolveLiveStatus(o))
+        .filter((o) => o.status === "searching" || o.status === "accepted" || o.status === "in_progress")
+        .sort((a, b) => b.createdAt - a.createdAt)[0];
+      return live ? toDetails(live) : null;
+    }, { minMs: 120, maxMs: 300 }),
 
   getOrder: (orderId: string) =>
     withLatency<OrderWithDetails>(() => {
@@ -1181,7 +1218,9 @@ export const mockAdapter: ApiAdapter = {
 
       const mode = patch.mode ?? order.mode;
       const seatIds = patch.seatIds ?? order.seatIds;
-      const paymentMethod = patch.paymentMethod ?? order.paymentMethod;
+      const payMethod = patch.paymentMethod ?? nextExtras.payMethod ?? order.paymentMethod;
+      if (patch.paymentMethod) nextExtras.payMethod = patch.paymentMethod;
+      const paymentMethod = payMethod === "cash" ? "cash" : "card";
       const serviceType = nextExtras.serviceType ?? "passenger";
       const priced = priceOrder({
         serviceType,
@@ -1191,15 +1230,11 @@ export const mockAdapter: ApiAdapter = {
         mode,
         seatIds,
         cargo: nextExtras.cargo,
-        optionIds: patch.optionIds ?? nextExtras.optionIds ?? [],
         // Class, variants and promo aren't editable here; they must survive
         // a partial save (e.g. payment only) and keep pricing the order.
-        optionVariants: nextExtras.optionVariants,
         carClass: nextExtras.carClass,
         promoCode: nextExtras.promoCode,
       });
-      nextExtras.optionIds = priced.optionIds;
-      nextExtras.optionVariants = priced.optionVariants;
       const fromCityId = addressOf(nextExtras.fromAddressId).cityId;
       const toCityId = addressOf(nextExtras.toAddressId).cityId;
 
@@ -1237,11 +1272,19 @@ export const mockAdapter: ApiAdapter = {
         .filter((o) => o.passengerId === currentPassengerId())
         .sort((a, b) => b.createdAt - a.createdAt);
       if (params?.status) list = list.filter((o) => o.status === params.status);
+      let detailed = list.map(toDetails);
+      if (params?.service) detailed = detailed.filter((o) => (o.extras?.serviceType ?? "passenger") === params.service);
+      const q = params?.q?.trim().toLocaleLowerCase();
+      if (q) {
+        detailed = detailed.filter((o) =>
+          [o.fromCity.name, o.toCity.name, o.driver?.name ?? ""].some((s) => s.toLocaleLowerCase().includes(q))
+        );
+      }
       const pageSize = 8;
       const cursor = params?.cursor ?? 0;
-      const orders = list.slice(cursor, cursor + pageSize).map(toDetails);
-      const nextCursor = cursor + pageSize < list.length ? cursor + pageSize : null;
-      return { orders, nextCursor };
+      const orders = detailed.slice(cursor, cursor + pageSize);
+      const nextCursor = cursor + pageSize < detailed.length ? cursor + pageSize : null;
+      return { orders, nextCursor, total: detailed.length };
     }),
 
   getSavedCards: () => withLatency(() => readJSON<SavedCard[]>("saved_cards", [])),
@@ -1441,26 +1484,6 @@ export const mockAdapter: ApiAdapter = {
       };
     }, { minMs: 200, maxMs: 400 }),
 
-  getEmergencyContacts: () =>
-    withLatency<EmergencyContacts>(() => ({ contacts: loadEmergency(), max: EMERGENCY_MAX }), { minMs: 150, maxMs: 300 }),
-
-  addEmergencyContact: (contact) =>
-    withLatency<EmergencyContact>(() => {
-      const list = loadEmergency();
-      if (list.length >= EMERGENCY_MAX) throw new ApiError("CONTACTS_LIMIT", "safety.contacts.limit");
-      const normalized = normalizeRider({ kind: "other", ...contact });
-      if (normalized.kind !== "other") throw new ApiError("RIDER_NAME", "rider.error.name");
-      if (list.some((c) => c.phone === normalized.phone)) throw new ApiError("CONTACT_EXISTS", "safety.contacts.exists");
-      const created: EmergencyContact = { id: genId("ec"), name: normalized.name, phone: normalized.phone };
-      writeJSON(EMERGENCY_KEY, [...list, created]);
-      return created;
-    }, { minMs: 250, maxMs: 450 }),
-
-  removeEmergencyContact: (id) =>
-    withLatency<void>(() => {
-      writeJSON(EMERGENCY_KEY, loadEmergency().filter((c) => c.id !== id));
-    }, { minMs: 200, maxMs: 350 }),
-
   getSupportContact: () => withLatency(() => ({ phone: SUPPORT_PHONE }), { minMs: 100, maxMs: 200 }),
 
   getCargoRules: () => withLatency<CargoRules>(() => structuredClone(CARGO_RULES), { minMs: 100, maxMs: 250 }),
@@ -1542,7 +1565,29 @@ export const mockAdapter: ApiAdapter = {
         ledger
           .filter((e) => e.sourceId === sourceId && e.type === "earn" && isSameMonth(e.createdAt, Date.now()))
           .reduce((sum, e) => sum + e.amount, 0);
+      const tripsThisMonth = db
+        .orders()
+        .filter((o) => o.passengerId === currentPassengerId() && o.status === "completed" && isSameMonth(o.createdAt, Date.now())).length;
       return [
+        {
+          id: "invite",
+          icon: "invite",
+          titleKey: "bonus.source.invite.title",
+          descriptionKey: "bonus.source.invite.desc",
+          amountThisMonth: thisMonth("invite"),
+          action: "invite",
+          reward: 15_000,
+        },
+        {
+          id: "goal",
+          icon: "goal",
+          titleKey: "bonus.source.goal.title",
+          descriptionKey: "bonus.source.goal.desc",
+          amountThisMonth: thisMonth("goal"),
+          action: "goto_order",
+          reward: 20_000,
+          progress: { done: Math.min(5, tripsThisMonth), total: 5 },
+        },
         {
           id: "trip",
           icon: "order",
@@ -1552,20 +1597,13 @@ export const mockAdapter: ApiAdapter = {
           action: "goto_order",
         },
         {
-          id: "invite",
-          icon: "invite",
-          titleKey: "bonus.source.invite.title",
-          descriptionKey: "bonus.source.invite.desc",
-          amountThisMonth: thisMonth("invite"),
-          action: "invite",
-        },
-        {
           id: "rate",
           icon: "rate",
           titleKey: "bonus.source.rate.title",
           descriptionKey: "bonus.source.rate.desc",
           amountThisMonth: thisMonth("rate"),
           action: "rate_trip",
+          reward: 3_000,
         },
       ];
     }),

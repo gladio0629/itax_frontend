@@ -1,35 +1,57 @@
-/* IZGO design tokens — shared across client, driver and admin apps.
-   Brand colors measured from brand/izgo-logo.jpeg: blue #264A9F, yellow #F6BF0E. */
+/* IZGO Admin design tokens, redesign v2 (docs/izgo-dizayn-v2.md, design-v2/admin/*.dc.html).
+   Ink + green. The old brand blue and yellow are not used any more. */
 :root {
-  --color-bg: #f5f7fb;
-  --color-card: #ffffff;
-  --color-text-rgb: 14 20 32;
-  --color-accent-rgb: 38 74 159;
-  --color-accent-5: rgba(38, 74, 159, 0.05);
-  --color-accent-10: rgba(38, 74, 159, 0.1);
+  /* --- v2 palette --- */
+  --ink: #0b1524;
+  --ink-rgb: 11 21 36;
+  --ink-2: #142235; /* card on dark */
+  --ink-border: #24364d; /* hairline on dark */
+  --ink-muted: #9fb0c3; /* secondary text on dark */
+  --ink-label: #5f7189; /* group label on dark */
+  --ink-ring: #17273b; /* rings in the login illustration */
+  --green: #2edb85; /* primary button (Ink text on it), active marker */
+  --green-rgb: 46 219 133;
+  --green-text: #0c7a43; /* green text/icons on white */
+  --green-text-rgb: 12 122 67;
+  --green-soft: #e3f8ec; /* badge bg, focus ring */
+  --green-hover: #27c877; /* primary button hover */
+  --error-soft-hover: #fbdcd8; /* danger button hover */
+  --row-hover: #f8f9fb; /* table row hover */
+  --row-highlight: #f7fffa; /* correction rows in the ledger */
+  --board-column: #e9edf2; /* operator board columns */
+  --line-strong: #d4dbe4; /* route / timeline connector */
+  /* Charts (Dashboard): today's bar uses green + Ink, other days these. */
+  --chart-passenger: #9eebc3;
+  --chart-delivery: #7d8a9c;
+  /* Driver level dots */
+  --level-bronze: #c98a55;
+  --level-silver: #c3cbd5;
+  --level-gold: #f5c542;
+  --surface: #f3f5f8; /* page bg, fields, table head */
+  --line: #e2e7ee; /* dividers */
+  --muted: #5a6779; /* labels, hints */
+  --muted-rgb: 90 103 121;
+  --error: #b42318;
+  --error-rgb: 180 35 24;
+  --error-soft: #fdecea;
+  --warn: #b54708;
+  --warn-rgb: 181 71 8;
+  --warn-strong: #f79009;
+  --warn-soft: #fff1e6;
+  --info: #1d4ed8;
+  --info-rgb: 29 78 216;
+  --info-soft: #e8effe;
 
-  /* Brand yellow is a fill color only — always paired with --color-on-yellow text/icons. */
-  --color-brand-yellow: #f6bf0e;
-  --color-brand-yellow-hover: #e9b30a;
-  --color-on-yellow: #16264d;
+  /* --- v2 radii (admin .dc.html: card 20, field 16, table box 14, modal 24, pills full) --- */
+  --radius-card: 20px;
+  --radius-field: 16px;
+  --radius-box: 14px;
+  --radius-sheet: 24px;
+  --radius-nav: 12px;
 
-  /* Warning is orange, distinct from brand yellow. rgb triplet so bg-warning/NN opacity works. */
-  --color-warning-rgb: 180 83 9;
-  --color-danger-rgb: 198 40 40;
-  /* Status green (Faol). Text on white: #15803d = 5.0:1. */
-  --color-success-rgb: 21 128 61;
-  --color-border: rgba(14, 20, 32, 0.08);
-  --shadow-color: rgba(14, 20, 32, 0.1);
+  --shadow-card: 0 1px 2px rgba(11, 21, 36, 0.04);
+  --shadow-pop: 0 30px 60px rgba(11, 21, 36, 0.3);
 
-  /* Admin radius scale: buttons/fields 8, cards 12, dialogs/sheets 16. */
-  --radius-button: 8px;
-  --radius-card: 12px;
-  --radius-sheet: 16px;
-
-  /* Admin-only: navy sidebar (brand #264A9F, deepened), independent of the light content area. */
-  --color-sidebar-bg: #142a5c;
-  --color-sidebar-text-rgb: 246 248 247;
-  --color-sidebar-border: rgba(246, 248, 247, 0.1);
   --sidebar-w: 256px;
-  --sidebar-rail-w: 72px;
+  --sidebar-rail-w: 76px;
 }

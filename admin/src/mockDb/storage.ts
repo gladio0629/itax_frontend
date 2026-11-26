@@ -4,7 +4,7 @@
 // Two stores, on purpose:
 // - localStorage ("mock server" data) — the dataset the mock adapter plays
 //   the role of a real backend for: drivers, orders, staff, audit log,
-//   proposals. This must survive logout/login so staff created as one role
+//   tariff settings. This must survive logout/login so staff created as one role
 //   are still there after switching users.
 // - sessionStorage (session data) — who is currently logged in. This is
 //   cleared on logout and never persisted across browser restarts, which is

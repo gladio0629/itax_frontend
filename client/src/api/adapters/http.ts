@@ -54,6 +54,8 @@ import {
   toUiVehicle,
   toUiWallet,
 } from "../httpMapper";
+import { layoutFor, passengerSeats, type SeatLayout } from "../seatLayout";
+import { fetchSeatLayouts, sedanLayoutsFromSeatMap } from "./seatLayouts.http";
 
 const { http } = session;
 
@@ -68,6 +70,8 @@ const capabilities: ClientCapabilities = {
   tips: false,
   safety: false,
   popularRoutes: true,
+  // No endpoint yet (docs/backend-gaps/client.md, Redesign v2).
+  recentRoutes: false,
   promo: false,
   bonuses: false,
   help: false,
@@ -88,6 +92,19 @@ const capabilities: ClientCapabilities = {
   pickupEta: false,
   // OrderUpdate has `to` but no `from`.
   editPickup: false,
+  // RatingInput carries one reason; a comment goes as the "custom" reason (5 stars).
+  ratingNote: false,
+  historySearch: false,
+  // No payment page for an order yet: Payme / Click would end in "payment
+  // comes later" with nothing after it (store release 1.1, 2026-11-26).
+  appPayment: false,
+  // GET /orders/seat-layouts isn't on the server (backend-gaps.md, miniven).
+  seatLayouts: false,
+  // OrderUpdate sets scheduled_* but can't clear them (updateOrder rejects "now").
+  clearTime: false,
+  // No saved cards and no charge path for an order yet: cash only in 1.1
+  // (owner, 2026-11-26).
+  cardPayment: false,
 };
 
 function unsupported(): Promise<never> {
@@ -232,6 +249,12 @@ function quoteBody(input: OrderShape): Api.QuoteRequest {
   if (input.serviceType === "delivery") {
     if (!input.cargo) throw new ApiError("VALIDATION_ERROR", errorMessageKey("VALIDATION_ERROR"));
     body.vehicle_type = input.cargo.vehicle;
+  } else if (input.mode === "seat" && input.carClass === "miniven") {
+    // Minivan per seat (backend-gaps "client (miniven, 2026-11-24)"): its
+    // seat ids from the seat layout, with the class.
+    if (input.seatIds.length === 0) throw new ApiError("SEATS_REQUIRED", "order.seatsHint");
+    body.seat_ids = input.seatIds as Api.SeatId[];
+    body.car_class = toApiCarClass("miniven");
   } else if (input.mode === "seat") {
     // Per seat: the contract needs at least one seat (and no class).
     const ids = SEAT_IDS.filter((id) => input.seatIds.includes(id));
@@ -291,6 +314,23 @@ async function renewQuote(body: Api.QuoteRequest, code: string, status: number):
 }
 
 const CLASS_IDS: CarClassId[] = ["standart", "komfort", "biznes", "miniven"];
+
+/** Minivan per seat: the server's quote for the picked minivan seats, or for
+ * one free seat while none is picked (as the Standart card does). null when
+ * the server has no minivan layout or can't price it. */
+async function minivanSeatPrice(input: QuoteInput, layout: SeatLayout | null): Promise<number | null> {
+  if (!layout) return null;
+  const free = passengerSeats(layout).filter((s) => !s.taken).map((s) => s.id);
+  const picked = input.seatIds.filter((id) => free.includes(id));
+  const ids = picked.length ? picked : free.slice(0, 1);
+  if (ids.length === 0) return null;
+  try {
+    const q = await fetchQuote(quoteBody({ ...input, serviceType: "passenger", carClass: "miniven", seatIds: ids }));
+    return somFromTiyin(q.price);
+  } catch {
+    return null;
+  }
+}
 
 // -------------------------------------------------------------- realtime
 // websocket-events.md: every passenger frame that names an order means
@@ -372,6 +412,8 @@ async function searchPlaces(query: string, near: Point | undefined, onlyCityId?:
 
 function savedInfo(p: Point): SavedAddressInfo {
   // No distance / ETA for saved places in the contract.
+  // The contract keeps the name (shown as the label) but no kind yet
+  // (docs/backend-gaps/client.md, Redesign v2).
   return { address: p.address, area: p.area || undefined, details: p.details };
 }
 
@@ -456,6 +498,7 @@ export const httpAdapter: ApiAdapter = {
     return res.data.map((sp) => savedInfo(rememberSaved(sp)));
   },
   getSavedAddressDetails: async (addressId) => points.get(addressId)?.details ?? null,
+  // `kind` isn't in SavedPlaceCreate yet (unknown fields are rejected): not sent.
   saveAddress: async ({ addressId, name, details }) => {
     const p = pointOf(addressId);
     const body: Api.SavedPlaceCreate = { name: (name ?? p.address.label).trim().slice(0, 100), lat: p.lat, lng: p.lng };
@@ -479,8 +522,20 @@ export const httpAdapter: ApiAdapter = {
     const res = await http.get<Api.SeatMap>(API_PATHS.orderSeatMap, { from_lat: from.lat, from_lng: from.lng, to_lat: to.lat, to_lng: to.lng });
     return res.seats.map(toUiSeat);
   },
+  getSeatLayouts: async (route) => {
+    // Not on the server yet, and the path would be read as /orders/{id}
+    // there (a 4xx that isn't 404): use the seat map until it ships.
+    if (!capabilities.seatLayouts) return sedanLayoutsFromSeatMap(await httpAdapter.getSeatMap(route));
+    try {
+      return await fetchSeatLayouts(geoPoint(route.fromAddressId), geoPoint(route.toAddressId));
+    } catch (err) {
+      // Endpoint not deployed yet: keep the sedan map from seat-map.
+      if (!(err instanceof ApiError) || err.status !== 404) throw err;
+      return sedanLayoutsFromSeatMap(await httpAdapter.getSeatMap(route));
+    }
+  },
   getQuote: async (input: QuoteInput) => {
-    if (input.stops?.length || input.optionIds?.length || input.promoCode) return unsupported();
+    if (input.stops?.length || input.promoCode) return unsupported();
     const body = quoteBody(input);
     const q = await fetchQuote(body);
     shownQuotes.set(JSON.stringify(body), q);
@@ -489,6 +544,9 @@ export const httpAdapter: ApiAdapter = {
   // One server quote per class (whole car). Per seat the contract takes no
   // class: only Standart is offered, at the seat price.
   getCarClasses: async (input) => {
+    // "N o'rin" per class from the server's seat layouts.
+    const layouts = await httpAdapter.getSeatLayouts(input).catch((): SeatLayout[] => []);
+    const seatsOf = (id: CarClassId) => layoutFor(layouts, id)?.passengerSeats ?? 0;
     if (input.mode === "seat") {
       let price: number;
       if (input.seatIds.some(isSeatId)) {
@@ -498,23 +556,25 @@ export const httpAdapter: ApiAdapter = {
         const seats = await httpAdapter.getSeatMap(input);
         price = seats[0]?.price ?? 0;
       }
+      const van = await minivanSeatPrice(input, layoutFor(layouts, "miniven"));
       return CLASS_IDS.map(
         (id): CarClass =>
           id === "standart"
-            ? { id, nameKey: `class.${id}`, seats: 0, price, available: true }
-            : { id, nameKey: `class.${id}`, seats: 0, price: 0, available: false, reasonKey: "class.reason.wholeCarOnly" }
+            ? { id, nameKey: `class.${id}`, seats: seatsOf(id), price, available: true }
+            : id === "miniven" && van != null
+              ? { id, nameKey: `class.${id}`, seats: seatsOf(id), price: van, available: true }
+              : { id, nameKey: `class.${id}`, seats: seatsOf(id), price: 0, available: false, reasonKey: "class.reason.wholeCarOnly" }
       );
     }
     const results = await Promise.allSettled(
       CLASS_IDS.map((id) => fetchQuote(quoteBody({ ...input, serviceType: "passenger", mode: "car", carClass: id })))
     );
     if (results.every((r) => r.status === "rejected")) throw (results[0] as PromiseRejectedResult).reason;
-    // `seats` isn't in the contract (and isn't shown on the card).
     return CLASS_IDS.map((id, i): CarClass => {
       const r = results[i];
       return r.status === "fulfilled"
-        ? { id, nameKey: `class.${id}`, seats: 0, price: somFromTiyin(r.value.price), available: true }
-        : { id, nameKey: `class.${id}`, seats: 0, price: 0, available: false, reasonKey: "class.reason.unavailable" };
+        ? { id, nameKey: `class.${id}`, seats: seatsOf(id), price: somFromTiyin(r.value.price), available: true }
+        : { id, nameKey: `class.${id}`, seats: seatsOf(id), price: 0, available: false, reasonKey: "class.reason.unavailable" };
     });
   },
   // Inside the server's limits (from in the future, window ≥ 15 min and
@@ -530,15 +590,13 @@ export const httpAdapter: ApiAdapter = {
     riderNameMaxLength: 100,
   }),
   // The order can't carry options, so none are offered.
-  getOrderOptions: async () => [],
-  getCommentHints: async () => [],
   getLuggageRules: async () => null,
 
   // --------------------------------------------------------------- orders
   createOrder: async (input: CreateOrderInput) => {
     // Extras the order can't carry yet are never dropped silently.
     const hasDetails = [input.fromDetails, input.toDetails].some((d) => d && Object.values(d).some((v) => v?.trim()));
-    if (input.stops?.length || input.optionIds?.length || input.promoCode || input.rider?.kind === "other" || (input.luggage ?? 0) > 0 || hasDetails) {
+    if (input.stops?.length || input.promoCode || input.rider?.kind === "other" || (input.luggage ?? 0) > 0 || hasDetails) {
       return unsupported();
     }
     const q = quoteBody(input);
@@ -561,10 +619,11 @@ export const httpAdapter: ApiAdapter = {
     }
   },
   // "Search again": the server prices it at the current tariff (no quote).
-  repeatOrder: async (orderId) => {
+  repeatOrder: async (orderId, _fallback, changes) => {
     const previous = await http.get<Api.Order>(API_PATHS.order(orderId));
+    const body = orderCreateFrom(previous);
     try {
-      return await createOrderBody(orderCreateFrom(previous));
+      return await createOrderBody(changes?.timing ? { ...body, ...toApiTiming(changes.timing) } : body);
     } catch (err) {
       throw ruleError(err);
     }
@@ -578,7 +637,10 @@ export const httpAdapter: ApiAdapter = {
     if (patch.paymentMethod !== undefined) body.payment_method = toApiPayment(patch.paymentMethod);
     if (patch.toAddressId !== undefined) body.to = geoPoint(patch.toAddressId);
     if (patch.mode === "seat" || (patch.mode === undefined && patch.seatIds)) {
-      const ids = SEAT_IDS.filter((id) => (patch.seatIds ?? []).includes(id));
+      // Minivan seat ids (seat layout) go as they are; the server checks them
+      // against the order's class.
+      const given = patch.seatIds ?? [];
+      const ids = given.some((id) => !isSeatId(id)) ? (given as Api.SeatId[]) : SEAT_IDS.filter((id) => given.includes(id));
       if (ids.length === 0) throw new ApiError("SEATS_REQUIRED", "order.seatsHint");
       body.seat_ids = ids;
     } else if (patch.mode === "car") {
@@ -623,6 +685,13 @@ export const httpAdapter: ApiAdapter = {
       nextCursor = page + 1;
     }
     return { orders: res.data.map(mapOrder), nextCursor };
+  },
+
+  // No "active order" endpoint: the newest live one on the first history page.
+  getActiveOrder: async () => {
+    const res = await http.get<Api.OrderPage>(API_PATHS.orderHistory, { limit: HISTORY_LIMIT });
+    const live = res.data.map(mapOrder).find((o) => o.status === "searching" || o.status === "accepted" || o.status === "in_progress");
+    return live ?? null;
   },
 
   // -------------------------------------------------------- notifications
@@ -677,9 +746,6 @@ export const httpAdapter: ApiAdapter = {
   getTipOptions: unsupported,
   sendTip: unsupported,
   getTripShareLink: unsupported,
-  getEmergencyContacts: unsupported,
-  addEmergencyContact: unsupported,
-  removeEmergencyContact: unsupported,
   getSupportContact: unsupported,
   getCargoRules: unsupported,
   getMarketplaceWarehouses: unsupported,

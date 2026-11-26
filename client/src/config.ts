@@ -13,3 +13,15 @@ if (import.meta.env.DEV && !DEMO_MODE && apiConfig.viaDevProxy) console.warn(DEV
 /** Mapbox public token for the interactive map; "" = the drawn map (set it in
  * .env.local — never in code or in a tracked .env file). */
 export const MAPBOX_TOKEN = (import.meta.env.VITE_MAPBOX_TOKEN ?? "").trim();
+
+/** Public website (terms, privacy), opened in the system browser. The default
+ * is the one host check:no-network allows here; VITE_SITE_URL overrides it
+ * and an empty value shows the names without links. */
+export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? "https://xasanow.uz").trim().replace(/\/+$/, "");
+
+/** Shown in the menu and on "Biz haqimizda". One place; the native projects
+ * keep their own version numbers. */
+export const APP_VERSION = "1.1.0";
+
+/** Support e-mail (owner, 2026-11-22). */
+export const SUPPORT_EMAIL = "xogiloy088@gmail.com";

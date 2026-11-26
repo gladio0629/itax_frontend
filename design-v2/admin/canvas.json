@@ -1,0 +1,484 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-22T09:46:19Z"
+ },
+ "title": "IZGO Admin: yangi dizayn",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "title": "1. Kirish: email va kod",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Verify.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "title": "2. Kirish: telefon va SMS kod",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Dashboard.dc.html": {
+   "x": 0,
+   "y": 1320,
+   "w": 1440,
+   "h": 920,
+   "title": "3. Umumiy statistika",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Orders.dc.html": {
+   "x": 1520,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "4. Buyurtmalar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OrderDetail.dc.html": {
+   "x": 3040,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "5. Buyurtma tafsiloti",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Drivers.dc.html": {
+   "x": 4560,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "6. Haydovchilar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "DriverProfile.dc.html": {
+   "x": 6080,
+   "y": 1320,
+   "w": 1440,
+   "h": 1040,
+   "title": "7. Haydovchi profili",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "DriverHistory.dc.html": {
+   "x": 7600,
+   "y": 1320,
+   "w": 1440,
+   "h": 1130,
+   "title": "8. Haydovchi tarixi",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Passengers.dc.html": {
+   "x": 9120,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "9. Yo'lovchilar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Ledger.dc.html": {
+   "x": 0,
+   "y": 2870,
+   "w": 1440,
+   "h": 900,
+   "title": "10. Hamyon daftari",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "LedgerFix.dc.html": {
+   "x": 1520,
+   "y": 2870,
+   "w": 1440,
+   "h": 900,
+   "title": "11. Tuzatish yozuvi",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Tariffs.dc.html": {
+   "x": 3040,
+   "y": 2870,
+   "w": 1440,
+   "h": 1330,
+   "title": "12. Tariflar: yoqilg'i va ustama",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Operators.dc.html": {
+   "x": 0,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "13. Operatorlar (yuqori rollar)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OperatorView.dc.html": {
+   "x": 1520,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "14. Operator: Navbat",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OperatorHistory.dc.html": {
+   "x": 3040,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "15. Operator: Buyurtmalar (ko'rish)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OperatorDrivers.dc.html": {
+   "x": 4560,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "16. Operator: Haydovchilar (ko'rish)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Staff.dc.html": {
+   "x": 22800,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "28. Xodimlar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "StaffAdd.dc.html": {
+   "x": 24320,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "29. Xodim qo'shish",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Audit.dc.html": {
+   "x": 25840,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "30. Audit jurnali",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "Marketing.dc.html": {
+   "x": 27360,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "31. Marketolog ko'rinishi",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpSearch.dc.html": {
+   "x": 6080,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "17. Operator: Qidiruv",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpPassengers.dc.html": {
+   "x": 7600,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "18. Operator: Yo'lovchilar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpPassenger.dc.html": {
+   "x": 9120,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "19. Operator: Yo'lovchi kartasi: Umumiy",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpDriver.dc.html": {
+   "x": 10640,
+   "y": 4620,
+   "w": 1440,
+   "h": 900,
+   "title": "20. Operator: Haydovchi kartasi: Umumiy",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpOrder.dc.html": {
+   "x": 12160,
+   "y": 4620,
+   "w": 1440,
+   "h": 1248,
+   "title": "21. Operator: Buyurtma tafsiloti",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpOrderCargo.dc.html": {
+   "x": 13680,
+   "y": 4620,
+   "w": 1440,
+   "h": 1212,
+   "title": "22. Operator: Dostavka buyurtmasi",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpCancel.dc.html": {
+   "x": 15200,
+   "y": 4620,
+   "w": 1440,
+   "h": 1248,
+   "title": "23. Operator: Bekor qilish (sabab majburiy)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpRequest.dc.html": {
+   "x": 16720,
+   "y": 4620,
+   "w": 1440,
+   "h": 1248,
+   "title": "24. Operator: Menejerga so'rov",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpMyTasks.dc.html": {
+   "x": 18240,
+   "y": 4620,
+   "w": 1440,
+   "h": 1034,
+   "title": "25. Operator: Tarix, Mening vazifalarim",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "ManagerRequests.dc.html": {
+   "x": 19760,
+   "y": 4620,
+   "w": 1440,
+   "h": 1269,
+   "title": "26. Menejer: So'rovlar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "ManagerRequestConfirm.dc.html": {
+   "x": 21280,
+   "y": 4620,
+   "w": 1440,
+   "h": 1269,
+   "title": "27. Menejer: Eski → yangi tasdiqlash",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpPassengerOrders.dc.html": {
+   "x": 0,
+   "y": 6309,
+   "w": 1440,
+   "h": 904,
+   "title": "19.2. Yo'lovchi kartasi: Buyurtmalar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpPassengerPay.dc.html": {
+   "x": 1520,
+   "y": 6309,
+   "w": 1440,
+   "h": 976,
+   "title": "19.3. Yo'lovchi kartasi: To'lovlar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpPassengerBonus.dc.html": {
+   "x": 3040,
+   "y": 6309,
+   "w": 1440,
+   "h": 900,
+   "title": "19.4. Yo'lovchi kartasi: Bonus va promo",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpPassengerSms.dc.html": {
+   "x": 4560,
+   "y": 6309,
+   "w": 1440,
+   "h": 900,
+   "title": "19.5. Yo'lovchi kartasi: Kirish (SMS)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpPassengerNotes.dc.html": {
+   "x": 6080,
+   "y": 6309,
+   "w": 1440,
+   "h": 900,
+   "title": "19.6. Yo'lovchi kartasi: Murojaatlar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpDriverDocs.dc.html": {
+   "x": 7600,
+   "y": 6309,
+   "w": 1440,
+   "h": 900,
+   "title": "20.2. Haydovchi kartasi: Hujjatlar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpDriverWallet.dc.html": {
+   "x": 9120,
+   "y": 6309,
+   "w": 1440,
+   "h": 966,
+   "title": "20.3. Haydovchi kartasi: Hamyon",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpDriverTrips.dc.html": {
+   "x": 10640,
+   "y": 6309,
+   "w": 1440,
+   "h": 966,
+   "title": "20.4. Haydovchi kartasi: Safarlar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpDriverCancels.dc.html": {
+   "x": 12160,
+   "y": 6309,
+   "w": 1440,
+   "h": 900,
+   "title": "20.5. Haydovchi kartasi: Bekor qilishlar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpDriverReviews.dc.html": {
+   "x": 13680,
+   "y": 6309,
+   "w": 1440,
+   "h": 900,
+   "title": "20.6. Haydovchi kartasi: Shikoyat va baholar",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpDriverSms.dc.html": {
+   "x": 15200,
+   "y": 6309,
+   "w": 1440,
+   "h": 900,
+   "title": "20.7. Haydovchi kartasi: Kirish (SMS)",
+   "is_interactive": true,
+   "expand": "fill"
+  },
+  "OpDriverNotes.dc.html": {
+   "x": 16720,
+   "y": 6309,
+   "w": 1440,
+   "h": 900,
+   "title": "20.8. Haydovchi kartasi: Murojaatlar",
+   "is_interactive": true,
+   "expand": "fill"
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Verify.dc.html",
+  "Dashboard.dc.html",
+  "Orders.dc.html",
+  "OrderDetail.dc.html",
+  "Drivers.dc.html",
+  "DriverProfile.dc.html",
+  "DriverHistory.dc.html",
+  "Passengers.dc.html",
+  "Ledger.dc.html",
+  "LedgerFix.dc.html",
+  "Tariffs.dc.html",
+  "Operators.dc.html",
+  "OperatorView.dc.html",
+  "OperatorHistory.dc.html",
+  "OperatorDrivers.dc.html",
+  "OpSearch.dc.html",
+  "OpPassengers.dc.html",
+  "OpPassenger.dc.html",
+  "OpDriver.dc.html",
+  "OpOrder.dc.html",
+  "OpOrderCargo.dc.html",
+  "OpCancel.dc.html",
+  "OpRequest.dc.html",
+  "OpMyTasks.dc.html",
+  "ManagerRequests.dc.html",
+  "ManagerRequestConfirm.dc.html",
+  "Staff.dc.html",
+  "StaffAdd.dc.html",
+  "Audit.dc.html",
+  "Marketing.dc.html",
+  "OpPassengerOrders.dc.html",
+  "OpPassengerPay.dc.html",
+  "OpPassengerBonus.dc.html",
+  "OpPassengerSms.dc.html",
+  "OpPassengerNotes.dc.html",
+  "OpDriverDocs.dc.html",
+  "OpDriverWallet.dc.html",
+  "OpDriverTrips.dc.html",
+  "OpDriverCancels.dc.html",
+  "OpDriverReviews.dc.html",
+  "OpDriverSms.dc.html",
+  "OpDriverNotes.dc.html"
+ ],
+ "notes": {
+  "t1": {
+   "x": 0,
+   "y": -300,
+   "text": "Kirish: avval email, keyin telefon",
+   "kind": "title1",
+   "maxW": 2960
+  },
+  "t2": {
+   "x": 0,
+   "y": 1020,
+   "text": "Asosiy bo'limlar",
+   "kind": "title1",
+   "maxW": 10560
+  },
+  "t3": {
+   "x": 0,
+   "y": 2570,
+   "text": "Pul: hamyon va tariflar",
+   "kind": "title1",
+   "maxW": 4480
+  },
+  "t4": {
+   "x": 0,
+   "y": 4320,
+   "text": "Jamoa va rollar",
+   "kind": "title1",
+   "maxW": 28800
+  },
+  "t5": {
+   "x": 0,
+   "y": 6009,
+   "text": "Operator kartalari: bo'limlar",
+   "kind": "title1",
+   "maxW": 18160
+  }
+ },
+ "designSystems": []
+}

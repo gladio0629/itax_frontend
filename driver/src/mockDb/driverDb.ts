@@ -7,7 +7,7 @@ import { CITIES, computePrice, generateSeed, roadDistanceKm, type Passenger } fr
 import { makeRng } from "@/lib/prng";
 import { readJSON, writeJSON } from "./storage";
 import type {
-  AddressDetails, CapabilitiesInput, Cargo, CarClass, CargoBody, ChildSeatAge, TestPreset, Freight, OrderOption, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
+  AddressDetails, CapabilitiesInput, Cargo, CarClass, CargoBody, TestPreset, Freight, DocumentStatus, HelpRequest, LedgerEntry, LedgerType, LinkedCard, NotificationItem,
   NotificationPrefs, OrderKind, PaymentType, RequestAlert, ReviewRequest, RideTime, Session, TimelineEvent, TripStage, TripSummary,
 } from "@/api/types";
 
@@ -16,23 +16,31 @@ export const DEBT_LIMIT = -50_000;
 /** Debt at or beyond this share of the limit shows the "near limit" banner. */
 export const DEBT_NEAR_RATIO = 0.7;
 export const OFFER_COUNTDOWN_SEC = 30;
-export const BONUS_LEVELS = [
-  { key: "bronze", tripsRequired: 0, commissionPct: 10 },
-  { key: "silver", tripsRequired: 20, commissionPct: 5 },
-  { key: "gold", tripsRequired: 35, commissionPct: 0 },
-] as const;
+/** Sample server values for the Request countdown and the waiting timer. */
+export const OFFER_WINDOW_SEC = 45;
+export const WAIT_FREE_MIN = 5;
+export const WAIT_PRICE_PER_MIN = 500;
+/** Sample loaders fee per loader (part of the cargo price). */
+export const LOADER_FEE = 15_000;
 
 export const CAR_COLORS = [
-  { key: "white", hex: "#F4F6F5" },
-  { key: "silver", hex: "#C9CFCD" },
-  { key: "black", hex: "#1C2420" },
-  { key: "blue", hex: "#3B6FA0" },
+  { key: "white", hex: "#FFFFFF" },
+  { key: "black", hex: "#1B1F27" },
+  { key: "silver", hex: "#B9C1CB" },
+  { key: "blue", hex: "#2F5DA8" },
+  { key: "red", hex: "#8C1D24" },
+  { key: "beige", hex: "#E9E1CF" },
   { key: "gray", hex: "#6B7280" },
 ];
-export const CAR_MODELS = [
-  "Chevrolet Cobalt", "Chevrolet Nexia 3", "Chevrolet Gentra", "Chevrolet Malibu 2",
-  "Chevrolet Onix", "Chevrolet Tracker", "Kia K5", "Hyundai Sonata",
+export const CAR_BRANDS = [
+  { brand: "Chevrolet", models: ["Cobalt", "Nexia 3", "Gentra", "Malibu 2", "Onix", "Tracker", "Damas", "Labo"] },
+  { brand: "Kia", models: ["K5", "Sportage"] },
+  { brand: "Hyundai", models: ["Sonata", "Elantra"] },
+  { brand: "BYD", models: ["Chazor", "Song Plus"] },
 ];
+export const LICENSE_CATEGORIES = ["A", "B", "BE", "C", "D"];
+/** Sample "usually within N minutes" for the automatic check. */
+export const REVIEW_ETA_MIN = 5;
 
 const STREETS: Record<string, string[]> = {
   tsh: ["Amir Temur ko'chasi, 15", "Chilonzor, 9-kvartal", "Yunusobod, 4-mavze", "Shota Rustaveli, 42", "Olmazor bekati"],
@@ -70,7 +78,6 @@ export type TripRecord = {
   gross: number;
   commissionPct: number;
   commission: number;
-  bonusDiscount: number;
   net: number;
   ratingReceived: number | null;
   status: "completed" | "cancelled";
@@ -97,7 +104,6 @@ export type RequestRecord = {
   carClass: CarClass;
   stops: StopRecord[];
   comment: string | null;
-  options: OrderOption[];
   luggageCount: number;
   forOtherName: string | null;
   freight: Freight | null;
@@ -132,10 +138,17 @@ export type BookingRecord = RequestRecord & {
 
 export type RouteRecord = { id: string; a: string; b: string; bothWays: boolean };
 
-export type Draft = { name?: string; cityId?: string; car?: { model: string; colorKey: string; plate: string; year: number } };
+export type Draft = {
+  name?: string;
+  cityId?: string;
+  birthDate?: string;
+  referralCode?: string;
+  license?: { number: string; issuedAt: string; expiresAt: string; categories: string[]; frontRef: string; backRef: string };
+  car?: { model: string; colorKey: string; plate: string; year: number; seats?: number; carClass?: string; serviceTypes?: string[] };
+};
 
 export type DriverState = {
-  version: 5;
+  version: 8;
   seededAt: number;
   registered: boolean;
   session: Session;
@@ -210,8 +223,8 @@ export const DEFAULT_ROUTES: RouteRecord[] = [
   { id: "rt_tsh_and", a: "tsh", b: "and", bothWays: true },
 ];
 
-export const CHILD_SEAT_AGES: ChildSeatAge[] = ["infant", "toddler", "booster"];
-export const DEFAULT_CAPABILITIES: CapabilitiesInput = { childSeat: true, childSeatAges: ["toddler", "booster"], pets: false, bigLuggage: true };
+export const BODY_SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
+export const DEFAULT_CAPABILITIES: CapabilitiesInput = { bodySizes: ["S", "M"], loaderHelp: false };
 
 /** Cargo bodies, S–3XL — the same scale the client's delivery picker uses. */
 export const CARGO_BODIES: Record<string, CargoBody> = {
@@ -226,18 +239,6 @@ export const CARGO_BODIES: Record<string, CargoBody> = {
 /** Every model the app registers is a passenger car, which carries S-size cargo. */
 export function cargoBodyFor(_model: string): CargoBody {
   return CARGO_BODIES.S;
-}
-
-/** Commission rate that applies for this many trips in the current week. */
-export function levelFor(weekTrips: number) {
-  let level: (typeof BONUS_LEVELS)[number] = BONUS_LEVELS[0];
-  for (const l of BONUS_LEVELS) if (weekTrips >= l.tripsRequired) level = l;
-  return level;
-}
-
-export function weekTrips(state: DriverState, now = Date.now()): number {
-  const weekStart = now - 7 * 86_400_000;
-  return state.trips.filter((t) => t.status === "completed" && t.createdAt >= weekStart).length;
 }
 
 function pickAddr(rng: ReturnType<typeof makeRng>, cityId: string) {
@@ -255,7 +256,6 @@ export function buildTrip(
   const passengersN = kind === "passengers" ? rng.int(1, 4) : undefined;
   const seatIds = ["front", "back-left", "back-mid", "back-right"].slice(0, passengersN ?? 1);
   const gross = computePrice(distanceKm, kind === "delivery" ? "car" : "seat", seatIds);
-  const baseCommission = Math.round((gross * BASE_COMMISSION_PCT) / 100);
   const commission = Math.round((gross * opts.commissionPct) / 100);
   const durationMin = Math.round((distanceKm / 75) * 60);
   const p = rng.pick(passengers);
@@ -278,7 +278,6 @@ export function buildTrip(
     gross: cancelled ? 0 : gross,
     commissionPct: opts.commissionPct,
     commission: cancelled ? 0 : commission,
-    bonusDiscount: cancelled ? 0 : baseCommission - commission,
     net: cancelled ? 0 : gross - commission,
     ratingReceived: cancelled ? null : rng.bool(0.85) ? rng.pick([5, 5, 5, 4, 5, 4]) : null,
     status: cancelled ? "cancelled" : "completed",
@@ -382,11 +381,10 @@ export function seedState(opts: SeedOpts = {}): DriverState {
   const sinceMidnight = now - todayStart.getTime();
   const wantWeek = opts.weekTrips ?? 14;
   const todayCount = 4;
-  const todayPct = levelFor(wantWeek).commissionPct;
   for (let i = 0; i < todayCount; i++) {
     // Completions spread evenly through today so far; start = end − duration.
     const endAt = todayStart.getTime() + sinceMidnight * ((i + 1) / (todayCount + 0.5));
-    const t = buildTrip(rng, { createdAt: endAt, fromCityId: rng.pick(["tsh", "tsh", "smq"]), commissionPct: todayPct });
+    const t = buildTrip(rng, { createdAt: endAt, fromCityId: rng.pick(["tsh", "tsh", "smq"]), commissionPct: BASE_COMMISSION_PCT });
     // In-debt presets: today's trips were cash, so only commission moved the wallet.
     if ((opts.balance ?? 0) < 0) t.payment = "cash";
     const shift = t.timeline[t.timeline.length - 1].at - endAt;
@@ -397,7 +395,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
   // Rest of this week.
   for (let i = 0; i < wantWeek - todayCount; i++) {
     const at = now - day * (1 + rng.float(0, 5.6, 2));
-    trips.push(buildTrip(rng, { createdAt: at, fromCityId: rng.pick(["tsh", "smq", "bxr", "and"]), commissionPct: levelFor(Math.min(i, wantWeek)).commissionPct }));
+    trips.push(buildTrip(rng, { createdAt: at, fromCityId: rng.pick(["tsh", "smq", "bxr", "and"]), commissionPct: BASE_COMMISSION_PCT }));
   }
   // Older history (8–30 days ago), a couple cancelled.
   for (let i = 0; i < 22; i++) {
@@ -429,7 +427,6 @@ export function seedState(opts: SeedOpts = {}): DriverState {
   const ledger = runLedger(rows, target, todayStart.getTime(), now);
 
   const notifications: NotificationItem[] = [
-    { id: "ntf_1", kind: "bonus", titleKey: "notif.bonusProgress.title", bodyKey: "notif.bonusProgress.body", params: { n: Math.max(0, 20 - wantWeek) }, createdAt: now - 40 * 60_000, read: false },
     { id: "ntf_2", kind: "wallet", titleKey: "notif.commission.title", bodyKey: "notif.commission.body", createdAt: now - 3 * 3_600_000, read: false },
     { id: "ntf_3", kind: "news", titleKey: "notif.news.title", bodyKey: "notif.news.body", createdAt: now - day * 1.2, read: true },
     { id: "ntf_4", kind: "docs", titleKey: "notif.docs.title", bodyKey: "notif.docs.body", createdAt: now - day * 12, read: true },
@@ -443,7 +440,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
     notifications.length = 0;
   }
   return {
-    version: 5,
+    version: 8,
     seededAt: now,
     registered,
     session: registered ? { stage: "active", phone: "+998 90 *** ** 41" } : { stage: "signed_out" },
@@ -464,7 +461,7 @@ export function seedState(opts: SeedOpts = {}): DriverState {
       memberSinceYear: 2023,
       pastTrips: registered ? 280 : 0,
     },
-    capabilities: { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] },
+    capabilities: { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] },
     balance: registered ? ledger[0]?.balanceAfter ?? target : 0,
     ledger,
     trips,
@@ -494,8 +491,6 @@ export function presetState(preset: TestPreset): DriverState {
       return seedState({ balance: -42_000 });
     case "debt":
       return seedState({ balance: DEBT_LIMIT });
-    case "bonus":
-      return seedState({ balance: 120_000, weekTrips: 37 });
   }
 }
 
@@ -541,15 +536,42 @@ function shiftWhen(w: WhenRecord, shift: number): WhenRecord {
  */
 function upgrade(stored: { version: number } | null): DriverState | null {
   if (!stored) return null;
-  if (stored.version === 5) return stored as DriverState;
+  if (stored.version === 8) return stored as DriverState;
+  const s = upgradeTo7(stored);
+  if (!s) return null;
+  // v8 (2026-11-25): driver levels removed. One commission rate from the
+  // server; the level-progress notification and the per-trip level discount go.
+  s.notifications = s.notifications.filter((n) => n.titleKey !== "notif.bonusProgress.title");
+  for (const t of s.trips) delete (t as { bonusDiscount?: number }).bonusDiscount;
+  s.version = 8;
+  return s;
+}
+
+function upgradeTo7(stored: { version: number }): DriverState | null {
+  if (stored.version === 7) return stored as DriverState;
+  if (stored.version === 6) {
+    // v7: wishes removed; Imkoniyatlarim = cargo body sizes + loader help.
+    const s = stored as unknown as DriverState;
+    s.capabilities = { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
+    return s;
+  }
+  if (stored.version === 5) {
+    // v6: registration order personal → license → car → selfie. A half-finished
+    // v5 registration ("car" / "documents") starts again at step 1.
+    const s = stored as unknown as DriverState;
+    const stage = s.session.stage as string;
+    if (stage === "car" || stage === "documents") s.session = { ...s.session, stage: "personal" };
+    s.capabilities = { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
+    return s;
+  }
   if (stored.version !== 3 && stored.version !== 4) return null;
   const s = stored as unknown as DriverState & { online?: boolean; offer?: unknown; trip?: unknown; nextOfferAt?: unknown };
-  if (stored.version === 3) s.capabilities = { ...DEFAULT_CAPABILITIES, childSeatAges: [...DEFAULT_CAPABILITIES.childSeatAges] };
+  if (stored.version === 3) s.capabilities = { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
   delete s.online;
   delete s.offer;
   delete s.trip;
   delete s.nextOfferAt;
-  s.version = 5;
+  s.capabilities = { ...DEFAULT_CAPABILITIES, bodySizes: [...DEFAULT_CAPABILITIES.bodySizes] };
   s.routes = s.registered ? DEFAULT_ROUTES.map((r) => ({ ...r })) : [];
   s.requests = [];
   s.bookings = [];

@@ -1,87 +1,87 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldCheck, CreditCard } from "@/lib/icons";
 import { api } from "@/api/client";
-import { Button } from "@/components/Button";
-import { Input } from "@/components/Input";
-import { ReviewStatus } from "@/components/ReviewStatus";
-import { ScreenHeader } from "@/components/ScreenHeader";
 import { useT } from "@/lib/i18n/provider";
-import { useLiftFloatingControl } from "@/stores/floatingControlStore";
+import { waitForReview } from "@/lib/waitForReview";
+import { Field, Icon, PrimaryButton, Screen } from "@/ui";
 
 /**
- * Simulated provider-hosted card-link page. IZGO never collects a card
- * number, expiry or CVV, even as fake demo data — only a label the user
- * picks for themself. The (simulated) provider is what "tokenizes" a card
- * and hands back a brand + last 4 digits; mock.ts invents those.
+ * Card linking, design v2. IZGO never collects a card number, expiry or CVV:
+ * the passenger names the card and continues to the provider's own page;
+ * the provider hands back only the brand and the last 4 digits.
  */
 export function CardLinkScreen() {
-  const footerRef = useRef<HTMLDivElement>(null);
-  useLiftFloatingControl(footerRef);
   const { t } = useT();
   const navigate = useNavigate();
   const [label, setLabel] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [reviewId, setReviewId] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState(false);
+  const [error, setError] = useState(false);
+  const signal = useRef({ cancelled: false });
+
+  useEffect(() => {
+    const s = { cancelled: false };
+    signal.current = s;
+    return () => {
+      s.cancelled = true;
+    };
+  }, []);
 
   async function submit() {
     setSubmitting(true);
-    setSubmitError(false);
+    setError(false);
     try {
       const review = await api.linkCard({ label: label.trim() || t("cardLink.defaultLabel") });
-      setReviewId(review.id);
+      const verdict = review.status === "pending" ? await waitForReview(review.id, signal.current) : review.status;
+      if (verdict === "cancelled") return;
+      if (verdict === "approved") navigate("/cards", { replace: true });
+      else setError(true);
     } catch {
-      setSubmitError(true);
+      setError(true);
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (reviewId) {
-    return (
-      <div className="flex h-full flex-col bg-bg">
-        <ScreenHeader title={t("cardLink.title")} />
-        <div className="flex flex-1 items-center justify-center">
-          <ReviewStatus reviewId={reviewId} onApproved={() => navigate("/cards", { replace: true })} />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-full flex-col bg-bg">
-      <ScreenHeader title={t("cardLink.title")} />
-      <div className="scroll-pb-bar flex-1 overflow-y-auto overscroll-contain px-4">
-        <div className="mb-6 flex flex-col items-center gap-3 rounded-2xl bg-on-yellow p-6 text-center text-white shadow-soft">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15">
-            <CreditCard className="h-6 w-6" />
-          </div>
-          <p className="text-sm font-semibold">{t("cardLink.providerTitle")}</p>
-          <p className="text-xs text-white/80">{t("cardLink.providerDesc")}</p>
+    <Screen
+      title={t("cardLink.title")}
+      top={
+        <div className="flex items-start gap-3.5 rounded-iz-card bg-iz-head-card p-4">
+          <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-iz-green text-iz-on-green">
+            <Icon name="shield" />
+          </span>
+          <span className="flex min-w-0 flex-col gap-1">
+            <span className="text-[15px] font-extrabold text-iz-head-text">{t("cardLink.providerTitle")}</span>
+            <span className="text-[13px] leading-[19px] text-iz-head-muted">{t("cardLink.providerDesc")}</span>
+          </span>
         </div>
-
-        <div className="space-y-4 rounded-2xl bg-card p-5 shadow-softer">
-          <Input
-            label={t("cardLink.labelField")}
-            placeholder={t("cardLink.labelPlaceholder")}
-            name="card-label"
-            autoComplete="off"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-        </div>
-
-        <p className="mt-4 flex items-center gap-2 text-xs text-ink/60">
-          <ShieldCheck className="h-3.5 w-3.5" /> {t("cardLink.privacyNote")}
-        </p>
-      </div>
-      <div ref={footerRef} className="px-4 pt-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 16px)" }}>
-        {submitError && <p className="mb-3 text-xs font-normal text-danger">{t("cardLink.error")}</p>}
-        <Button fullWidth loading={submitting} onClick={submit}>
-          {t("cardLink.submit")}
-        </Button>
-      </div>
-    </div>
+      }
+      footer={
+        <>
+          {error && (
+            <p role="alert" className="pb-1 text-[13px] font-semibold text-iz-danger">
+              {t("cardLink.error")}
+            </p>
+          )}
+          <PrimaryButton loading={submitting} onClick={submit}>
+            {t("cardLink.submit")}
+          </PrimaryButton>
+        </>
+      }
+    >
+      <Field
+        label={t("cardLink.labelField")}
+        icon="card"
+        placeholder={t("cardLink.labelPlaceholder")}
+        name="card-label"
+        autoComplete="off"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+      />
+      <p className="flex items-center gap-2 px-1 text-[13px] text-iz-muted">
+        <Icon name="lock" size={16} className="shrink-0" />
+        {t("cardLink.privacyNote")}
+      </p>
+    </Screen>
   );
 }

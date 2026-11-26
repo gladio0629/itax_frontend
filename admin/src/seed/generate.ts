@@ -26,10 +26,17 @@ export type Tariff = {
 
 export type DriverStatus = "auto_review" | "active" | "blocked";
 
+/** Redesign v2 (admin). Values come from the server; null = not reported. */
+export type OrderKind = "passenger" | "delivery";
+export type CargoBodySize = "S" | "M" | "L" | "XL" | "XXL" | "3XL";
+export type DriverLevel = "bronze" | "silver" | "gold";
+export type DriverDocument = { title: string; detail: string; status: "verified" | "checking" | "rejected" };
+
 export type Driver = {
   id: string;
   name: string;
-  phoneMasked: string;
+  /** Full number, "+998 90 123 45 67" (decision 2026-11-22: no masking in admin). */
+  phone: string;
   cityId: string;
   carModel: string;
   carColor: string;
@@ -46,14 +53,32 @@ export type Driver = {
   archived: boolean;
   avatarSeed: string;
   joinedAt: number;
+  /** v2: the driver's chosen route, display text ("Toshkent ⇄ Samarqand"). */
+  route: string | null;
+  level: DriverLevel | null;
+  /** Server verdict: the wallet reached the debt limit (new requests stop). */
+  atDebtLimit: boolean | null;
+  /** Commission % for the driver's level (server). */
+  commissionPct: number | null;
+  carYear: number | null;
+  seats: number | null;
+  acceptRate30d: number | null;
+  cancelsThisWeek: number | null;
+  cancelLimitWeek: number | null;
+  /** Driver capabilities: cargo body sizes and loader help only (2026-11-22). */
+  cargoBodies: CargoBodySize[] | null;
+  loaderHelp: boolean | null;
+  documents: DriverDocument[] | null;
 };
 
-export type PassengerStatus = "active" | "blocked";
+/** "warned" (Ogohlantirilgan) is only displayed when the server sends it. */
+export type PassengerStatus = "active" | "warned" | "blocked";
 
 export type Passenger = {
   id: string;
   name: string;
-  phoneMasked: string;
+  /** Full number, "+998 90 123 45 67". */
+  phone: string;
   rating: number;
   totalTrips: number;
   avatarSeed: string;
@@ -61,6 +86,9 @@ export type Passenger = {
   status: PassengerStatus;
   archived: boolean;
   joinedAt: number;
+  lastTripAt: number | null;
+  /** Last payment method; card shows its last 4 digits (server display data). */
+  lastPayment: { method: PaymentMethod; cardLast4?: string } | null;
 };
 
 export type OrderMode = "car" | "seat";
@@ -93,6 +121,16 @@ export type Order = {
    * on a passenger's behalf. Absent means "as soon as possible". */
   timeWindow?: { from: string; to: string };
   createdByAdminId?: string;
+  /** v2 fields (server). */
+  kind: OrderKind;
+  bodySize: CargoBodySize | null;
+  luggageCount: number | null;
+  pickupAddress: string | null;
+  dropoffAddress: string | null;
+  durationMin: number | null;
+  commission: number | null;
+  driverPayout: number | null;
+  cancelledBy: "passenger" | "driver" | "admin" | null;
   /** Only present on orders created live during the demo session — lets the
    * mock server compute status transitions as a pure function of time
    * instead of needing timers/intervals. */
@@ -105,7 +143,9 @@ export type Order = {
   };
 };
 
-export type WalletEntryType = "cash" | "card" | "commission" | "topup" | "adjustment";
+/** "tip" (choy puli) and "penalty" (jarima) are shown only when the server
+ * reports them (`capabilities.walletKinds`). */
+export type WalletEntryType = "cash" | "card" | "commission" | "topup" | "adjustment" | "tip" | "penalty";
 export type WalletEntry = {
   id: string;
   driverId: string;
@@ -117,6 +157,8 @@ export type WalletEntry = {
   createdByAdminName?: string;
   createdAt: number;
   balanceAfter: number;
+  /** Server display text: "Safar #48190 · 5%", "Payme · tranzaksiya ••8821". */
+  note?: string | null;
 };
 
 export type ComplaintType =
@@ -270,7 +312,7 @@ const COMPLAINT_TEMPLATES: Record<ComplaintType, string[]> = {
 // Bump whenever the shape of persisted seed data changes, so a browser
 // holding an old-shape localStorage snapshot gets a fresh reseed instead of
 // crashing on missing/renamed fields.
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 7;
 
 export type SeedData = {
   schemaVersion: number;
@@ -299,7 +341,8 @@ export function generateSeed(): SeedData {
     return {
       id: `drv_${String(i + 1).padStart(2, "0")}`,
       name,
-      phoneMasked: `+998 9${rng.int(0, 9)} *** ** ${String(rng.int(10, 99))}`,
+      // Sample numbers only: the "001" block keeps them obviously fake.
+      phone: `+998 9${rng.int(0, 9)} 001 ${String(i + 1).padStart(2, "0")} ${String(rng.int(10, 99))}`,
       cityId: city.id,
       carModel: car.model,
       carColor: car.color,
@@ -314,6 +357,7 @@ export function generateSeed(): SeedData {
       archived: i === 11,
       avatarSeed: `d${i}`,
       joinedAt: NOW - rng.int(30, 540) * 86_400_000,
+      ...DRIVER_V2_EMPTY,
     };
   });
 
@@ -325,11 +369,13 @@ export function generateSeed(): SeedData {
     return {
       id: `pax_${String(i + 1).padStart(2, "0")}`,
       name,
-      phoneMasked: `+998 9${rng.int(0, 9)} *** ** ${String(rng.int(10, 99))}`,
+      phone: `+998 9${rng.int(0, 9)} 002 ${String(i + 1).padStart(2, "0")} ${String(rng.int(10, 99))}`,
       rating: rng.float(4.3, 5.0, 1),
       totalTrips: rng.int(1, 140),
       avatarSeed: `p${i}`,
       cityId: rng.pick(CITIES).id,
+      lastTripAt: null,
+      lastPayment: null,
       status: i === 2 ? "blocked" : "active",
       archived: i === 29,
       joinedAt: NOW - rng.int(1, 400) * 86_400_000,
@@ -364,6 +410,7 @@ export function generateSeed(): SeedData {
       status,
       createdAt: NOW - rng.int(0, 45) * 86_400_000 - rng.int(0, 86_399) * 1000,
       rating: status === "completed" ? rng.int(4, 5) : undefined,
+      ...ORDER_V2_EMPTY,
       cancelReason: status === "cancelled" ? rng.pick([
         "Reja o'zgardi", "Juda uzoq kutdim", "Narxni qayta ko'rib chiqdim", "Boshqa yo'l tanladim",
       ]) : undefined,
@@ -410,6 +457,8 @@ export function generateSeed(): SeedData {
     };
   });
 
+  enrichV2({ drivers, passengers, orders, walletEntries });
+
   return {
     schemaVersion: SCHEMA_VERSION,
     cities: CITIES,
@@ -421,4 +470,209 @@ export function generateSeed(): SeedData {
     complaints,
     generatedAt: NOW,
   };
+}
+
+// ---------------------------------------------------------------------
+// Redesign v2 sample fields (admin). A separate RNG, so every value the
+// original seed produced stays the same. The mock adapter plays the server:
+// it owns these values (levels, commission, debt-limit verdict, timelines).
+// ---------------------------------------------------------------------
+const DRIVER_V2_EMPTY = {
+  route: null,
+  level: null,
+  atDebtLimit: null,
+  commissionPct: null,
+  carYear: null,
+  seats: null,
+  acceptRate30d: null,
+  cancelsThisWeek: null,
+  cancelLimitWeek: null,
+  cargoBodies: null,
+  loaderHelp: null,
+  documents: null,
+} satisfies Partial<Driver>;
+
+const ORDER_V2_EMPTY = {
+  kind: "passenger",
+  bodySize: null,
+  luggageCount: null,
+  pickupAddress: null,
+  dropoffAddress: null,
+  durationMin: null,
+  commission: null,
+  driverPayout: null,
+  cancelledBy: null,
+} satisfies Partial<Order>;
+
+/** Level → commission %, as the tariff page shows (sample values). */
+export const LEVEL_COMMISSION_PCT: Record<DriverLevel, number> = { bronze: 10, silver: 5, gold: 0 };
+const BODY_SIZES: CargoBodySize[] = ["S", "M", "L", "XL", "XXL", "3XL"];
+const DISTRICTS: Record<string, string[]> = {
+  tsh: ["Chilonzor, 9-kvartal", "Yunusobod, 4-mavze", "Mirzo Ulug'bek, Buyuk Ipak Yo'li", "Sergeli, 7-mavze"],
+  smq: ["Registon ko'chasi", "Siob bozori", "Temiryo'l vokzali"],
+  bxr: ["Labi hovuz", "Markaziy bozor"],
+  and: ["Bobur shoh ko'chasi", "Eski shahar"],
+  nmn: ["Davlatobod", "Markaz"],
+  frg: ["Al-Farg'oniy ko'chasi", "Markaz"],
+  qrs: ["Nasaf ko'chasi", "Markaz"],
+  nks: ["Doslik ko'chasi", "Markaz"],
+  xva: ["Ichan qal'a", "Markaz"],
+};
+
+function enrichV2(d: { drivers: Driver[]; passengers: Passenger[]; orders: Order[]; walletEntries: WalletEntry[] }) {
+  const rng = makeRng(SEED + 22);
+  const cityName = (id: string) => CITIES.find((c) => c.id === id)?.name ?? id;
+  const address = (cityId: string) => `${cityName(cityId)}, ${rng.pick(DISTRICTS[cityId] ?? ["Markaz"])}, ${rng.int(1, 60)}-uy`;
+
+  for (const dr of d.drivers) {
+    const from = CITIES.find((c) => c.id === dr.cityId) ?? CITIES[0];
+    let to = rng.pick(CITIES);
+    while (to.id === from.id) to = rng.pick(CITIES);
+    const level = rng.pick<DriverLevel>(["bronze", "bronze", "silver", "silver", "gold"]);
+    const big = /Captiva|Malibu|Sonata/.test(dr.carModel);
+    Object.assign(dr, {
+      route: `${from.name} ⇄ ${to.name}`,
+      level,
+      commissionPct: LEVEL_COMMISSION_PCT[level],
+      atDebtLimit: dr.walletBalance <= dr.debtLimit,
+      carYear: rng.int(2014, 2024),
+      seats: 4,
+      acceptRate30d: rng.int(82, 99),
+      cancelsThisWeek: rng.int(0, 3),
+      cancelLimitWeek: 3,
+      cargoBodies: big ? ["S", "M"] : rng.bool(0.4) ? ["S"] : [],
+      loaderHelp: rng.bool(0.3),
+      documents: [
+        { title: "Haydovchilik guvohnomasi", detail: `AF ${rng.int(1000000, 9999999)} · ${rng.int(2027, 2033)} gacha`, status: "verified" },
+        { title: "Tex pasport", detail: `${dr.carModel}`, status: dr.status === "auto_review" ? "checking" : "verified" },
+        { title: "Selfi", detail: `Yuz mosligi ${rng.int(91, 99)}%`, status: dr.status === "auto_review" ? "checking" : "verified" },
+      ],
+    } satisfies Partial<Driver>);
+  }
+
+  for (const p of d.passengers) {
+    const card = rng.bool(0.5);
+    p.lastPayment = card ? { method: "card", cardLast4: String(rng.int(1000, 9999)) } : { method: "cash" };
+    if (p.status === "active" && rng.bool(0.1)) p.status = "warned";
+  }
+
+  // More recent orders so the last 14 days and "today" have data, with
+  // live statuses today.
+  const startIndex = d.orders.length;
+  for (let i = 0; i < 110; i++) {
+    const daysAgo = i < 18 ? 0 : rng.int(1, 13);
+    const from = rng.pick(CITIES);
+    let to = rng.pick(CITIES);
+    while (to.id === from.id) to = rng.pick(CITIES);
+    const distanceKm = roadDistanceKm(from.id, to.id);
+    const mode: OrderMode = rng.bool(0.5) ? "car" : "seat";
+    const seatIds = mode === "seat" ? rng.shuffle(["front", "back-left", "back-mid", "back-right"]).slice(0, rng.int(1, 3)) : [];
+    const status: OrderStatus =
+      daysAgo === 0
+        ? rng.pick<OrderStatus>(["searching", "accepted", "in_progress", "in_progress", "completed", "completed", "cancelled"])
+        : rng.pick<OrderStatus>(["completed", "completed", "completed", "completed", "cancelled", "no_driver"]);
+    d.orders.push({
+      id: `ord_${String(startIndex + i + 1).padStart(3, "0")}`,
+      passengerId: rng.pick(d.passengers).id,
+      driverId: status === "searching" || status === "no_driver" ? null : rng.pick(d.drivers).id,
+      fromCityId: from.id,
+      toCityId: to.id,
+      distanceKm,
+      mode,
+      seatIds,
+      price: computePrice(distanceKm, mode, seatIds),
+      paymentMethod: rng.bool(0.6) ? "cash" : "card",
+      status,
+      createdAt: NOW - daysAgo * 86_400_000 - rng.int(0, 8 * 3600) * 1000,
+      ...ORDER_V2_EMPTY,
+    });
+  }
+
+  for (const o of d.orders) {
+    const delivery = rng.bool(0.22);
+    const driver = o.driverId ? d.drivers.find((x) => x.id === o.driverId) : undefined;
+    const pct = driver?.commissionPct ?? 10;
+    const done = o.status === "completed" || o.status === "in_progress";
+    if (!o.createdAt || o.createdAt > NOW) o.createdAt = NOW;
+    Object.assign(o, {
+      kind: delivery ? "delivery" : "passenger",
+      bodySize: delivery ? rng.pick(BODY_SIZES.slice(0, 4)) : null,
+      luggageCount: delivery ? null : rng.int(0, 3),
+      pickupAddress: address(o.fromCityId),
+      dropoffAddress: address(o.toCityId),
+      durationMin: Math.round((o.distanceKm / 75) * 60),
+      commission: done && driver ? Math.round((o.price * pct) / 100) : null,
+      driverPayout: done && driver ? o.price - Math.round((o.price * pct) / 100) : null,
+      cancelledBy: o.status === "cancelled" ? rng.pick<"passenger" | "driver" | "admin">(["passenger", "passenger", "driver", "admin"]) : null,
+    } satisfies Partial<Order>);
+  }
+
+  // Ledger: a few tips and penalties, notes on every entry, balances rebuilt.
+  for (const dr of d.drivers) {
+    for (let i = 0; i < 2; i++) {
+      const tip = rng.bool(0.6);
+      d.walletEntries.push({
+        id: `wal_${dr.id}_x${i}`,
+        driverId: dr.id,
+        type: tip ? "tip" : "penalty",
+        amount: tip ? rng.int(5, 20) * 1000 : -rng.int(3, 10) * 1000,
+        createdAt: NOW - rng.int(0, 20) * 86_400_000 - rng.int(0, 20_000) * 1000,
+        balanceAfter: 0,
+      });
+    }
+  }
+  d.walletEntries.sort((a, b) => a.createdAt - b.createdAt);
+  const balance = new Map<string, number>();
+  for (const e of d.walletEntries) {
+    const b = (balance.get(e.driverId) ?? 0) + e.amount;
+    balance.set(e.driverId, b);
+    e.balanceAfter = b;
+    const pct = d.drivers.find((x) => x.id === e.driverId)?.commissionPct ?? 10;
+    e.note =
+      e.type === "topup"
+        ? `${rng.bool(0.6) ? "Payme" : "Click"} · tranzaksiya ••${rng.int(1000, 9999)}`
+        : e.type === "commission"
+          ? `Safar #${rng.int(10, 170)} · ${pct}%`
+          : e.type === "tip"
+            ? "Yo'lovchidan"
+            : e.type === "penalty"
+              ? "Safar oxirgi daqiqada bekor qilindi"
+              : e.type === "cash"
+                ? `Naqd safar #${rng.int(10, 170)}`
+                : e.type === "card"
+                  ? `Karta safar #${rng.int(10, 170)}`
+                  : null;
+  }
+  // A few drivers who took cash trips and didn't top up: their unpaid
+  // commission pushes them to the debt limit, so "Qarz limitiga yetgan"
+  // has real sample rows. Own RNG keeps every other value as it was.
+  const debtRng = makeRng(SEED + 23);
+  const debtors = d.drivers.filter((dr) => !dr.archived && dr.status === "active").filter((_, i) => i % 4 === 1).slice(0, 4);
+  for (const dr of debtors) {
+    const before = balance.get(dr.id) ?? 0;
+    const trips = debtRng.int(6, 14);
+    const amount = dr.debtLimit - before - debtRng.int(0, 12) * 1000;
+    if (amount >= 0) continue;
+    const entry: WalletEntry = {
+      id: `wal_${dr.id}_debt`,
+      driverId: dr.id,
+      type: "commission",
+      amount,
+      // After the driver's last entry, so the running balance stays right.
+      createdAt: Math.min(NOW, Math.max(0, ...d.walletEntries.filter((e) => e.driverId === dr.id).map((e) => e.createdAt)) + debtRng.int(5, 90) * 60_000),
+      balanceAfter: before + amount,
+      note: `${trips} ta naqd safar komissiyasi`,
+    };
+    d.walletEntries.push(entry);
+    balance.set(dr.id, before + amount);
+  }
+  for (const dr of d.drivers) {
+    dr.walletBalance = balance.get(dr.id) ?? 0;
+    dr.atDebtLimit = dr.walletBalance <= dr.debtLimit;
+  }
+
+  for (const p of d.passengers) {
+    const last = d.orders.filter((o) => o.passengerId === p.id).reduce((m, o) => Math.max(m, o.createdAt), 0);
+    p.lastTripAt = last || null;
+  }
 }

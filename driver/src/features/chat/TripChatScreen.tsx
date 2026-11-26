@@ -8,7 +8,7 @@ import { toast } from "@/lib/toast";
 import { errorMessage } from "@/lib/errors";
 import { formatTime } from "@/lib/format";
 import { MessageCircle, MessageSquareText, Send } from "@/lib/icons";
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { Screen } from "@/components/Screen";
 import { ErrorState } from "@/components/ErrorState";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonList } from "@/components/Skeleton";
@@ -53,8 +53,7 @@ export default function TripChatScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <ScreenHeader title={chat?.peerName ?? t("chat.title")} back />
+    <Screen title={chat?.peerName ?? t("chat.title")} back scroll={false} bodyClassName="flex flex-col pt-4">
       {q.error && chat === undefined ? (
         <div className="px-4">
           <ErrorState error={q.error} onRetry={() => q.reload()} />
@@ -69,7 +68,7 @@ export default function TripChatScreen() {
           title={t("chat.noTrip")}
           description={t("chat.noTripDesc")}
           action={
-            <Button fullWidth onClick={() => navigate("/?tab=accepted", { replace: true })}>
+            <Button fullWidth onClick={() => navigate("/", { replace: true })}>
               {t("tab.home")}
             </Button>
           }
@@ -77,8 +76,8 @@ export default function TripChatScreen() {
       ) : (
         <>
           {chat.textOnly && (
-            <p className="mx-4 mb-2 flex shrink-0 items-start gap-2 rounded-card bg-accent/15 px-3 py-2 text-sm text-ink">
-              <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            <p className="mx-4 mb-2 flex shrink-0 items-start gap-2 rounded-card bg-brand-ink/15 px-3 py-2 text-sm text-ink">
+              <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-brand-ink" />
               {t("chat.textOnlyNote")}
             </p>
           )}
@@ -94,7 +93,7 @@ export default function TripChatScreen() {
             ))}
           </ol>
 
-          <div className="shrink-0 border-t border-line bg-bg pb-3 pt-2">
+          <div className="shrink-0 border-t border-line bg-bg pt-2" style={{ paddingBottom: "calc(var(--safe-bottom) + 12px)" }}>
             <div role="group" aria-label={t("chat.quickReplies")} className="no-scrollbar flex gap-2 overflow-x-auto px-4">
               {chat.quickReplies.map((k) => (
                 <button
@@ -127,7 +126,7 @@ export default function TripChatScreen() {
                 type="submit"
                 disabled={sending || !draft.trim()}
                 aria-label={t("chat.send")}
-                className="press flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-yellow text-on-yellow disabled:opacity-40"
+                className="press flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand disabled:opacity-40"
               >
                 {sending ? <Spinner className="h-5 w-5" /> : <Send className="h-5 w-5" />}
               </button>
@@ -135,7 +134,7 @@ export default function TripChatScreen() {
           </div>
         </>
       )}
-    </div>
+    </Screen>
   );
 }
 
@@ -147,13 +146,13 @@ function Bubble({ m, peer }: { m: ChatMessage; peer: string }) {
     <li className={cn("flex animate-fade-up", mine ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[80%] rounded-card px-3 py-2 text-base",
-          mine ? "rounded-br-none bg-yellow text-on-yellow" : "rounded-bl-none bg-surface text-ink shadow-1"
+          "max-w-[80%] rounded-field px-3.5 py-2 text-15",
+          mine ? "rounded-br-md bg-brand text-on-brand" : "rounded-bl-md bg-raised text-ink"
         )}
       >
         <span className="sr-only">{mine ? t("chat.you") : peer}: </span>
         <p className="whitespace-pre-wrap break-words">{text}</p>
-        <p className={cn("tabular mt-0.5 text-right text-xs", mine ? "text-on-yellow/70" : "text-muted")}>{formatTime(m.at)}</p>
+        <p className={cn("tabular mt-0.5 text-right text-xs", mine ? "text-on-brand/70" : "text-muted")}>{formatTime(m.at)}</p>
       </div>
     </li>
   );

@@ -4,6 +4,21 @@ export function formatSom(value: number): string {
   return `${sign}${abs.toLocaleString("fr-FR").replace(/,/g, " ")} so'm`;
 }
 
+/** "1 284" — digit groups with a no-break space; "−" for negatives (v2 tables). */
+export function formatNumber(value: number): string {
+  const abs = Math.abs(Math.round(value));
+  const grouped = String(abs).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+  return value < 0 ? `\u2212${grouped}` : grouped;
+}
+
+/** Full phone for display: "+998901234567" or "998 90 123 45 67" →
+ * "+998 90 123 45 67". Admin shows numbers in full (decision 2026-11-22). */
+export function formatPhone(phone: string): string {
+  const d = phone.replace(/\D/g, "");
+  const m = /^998(\d{2})(\d{3})(\d{2})(\d{2})$/.exec(d);
+  return m ? `+998 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone;
+}
+
 export function formatKm(value: number): string {
   return `${Math.round(value).toLocaleString("fr-FR").replace(/,/g, " ")} km`;
 }
@@ -41,4 +56,51 @@ export function formatDate(ts: number): string {
 
 export function formatDateTime(ts: number): string {
   return `${formatDate(ts)}, ${formatTime(ts)}`;
+}
+
+const WEEKDAYS = ["yakshanba", "dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba"];
+/** "22 noyabr, yakshanba" */
+export function formatLongDate(ts: number | Date): string {
+  const d = new Date(ts);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${WEEKDAYS[d.getDay()]}`;
+}
+
+/** "Bugun, 15:30" / "Kecha, 21:15" / "20.11, 17:45" (relative to the real today). */
+export function formatShortDateTime(ts: number): string {
+  const d = new Date(ts);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(d);
+  day.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - day.getTime()) / 86_400_000);
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (diff === 0) return `Bugun, ${time}`;
+  if (diff === 1) return `Kecha, ${time}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}, ${time}`;
+}
+
+/** "18,4 mln" for large sums, else grouped digits. */
+export function formatCompactSom(value: number): { value: string; unit?: string } {
+  if (Math.abs(value) >= 1_000_000) return { value: (value / 1_000_000).toFixed(1).replace(".", ","), unit: "mln" };
+  return { value: formatNumber(value) };
+}
+
+/** "Noyabr 2026" from "2026-11". */
+export function formatMonth(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  const name = MONTHS[(m || 1) - 1] ?? "";
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${y}`;
+}
+
+/** "Hozir", "12 daq oldin", "1 soat oldin", "Kecha", "3 kun oldin", "2 oy oldin". */
+export function formatAgo(ts: number, now = Date.now()): string {
+  const min = Math.floor((now - ts) / 60_000);
+  if (min < 5) return "Hozir";
+  if (min < 60) return `${min} daq oldin`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} soat oldin`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "Kecha";
+  if (d < 30) return `${d} kun oldin`;
+  return `${Math.floor(d / 30)} oy oldin`;
 }

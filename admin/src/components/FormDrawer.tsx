@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { Drawer } from "./Drawer";
 import { Button } from "./Button";
+import type { BackTarget } from "./BackButton";
 
 /** Thin shared wrapper over Drawer for every add/edit form: title, fields,
  * error line, pinned submit button. A real <form>, so Enter submits. */
@@ -15,6 +16,7 @@ export function FormDrawer({
   disabled,
   error,
   children,
+  back,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,6 +27,8 @@ export function FormDrawer({
   disabled?: boolean;
   error?: string | null;
   children: ReactNode;
+  /** "← Orqaga" above the title (see BackButton); defaults to closing the form. */
+  back?: BackTarget;
 }) {
   const formId = `form-${title.replace(/\W+/g, "-")}`;
   return (
@@ -32,16 +36,17 @@ export function FormDrawer({
       open={open}
       onClose={onClose}
       title={title}
+      back={back ?? onClose}
       footer={
         <div className="space-y-3">
           {error && (
-            <p role="alert" className="flex items-start gap-2 text-sm text-danger">
+            <p role="alert" className="flex items-start gap-2 text-sm font-semibold text-error">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               {error}
             </p>
           )}
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={onClose} disabled={loading}>
+            <Button variant="soft" onClick={onClose} disabled={loading}>
               Bekor qilish
             </Button>
             <Button type="submit" form={formId} className="flex-1" loading={loading} disabled={disabled}>
@@ -54,7 +59,7 @@ export function FormDrawer({
       <form
         id={formId}
         noValidate
-        className="space-y-5"
+        className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
           if (!loading && !disabled) onSubmit();

@@ -11,7 +11,10 @@ import type { ApiAdapter, ApiCapabilities, ServerEvent } from "../adapterTypes";
 import type {
   AcceptedPage,
   CityRef,
+  Direction,
   DocSlot,
+  RegistrationSectionKey,
+  RegistrationSectionStatus,
   DriverRoute,
   HomeSummary,
   LedgerEntry,
@@ -22,9 +25,11 @@ import type {
   RoutesPage,
   Session,
   SessionStage,
+  TopupOptions,
 } from "../types";
 import { session } from "../httpSession";
 import {
+  type ApiCargoCapabilities,
   CANCEL_REASON_KEY,
   type CityNames,
   mapFieldError,
@@ -33,22 +38,24 @@ import {
   reasonFromKey,
   REG_CAR_CLASSES,
   REG_CAR_COLORS,
-  REG_CAR_MODELS,
+  REG_CAR_BRANDS,
+  REG_LICENSE_CATEGORIES,
   REG_CITIES,
   REG_SEAT_COUNTS,
   REJECT_REASON_KEY,
   safeRedirect,
-  splitCarModel,
   splitName,
   toApiCapabilities,
   toApiPhone,
   toApiPlate,
   toCapabilities,
   toDebtState,
+  toSom,
   toDriverProfile,
   toLedgerEntry,
   toNotification,
   toRoutesInput,
+  routesToDirections,
   toRoutesPage,
   toTiyin,
   stepActionOf,
@@ -71,21 +78,28 @@ const capabilities: ApiCapabilities = {
   arrivedStep: true,
   cancelBooking: true,
   tripChat: false,
-  // Trip has final_price and commission, but no commission % or bonus.
+  // Trip has final_price and commission, but no commission %.
   tripSummary: false,
   history: true,
   // GET /trips/history has only cursor/limit and no total.
   historyFilters: false,
   profileMatching: false,
-  bonus: false,
   help: false,
-  driverCapabilities: true,
+  // The contract's capabilities are wishes (removed 2026-11-22); the cargo sizes endpoint isn't there yet.
+  driverCapabilities: false,
   profileChangePhone: false,
   profileChangeCar: false,
   requestAlerts: false,
   ledgerFilters: false,
   notificationCategories: false,
   locationReporting: true,
+  // No endpoints yet (docs/backend-gaps/driver.md, "Redesign v2").
+  ratePassenger: false,
+  sos: false,
+  // No account-deletion endpoint yet: Sozlamalar links to the site's page instead.
+  deleteAccount: false,
+  // Referral, licence details and service types have no endpoint yet.
+  registrationDetails: false,
 };
 
 // ------------------------------------------------------ settled "reviews"
@@ -118,6 +132,9 @@ let statusCache: { at: number; value: Api.DriverStatus } | null = null;
 let ledgerPages: { cursors: (string | null)[]; items: LedgerEntry[][] } = { cursors: [], items: [] };
 let historyPages: { cursors: (string | null)[]; items: Api.TripWithOrder[][] } = { cursors: [], items: [] };
 let summaryCache: { at: number; value: HomeSummary } | null = null;
+/** The driver's directions for Home (from GET /drivers/me/routes): the feed polls every 5 s, routes change only on PUT. */
+let directionsCache: { at: number; value: Direction[] } | null = null;
+const DIRECTIONS_MAX_AGE_MS = 60_000;
 /** The driver's car from the last GET /drivers/me (shown read-only in "Imkoniyatlarim"). */
 let lastCar: Api.Car | undefined;
 
@@ -130,6 +147,7 @@ function clearTabState() {
   lastNotifications = [];
   statusCache = null;
   summaryCache = null;
+  directionsCache = null;
   ledgerPages = { cursors: [], items: [] };
   historyPages = { cursors: [], items: [] };
   lastCar = undefined;
@@ -226,13 +244,28 @@ const historyMore = () => !!historyPages.cursors[historyPages.items.length - 1];
 // ------------------------------------------------------------------ routes
 async function readRoutes(): Promise<RoutesPage> {
   const [r, cities] = await Promise.all([http.get<Api.DriverRoutes>(API_PATHS.driverRoutes), cityRefs()]);
-  return toRoutesPage(r, cities);
+  return remember(toRoutesPage(r, cities));
+}
+
+function remember(page: RoutesPage): RoutesPage {
+  directionsCache = { at: Date.now(), value: routesToDirections(page.routes) };
+  return page;
+}
+
+/** Never a guessed "no route": a failed re-read keeps the last known list, else null (unknown). The offers load either way. */
+async function feedDirections(): Promise<Direction[] | null> {
+  if (directionsCache && Date.now() - directionsCache.at < DIRECTIONS_MAX_AGE_MS) return directionsCache.value;
+  try {
+    return routesToDirections((await readRoutes()).routes);
+  } catch {
+    return directionsCache?.value ?? null;
+  }
 }
 
 /** PUT replaces the whole set and issues new ids: always answer with its response. */
 async function putRoutes(routes: DriverRoute[], cities: CityRef[]): Promise<RoutesPage> {
   try {
-    return toRoutesPage(await http.put<Api.DriverRoutes>(API_PATHS.driverRoutes, toRoutesInput(routes)), cities);
+    return remember(toRoutesPage(await http.put<Api.DriverRoutes>(API_PATHS.driverRoutes, toRoutesInput(routes)), cities));
   } catch (err) {
     throw mapRoutesError(err);
   }
@@ -266,7 +299,10 @@ function stageFromStep(state: Api.RegistrationState): SessionStage {
   if (state.state === "pending_review") return "review";
   if (state.state === "active") return "active";
   if (state.state === "blocked") return "blocked";
-  return state.current_step <= 1 ? "personal" : state.current_step === 2 ? "car" : "documents";
+  // The server's steps are personal → car → documents → terms; the screens go
+  // personal → license → car → selfie (the licence photos and details are
+  // sent with the later steps, see saveLicense).
+  return state.current_step <= 1 ? "personal" : state.current_step === 2 ? "car" : "selfie";
 }
 
 async function currentSession(): Promise<Session> {
@@ -301,7 +337,50 @@ async function registrationStep(step: 1 | 2 | 3 | 4, body: unknown): Promise<Ses
   }
 }
 
-const DOC_KIND: Record<DocSlot, Api.DocumentKind> = { license: "license_front", registration: "tech_passport_front", selfie: "selfie" };
+const DOC_KIND: Record<DocSlot, Exclude<Api.DocumentKind, "avatar">> = {
+  license_front: "license_front",
+  license_back: "license_back",
+  tech_passport_front: "tech_passport_front",
+  tech_passport_back: "tech_passport_back",
+  car_photo: "car_photo",
+  selfie: "selfie",
+};
+/** Uploaded document ids kept until registration step 3 sends them all
+ * (licence → car → selfie screens; the server takes documents in one step).
+ * Memory only: a reload restarts registration at step 1, as before. */
+const pendingDocs = new Map<DocSlot, string>();
+
+/**
+ * Calls an endpoint the backend doesn't have yet (docs/backend-gaps/driver.md,
+ * "Redesign v2"). Only "route missing" (404 / 405 / 501) is swallowed and
+ * gives `fallback`; validation errors, 5xx and network errors still throw.
+ */
+async function optionalEndpoint<T>(call: () => Promise<T>, fallback: T): Promise<T> {
+  // None of these is on the server yet, and a path it doesn't know may come
+  // back as something other than 404 there. Store release 1.1 (2026-11-26):
+  // don't call them at all; flip this when the endpoints ship.
+  if (!OPTIONAL_ENDPOINTS_LIVE) return fallback;
+  try {
+    return await call();
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 405 || err.status === 501)) return fallback;
+    throw mapFieldError(err);
+  }
+}
+const OPTIONAL_ENDPOINTS_LIVE = false;
+const OPT = {
+  referral: "/api/v1/drivers/registration/referral",
+  license: "/api/v1/drivers/registration/license",
+  serviceTypes: "/api/v1/drivers/me/service-types",
+  review: "/api/v1/drivers/registration/review",
+  topupOptions: "/api/v1/wallet/topup/options",
+  cargoCapabilities: "/api/v1/drivers/me/cargo-capabilities",
+  account: "/api/v1/drivers/me",
+} as const;
+type ApiRegistrationReview = {
+  sections: { key: RegistrationSectionKey; status: RegistrationSectionStatus }[];
+  eta_minutes?: number;
+};
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // UploadUrlRequest.size_bytes maximum
 
 // -------------------------------------------------------------- summaries
@@ -315,10 +394,9 @@ async function homeSummary(): Promise<HomeSummary> {
     readActiveTrips().catch(() => null),
   ]);
   const value: HomeSummary = {
-    // Not in the contract; not shown in http mode.
-    todayEarnings: 0,
-    todayTrips: 0,
-    bonusActive: false,
+    // Not in the contract: null hides the block (never a made-up 0).
+    todayEarnings: null,
+    todayTrips: null,
     newRequests: 0,
     // Unread on the first page (the contract has no unread count).
     unreadNotifications: notifications.data.filter((n) => !n.read).length,
@@ -378,13 +456,15 @@ export const httpAdapter: ApiAdapter = {
       (list) => list.map((c) => ({ id: c.name, name: c.name })),
       () => REG_CITIES
     ),
-    carModels: REG_CAR_MODELS,
+    // No options endpoint yet (backend-gaps): static choices, the server validates them.
+    carBrands: REG_CAR_BRANDS,
     carColors: REG_CAR_COLORS,
     years: Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - i),
-    platePattern: "01 A 123 BC",
-    askBirthDate: true,
-    carClasses: REG_CAR_CLASSES,
     seatCounts: REG_SEAT_COUNTS,
+    carClasses: REG_CAR_CLASSES,
+    serviceTypes: ["passengers", "delivery"],
+    licenseCategories: REG_LICENSE_CATEGORIES,
+    platePattern: "01 A 123 BC",
     realDocuments: true,
   }),
 
@@ -415,23 +495,51 @@ export const httpAdapter: ApiAdapter = {
     return settled("otp_verify", "approved");
   },
 
-  async savePersonal({ name, cityId, birthDate }) {
+  async savePersonal({ firstName, lastName, birthDate, cityId, referralCode }) {
     // Option ids are the city names (RegistrationStep1.city is a string).
     const city = cityId.trim();
     if (!city) throw new ApiError("CITY_REQUIRED");
-    return registrationStep(1, { ...splitName(name), birth_date: birthDate || undefined, city });
+    if (!firstName.trim() || !lastName.trim()) throw new ApiError("NAME_INVALID");
+    const next = await registrationStep(1, { first_name: firstName.trim(), last_name: lastName.trim(), birth_date: birthDate, city });
+    const code = referralCode?.trim();
+    if (code) await optionalEndpoint(() => http.post(OPT.referral, { code }), undefined);
+    if (next.stage === "review" || next.stage === "active" || next.stage === "blocked") return next;
+    registrationStage = "license";
+    return { stage: "license" };
   },
 
-  async saveCar({ model, colorKey, plate, year, carClass, seats }) {
+  async saveLicense({ number, issuedAt, expiresAt, categories, frontRef, backRef }) {
+    if (!frontRef || !backRef) throw new ApiError("DOCS_REQUIRED");
+    await optionalEndpoint(
+      () => http.post(OPT.license, { number: number.trim(), issued_at: issuedAt, expires_at: expiresAt, categories }),
+      undefined
+    );
+    pendingDocs.set("license_front", frontRef);
+    pendingDocs.set("license_back", backRef);
+    registrationStage = "car";
+    return { stage: "car" };
+  },
+
+  async saveCar({ brand, model, plate, year, seats, colorKey, carClass, serviceTypes, techPassportFrontRef, techPassportBackRef, carPhotoRef }) {
+    if (!techPassportFrontRef || !techPassportBackRef || !carPhotoRef) throw new ApiError("DOCS_REQUIRED");
+    // Car fields only: the contract rejects unknown keys.
     const car: Partial<Api.Car> = {
-      ...splitCarModel(model),
+      brand,
+      model,
       year,
       color: colorKey || undefined,
       plate_number: toApiPlate(plate) || undefined,
       car_class: carClass,
       seats,
     };
-    return registrationStep(2, { car });
+    const next = await registrationStep(2, { car });
+    await optionalEndpoint(() => http.put(OPT.serviceTypes, { service_types: serviceTypes }), undefined);
+    pendingDocs.set("tech_passport_front", techPassportFrontRef);
+    pendingDocs.set("tech_passport_back", techPassportBackRef);
+    pendingDocs.set("car_photo", carPhotoRef);
+    if (next.stage === "review" || next.stage === "active" || next.stage === "blocked") return next;
+    registrationStage = "selfie";
+    return { stage: "selfie" };
   },
 
   async uploadDocument(slot, file) {
@@ -447,20 +555,31 @@ export const httpAdapter: ApiAdapter = {
     return { ref: target.document_id, name: file.name };
   },
 
-  async submitDocuments({ licenseFile, registrationFile, selfieFile, acceptTerms }) {
+  async submitRegistration({ selfieRef, acceptTerms }) {
     if (!acceptTerms) throw new ApiError("TERMS_REQUIRED");
-    const documents = (
-      [
-        ["license", licenseFile],
-        ["registration", registrationFile],
-        ["selfie", selfieFile],
-      ] as const
-    )
-      .filter(([, id]) => !!id)
-      .map(([slot, id]) => ({ kind: DOC_KIND[slot], document_id: id as string }));
+    if (!selfieRef) throw new ApiError("SELFIE_REQUIRED");
+    pendingDocs.set("selfie", selfieRef);
+    const documents = [...pendingDocs].map(([slot, id]) => ({ kind: DOC_KIND[slot], document_id: id }));
     await registrationStep(3, { documents });
     await registrationStep(4, { accept_terms: true });
+    pendingDocs.clear();
     return { ...settled("driver_registration", "pending"), id: REGISTRATION_REVIEW_ID };
+  },
+
+  getRegistrationReview: () =>
+    optionalEndpoint(
+      () =>
+        http.get<ApiRegistrationReview>(OPT.review).then((r) => ({
+          sections: r.sections,
+          etaMinutes: typeof r.eta_minutes === "number" ? r.eta_minutes : undefined,
+        })),
+      null
+    ),
+
+  async deleteAccount() {
+    await http.delete(OPT.account);
+    await session.logout().catch(() => {});
+    return { stage: "signed_out" };
   },
 
   async logout() {
@@ -511,8 +630,9 @@ export const httpAdapter: ApiAdapter = {
   getHomeSummary: () => homeSummary(),
 
   async getFeed() {
-    const [page, cities] = await Promise.all([http.get<Api.OfferPage>(API_PATHS.tripOffers, { limit: 50 }), cityNames()]);
-    return { items: page.data.map((o) => offerToRequest(o, cities)), seats: null, directions: [], dates: [] };
+    // The offers carry no direction filter; the directions are the driver's routes, for the "Mening yo'nalishim" line.
+    const [page, cities, directions] = await Promise.all([http.get<Api.OfferPage>(API_PATHS.tripOffers, { limit: 50 }), cityNames(), feedDirections()]);
+    return { items: page.data.map((o) => offerToRequest(o, cities)), seats: null, directions, dates: [] };
   },
   markFeedSeen: async () => {},
   getRejectReasons: async () => Object.values(REJECT_REASON_KEY).map((key) => ({ key })),
@@ -609,6 +729,22 @@ export const httpAdapter: ApiAdapter = {
     summaryCache = null;
   },
   getTripSummary: notSupported,
+
+  // No single-item GETs: read the list the screens already use and pick the item.
+  async getRequest(requestId) {
+    const page = await httpAdapter.getFeed({ direction: "all", date: "today", type: "all" });
+    const r = page.items.find((x) => x.id === requestId);
+    if (!r) throw new ApiError("REQUEST_NOT_FOUND");
+    return r;
+  },
+  async getBooking(bookingId) {
+    const page = await httpAdapter.getAccepted();
+    const b = page.days.flatMap((d) => d.trips.flatMap((tr) => tr.bookings)).find((x) => x.id === bookingId);
+    if (!b) throw new ApiError("TRIP_NOT_FOUND");
+    return b;
+  },
+  ratePassenger: notSupported,
+  sendSos: notSupported,
   getTripChat: notSupported,
   sendTripMessage: notSupported,
 
@@ -660,9 +796,24 @@ export const httpAdapter: ApiAdapter = {
 
   // Limits from the TopupRequest schema (100 000 – 1 000 000 000 tiyin);
   // providers from its enum. The presets are just quick-pick buttons.
-  getTopupOptions: async () => ({ presets: [20_000, 50_000, 100_000, 200_000], min: 1_000, max: 10_000_000, providers: ["payme", "click"] }),
+  // GET /api/v1/wallet/topup/options is not in the contract yet (backend-gaps/driver.md, "Redesign v2"):
+  // until then no presets and no limits here — the amount is typed and the server validates it.
+  getTopupOptions: () =>
+    optionalEndpoint<TopupOptions>(
+      () =>
+        http.get<{ presets: number[]; min?: number; max?: number; providers?: Api.PayProvider[] }>(OPT.topupOptions).then((r) => ({
+          presets: (r.presets ?? []).map(toSom),
+          min: r.min != null ? toSom(r.min) : undefined,
+          max: r.max != null ? toSom(r.max) : undefined,
+          providers: r.providers?.length ? r.providers : ["payme", "click"],
+        })),
+      // The contract's PayProvider values.
+      { presets: [], providers: ["payme", "click"] }
+    ),
 
-  async requestTopup(amount, provider) {
+  async requestTopup(amount, provider, cardId) {
+    // The contract's TopupRequest has no saved card yet.
+    if (cardId) return notSupported();
     const body: Api.TopupRequest = { amount: toTiyin(amount), provider };
     const res = await session.idempotency
       .run("walletTopup", body, (key) => http.post<Api.TopupSession>(API_PATHS.walletTopup, body, { idempotencyKey: key }))
@@ -676,7 +827,6 @@ export const httpAdapter: ApiAdapter = {
   },
 
   // ---------- profile ----------
-  getBonus: notSupported,
 
   async requestProfileChange(field, value) {
     if (field !== "name") return notSupported();
@@ -718,7 +868,7 @@ export const httpAdapter: ApiAdapter = {
   getAppInfo: async () => ({ version: appVersion, build: "web" }),
   async getCapabilities() {
     const [caps, me] = await Promise.all([
-      http.get<Api.DriverCapabilities>(API_PATHS.driverCapabilities),
+      http.get<ApiCargoCapabilities>(OPT.cargoCapabilities),
       http.get<Api.DriverProfile>(API_PATHS.driverMe),
     ]);
     lastCar = me.car;
@@ -726,9 +876,9 @@ export const httpAdapter: ApiAdapter = {
   },
 
   async setCapabilities(input) {
-    let saved: Api.DriverCapabilities;
+    let saved: ApiCargoCapabilities;
     try {
-      saved = await http.put<Api.DriverCapabilities>(API_PATHS.driverCapabilities, toApiCapabilities(input));
+      saved = await http.put<ApiCargoCapabilities>(OPT.cargoCapabilities, toApiCapabilities(input));
     } catch (err) {
       throw mapFieldError(err);
     }

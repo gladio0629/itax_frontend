@@ -82,7 +82,7 @@ Updated 2026-11-15: the order flow runs against the contract in http mode.
 | getCargoRules, getMarketplaceWarehouses, getCargoInfo, getRideAlong, checkCargo | **NONE** | Kargo tabs, loaders, hourly mode, ride-along, sender/receiver, warehouses and info sheets are hidden (`cargoExtras`). Dostavka orders = vehicle + route + time + note. |
 | validateRider | **NONE** | "Kim ketadi?" hidden (`rider`). |
 | getTipOptions, sendTip | **NONE** | |
-| getTripShareLink, getEmergencyContacts, add/removeEmergencyContact, getSupportContact | **NONE** | Safety tools hidden. |
+| getTripShareLink, getSupportContact | **NONE** | Safety tools (SOS, share) hidden. Emergency contacts were removed from the app (owner, 2026-11-22). |
 | applyPromoCode | **NONE** | Promo rows hidden (`promo`). |
 | getSavedCards | **NONE** | Card payment can be chosen; the saved-cards list and "link card" under it are hidden. |
 | getBonusSummary, getBonusSources, getBonusHistory, requestBonusWithdraw | **NONE** | |
@@ -95,7 +95,8 @@ Updated 2026-11-15: the order flow runs against the contract in http mode.
 On: `ordering`, `orderDetails`, `repeatOrder`, `popularRoutes`.
 Off (backend still lacks them, `docs/backend-gaps.md` §0): `stops`, `orderOptions`, `rider`, `addressDetails`, `cargoExtras`,
 `mapPick`, `pickupEta`, `editPickup`, `historyStatusFilter`, `tips`, `safety`, `promo`, `bonuses`, `help`, `savedCards`,
-`accounts`, `phoneChange`, `accountDeletion`, `notificationTopics`.
+`accounts`, `phoneChange`, `accountDeletion`, `notificationTopics`, `appPayment` (Payme / Click need a payment page on the
+order), `cardPayment` (card needs saved cards and a charge path; owner 2026-11-26: cash only in 1.1), `seatLayouts` (`GET /orders/seat-layouts`), `recentRoutes`, `ratingNote`, `historySearch`. Store release 1.1 (2026-11-26).
 
 ## Still needed from the backend (client)
 
@@ -110,3 +111,144 @@ Off (backend still lacks them, `docs/backend-gaps.md` §0): `stops`, `orderOptio
 - A cancel enum value for "price reconsidered" / "chose another way".
 - Tips, safety/share/support, help, bonus, saved cards list, accounts, phone change, deletion, profile `trips_count`/avatar,
   per-topic notification switches.
+
+## Redesign v2
+
+Endpoints the redesigned passenger app (design v2, 2026-11-22) calls or needs. Conventions as above: ids UUID,
+money integer tiyin, lists `{ data, cursor }`, errors `{ error: { key, params } }`. The client renders only what the
+server returns; no numbers are computed on the device.
+
+### Home: recent routes (group 3)
+
+The "Oxirgi yo'nalishlar" tiles. Today `getRecentRoutes` is unsupported in the http adapter, so the section is hidden.
+
+- `GET /api/v1/routes/recent?limit=4` (auth: passenger)
+- Response `200`: `{ "data": [ { "from_city_id": "uuid", "to_city_id": "uuid", "distance_m": 308000, "price_from": 12000000 | null, "label": "Toshkent — Samarqand" } ] }`
+  — the passenger's own last distinct city pairs, newest first. Same item shape as `GET /api/v1/routes/popular`.
+- Errors: `401 AUTH_REQUIRED`.
+
+### Saved places: kind (group 4)
+
+"Manzilni saqlash" offers Uy / Ish / Boshqa. Home shows home/work with their own icon and the word in the
+passenger's language. `SavedPlace` has a `name` only, and `SavedPlaceCreate` rejects unknown fields, so the http
+adapter sends the translated word as `name` and no kind.
+
+- `POST /api/v1/places/saved`: add optional `"kind": "home" | "work" | "other"` to the request.
+- `GET /api/v1/places/saved`: add `"kind"` (nullable) to every item.
+- Rule to agree on: at most one `home` and one `work` per passenger? (Today nothing limits it.) Error key if so,
+  e.g. `PLACE_KIND_TAKEN` with `params: { kind }`.
+
+### Address details on route points (group 4, unchanged need)
+
+The redesign keeps Podyezd, Qavat, Kvartira, Domofon kodi and "Haydovchiga izoh" per route point
+(`saveAddressDetails`, `capabilities.addressDetails`). Still needed on the order as listed under
+"Still needed from the backend" above.
+
+### Passenger order: Trip, Extras, Time, Payment (group 5)
+
+The redesigned flow sends only what the server prices; the screens show the server's seat map, class prices, quote
+lines and total. Needed beyond what the contract has today:
+
+- **Multi-day pickup window** (owner, 2026-11-22: "allow choosing an end day"). The UI keeps a daily window over
+  several days, e.g. 08:00–12:00 on any day from 20 to 22 November. Today the http adapter can only send
+  `scheduled_from = 20 Nov 08:00`, `scheduled_to = 22 Nov 12:00`, which reads as one continuous 52-hour window.
+  Proposal: on `OrderCreate` / `QuoteRequest` / `OrderUpdate` add
+  `"pickup_window": { "first_day": "2026-11-20", "last_day": "2026-11-22", "from": "08:00", "to": "12:00" }`
+  (local Asia/Tashkent time; `from`/`to` omitted for an exact time `"at": "08:00"`). Error keys:
+  `TIMING_RANGE_TOO_LONG` (`params.max_days`), `TIMING_WINDOW_TOO_SHORT` (`params.min_minutes`), `TIMING_IN_PAST`.
+  `GET /api/v1/orders/scheduling-rules` (or the existing source of `SchedulingRules`) keeps `max_range_days`.
+- **Payme / Click as order payment** — already in `PaymentMethod` (`payme`, `click`); the client now sends them.
+  Needed: what the passenger sees after "Buyurtma berish" (redirect URL or deep link to the provider app, and the
+  order state while unpaid), e.g. `payment: { "status": "pending", "redirect_url": "…" }` on the created order.
+- **Stops, luggage, "Boshqa odam uchun", promo, route-point details on the order** — still as listed under
+  "Still needed from the backend" (http capabilities `stops`, `orderOptions`, `rider`, `promo`, `addressDetails` are off,
+  so those rows are hidden or rejected before sending).
+- **Saved cards list** — `GET /api/v1/wallet/cards` → `{ data: [{ id, label, brand, last4 }] }`; "Karta" in Payment
+  opens this list (capability `savedCards`).
+
+### Delivery: Yuk, Kontakt, Shartlar (group 6)
+
+The redesigned delivery flow keeps every Kargo input of the current app (scope tabs, drop-offs, body S–3XL, sender /
+receiver, receiver's address details, note, loaders, route / hourly with hours, ride-along) — all still behind
+`capabilities.cargoExtras`, as listed above. New from the design:
+
+- **Insurance switch** ("Sug'urta", design CargoTerms). Proposal:
+  - `CargoRules` (`GET /api/v1/delivery/rules` or wherever the Kargo rules come from): `"insurance": { "available": true }`.
+  - `QuoteRequest` / `OrderCreate` cargo block: `"insurance": true | false`.
+  - Quote line `{ "key": "quote.insurance", "amount": <tiyin> }` when on; terms text from the existing info topic
+    `insurance` (`GET /api/v1/delivery/info/insurance` → `{ title_key, paragraph_keys }` or plain localized text).
+  - Error key when it can't be added: `CARGO_INSURANCE_UNAVAILABLE`.
+- **Payment link after ordering** (Payme / Click, owner 2026-11-22): if the created order carries
+  `payment: { "redirect_url": "https://…" }`, the app opens it in the system browser; otherwise it says payment will be
+  asked later. Nothing else is built on the client.
+
+### Live order and rating: Search, NoDriver, Driver, Arrived, OnTrip, Rate (group 7)
+
+The live screens show only what `GET /api/v1/orders/{id}` (plus the WebSocket events) sends; each block below hides
+when its field is missing, so today's backend gets the plain versions ("Haydovchi yo'lda", "Safar davom etmoqda").
+Needed for the full design:
+
+- **Driver ETA to the pickup** (design Driver, "12 daqiqada yetib keladi" and the "12 daq" bubble on the map):
+  `"driver_eta_s": 720` on the order while `accepted` (not `arrived`). UI field `driverEtaMinutes`.
+- **Waiting terms after `arrived`** (design Arrived, ring "03:42 · Bepul kutish", "har daqiqa uchun 500 so'm"):
+  `"waiting": { "started_at": "<DateTime>", "free_until": "<DateTime>", "price_per_minute": <tiyin> }` while `arrived`.
+  UI field `waiting`.
+- **Trip progress** (design OnTrip, "Samarqandga 2 soat 40 daqiqa", "Taxminan 11:20 da", "128 km o'tildi · 180 km
+  qoldi"): `"trip_progress": { "done_m": 128000, "left_m": 180000, "arrival_at": "<DateTime>" }` while `in_progress`.
+  UI field `tripProgress`.
+- **Driver on the order** — still only `driver.id` (see "Still needed"): name, car model and colour, plate, rating.
+  Without them the card shows "Haydovchi" and the price only. A dialable driver phone (or a call-masking number) is
+  also needed: `"driver_phone"` on the order while `accepted` / `in_progress` (UI field `driverPhone`). The mock gives a
+  sample number and the button opens the phone's dialer; without the field it says "Qo'ng'iroq qilish hozircha mavjud emas".
+  "Haydovchiga yozish" uses the same number for the phone's SMS app (no in-app chat); without it the button says
+  "Xabar yuborish hozircha mavjud emas".
+- **"Qayta qidirish" with a new time** (design NoDriver, "Olish vaqti · O'zgartirish"): the client re-creates the
+  order from `GET /orders/{id}` with the shown time as `scheduled_*` (works with today's contract). A
+  `POST /api/v1/orders/{id}/repeat { scheduled_* }` would avoid re-sending the whole order.
+- **Rating comment** (design Rate, "O'z fikringiz", any number of stars, next to the reason chips):
+  `RatingInput` keeps one reason and only with 5 stars, so the http client shows the comment only at 5 stars and sends
+  it as the `custom` reason (the chips are then not sent). Proposal:
+  `{ "stars": 1..5, "reasons": ["polite", "good_talk", "comfort", "just_because"], "comment": "≤200" }`.
+  Capability `ratingNote` turns the full version on.
+- **Tips, trip share link, support phone** — unchanged (`tips`, `safety` off). SOS opens a sheet with the support
+  number and "Safarni ulashish"; emergency contacts were removed from the app.
+
+### History and bonus: History, HistoryDetail, KbHistory, Bonus (group 8)
+
+Owner decision (2026-11-22): this build is not going to production yet, so everything below works fully in the mock
+adapter; the http adapter keeps the capability off until the endpoint exists.
+
+- **History search and service filter** (design History / KbHistory, "Shahar yoki haydovchi", Hammasi / Yo'lovchi /
+  Dostavka): `GET /api/v1/orders?type=passenger|delivery&q=<text>&status=…&cursor=…`. `q` matches the from/to city
+  name and the driver's name, case-insensitive. Capability `historySearch`.
+- **Trip times on the order** (design HistoryDetail, "08:40 … 12:55"): `"started_at"` and `"finished_at"`
+  (DateTime) on `Order`. UI fields `startedAt`, `finishedAt`.
+- **The passenger's rating on the order** (design HistoryDetail, "Sizning bahoyingiz", stars and the reason):
+  `"rating": { "stars": 5, "reasons": ["polite"], "comment": "…" }` on `GET /orders/{id}`, plus a verdict
+  `"rating_editable": true` (today the http adapter assumes `true`).
+- **Delivery size label** on the order (history cards "Dostavka, M"): `"vehicle_label": "M"` next to `vehicle_type`,
+  so the client never maps vehicle ids to sizes. UI field `cargoSize`.
+- **Bonus ways to earn** (design Bonus, "Har bir do'st uchun +15 000", "Shu oyda 5 ta safar · 3 / 5"):
+  `GET /api/v1/bonus/sources` → `{ data: [{ id, icon, title_key, description_key, amount_this_month, action,
+  "reward": <tiyin | null>, "progress": { "done": 3, "total": 5 } | null }] }`. Bonus endpoints are still missing
+  altogether (capability `bonuses`).
+
+### Settings, account, help (group 9)
+
+All of these work fully in the mock adapter (owner, 2026-11-22); http keeps the capabilities off until the endpoints
+exist.
+
+- **Help request reasons** (owner answer 7: Safar, To'lov, Haydovchi, Akkaunt, Boshqa):
+  `POST /api/v1/support/requests { "topic": "trip" | "payment" | "driver" | "account" | "other", "message": "≤500",
+  "order_id"?: Uuid }` → `{ id, status }`; `GET /api/v1/support/requests` → `{ data: [{ id, topic, status, created_at }] }`.
+  The operator calls the profile phone. A trip's "Bu safar bo'yicha yordam" opens the form with `trip` picked.
+- **Accounts on one device, phone change, account deletion, per-topic notification switches** — unchanged from
+  "Still needed" (`accounts`, `phoneChange`, `accountDeletion`, `notificationTopics`).
+- **Support contact**: the e-mail on "Biz haqimizda" is fixed in the client config (`SUPPORT_EMAIL`); a
+  `GET /api/v1/support/contact { phone, email }` would let it change without a release.
+
+### Home: "Faol buyurtma" (owner, 2026-11-22)
+
+Home shows a row for the passenger's live order (searching, driver on the way or arrived, on the trip); tapping it
+opens tracking. Needed: `GET /api/v1/orders/active` → the newest live `Order` or `204`. Until then the http adapter
+looks for one on the first history page.

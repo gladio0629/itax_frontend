@@ -1,23 +1,26 @@
-/* IZGO design tokens — shared across client, driver and admin apps.
-   Brand colors measured from brand/izgo-logo.jpeg: blue #264A9F, yellow #F6BF0E. */
+/* IZGO legacy tokens, used by screens not yet moved to design v2.
+   Since design v2 (2026-11-22) they point at the v2 palette (Ink + green,
+   design/tokens-v2.css) so old and new screens look like one app while the
+   migration runs. The old blue #264A9F and yellow #F6BF0E are gone. */
 :root {
-  --color-bg: #f5f7fb;
+  --color-bg: #f3f5f8;
   --color-card: #ffffff;
-  --color-text-rgb: 14 20 32;
-  --color-accent-rgb: 38 74 159;
-  --color-accent-5: rgba(38, 74, 159, 0.05);
-  --color-accent-10: rgba(38, 74, 159, 0.1);
+  --color-text-rgb: 11 21 36;
+  --color-accent-rgb: 12 122 67;
+  --color-accent-5: rgba(46, 219, 133, 0.08);
+  --color-accent-10: rgba(46, 219, 133, 0.16);
 
   /* Brand yellow is a fill color only — always paired with --color-on-yellow text/icons. */
-  --color-brand-yellow: #f6bf0e;
-  --color-brand-yellow-rgb: 246 191 14;
-  --color-on-yellow: #16264d;
+  /* Former brand yellow: now the v2 green fill, Ink text on it. */
+  --color-brand-yellow: #2edb85;
+  --color-brand-yellow-rgb: 46 219 133;
+  --color-on-yellow: #0b1524;
 
   /* Warning is orange, distinct from brand yellow. rgb triplet so bg-warning/NN opacity works. */
-  --color-warning-rgb: 154 70 8;
-  --color-danger-rgb: 198 40 40;
-  --color-border: rgba(14, 20, 32, 0.08);
-  --shadow-color: rgba(14, 20, 32, 0.1);
+  --color-warning-rgb: 181 71 8;
+  --color-danger-rgb: 180 35 24;
+  --color-border: #e2e7ee;
+  --shadow-color: rgba(11, 21, 36, 0.1);
 
   /* ── Shape and type, measured (one design on every device) ───────────────
      Source: brand/yandex_photos (591×1280 iPhone captures of the reference
@@ -51,16 +54,16 @@
   /* Neutral fills (chips, search field, segmented track, tiles) — the
      reference's grays, and a darker secondary text than the reference's for
      AA contrast. */
-  --color-fill: #eeeeee;
-  --color-fill-subtle: #f4f4f4; /* wheel band */
-  --color-selected: #edeef2; /* selected class card */
-  --color-hairline: #e6e6e6;
+  --color-fill: #f3f5f8;
+  --color-fill-subtle: #f3f5f8; /* wheel band */
+  --color-selected: #e3f8ec; /* selected class card */
+  --color-hairline: #e2e7ee;
   --color-backdrop: #000000; /* behind stacked cards */
   /* Map canvas: light neutral like the reference map; our own drawing. */
   --map-bg: #f3f2ee;
   --map-block: #e7e5df;
   --map-road: #ffffff;
-  --map-route: #264a9f;
+  --map-route: #0b1524;
 
   /* Elevation — flat on iOS, where grouped lists and cards carry no shadow. */
   --shadow-soft: 0 2px 12px -2px var(--shadow-color);
@@ -68,7 +71,7 @@
 
   /* Type — family and the size/line-height of each Tailwind text-* step.
      design/ios.css swaps these for the iOS system stack and text styles. */
-  --font-sans: "InterVariable", "Inter", system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", "Manrope Variable", system-ui, sans-serif;
   --text-xs: 12px;
   --text-xs-lh: 16px;
   --text-sm: 14px;
@@ -111,19 +114,19 @@
 }
 
 [data-theme="dark"] {
-  --color-bg: #0a1020;
-  --color-card: #121b33;
-  --color-text-rgb: 237 241 248;
-  --color-accent-rgb: 110 150 230;
-  --color-accent-5: rgba(110, 150, 230, 0.08);
-  --color-accent-10: rgba(110, 150, 230, 0.16);
+  --color-bg: #070e19;
+  --color-card: #0f1a29;
+  --color-text-rgb: 238 242 247;
+  --color-accent-rgb: 46 219 133;
+  --color-accent-5: rgba(46, 219, 133, 0.08);
+  --color-accent-10: rgba(46, 219, 133, 0.16);
 
-  --color-brand-yellow: #f6bf0e;
-  --color-brand-yellow-rgb: 246 191 14;
-  --color-on-yellow: #16264d;
+  --color-brand-yellow: #2edb85;
+  --color-brand-yellow-rgb: 46 219 133;
+  --color-on-yellow: #0b1524;
 
-  --color-warning-rgb: 253 186 116;
-  --color-danger-rgb: 248 113 113;
+  --color-warning-rgb: 247 144 9;
+  --color-danger-rgb: 249 112 102;
   --color-border: rgba(237, 241, 248, 0.1);
   --shadow-color: rgba(0, 0, 0, 0.4);
 
@@ -132,8 +135,8 @@
   --color-selected: rgba(237, 241, 248, 0.12);
   --color-hairline: rgba(237, 241, 248, 0.12);
   --color-backdrop: #000000;
-  --map-bg: #141a28;
-  --map-block: #1c2334;
-  --map-road: #283047;
-  --map-route: #6e96e6;
+  --map-bg: #0e1826;
+  --map-block: #142235;
+  --map-road: #1a2738;
+  --map-route: #2edb85;
 }

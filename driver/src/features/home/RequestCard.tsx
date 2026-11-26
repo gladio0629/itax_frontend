@@ -4,13 +4,12 @@ import type { RideRequest } from "@/api/types";
 import { isKey, useT } from "@/lib/i18n/provider";
 import { formatAmount } from "@/lib/format";
 import { sinceTime } from "@/lib/relative";
-import { AlertTriangle, Banknote, CalendarDays, Car, CreditCard, MapPin, Route, Truck, Users } from "@/lib/icons";
+import { AlertTriangle, Armchair, ArrowRight, Car, Package, User } from "@/lib/icons";
 import { Button } from "@/components/Button";
+import { Tag } from "@/components/Chip";
 import { cn } from "@/lib/cn";
-import { RouteLine } from "./RouteLine";
-import { CommentNote, FreightGrid, FreightTags, OptionChips, OrderTags, Tag } from "./OrderDetails";
-import { dayText, timeText } from "./whenText";
-import { SeatsTag } from "./SeatsTag";
+import { RouteTimeline, joinDots } from "@/features/trip/parts";
+import { timeText } from "./whenText";
 
 type Props = {
   request: RideRequest;
@@ -24,7 +23,11 @@ type Props = {
   onGone: () => void;
 };
 
-/** One request in the feed. Everything shown is the adapter's: price, net, block reason. */
+/**
+ * One request in the Home list (design v2). Everything shown is the
+ * server's: price, seats, payment, block reason. Tapping the card opens the
+ * Request / OrderDetail screen; "Qabul qilish" accepts right here.
+ */
 export function RequestCard({ request: r, accepting, leaving, highlight, onAccept, onReject, onGone }: Props) {
   const { t } = useT();
   const taken = leaving === "taken" || r.status === "taken";
@@ -43,120 +46,94 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
   }, [taken, leaving]);
 
   const cargo = r.kind === "delivery";
-  const PayIcon = r.payment === "cash" ? Banknote : CreditCard;
-  const route = `${r.pickup.city.name} – ${r.dropoff.city.name}`;
   const block = r.acceptBlock;
+  const pay = r.payment ? (r.payment === "cash" ? t("pay.cash").toLowerCase() : t("pay.card").toLowerCase()) : null;
+  const sub = cargo
+    ? joinDots([r.freight && t("feed.bodyShort", { size: r.freight.body.sizeLabel }), pay])
+    : joinDots([r.wholeCar ? t("feed.wholeCar") : t("feed.seatsShort", { n: r.seats }), pay]);
+  // Which seats the passenger booked, as the server lists them ("Old o'rindiq, Orqa chap").
+  const seatNames = !cargo && r.seatIds?.length ? r.seatIds.map((x) => t(`seat.${x}`)).join(", ") : null;
+  const points = [
+    { kind: "pickup" as const, label: cargo ? t("cargoReq.load") : t("request.pickup"), place: r.pickup },
+    { kind: "dropoff" as const, label: cargo ? t("cargoReq.drop") : t("request.dropoff"), place: r.dropoff },
+  ];
 
   return (
     <article
       id={`req-${r.id}`}
-      aria-label={t("feed.cardLabel", { route })}
+      aria-label={t("feed.cardLabel", { route: `${r.pickup.city.name} – ${r.dropoff.city.name}` })}
       className={cn(
-        "relative overflow-clip rounded-card bg-surface p-4 shadow-1 transition-[opacity,transform] duration-300",
-        sliding ? "translate-x-[110%] opacity-0" : "animate-fade-up",
-        highlight && "ring-2 ring-yellow"
+        "relative flex flex-col gap-3.5 overflow-clip rounded-card bg-surface p-4 transition-[opacity,transform] duration-300",
+        highlight ? "border-2 border-ink" : "border border-line",
+        sliding ? "translate-x-[110%] opacity-0" : "animate-fade-up"
       )}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <Tag icon={cargo ? Truck : r.wholeCar ? Car : Users} tone="yellow">
-            {cargo ? t("feed.kind.cargo") : r.wholeCar ? t("feed.wholeCar") : t("feed.seats", { n: r.seats })}
-          </Tag>
-          {r.seatIds && <SeatsTag seatIds={r.seatIds} />}
+      <Link to={`/request/${r.id}`} aria-label={t("feed.openRequest")} className="focus-inset absolute inset-0 z-0 rounded-card" />
+
+      <div className="pointer-events-none relative flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2">
+          {cargo ? (
+            <Tag tone="night">
+              <Package className="h-3.5 w-3.5" />
+              {t("feed.kind.delivery")}
+            </Tag>
+          ) : (
+            <Tag tone="brand">
+              {r.wholeCar ? <Car className="h-3.5 w-3.5" /> : <Armchair className="h-3.5 w-3.5" />}
+              {t("feed.kind.passengers")}
+            </Tag>
+          )}
+          {r.when && <span className="tabular truncate text-13 font-bold text-muted">{timeText(r.when, t)}</span>}
         </span>
-        {r.postedAt != null && <span className="tabular shrink-0 text-xs text-muted">{sinceTime(r.postedAt, t)}</span>}
+        <span className="tabular shrink-0 text-13 font-bold text-muted">
+          {r.distanceKm}&nbsp;{t("common.km")}
+          {r.postedAt != null && !r.when && <> · {sinceTime(r.postedAt, t)}</>}
+        </span>
       </div>
 
-      <RouteLine
-        pickup={r.pickup}
-        dropoff={r.dropoff}
-        stops={r.stops}
-        size="md"
-        pickupLabel={cargo ? t("order.loadAt") : t("offer.pickup")}
-        dropoffLabel={cargo ? (r.stops.length ? t("order.dropN", { n: r.stops.length + 1 }) : t("order.unload")) : t("offer.dropoff")}
-        stopLabel={(n) => (cargo ? t("order.dropN", { n }) : t("order.stop", { n }))}
-      />
-
-      <dl className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-        {r.when && (
-          <div className="flex items-center gap-1.5">
-            <dt className="sr-only">{t("feed.when")}</dt>
-            <CalendarDays className="h-4 w-4 text-muted" />
-            <dd className="tabular font-bold text-ink">
-              {dayText(r.when, t)}, {timeText(r.when, t)}
-            </dd>
-          </div>
-        )}
-        {(r.pickupDistanceKm != null || r.pickupEtaMin != null) && (
-          <div className="flex items-center gap-1.5">
-            <dt className="sr-only">{t("feed.toPickup")}</dt>
-            <MapPin className="h-4 w-4 text-muted" />
-            <dd className="tabular text-ink">
-              {r.pickupDistanceKm != null ? t("feed.kmAway", { km: r.pickupDistanceKm }) : t("feed.etaAway", { min: r.pickupEtaMin ?? 0 })}
-            </dd>
-          </div>
-        )}
-        <div className="flex items-center gap-1.5">
-          <dt className="sr-only">{t("offer.distance")}</dt>
-          <Route className="h-4 w-4 text-muted" />
-          <dd className="tabular text-ink">{r.distanceKm}&nbsp;{t("common.km")}</dd>
+      <div className="pointer-events-none relative flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <RouteTimeline points={points} compact />
         </div>
-        {r.payment && (
-          <div className="flex items-center gap-1.5">
-            <dt className="sr-only">{t("feed.payment")}</dt>
-            <PayIcon className="h-4 w-4 text-muted" />
-            <dd className="text-ink">{r.payment === "cash" ? t("pay.cash") : t("pay.card")}</dd>
-          </div>
-        )}
-      </dl>
-
-      <div className="mt-3">
-        <OrderTags carClass={r.carClass} forOther={r.forOther}>
-          {r.freight && <FreightTags freight={r.freight} />}
-        </OrderTags>
-      </div>
-      {cargo && r.cargo && isKey(r.cargo.labelKey) && (
-        <p className="mt-2 text-sm text-muted">{t("offer.cargo", { label: t(r.cargo.labelKey), kg: r.cargo.weightKg })}</p>
-      )}
-      {r.freight && (
-        <div className="mt-3">
-          <FreightGrid freight={r.freight} />
-        </div>
-      )}
-      {(r.options.length > 0 || r.luggageCount > 0) && (
-        <div className="mt-3">
-          <OptionChips options={r.options} luggageCount={r.luggageCount} />
-        </div>
-      )}
-      {r.comment && (
-        <div className="mt-3">
-          <CommentNote text={r.comment} clamp />
-        </div>
-      )}
-
-      <div className="mt-4 flex items-end justify-between gap-3 border-t border-line pt-3">
-        <div className="min-w-0">
-          <p className="tabular text-2xl font-bold text-gold">
-            {formatAmount(r.price)}
-            <span className="ml-1 text-sm font-medium text-muted">{t("common.som")}</span>
-          </p>
-          <p className="tabular text-sm text-muted">
-            {r.earnings.commissionPct == null
-              ? t("feed.netOnly", { amount: formatAmount(r.earnings.net) })
-              : t("feed.net", { amount: formatAmount(r.earnings.net), pct: r.earnings.commissionPct })}
-          </p>
+        <div className="flex shrink-0 flex-col items-end gap-0.5 text-right">
+          <span className="tabular whitespace-nowrap text-[22px] font-extrabold leading-7 text-ink">
+            {formatAmount(r.price)} <span className="text-13 font-bold text-muted">{t("common.som")}</span>
+          </span>
+          <span className="text-xs font-semibold text-muted">{sub}</span>
         </div>
       </div>
+
+      {(seatNames || r.luggageCount > 0 || r.forOther || (cargo && r.freight) || r.stops.length > 0 || (cargo && r.cargo && isKey(r.cargo.labelKey))) && (
+        <div className="pointer-events-none relative flex flex-wrap gap-1.5">
+          {seatNames && (
+            <Tag>
+              <Armchair className="h-3.5 w-3.5" />
+              <span className="sr-only">{t("feed.seatIds", { seats: seatNames })}</span>
+              <span aria-hidden="true">{seatNames}</span>
+            </Tag>
+          )}
+          {r.stops.length > 0 && <Tag>{t("order.stops")}: {r.stops.length}</Tag>}
+          {r.luggageCount > 0 && <Tag>{t("order.luggage", { n: r.luggageCount })}</Tag>}
+          {r.forOther && (
+            <Tag>
+              <User className="h-3.5 w-3.5" />
+              {r.forOther.name}
+            </Tag>
+          )}
+          {cargo && r.freight && r.freight.loaders > 0 && <Tag>{t("feed.loadersN", { n: r.freight.loaders })}</Tag>}
+          {cargo && r.cargo && isKey(r.cargo.labelKey) && <Tag>{t(r.cargo.labelKey)}</Tag>}
+        </div>
+      )}
 
       {block && (
-        <p role="note" className="mt-3 flex items-start gap-2 rounded-button bg-warning/10 px-3 py-2 text-sm text-ink">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+        <p role="note" className="relative flex items-start gap-2 rounded-field bg-warning-soft px-3 py-2.5 text-13 font-semibold text-ink">
+          <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-warning" />
           <span>
             {isKey(block.reasonKey) ? t(block.reasonKey, block.params) : block.reasonKey}
             {block.action === "wallet" && (
               <>
                 {" "}
-                <Link to="/wallet/topup" className="font-bold text-accent underline underline-offset-2">
+                <Link to="/wallet/topup" className="font-bold text-brand-ink underline underline-offset-2">
                   {t("feed.toWallet")}
                 </Link>
               </>
@@ -165,21 +142,22 @@ export function RequestCard({ request: r, accepting, leaving, highlight, onAccep
         </p>
       )}
 
-      <div className={cn("mt-3 grid gap-2", onReject ? "grid-cols-[2fr_1fr]" : "grid-cols-1")}>
-        <Button size="lg" loading={accepting} disabled={!!block || taken || !!leaving} onClick={onAccept}>
-          {t("feed.accept")}
-        </Button>
+      <div className={cn("relative grid gap-2.5", onReject ? "grid-cols-2" : "grid-cols-1")}>
         {onReject && (
-          <Button size="lg" variant="secondary" className="px-3" disabled={accepting || taken || !!leaving} onClick={onReject}>
+          <Button variant="secondary" disabled={accepting || taken || !!leaving} onClick={onReject}>
             {t("feed.reject")}
           </Button>
         )}
+        <Button loading={accepting} disabled={!!block || taken || !!leaving} onClick={onAccept} className="font-extrabold">
+          {t("feed.accept")}
+          {!accepting && <ArrowRight className="h-4 w-4" />}
+        </Button>
       </div>
 
       {taken && (
-        <div role="status" className="absolute inset-0 flex animate-fade-in items-start justify-center bg-bg/80 pt-16 backdrop-blur-[2px]">
-          <span className="flex items-center gap-2 rounded-full bg-surface px-4 py-2 text-base font-bold text-ink shadow-2">
-            <Car className="h-5 w-5 text-warning" />
+        <div role="status" className="absolute inset-0 z-10 flex animate-fade-in items-center justify-center bg-bg/80 backdrop-blur-[2px]">
+          <span className="flex items-center gap-2 rounded-full bg-night px-4 py-2.5 text-sm font-bold text-white shadow-2">
+            <Car className="h-5 w-5 text-warning-icon" />
             {t("feed.taken")}
           </span>
         </div>

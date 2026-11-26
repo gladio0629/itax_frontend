@@ -1,52 +1,38 @@
 import { Link } from "react-router-dom";
 import type { HistoryItem } from "@/api/types";
 import { useT } from "@/lib/i18n/provider";
-import { Banknote, CreditCard, Package, Star } from "@/lib/icons";
+import { ArrowRight } from "@/lib/icons";
 import { formatAmount, formatTime } from "@/lib/format";
-import { dayLabel } from "@/lib/relative";
+import { cn } from "@/lib/cn";
 
+/** One trip in Tarix: route, time · payment (or delivery), status tag, what the driver kept. */
 export function HistoryCard({ item }: { item: HistoryItem }) {
   const { t } = useT();
-  const PayIcon = item.payment === "cash" ? Banknote : CreditCard;
   const cancelled = item.status === "cancelled";
+  const how = item.kind === "delivery" ? t("history.kindDelivery") : item.payment ? (item.payment === "cash" ? t("pay.cash") : t("pay.card")).toLowerCase() : null;
   return (
     <Link
       to={`/history/${item.id}`}
       aria-label={t("orders.openDetail", { from: item.from.name, to: item.to.name, amount: `${formatAmount(item.earnings)} ${t("common.som")}` })}
-      className="press block rounded-card bg-surface p-4 shadow-1"
+      className="press focus-inset flex min-h-[76px] items-center gap-3 py-3"
     >
-      <div className="flex items-center justify-between gap-3 text-sm text-muted">
-        <span className="tabular">
-          {dayLabel(item.createdAt, t)}, {formatTime(item.createdAt)}
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5 text-15 font-extrabold text-ink">
+          <span className="truncate">{item.from.name}</span>
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted" />
+          <span className="truncate">{item.to.name}</span>
         </span>
         <span className="flex items-center gap-2">
-          {item.kind === "delivery" && <Package className="h-4 w-4" aria-label={t("offer.delivery")} />}
-          {item.payment && <PayIcon className="h-4 w-4" aria-label={item.payment === "cash" ? t("pay.cash") : t("pay.card")} />}
+          <span className="tabular text-xs font-semibold text-muted">
+            {formatTime(item.createdAt)}
+            {how && ` · ${how}`}
+          </span>
+          <span className={cn("inline-flex h-6 items-center rounded-full px-2 text-xs font-bold", cancelled ? "bg-danger-soft text-danger" : "bg-brand-soft text-brand-ink")}>
+            {cancelled ? t("history.cancelled") : t("history.done")}
+          </span>
         </span>
-      </div>
-      <p className="mt-2 truncate text-lg font-bold text-ink">
-        {item.from.name} <span aria-hidden="true" className="text-muted">→</span>
-        <span className="sr-only">–</span> {item.to.name}
-      </p>
-      <div className="mt-1 flex items-center justify-between gap-3">
-        <p className="flex min-w-0 items-center gap-2 text-sm text-muted">
-          {item.passengerName && <span className="truncate">{item.passengerName}</span>}
-          {item.ratingReceived != null && (
-            <span className="tabular inline-flex shrink-0 items-center gap-1 text-ink">
-              <Star className="h-4 w-4 fill-yellow text-yellow" />
-              {item.ratingReceived.toFixed(1)}
-            </span>
-          )}
-        </p>
-        {cancelled ? (
-          <span className="inline-flex h-7 shrink-0 items-center rounded-button bg-danger/15 px-2.5 text-xs font-medium text-danger">{t("orders.cancelledBadge")}</span>
-        ) : (
-          <p className="tabular shrink-0 text-xl font-bold text-gold">
-            +{formatAmount(item.earnings)}
-            <span className="ml-1 text-xs font-medium text-muted">{t("common.som")}</span>
-          </p>
-        )}
-      </div>
+      </span>
+      <span className={cn("tabular shrink-0 text-17 font-extrabold", cancelled ? "text-muted" : "text-ink")}>{cancelled ? formatAmount(item.earnings) : `+${formatAmount(item.earnings)}`}</span>
     </Link>
   );
 }

@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("shimmer-bg animate-shimmer rounded-button", className)} />;
+  return <div className={cn("shimmer-bg animate-shimmer rounded-lg", className)} />;
 }
 
 export function SkeletonRow({ cols = 5 }: { cols?: number }) {
@@ -13,14 +13,5 @@ export function SkeletonRow({ cols = 5 }: { cols?: number }) {
         </td>
       ))}
     </tr>
-  );
-}
-
-export function SkeletonCard() {
-  return (
-    <div className="rounded-card border border-border bg-card p-6">
-      <Skeleton className="mb-3 h-4 w-1/2" />
-      <Skeleton className="h-7 w-2/3" />
-    </div>
   );
 }

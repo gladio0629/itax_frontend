@@ -15,7 +15,9 @@ const SCENARIO_LABELS: Record<keyof TestScenarios, { label: string; hint: string
   forceErrors: { label: "Xatoliklarni qaytarish", hint: "So'rovlar ko'pincha xato bilan tugaydi" },
   walletLimit: { label: "Hamyon limiti", hint: "Balans -50 000 so'mga yetdi deb hisoblanadi" },
   fastForward: { label: "Vaqtni tezlashtirish", hint: "Kutish vaqtlari qisqartiriladi" },
+  holdStatus: { label: "Holatni to'xtatish", hint: "Safar joriy holatida qoladi, keyingisiga o'tmaydi" },
   bonusBelowMin: { label: "Bonus minimal darajadan past", hint: "Bonusni yechib bo'lmaydi deb hisoblanadi" },
+  newPassenger: { label: "Yangi yo'lovchi", hint: "Saqlangan manzil va oxirgi yo'nalishlar yo'q" },
 };
 
 const PLATFORM_OPTIONS: { id: PlatformOverride; label: string }[] = [
@@ -89,13 +91,14 @@ export function TestControlPanel() {
   const bottom = wide
     ? "84px"
     : fabBottomPx != null
-    ? `${fabBottomPx + 12}px`
+    ? // Never up under the status bar (a tall sheet on a small phone).
+      `min(${fabBottomPx + 12}px, calc(100dvh - var(--safe-top) - 52px))`
     : "calc(var(--safe-bottom) + 16px)";
 
   return (
     <div className="fixed right-4 z-50 flex flex-col items-end gap-3" style={{ bottom }}>
       {open && (
-        <div className="max-h-[calc(100dvh-96px)] w-72 max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl bg-[#13201c] p-4 text-white shadow-2xl animate-slide-up" role="dialog" aria-label={PANEL_TITLE}>
+        <div className="max-h-[calc(100dvh_-_var(--safe-top)_-_var(--safe-bottom)_-_96px)] w-72 max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl bg-[#13201c] p-4 text-white shadow-2xl animate-slide-up" role="dialog" aria-label={PANEL_TITLE}>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold">{PANEL_TITLE}</p>
             <button onClick={() => setOpen(false)} aria-label="Yopish" className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10">
